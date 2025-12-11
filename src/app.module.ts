@@ -8,6 +8,7 @@ import { RoonModule } from './modules/room/roon.module';
 import { ExemptDaysModule } from './modules/exempt_days/exempt_days.module';
 import { AcademicActivitiesModule } from './modules/academic_activities/academic_activities.module';
 import { TeacherModule } from './modules/teacher/teacher.module';
+import { ScheduleModule } from './modules/schedule/schedule.module';
 @Module({
   imports: [ ConfigModule.forRoot({
       isGlobal: true,
@@ -43,6 +44,7 @@ TypeOrmModule.forRootAsync({
     ExemptDaysModule,
     AcademicActivitiesModule,
     TeacherModule,
+    ScheduleModule,
 ],
   controllers: [AppController],
   providers: [AppService],
