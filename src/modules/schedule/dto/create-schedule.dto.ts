@@ -84,7 +84,7 @@ export class AulaDto {
   })
   @IsOptional()
   @IsString()
-  hora_inicio?: string = '';
+  hora_inicio?: string = '09:30';
 
   @ApiPropertyOptional({
     description: 'Hora de fim no formato HH:mm (pode vir vazio)',
@@ -92,7 +92,7 @@ export class AulaDto {
   })
   @IsOptional()
   @IsString()
-  hora_fim?: string = '';
+  hora_fim?: string = '10:45';
 }
 
 export class CreateScheduleDto {

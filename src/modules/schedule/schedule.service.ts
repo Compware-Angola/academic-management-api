@@ -95,7 +95,7 @@ async findOneById(horarioId: number) {
     throw new BadRequestException('ID do horário inválido');
   }
 
-  // 1. Busca o horário (mesmos campos do findAll)
+
   const horarioResult = await this.dataSource.query(`
     SELECT DISTINCT
       h."PK_HORARIO"                                            AS "CODIGO",
@@ -146,14 +146,18 @@ async findOneById(horarioId: number) {
 
   // 2. Busca todas as aulas do horário
   const aulasResult = await this.dataSource.query(`
-    SELECT 
+ SELECT 
       a."PK_AULA"                    AS id,
       a."REF_AULA"                   AS refAula,
       a."REF_SALA"                   AS refSala,
-      a."FK_TIPO_AULA"               AS tipoAula,
-      a."FK_MODALIDADE"              AS modalidade,
-      a."FK_DIA_DA_SEMANA"           AS diaSemana,
+      a."FK_TIPO_AULA"               AS tipoAulaId,
+      tau."DESIGNACAO"                AS tipoAula,  
+      a."FK_MODALIDADE"              AS modalidadeId,
+      mdl."DESIGNACAO"              AS modalidade,
+      a."FK_DIA_DA_SEMANA"           AS diaSemanaId,
+      dsm."DESIGNACAO"               AS disSemana,
       a."ORDEM"                      AS ordem,
+      sala."DESIGNACAO"              AS sala,
       a."HORA_INICIO"                AS horaInicio,
       a."HORA_TERMINO"               AS horaTermino,
       a."REF_DOCENTE"                AS refDocente,
@@ -169,6 +173,10 @@ async findOneById(horarioId: number) {
     FROM "FK2_MGH_TB_AULA" a
     LEFT JOIN "FK2_MCA_TB_UTILIZADOR" docente 
       ON JSON_VALUE(a."REF_DOCENTE", '$.pkDocente' RETURNING NUMBER) = docente."PK_UTILIZADOR"
+      	LEFT 	JOIN "FK2_MGH_TB_TIPO_AULA" tau ON a.FK_TIPO_AULA = tau."PK_TIPO_AULA"  
+      	    	LEFT 	JOIN "FK2_MGH_TB_MODALIDADE" mdl ON a.FK_MODALIDADE  = mdl."PK_MODALIDADE"  
+      	    	LEFT  JOIN  "FK2_MGH_TB_DIA_DA_SEMANA" dsm ON a.FK_DIA_DA_SEMANA  = dsm."PK_DIA_DA_SEMANA" 
+      	    	LEFT JOIN "FK2_TB_SALAS" sala  ON JSON_VALUE(a."REF_AULA", '$.pk' RETURNING NUMBER) = sala."CODIGO"
     WHERE a."FK_HORARIO" = :horarioId
     ORDER BY a."FK_DIA_DA_SEMANA", a."ORDEM"
   `, [horarioId]);
@@ -176,6 +184,7 @@ async findOneById(horarioId: number) {
   const aulas = Array.isArray(aulasResult)
     ? (Array.isArray(aulasResult[0]) ? aulasResult[0] : aulasResult)
     : [];
+    
 
   return {
     codigo: Number(h.CODIGO),
@@ -200,12 +209,15 @@ async findOneById(horarioId: number) {
     // Array completo de aulas
     aulas: aulas.map((a: any) => ({
       id: Number(a.ID),
-      refAula: a.REFAULA,
-      refSala: a.REFSALA,
-      tipoAula: Number(a.TIPOAULA),
-      modalidade: Number(a.MODALIDADE),
-      diaSemana: Number(a.DIASEMANA),
+     
+      tipoAula: a.TIPOAULA,
+      tipoAulaId: Number (a.TIPOAULAID),
+      modalidade: a.MODALIDADE,
+      modalidadeId: Number(a.MODALIDADEID) ,
+      diaSemana: a.DIASEMANA,
+      diaSemanaId: Number(a.DIASEMANAID),
       ordem: Number(a.ORDEM),
+      sala:a.SALA,
       horaInicio: a.HORAINICIO,
       horaTermino: a.HORATERMINO,
       docenteId: a.DOCENTEID ? Number(a.DOCENTEID) : null,
