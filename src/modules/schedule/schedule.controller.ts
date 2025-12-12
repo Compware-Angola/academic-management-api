@@ -25,9 +25,9 @@ export class ScheduleController {
 
     return this.scheduleService.findAll(query);
   }
-    @Get("by-uc")
+  @Get("by-uc")
   @ApiOperation({
-    summary: 'Listar horários com filtros avançados e paginação',
+    summary: 'Listar horários by uc  com filtros avançados e paginação',
     description:
       'Retorna horários filtrados por ano letivo, curso, docente, estado, etc.',
   })
@@ -39,7 +39,7 @@ export class ScheduleController {
   async findScheduleByUC(@Query(ValidationPipe) query: ListScheduleUCDto) {
     return this.scheduleService.findScheduleByUC(query);
   }
-    @Get('registration-by-schedule')
+  @Get('registration-by-schedule')
   @ApiOperation({
     summary: 'Listar horários Por Incricoes com filtros avançados e paginação',
     description: 'Retorna horários filtrados por ano letivo, curso, docente, estado, etc.',
@@ -54,7 +54,7 @@ export class ScheduleController {
 
     return this.scheduleService.findAllRegistrationBySchedule(query);
   }
-    @Get('registration-by-schedule/details/:scheduleId')
+  @Get('registration-by-schedule/details/:scheduleId')
   @ApiOperation({
     summary: 'Listar horários Por Incricoes com filtros avançados e paginação',
     description: 'Retorna horários filtrados por ano letivo, curso, docente, estado, etc.',
@@ -83,13 +83,13 @@ export class ScheduleController {
     return this.scheduleService.findAllDeleted(query);
   }
   @Get(':id')
-@ApiOperation({ summary: 'Buscar horário completo por ID' })
-@ApiParam({ name: 'id', example: 13047 })
-@ApiResponse({ status: 200, description: 'Horário encontrado' })
-@ApiResponse({ status: 404, description: 'Horário não encontrado' })
-async findOne(@Param('id', ParseIntPipe) id: number) {
-  return this.scheduleService.findOneById(id);
-}
+  @ApiOperation({ summary: 'Buscar horário completo por ID' })
+  @ApiParam({ name: 'id', example: 13047 })
+  @ApiResponse({ status: 200, description: 'Horário encontrado' })
+  @ApiResponse({ status: 404, description: 'Horário não encontrado' })
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.scheduleService.findOneById(id);
+  }
   @Post(':userId')
   @ApiOperation({ summary: 'Criar novo horário de uma UC' })
   @ApiParam({ name: 'userId', type: Number, required: true, description: 'ID do usuário' })
@@ -162,19 +162,19 @@ async findOne(@Param('id', ParseIntPipe) id: number) {
   ) {
     return this.scheduleService.validate(userId, horarioId);
   }
-@Patch(':horarioId/restaurar/:userId')
-@ApiOperation({ 
-  summary: 'Restaurar horário excluído (reverter soft delete)',
-  description: 'Torna o horário ativo novamente (ACTIVE_STATE = 1)'
-})
-@ApiParam({ name: 'horarioId', example: 13047 })
-@ApiParam({ name: 'userId', example: 57 })
-@ApiResponse({ status: 200, description: 'Horário restaurado com sucesso' })
-@ApiResponse({ status: 404, description: 'Horário não está excluído' })
-async restore(
-  @Param('horarioId', ParseIntPipe) horarioId: number,
-  @Param('userId', ParseIntPipe) userId: number,
-) {
-  return this.scheduleService.restore(userId, horarioId);
-}
+  @Patch(':horarioId/restaurar/:userId')
+  @ApiOperation({
+    summary: 'Restaurar horário excluído (reverter soft delete)',
+    description: 'Torna o horário ativo novamente (ACTIVE_STATE = 1)'
+  })
+  @ApiParam({ name: 'horarioId', example: 13047 })
+  @ApiParam({ name: 'userId', example: 57 })
+  @ApiResponse({ status: 200, description: 'Horário restaurado com sucesso' })
+  @ApiResponse({ status: 404, description: 'Horário não está excluído' })
+  async restore(
+    @Param('horarioId', ParseIntPipe) horarioId: number,
+    @Param('userId', ParseIntPipe) userId: number,
+  ) {
+    return this.scheduleService.restore(userId, horarioId);
+  }
 }
