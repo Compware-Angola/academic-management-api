@@ -103,7 +103,7 @@ async findOneById(horarioId: number) {
       TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", ''))            AS "UNIDADECURRICULARID",
       d."DESIGNACAO"                                            AS "UNIDADECURRICULAR",
       c."SIGLA"                                                 AS "CURSO",
-      cl."DESIGNACAO" || 'º Ano'                                AS "ANO",
+      cl."DESIGNACAO"                             AS "ANO",
       h."CAPACIDADE"                                            AS "CAPACIDADE",
       CASE WHEN h."APENASPRIMEIROANO" = 1 THEN 'Sim' ELSE 'Não' END AS "RESERVADO",
       h."FK_PERIODO"                                            AS "SEMESTRE",
