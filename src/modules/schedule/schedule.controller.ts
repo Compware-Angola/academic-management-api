@@ -5,6 +5,7 @@ import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ListScheduleDto } from './dto/list-schedule.dto';
 import { ListScheduleUCDto } from './dto/list-schedule-uc.dto';
+import { ListScheduleDocenteDto } from './dto/list-schedule-docente.dto';
 @ApiTags("schedule")
 @Controller('schedule')
 export class ScheduleController {
@@ -38,6 +39,26 @@ export class ScheduleController {
   @ApiResponse({ status: 400, description: 'Parâmetros inválidos' })
   async findScheduleByUC(@Query(ValidationPipe) query: ListScheduleUCDto) {
     return this.scheduleService.findScheduleByUC(query);
+  }
+    @Get('by-docente')
+  @ApiOperation({
+    summary: 'Listar horário por docente',
+    description:
+      'Retorna todos os horários associados ao docente selecionado, filtrados por ano letivo, semestre e período.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Horários encontrados com sucesso',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Parâmetros inválidos',
+  })
+  async findScheduleByDocente(
+    @Query(ValidationPipe) query: ListScheduleDocenteDto,
+  ) {
+    console.log(query);
+    return this.scheduleService.findScheduleByDocente(query);
   }
   @Get('registration-by-schedule')
   @ApiOperation({
