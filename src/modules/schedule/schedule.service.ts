@@ -234,6 +234,79 @@ export class ScheduleService {
       })),
     };
   }
+    async findOneByDesignation(designation: string) {
+    if (!designation ) {
+      throw new BadRequestException('Designação do horário inválido');
+    }
+    const horarioResult = await this.dataSource.query(`
+    SELECT DISTINCT
+      h."PK_HORARIO"                                            AS "CODIGO",
+      h."DESIGNACAO"                                            AS "DESIGNACAO",
+      TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", ''))            AS "UNIDADECURRICULARID",
+      d."DESIGNACAO"                                            AS "UNIDADECURRICULAR",
+      c."SIGLA"                                                 AS "CURSO",
+      cl."DESIGNACAO"                             AS "ANO",
+      h."CAPACIDADE"                                            AS "CAPACIDADE",
+      CASE WHEN h."APENASPRIMEIROANO" = 1 THEN 'Sim' ELSE 'Não' END AS "RESERVADO",
+      h."FK_PERIODO"                                            AS "SEMESTRE",
+      ew."DESIGNACAO"                                           AS "ESTADO",
+      ew."COR"                                                  AS "ESTADOCOR",
+      ew."PK_ESTADO_HORARIO_WF"                                 AS "ESTADOID",
+      CASE WHEN h."DIPONIVEL" = 1 THEN 'Disponivel' ELSE 'Fechado' END AS "DISPONIBILIDADE",
+      NVL(ut_criador."NOME", h."CREATED_BY")                    AS "CRIADOPOR",
+      NVL(ut_atualizador."NOME", h."LAST_UPDATED_BY")           AS "ATUALIZADOPOR",
+      TO_CHAR(h."UPDATED_AT", 'DD/MM/YYYY HH24:MI')             AS "DATAULTIMAATUALIZACAO",
+      TO_CHAR(h."CREATED_AT", 'DD/MM/YYYY HH24:MI')             AS "DATACRIACAO"
+    FROM "FK2_MGH_TB_HORARIO" h
+    INNER JOIN "FK2_TB_GRADE_CURRICULAR" g 
+      ON TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", '')) = g."CODIGO"
+    LEFT JOIN "FK2_TB_DISCIPLINAS" d     
+      ON g."CODIGO_DISCIPLINA" = d."CODIGO"
+    LEFT JOIN "FK2_TB_CURSOS" c          
+      ON g."CODIGO_CURSO" = c."CODIGO"
+    LEFT JOIN "FK2_TB_CLASSES" cl        
+      ON g."CODIGO_CLASSE" = cl."CODIGO"
+    LEFT JOIN "FK2_MGH_TB_ESTADO_HORARIO_WF" ew 
+      ON h."FK_ESTADO_HORARIO_WF" = ew."PK_ESTADO_HORARIO_WF"
+    LEFT JOIN "FK2_MCA_TB_UTILIZADOR" ut_criador  
+      ON h."CREATED_BY" = ut_criador."PK_UTILIZADOR"
+    LEFT JOIN "FK2_MCA_TB_UTILIZADOR" ut_atualizador  
+      ON h."LAST_UPDATED_BY" = ut_atualizador."PK_UTILIZADOR"
+      WHERE h."DESIGNACAO" = :designation
+     
+  `, [designation]);
+
+    const horarioRows = Array.isArray(horarioResult)
+      ? (Array.isArray(horarioResult[0]) ? horarioResult[0] : horarioResult)
+      : [horarioResult];
+
+    if (horarioRows.length === 0) {
+      throw new NotFoundException(`Horário com a Designação ${designation} não encontrado`);
+    }
+
+    const h = horarioRows[0];
+    return {
+      codigo: Number(h.CODIGO),
+      designacao: h.DESIGNACAO,
+      unidadeCurricularId: Number(h.UNIDADECURRICULARID),
+      unidadeCurricular: h.UNIDADECURRICULAR,
+      curso: h.CURSO,
+      ano: h.ANO,
+      capacidade: Number(h.CAPACIDADE),
+      reservado: h.RESERVADO,
+      semestre: Number(h.SEMESTRE),
+      estado: h.ESTADO,
+      estadoCor: h.ESTADOCOR,
+      estadoId: Number(h.ESTADOID),
+      disponibilidade: h.DISPONIBILIDADE,
+      disponivel: h.DISPONIBILIDADE === 'Disponivel',
+      criadoPor: h.CRIADOPOR,
+      atualizadoPor: h.ATUALIZADOPOR || null,
+      dataUltimaAtualizacao: h.DATAULTIMAATUALIZACAO,
+      dataCriacao: h.DATACRIACAO,
+
+    };
+  }
   async validate(userId: number, horarioId: number) {
     if (!horarioId || horarioId <= 0) {
       throw new BadRequestException('ID do horário inválido');
@@ -878,8 +951,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     ORDER BY rn
   `;
 
-    console.log('SQL:', sql);
-    console.log('PARAMS:', params);
+
 
     const result = await this.dataSource.query(sql, params);
 

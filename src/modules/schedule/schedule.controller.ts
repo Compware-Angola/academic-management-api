@@ -103,6 +103,14 @@ export class ScheduleController {
   async findAllDeleted(@Query(ValidationPipe) query: ListScheduleDto) {
     return this.scheduleService.findAllDeleted(query);
   }
+@Get('designation/:designation')
+@ApiOperation({ summary: 'Buscar horário completo pela designação' })
+@ApiParam({ name: 'designation', example: 'ACSP.2.HEMAT I-H1' })
+@ApiResponse({ status: 200, description: 'Horário encontrado' })
+@ApiResponse({ status: 404, description: 'Horário não encontrado' })
+async findOneByDesignation(@Param('designation') designation: string) {
+  return this.scheduleService.findOneByDesignation(designation);
+}
   @Get(':id')
   @ApiOperation({ summary: 'Buscar horário completo por ID' })
   @ApiParam({ name: 'id', example: 13047 })
@@ -111,6 +119,7 @@ export class ScheduleController {
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return this.scheduleService.findOneById(id);
   }
+
   @Post(':userId')
   @ApiOperation({ summary: 'Criar novo horário de uma UC' })
   @ApiParam({ name: 'userId', type: Number, required: true, description: 'ID do usuário' })
