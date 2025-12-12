@@ -4,6 +4,7 @@ import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ListScheduleDto } from './dto/list-schedule.dto';
+import { ListScheduleUCDto } from './dto/list-schedule-uc.dto';
 @ApiTags("schedule")
 @Controller('schedule')
 export class ScheduleController {
@@ -23,6 +24,20 @@ export class ScheduleController {
 
 
     return this.scheduleService.findAll(query);
+  }
+    @Get("by-uc")
+  @ApiOperation({
+    summary: 'Listar horários com filtros avançados e paginação',
+    description:
+      'Retorna horários filtrados por ano letivo, curso, docente, estado, etc.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de horários retornada com sucesso',
+  })
+  @ApiResponse({ status: 400, description: 'Parâmetros inválidos' })
+  async findScheduleByUC(@Query(ValidationPipe) query: ListScheduleUCDto) {
+    return this.scheduleService.findScheduleByUC(query);
   }
     @Get('registration-by-schedule')
   @ApiOperation({

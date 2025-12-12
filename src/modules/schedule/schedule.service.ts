@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import oracledb from 'oracledb';
 import { ListScheduleDto } from './dto/list-schedule.dto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
+import { ListScheduleUCDto } from './dto/list-schedule-uc.dto';
 
 // deletar passar para estaso 0 e as aulas que estao com este hotario mudar oestado tbm para 0
 // Validar horario 
@@ -895,6 +896,86 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       totalPages: Math.ceil(total / limit),
     };
   }
+    async findScheduleByUC({
+    anoLectivo,
+    curso,
+    periodo,
+    semestre,
+    unidadeCurricular,
+    limit = 25,
+    page = 1,
+  }: ListScheduleUCDto) {
+    const offset = (page - 1) * limit;
+
+    const baseWhere = `
+    c.CODIGO         = ${unidadeCurricular}
+    and h.FK_ANO_LECTIVO = ${anoLectivo}
+    and h.FK_SEMESTRE    = ${semestre}
+    and h.FK_PERIODO     = ${periodo}
+    and c.CODIGO_CURSO   = ${curso}
+    and al.ACTIVE_STATE  = 1
+    and h.FK_ESTADO_HORARIO_WF	!= 4
+  `;
+
+    // ---------- QUERY PRINCIPAL COM PAGINAÇÃO ----------
+    const sql = `
+      select h.DESIGNACAO as horario_nome,
+             json_value(al.REF_DOCENTE, '$.nome') as docente_nome,
+             json_value(al.REF_DOCENTE, '$.pkDocente') as codigo_docente,
+             al.HORA_INICIO as hora_inicio,
+             al.HORA_TERMINO as hora_termino,
+             al.ORDEM        as ordem,
+             json_value(al.REF_DOCENTE,'$.nome') as docente_nome_aula,
+             json_value(al.REF_DOCENTE,'$.pkDocente') as codigo_docente_aula,
+             c.CODIGO as codigo_grade,
+             d.DESIGNACAO as disciplina,
+             m.DESIGNACAO as modalidade,
+             at.DESIGNACAO as tipo_aula,
+             ds.DESIGNACAO as dia_semana,
+             ds.ORDEM as ordem_dia_semana,
+             json_value(al.REF_SALA, '$.desc') as sala,
+             c.CODIGO_CURSO as codigo_curso
+      from FK2_MGH_TB_HORARIO h
+      inner join FK2_MGH_TB_AULA al on al.FK_HORARIO = h.PK_HORARIO
+      inner join FK2_MGH_TB_TIPO_AULA at on at.PK_TIPO_AULA = al.FK_TIPO_AULA
+      inner join FK2_MGH_TB_DIA_DA_SEMANA ds on ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+      inner join FK2_MGH_TB_MODALIDADE m on m.PK_MODALIDADE = al.FK_MODALIDADE
+      inner join FK2_TB_GRADE_CURRICULAR c on h.FK_GRADE_CURRICULAR = c.CODIGO
+      inner join FK2_TB_DISCIPLINAS d on d.codigo = c.CODIGO_DISCIPLINA
+      where ${baseWhere}
+      OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+  `;
+
+    // ---------- QUERY PARA CONTAR TOTAL ----------
+    const sqlCount = `
+      select count(*) as total
+      from FK2_MGH_TB_HORARIO h
+      inner join FK2_MGH_TB_AULA al on al.FK_HORARIO = h.PK_HORARIO
+      inner join FK2_MGH_TB_TIPO_AULA at on at.PK_TIPO_AULA = al.FK_TIPO_AULA
+      inner join FK2_MGH_TB_DIA_DA_SEMANA ds on ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+      inner join FK2_MGH_TB_MODALIDADE m on m.PK_MODALIDADE = al.FK_MODALIDADE
+      inner join FK2_TB_GRADE_CURRICULAR c on h.FK_GRADE_CURRICULAR = c.CODIGO
+      inner join FK2_TB_DISCIPLINAS d on d.codigo = c.CODIGO_DISCIPLINA
+      where ${baseWhere}
+  `;
+
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql),
+      this.dataSource.query(sqlCount),
+    ]);
+
+    const total = Number(countResult[0].TOTAL);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: await toLowerCaseKeys(result),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
+
   private async createOrUpdateHorario(
     userId: number = 1,
     dto: CreateScheduleDto,
