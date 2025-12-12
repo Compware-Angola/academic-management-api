@@ -156,7 +156,7 @@ export class ScheduleService {
       a."FK_MODALIDADE"              AS modalidadeId,
       mdl."DESIGNACAO"              AS modalidade,
       a."FK_DIA_DA_SEMANA"           AS diaSemanaId,
-      dsm."DESIGNACAO"               AS disSemana,
+      dsm."DESIGNACAO"               AS diaSemana,
       a."ORDEM"                      AS ordem,
       sala."DESIGNACAO"              AS sala,
       a."HORA_INICIO"                AS horaInicio,
