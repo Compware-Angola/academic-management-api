@@ -24,7 +24,36 @@ export class ScheduleController {
 
     return this.scheduleService.findAll(query);
   }
+    @Get('registration-by-schedule')
+  @ApiOperation({
+    summary: 'Listar horários Por Incricoes com filtros avançados e paginação',
+    description: 'Retorna horários filtrados por ano letivo, curso, docente, estado, etc.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de horários Por Inscricao retornada com sucesso',
+  })
+  @ApiResponse({ status: 400, description: 'Parâmetros inválidos' })
+  async findAllRegistrationBySchedule(@Query(ValidationPipe) query: ListScheduleDto) {
 
+
+    return this.scheduleService.findAllRegistrationBySchedule(query);
+  }
+    @Get('registration-by-schedule/details/:scheduleId')
+  @ApiOperation({
+    summary: 'Listar horários Por Incricoes com filtros avançados e paginação',
+    description: 'Retorna horários filtrados por ano letivo, curso, docente, estado, etc.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de horários Por Inscricao retornada com sucesso',
+  })
+  @ApiResponse({ status: 400, description: 'Parâmetros inválidos' })
+  async detailsRegistrationBySchedule(@Param('scheduleId', ParseIntPipe) scheduleId: number) {
+
+
+    return this.scheduleService.detailsRegistrationBySchedule(scheduleId);
+  }
   @Get('eliminated')
   @ApiOperation({
     summary: 'Listar horários Eliminados com filtros avançados e paginação',

@@ -88,15 +88,15 @@ export class ScheduleService {
     };
   }
 
-// schedule.service.ts
+  // schedule.service.ts
 
-async findOneById(horarioId: number) {
-  if (!horarioId || horarioId <= 0) {
-    throw new BadRequestException('ID do horário inválido');
-  }
+  async findOneById(horarioId: number) {
+    if (!horarioId || horarioId <= 0) {
+      throw new BadRequestException('ID do horário inválido');
+    }
 
 
-  const horarioResult = await this.dataSource.query(`
+    const horarioResult = await this.dataSource.query(`
     SELECT DISTINCT
       h."PK_HORARIO"                                            AS "CODIGO",
       h."DESIGNACAO"                                            AS "DESIGNACAO",
@@ -134,18 +134,18 @@ async findOneById(horarioId: number) {
      
   `, [horarioId]);
 
-  const horarioRows = Array.isArray(horarioResult) 
-    ? (Array.isArray(horarioResult[0]) ? horarioResult[0] : horarioResult)
-    : [horarioResult];
+    const horarioRows = Array.isArray(horarioResult)
+      ? (Array.isArray(horarioResult[0]) ? horarioResult[0] : horarioResult)
+      : [horarioResult];
 
-  if (horarioRows.length === 0) {
-    throw new NotFoundException(`Horário com ID ${horarioId} não encontrado`);
-  }
+    if (horarioRows.length === 0) {
+      throw new NotFoundException(`Horário com ID ${horarioId} não encontrado`);
+    }
 
-  const h = horarioRows[0];
+    const h = horarioRows[0];
 
-  // 2. Busca todas as aulas do horário
-  const aulasResult = await this.dataSource.query(`
+    // 2. Busca todas as aulas do horário
+    const aulasResult = await this.dataSource.query(`
  SELECT 
       a."PK_AULA"                    AS id,
       a."REF_AULA"                   AS refAula,
@@ -181,104 +181,104 @@ async findOneById(horarioId: number) {
     ORDER BY a."FK_DIA_DA_SEMANA", a."ORDEM"
   `, [horarioId]);
 
-  const aulas = Array.isArray(aulasResult)
-    ? (Array.isArray(aulasResult[0]) ? aulasResult[0] : aulasResult)
-    : [];
-    
+    const aulas = Array.isArray(aulasResult)
+      ? (Array.isArray(aulasResult[0]) ? aulasResult[0] : aulasResult)
+      : [];
 
-  return {
-    codigo: Number(h.CODIGO),
-    designacao: h.DESIGNACAO,
-    unidadeCurricularId: Number(h.UNIDADECURRICULARID),
-    unidadeCurricular: h.UNIDADECURRICULAR,
-    curso: h.CURSO,
-    ano: h.ANO,
-    capacidade: Number(h.CAPACIDADE),
-    reservado: h.RESERVADO,
-    semestre: Number(h.SEMESTRE),
-    estado: h.ESTADO,
-    estadoCor: h.ESTADOCOR,
-    estadoId: Number(h.ESTADOID),
-    disponibilidade: h.DISPONIBILIDADE,
-    disponivel: h.DISPONIBILIDADE === 'Disponivel',
-    criadoPor: h.CRIADOPOR,
-    atualizadoPor: h.ATUALIZADOPOR || null,
-    dataUltimaAtualizacao: h.DATAULTIMAATUALIZACAO,
-    dataCriacao: h.DATACRIACAO,
 
-    // Array completo de aulas
-    aulas: aulas.map((a: any) => ({
-      id: Number(a.ID),
-     
-      tipoAula: a.TIPOAULA,
-      tipoAulaId: Number (a.TIPOAULAID),
-      modalidade: a.MODALIDADE,
-      modalidadeId: Number(a.MODALIDADEID) ,
-      diaSemana: a.DIASEMANA,
-      diaSemanaId: Number(a.DIASEMANAID),
-      ordem: Number(a.ORDEM),
-      sala:a.SALA,
-      horaInicio: a.HORAINICIO,
-      horaTermino: a.HORATERMINO,
-      docenteId: a.DOCENTEID ? Number(a.DOCENTEID) : null,
-      docenteNome: a.DOCENTENOME,
-      turmasParticipantes: a.TURMASPATICIPANTES,
-      observacoes: a.OBSERVACOES,
-      criadoPor: Number(a.CRIADOPOR),
-      atualizadoPor: a.ATUALIZADOPOR ? Number(a.ATUALIZADOPOR) : null,
-      criadoEm: a.CRIADOEM,
-      atualizadoEm: a.ATUALIZADOEM,
-      ativo: Boolean(a.ATIVO),
-    })),
-  };
-}
-async validate(userId: number, horarioId: number) {
-  if (!horarioId || horarioId <= 0) {
-    throw new BadRequestException('ID do horário inválido');
+    return {
+      codigo: Number(h.CODIGO),
+      designacao: h.DESIGNACAO,
+      unidadeCurricularId: Number(h.UNIDADECURRICULARID),
+      unidadeCurricular: h.UNIDADECURRICULAR,
+      curso: h.CURSO,
+      ano: h.ANO,
+      capacidade: Number(h.CAPACIDADE),
+      reservado: h.RESERVADO,
+      semestre: Number(h.SEMESTRE),
+      estado: h.ESTADO,
+      estadoCor: h.ESTADOCOR,
+      estadoId: Number(h.ESTADOID),
+      disponibilidade: h.DISPONIBILIDADE,
+      disponivel: h.DISPONIBILIDADE === 'Disponivel',
+      criadoPor: h.CRIADOPOR,
+      atualizadoPor: h.ATUALIZADOPOR || null,
+      dataUltimaAtualizacao: h.DATAULTIMAATUALIZACAO,
+      dataCriacao: h.DATACRIACAO,
+
+      // Array completo de aulas
+      aulas: aulas.map((a: any) => ({
+        id: Number(a.ID),
+
+        tipoAula: a.TIPOAULA,
+        tipoAulaId: Number(a.TIPOAULAID),
+        modalidade: a.MODALIDADE,
+        modalidadeId: Number(a.MODALIDADEID),
+        diaSemana: a.DIASEMANA,
+        diaSemanaId: Number(a.DIASEMANAID),
+        ordem: Number(a.ORDEM),
+        sala: a.SALA,
+        horaInicio: a.HORAINICIO,
+        horaTermino: a.HORATERMINO,
+        docenteId: a.DOCENTEID ? Number(a.DOCENTEID) : null,
+        docenteNome: a.DOCENTENOME,
+        turmasParticipantes: a.TURMASPATICIPANTES,
+        observacoes: a.OBSERVACOES,
+        criadoPor: Number(a.CRIADOPOR),
+        atualizadoPor: a.ATUALIZADOPOR ? Number(a.ATUALIZADOPOR) : null,
+        criadoEm: a.CRIADOEM,
+        atualizadoEm: a.ATUALIZADOEM,
+        ativo: Boolean(a.ATIVO),
+      })),
+    };
   }
+  async validate(userId: number, horarioId: number) {
+    if (!horarioId || horarioId <= 0) {
+      throw new BadRequestException('ID do horário inválido');
+    }
 
-  // --------------------------------------------------------------------
-  // 1) OBTER ESTADO ATUAL DO HORÁRIO
-  // --------------------------------------------------------------------
-  const rows = await this.dataSource.query(`
+    // --------------------------------------------------------------------
+    // 1) OBTER ESTADO ATUAL DO HORÁRIO
+    // --------------------------------------------------------------------
+    const rows = await this.dataSource.query(`
     SELECT "FK_ESTADO_HORARIO_WF" AS estadoId, "DESIGNACAO"
     FROM "FK2_MGH_TB_HORARIO"
     WHERE "PK_HORARIO" = :horarioId
       AND "ACTIVE_STATE" = 1
   `, [horarioId]);
 
- 
 
-  if (!rows || rows.length === 0) {
-    throw new NotFoundException(`Horário ${horarioId} não encontrado ou inativo`);
-  }
 
-  const horario = rows[0];
-  const estadoAtual = Number(horario.ESTADOID);
+    if (!rows || rows.length === 0) {
+      throw new NotFoundException(`Horário ${horarioId} não encontrado ou inativo`);
+    }
 
-  // --------------------------------------------------------------------
-  // 2) BUSCAR O PRÓXIMO ESTADO NO WORKFLOW
-  // --------------------------------------------------------------------
-  const proximoEstadoResult = await this.dataSource.query(`
+    const horario = rows[0];
+    const estadoAtual = Number(horario.ESTADOID);
+
+    // --------------------------------------------------------------------
+    // 2) BUSCAR O PRÓXIMO ESTADO NO WORKFLOW
+    // --------------------------------------------------------------------
+    const proximoEstadoResult = await this.dataSource.query(`
     SELECT "FK_NEXT" AS proximoEstadoId
     FROM "FK2_MGH_TB_ESTADO_HORARIO_WF"
     WHERE "PK_ESTADO_HORARIO_WF" = :estadoAtual
   `, [estadoAtual]);
 
-  const proximoRows = Array.isArray(proximoEstadoResult)
-    ? (Array.isArray(proximoEstadoResult[0]) ? proximoEstadoResult[0] : proximoEstadoResult)
-    : [proximoEstadoResult];
+    const proximoRows = Array.isArray(proximoEstadoResult)
+      ? (Array.isArray(proximoEstadoResult[0]) ? proximoEstadoResult[0] : proximoEstadoResult)
+      : [proximoEstadoResult];
 
-  if (!proximoRows || proximoRows.length === 0 || !proximoRows[0].PROXIMOESTADOID) {
-    throw new BadRequestException('Não existe próximo estado definido para este horário');
-  }
+    if (!proximoRows || proximoRows.length === 0 || !proximoRows[0].PROXIMOESTADOID) {
+      throw new BadRequestException('Não existe próximo estado definido para este horário');
+    }
 
-  const proximoEstadoId = Number(proximoRows[0].PROXIMOESTADOID);
+    const proximoEstadoId = Number(proximoRows[0].PROXIMOESTADOID);
 
-  // --------------------------------------------------------------------
-  // 3) ATUALIZAR O ESTADO DO HORÁRIO
-  // --------------------------------------------------------------------
-  await this.dataSource.query(`
+    // --------------------------------------------------------------------
+    // 3) ATUALIZAR O ESTADO DO HORÁRIO
+    // --------------------------------------------------------------------
+    await this.dataSource.query(`
     UPDATE "FK2_MGH_TB_HORARIO"
     SET 
       "FK_ESTADO_HORARIO_WF" = :proximoEstadoId,
@@ -287,26 +287,26 @@ async validate(userId: number, horarioId: number) {
     WHERE "PK_HORARIO" = :horarioId
       AND "ACTIVE_STATE" = 1
   `, {
-    proximoEstadoId,
-    userId,
-    horarioId,
-  } as any);
+      proximoEstadoId,
+      userId,
+      horarioId,
+    } as any);
 
 
-  // --------------------------------------------------------------------
-  // 4) RETORNAR RESPOSTA AMIGÁVEL
-  // --------------------------------------------------------------------
-  return {
-    success: true,
-    message: 'Horário validado com sucesso',
-    horarioId,
-    designacao: horario.DESIGNACAO,
-    estadoAnterior: estadoAtual,
-    novoEstadoId: proximoEstadoId,
-    validadoPor: userId,
-    dataValidacao: new Date().toISOString(),
-  };
-}
+    // --------------------------------------------------------------------
+    // 4) RETORNAR RESPOSTA AMIGÁVEL
+    // --------------------------------------------------------------------
+    return {
+      success: true,
+      message: 'Horário validado com sucesso',
+      horarioId,
+      designacao: horario.DESIGNACAO,
+      estadoAnterior: estadoAtual,
+      novoEstadoId: proximoEstadoId,
+      validadoPor: userId,
+      dataValidacao: new Date().toISOString(),
+    };
+  }
 
   async toggleAvailability(userId: number, horarioId: number) {
     // 1. Busca o horário atual
@@ -557,10 +557,26 @@ async validate(userId: number, horarioId: number) {
         NVL(ut."NOME", h."CREATED_BY")                            AS "CRIADOPOR",
         NVL(ut."NOME", h."LAST_UPDATED_BY")                            AS "ATUALIZADOPOR",
         TO_CHAR(h."UPDATED_AT", 'DD/MM/YYYY HH24:MI')             AS "DATAULTIMAATUALIZACAO",
-        TO_CHAR(h."CREATED_AT", 'DD/MM/YYYY HH24:MI')             AS "DATACRIACAO"
+        TO_CHAR(h."CREATED_AT", 'DD/MM/YYYY HH24:MI')             AS "DATACRIACAO",
+            -- AQUI O TOTAL DE ALUNOS POR HORÁRIO
+    NVL(alu."TOTAL_ALUNOS", 0)                                AS "TOTAL_ALUNOS"
       FROM "FK2_MGH_TB_HORARIO" h
       INNER JOIN "FK2_TB_GRADE_CURRICULAR" g 
         ON TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", '')) = g."CODIGO"
+        -- SUBQUERY QUE FAZ O COUNT
+  LEFT JOIN (
+    SELECT 
+        "CODIGO_GRADE_CURRICULAR",
+        JSON_VALUE("REF_HORARIO", '$.pk' RETURNING NUMBER) AS "HORARIO_ID",
+        COUNT(*) AS "TOTAL_ALUNOS"
+    FROM "FK2_TB_GRADE_CURRICULAR_ALUNO"
+     GROUP BY 
+        "CODIGO_GRADE_CURRICULAR",
+        JSON_VALUE("REF_HORARIO", '$.pk' RETURNING NUMBER)
+) alu 
+    ON alu."CODIGO_GRADE_CURRICULAR" = g."CODIGO"
+   AND alu."HORARIO_ID" = h."PK_HORARIO"
+
       LEFT JOIN "FK2_TB_DISCIPLINAS" d     
         ON g."CODIGO_DISCIPLINA" = d."CODIGO"
       LEFT JOIN "FK2_TB_CURSOS" c          
@@ -650,8 +666,7 @@ async validate(userId: number, horarioId: number) {
     ORDER BY rn
   `;
 
-    console.log('SQL:', sql);
-    console.log('PARAMS:', params);
+ 
 
     const result = await this.dataSource.query(sql, params);
 
@@ -669,6 +684,59 @@ async validate(userId: number, horarioId: number) {
       totalPages: Math.ceil(total / limit),
     };
   }
+  async detailsRegistrationBySchedule(scheduleId:number){
+    
+    let sql = `SELECT  
+GCA.CODIGO  AS codigo_grade_aluno ,
+MAT.CODIGO AS NUMERO_DE_MATRICULA,
+PRE.NOME_COMPLETO AS NOME_COMPLETO,
+  H."PK_HORARIO"                                            AS "CODIGO_HORARIO",
+      H."DESIGNACAO"                                            AS "DESIGNACAO",
+      TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", ''))            AS "UNIDADECURRICULARID",
+      d."DESIGNACAO"                                            AS "UNIDADECURRICULAR",
+      c."SIGLA"                                                 AS "CURSO",
+      cl."DESIGNACAO"                             AS "ANO",
+      H."CAPACIDADE"                                            AS "CAPACIDADE",
+      CASE WHEN H."APENASPRIMEIROANO" = 1 THEN 'Sim' ELSE 'Não' END AS "RESERVADO",
+      H."FK_PERIODO"                                            AS "SEMESTRE",
+      ew."DESIGNACAO"                                           AS "ESTADO",
+      ew."COR"                                                  AS "ESTADOCOR",
+      ew."PK_ESTADO_HORARIO_WF"                                 AS "ESTADOID",
+      CASE WHEN h."DIPONIVEL" = 1 THEN 'Disponivel' ELSE 'Fechado' END AS "DISPONIBILIDADE",
+      NVL(ut_criador."NOME", h."CREATED_BY")                    AS "CRIADOPOR",
+      NVL(ut_atualizador."NOME", h."LAST_UPDATED_BY")           AS "ATUALIZADOPOR",
+      TO_CHAR(h."UPDATED_AT", 'DD/MM/YYYY HH24:MI')             AS "DATAULTIMAATUALIZACAO",
+      TO_CHAR(h."CREATED_AT", 'DD/MM/YYYY HH24:MI')             AS "DATACRIACAO"
+FROM FK2_TB_GRADE_CURRICULAR_ALUNO GCA
+LEFT JOIN "FK2_MGH_TB_HORARIO" H
+      ON JSON_VALUE(GCA."REF_HORARIO", '$.pk' RETURNING NUMBER) = H.PK_HORARIO  
+       INNER JOIN FK2_TB_MATRICULAS MAT 
+        ON MAT.CODIGO = gca.CODIGO_MATRICULA
+    INNER JOIN FK2_TB_ADMISSAO ADM 
+        ON ADM.CODIGO = MAT.CODIGO_ALUNO
+    INNER JOIN FK2_TB_PREINSCRICAO PRE 
+        ON PRE.CODIGO = ADM.PRE_INCRICAO
+           INNER JOIN "FK2_TB_GRADE_CURRICULAR" g 
+      ON TO_NUMBER(NULLIF(H."FK_GRADE_CURRICULAR", '')) = g."CODIGO"
+    LEFT JOIN "FK2_TB_DISCIPLINAS" d     
+      ON g."CODIGO_DISCIPLINA" = d."CODIGO"
+    LEFT JOIN "FK2_TB_CURSOS" c          
+      ON g."CODIGO_CURSO" = c."CODIGO"
+    LEFT JOIN "FK2_TB_CLASSES" cl        
+      ON g."CODIGO_CLASSE" = cl."CODIGO"
+    LEFT JOIN "FK2_MGH_TB_ESTADO_HORARIO_WF" ew 
+      ON h."FK_ESTADO_HORARIO_WF" = ew."PK_ESTADO_HORARIO_WF"
+    LEFT JOIN "FK2_MCA_TB_UTILIZADOR" ut_criador  
+      ON h."CREATED_BY" = ut_criador."PK_UTILIZADOR"
+    LEFT JOIN "FK2_MCA_TB_UTILIZADOR" ut_atualizador  
+      ON h."LAST_UPDATED_BY" = ut_atualizador."PK_UTILIZADOR"
+        WHERE h.PK_HORARIO =${scheduleId}
+   `
+
+     const result = await this.dataSource.query(sql);
+     return await toLowerCaseKeys(result)
+  }
+
   async findAllDeleted(filters: ListScheduleDto) {
     const {
       anoLectivo,
