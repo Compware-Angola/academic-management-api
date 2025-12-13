@@ -16,13 +16,14 @@ import {
 import { Type } from 'class-transformer';
 
 export enum DiaSemana {
-  SEGUNDA = 1,
-  TERCA = 2,
-  QUARTA = 3,
-  QUINTA = 4,
-  SEXTA = 5,
-  SABADO = 6,
-  DOMINGO = 7,
+  DOMINGO = 1,
+  SEGUNDA = 2,
+  TERCA = 3,
+  QUARTA = 4,
+  QUINTA = 5,
+  SEXTA = 6,
+  SABADO = 7,
+
 }
 
 export class AulaDto {
@@ -35,19 +36,19 @@ export class AulaDto {
   docente: number;
 
   @ApiProperty({
-    description: 'Dia da semana (1=Segunda ... 7=Domingo)',
+    description: 'Dia da semana (2=Segunda ... 7=Sábado)',
     enum: DiaSemana,
     example: 3,
   })
   @IsEnum(DiaSemana)
   diaSemana: DiaSemana;
-@ApiProperty({
+  @ApiProperty({
     description: 'Observação',
     example: 'Observação',
   })
   @IsString()
-@IsOptional()
-  obs?:string
+  @IsOptional()
+  obs?: string
   @ApiProperty({
     description: 'Ordem do tempo/horário no dia (ex: 1 = 8h–9h30, 5 = tarde)',
     example: 1,
@@ -145,16 +146,16 @@ export class CreateScheduleDto {
   @IsInt()
   @Min(1)
   modalidade: number;
-@ApiPropertyOptional({ description: 'Se é apenas 1º ano (capacidade = 100)', example: 0, default: 0 })
-@IsOptional()
-@IsInt()
-@Min(0)
-@Max(1)
-@ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Se é apenas 1º ano (capacidade = 100)', example: 0, default: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(1)
+  @ApiPropertyOptional()
   @IsInt()
   @IsOptional()
   estadoHorario?: number = 1;
-@ApiProperty({
+  @ApiProperty({
     description: 'Descrição/nome do horário (ex: "Horário LEI 1º ano - 2024/25")',
     example: 'Horário LEI 1º ano - Programação Web',
   })
@@ -178,13 +179,13 @@ export class CreateScheduleDto {
   @IsOptional()
   @IsInt()
   turma?: number;
-    @ApiPropertyOptional({
+  @ApiPropertyOptional({
     description: 'Primeiro ano',
     example: 0,
   })
   @IsOptional()
   @IsInt()
-apenasPrimeiroAno?: number = 0;
+  apenasPrimeiroAno?: number = 0;
   @ApiProperty({
     description: 'Tipo de aula geral da UC (normalmente 1 = Teórica)',
     example: 1,
@@ -203,11 +204,11 @@ apenasPrimeiroAno?: number = 0;
   @IsNotEmpty()
   aulas: AulaDto[];
 
-@ApiProperty({
+  @ApiProperty({
     description: 'Observação',
     example: 'Observação',
   })
   @IsString()
-@IsOptional()
-  obs?:string
+  @IsOptional()
+  obs?: string
 }

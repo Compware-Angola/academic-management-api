@@ -7,6 +7,7 @@ import { ListScheduleDto } from './dto/list-schedule.dto';
 import { ListScheduleUCDto } from './dto/list-schedule-uc.dto';
 import { ListScheduleDocenteDto } from './dto/list-schedule-docente.dto';
 import { MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
+import { ListScheduleDayOfWeekto } from './dto/list-schedule-day-of-week.dto';
 @ApiTags("schedule")
 @Controller('schedule')
 export class ScheduleController {
@@ -28,7 +29,6 @@ export class ScheduleController {
     return this.scheduleService.findAll(query);
   }
   @Post('move-students/:userId')
-
   @ApiOperation({ summary: 'Movimentar Estudante' })
   @ApiParam({ name: 'userId', type: Number, required: true, description: 'ID do usuário' })
   @ApiResponse({ status: 201, description: 'Estudantes Movimentados.' })
@@ -71,6 +71,26 @@ export class ScheduleController {
   ) {
  
     return this.scheduleService.findScheduleByDocente(query);
+  }
+  @Get('by-day-of-week')
+  @ApiOperation({
+    summary: 'Listar horário por dia da semana!',
+    description:
+      'Retorna todos os horários associados ao docente selecionado, filtrados por ano letivo, semestre e período.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Horários encontrados com sucesso',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Parâmetros inválidos',
+  })
+  async findScheduleByDayOfTheweek(
+    @Query(ValidationPipe) query: ListScheduleDayOfWeekto,
+  ) {
+ 
+    return this.scheduleService.findScheduleByDayOfTheweek(query);
   }
   @Get('registration-by-schedule')
   @ApiOperation({
