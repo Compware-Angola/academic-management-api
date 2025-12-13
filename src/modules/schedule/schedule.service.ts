@@ -1194,12 +1194,14 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     anoLectivo,
     semestre,
     periodo,
+    curso,
     limit = 10,
     page = 1,
   }: ListScheduleDayOfWeekto) {
     const offset = (page - 1) * limit;
 
     const whereConditions: string[] = [
+      `c.CODIGO_CURSO  = ${curso}`,
       `ds.PK_DIA_DA_SEMANA = ${diaSemana}`,
       `h.FK_ANO_LECTIVO = ${anoLectivo}`,
       `h.ACTIVE_STATE = 1`,
