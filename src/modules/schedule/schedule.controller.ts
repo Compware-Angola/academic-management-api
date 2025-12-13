@@ -6,6 +6,7 @@ import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ListScheduleDto } from './dto/list-schedule.dto';
 import { ListScheduleUCDto } from './dto/list-schedule-uc.dto';
 import { ListScheduleDocenteDto } from './dto/list-schedule-docente.dto';
+import { MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
 @ApiTags("schedule")
 @Controller('schedule')
 export class ScheduleController {
@@ -25,6 +26,17 @@ export class ScheduleController {
 
 
     return this.scheduleService.findAll(query);
+  }
+  @Post('move-students/:userId')
+
+  @ApiOperation({ summary: 'Movimentar Estudante' })
+  @ApiParam({ name: 'userId', type: Number, required: true, description: 'ID do usuário' })
+  @ApiResponse({ status: 201, description: 'Estudantes Movimentados.' })
+  @ApiResponse({ status: 400, description: 'Dados inválidos.' })
+
+  moveStudents( @Param('userId') userId: number,@Body() dto: MoveStudentsToScheduleDto) {
+    
+    return this.scheduleService.moveStudents(dto,userId);
   }
   @Get("by-uc")
   @ApiOperation({
@@ -57,7 +69,7 @@ export class ScheduleController {
   async findScheduleByDocente(
     @Query(ValidationPipe) query: ListScheduleDocenteDto,
   ) {
-    console.log(query);
+ 
     return this.scheduleService.findScheduleByDocente(query);
   }
   @Get('registration-by-schedule')

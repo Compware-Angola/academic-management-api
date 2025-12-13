@@ -7,6 +7,8 @@ import { ListScheduleDto } from './dto/list-schedule.dto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { ListScheduleUCDto } from './dto/list-schedule-uc.dto';
 import { ListScheduleDocenteDto } from './dto/list-schedule-docente.dto';
+import { MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
+import { escapeQuotes } from '../util/escape-quotes';
 
 // deletar passar para estaso 0 e as aulas que estao com este hotario mudar oestado tbm para 0
 // Validar horario 
@@ -89,8 +91,6 @@ export class ScheduleService {
       dataRestauracao: new Date().toISOString(),
     };
   }
-
-  // schedule.service.ts
 
   async findOneById(horarioId: number) {
     if (!horarioId || horarioId <= 0) {
@@ -234,8 +234,8 @@ export class ScheduleService {
       })),
     };
   }
-    async findOneByDesignation(designation: string) {
-    if (!designation ) {
+  async findOneByDesignation(designation: string) {
+    if (!designation) {
       throw new BadRequestException('Designação do horário inválido');
     }
     const horarioResult = await this.dataSource.query(`
@@ -427,7 +427,7 @@ export class ScheduleService {
       dataAtualizacao: new Date().toISOString(),
     }
   };
-  // horarios.service.ts
+
   async findAll(filters: ListScheduleDto) {
     const {
       anoLectivo,
@@ -567,8 +567,6 @@ export class ScheduleService {
     ORDER BY rn
   `;
 
-    console.log('SQL:', sql);
-    console.log('PARAMS:', params);
 
     const result = await this.dataSource.query(sql, params);
 
@@ -742,7 +740,7 @@ export class ScheduleService {
     ORDER BY rn
   `;
 
- 
+
 
     const result = await this.dataSource.query(sql, params);
 
@@ -760,8 +758,8 @@ export class ScheduleService {
       totalPages: Math.ceil(total / limit),
     };
   }
-  async detailsRegistrationBySchedule(scheduleId:number){
-    
+  async detailsRegistrationBySchedule(scheduleId: number) {
+
     let sql = `SELECT  
 GCA.CODIGO  AS codigo_grade_aluno ,
 MAT.CODIGO AS NUMERO_DE_MATRICULA,
@@ -810,8 +808,8 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
         WHERE h.PK_HORARIO =${scheduleId}
    `
 
-     const result = await this.dataSource.query(sql);
-     return await toLowerCaseKeys(result)
+    const result = await this.dataSource.query(sql);
+    return await toLowerCaseKeys(result)
   }
 
   async findAllDeleted(filters: ListScheduleDto) {
@@ -971,7 +969,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       totalPages: Math.ceil(total / limit),
     };
   }
-async findScheduleByUC({
+  async findScheduleByUC({
     anoLectivo,
     curso,
     periodo,
@@ -1188,6 +1186,42 @@ async findScheduleByUC({
       totalPages,
     };
   }
+
+  async moveStudents(dto: MoveStudentsToScheduleDto, userId: number) {
+    const { fromScheduleId, toScheduleId, studentsCurriculumIds } = dto
+    if (fromScheduleId == toScheduleId) {
+      throw new BadRequestException('O horário de origem e o horário de destino devem ser diferentes')
+    }
+    const from = await this.getschedule(fromScheduleId)
+    if (!from || from.length === 0) {
+      throw new NotFoundException(`Horário ${from}  de Origem não encontrado ou inativo`);
+    }
+    const to = await this.getschedule(toScheduleId)
+    if (!to || to.length === 0) {
+      throw new NotFoundException(`Horário ${to} de Destino não encontrado ou inativo`);
+    }
+    const json_schedule = `{"pk":${to[0].CODIGO},"desc":"${escapeQuotes(to[0].DESIGNACAO)}", "corLetra": "black", "disponivel": true}`;
+    if ((to[0].TOTAL_ALUNOS + studentsCurriculumIds.length) > to[0].CAPACIDADE) {
+      throw new BadRequestException(`Com Este número de estudantes selecionado, vas exceder a capacidade suportado. Atual: ${to[0].TOTAL_ALUNOS} Previsão Com os novos : ${to[0].CAPACIDADE + studentsCurriculumIds.length}`)
+
+    }
+
+    for (const studentsCurriculumId of studentsCurriculumIds) {
+
+      console.log(studentsCurriculumId,json_schedule);
+      
+
+    }
+
+
+
+    return {
+      success:true,
+      message:`${studentsCurriculumIds.length} Estudante(s) Movimentados com sucesso`
+    }
+
+
+  }
   private async createOrUpdateHorario(
     userId: number = 1,
     dto: CreateScheduleDto,
@@ -1217,7 +1251,7 @@ async findScheduleByUC({
     const v_desc_periodo = await this.getDescricaoPeriodo(periodo);
     const v_desc_ano_lectivo = await this.getDescricaoAnoLectivo(anoLectivo);
 
-    const escapeQuotes = (str: string) => str.replace(/"/g, '\\"');
+
 
     const v_json_grade = `{"pk":${v_grade_curricular},"desc":"${escapeQuotes(v_desc_grade)}","corLetra":"black"}`;
     const v_json_periodo = `{"pkPeriodo":${periodo},"desc":"${escapeQuotes(v_desc_periodo)}"}`;
@@ -1528,6 +1562,32 @@ async findScheduleByUC({
   private diaSemanaParaTexto(dia: number): string {
     const dias = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
     return dias[dia] || 'Segunda';
+  }
+  private async getschedule(cheduleId: number): Promise<any> {
+    return await this.dataSource.query(`
+    SELECT DISTINCT
+      h."PK_HORARIO"                                            AS "CODIGO",
+      h."DESIGNACAO"                                            AS "DESIGNACAO",
+      h."CAPACIDADE"                                            AS "CAPACIDADE",
+        NVL(alu."TOTAL_ALUNOS", 0)                                AS "TOTAL_ALUNOS"
+    FROM "FK2_MGH_TB_HORARIO" h
+   INNER JOIN "FK2_TB_GRADE_CURRICULAR" g 
+    ON TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", '')) = g."CODIGO"
+  LEFT JOIN (
+    SELECT 
+        "CODIGO_GRADE_CURRICULAR",
+        JSON_VALUE("REF_HORARIO", '$.pk' RETURNING NUMBER) AS "HORARIO_ID",
+        COUNT(*) AS "TOTAL_ALUNOS"
+    FROM "FK2_TB_GRADE_CURRICULAR_ALUNO"
+     GROUP BY 
+        "CODIGO_GRADE_CURRICULAR",
+        JSON_VALUE("REF_HORARIO", '$.pk' RETURNING NUMBER)
+) alu 
+    ON alu."CODIGO_GRADE_CURRICULAR" = g."CODIGO"
+   AND alu."HORARIO_ID" = h."PK_HORARIO"
+    WHERE h."PK_HORARIO" = :cheduleId
+     
+  `, [cheduleId]);
   }
 
 }
