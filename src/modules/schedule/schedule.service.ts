@@ -1200,24 +1200,45 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     if (!to || to.length === 0) {
       throw new NotFoundException(`Horário ${to} de Destino não encontrado ou inativo`);
     }
-    const json_schedule = `{"pk":${to[0].CODIGO},"desc":"${escapeQuotes(to[0].DESIGNACAO)}", "corLetra": "black", "disponivel": true}`;
+
     if ((to[0].TOTAL_ALUNOS + studentsCurriculumIds.length) > to[0].CAPACIDADE) {
       throw new BadRequestException(`Com Este número de estudantes selecionado, vas exceder a capacidade suportado. Atual: ${to[0].TOTAL_ALUNOS} Previsão Com os novos : ${to[0].CAPACIDADE + studentsCurriculumIds.length}`)
 
     }
+    const json_schedule = `{"pk":${to[0].CODIGO},"desc":"${escapeQuotes(to[0].DESIGNACAO)}", "corLetra": "black", "disponivel": true}`;
+    const json_user = `{"pk": ${userId}, "desc": " ", "corLetra": "black", "disponivel": true}`
+    if (studentsCurriculumIds.length === 0) return;
+    const validIdsResult = await this.dataSource.query(`
+  SELECT "CODIGO"
+  FROM "FK2_TB_GRADE_CURRICULAR_ALUNO"
+  WHERE "CODIGO" IN (${studentsCurriculumIds.join(',')})
+`);
 
-    for (const studentsCurriculumId of studentsCurriculumIds) {
+    const validIds = validIdsResult.map(row => row.CODIGO);
 
-      console.log(studentsCurriculumId,json_schedule);
-      
+    if (validIds.length === 0) {
+      console.warn('Nenhum aluno válido encontrado para atualizar o horário.');
+      throw new NotFoundException(`Nenhum aluno válido encontrado para atualizar o horário`);
 
     }
 
+    console.log(`Atualizando horário de ${validIds.length} aluno(s)`);
+
+    await this.dataSource.query(`
+  UPDATE "FK2_TB_GRADE_CURRICULAR_ALUNO"
+  SET 
+    "REF_HORARIO" = :json_schedule,
+    "USER_ID"=:userId,
+    "CODIGO_UTILIZADOR" =:utilizador,
+    "REF_UTILIZADOR"=:json_user,
+    "UPDATED_AT" = SYSDATE
+  WHERE "CODIGO" IN (${validIds.join(',')})
+`, { json_schedule, userId, utilizador: userId, json_user } as any);
 
 
     return {
-      success:true,
-      message:`${studentsCurriculumIds.length} Estudante(s) Movimentados com sucesso`
+      success: true,
+      message: `${studentsCurriculumIds.length} Estudante(s) Movimentados com sucesso`
     }
 
 
