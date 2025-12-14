@@ -18,11 +18,64 @@ import { ListScheduleDayOfWeekto } from './dto/list-schedule-day-of-week.dto';
 export class ScheduleService {
   constructor(private readonly dataSource: DataSource) { }
   async create(userId: number, dto: CreateScheduleDto) {
+
+    const terms = await this.promptToCreateAndEditSchedule(3, dto.anoLectivo);
+    if (!terms) {
+      throw new BadRequestException(
+        'O prazo de criação Ainda Não foi  definido.',
+      );
+    }
+    const agora = new Date();
+    const dataInicio = new Date(terms.DATA_INICIO);
+    const dataFim = new Date(terms.DATA_FIM);
+
+    const estaNoPrazo =
+      agora.getTime() >= dataInicio.getTime() &&
+      agora.getTime() <= dataFim.getTime();
+
+    if (!estaNoPrazo) {
+      throw new BadRequestException(
+        'O prazo de criação de Horário já terminou .',
+      );
+    }
+
     return await this.createOrUpdateHorario(userId, dto);
   }
 
   async update(userId: number, horarioIdParam: number, dto: UpdateScheduleDto) {
-    return await this.createOrUpdateHorario(userId, dto, horarioIdParam);
+
+    const terms = await this.promptToCreateAndEditSchedule(3, dto.anoLectivo);
+    if (!terms) {
+      throw new BadRequestException(
+        'O prazo de criação Ainda Não foi  definido.',
+      );
+    }
+    const agora = new Date();
+    const dataInicio = new Date(terms.DATA_INICIO);
+    const dataFim = new Date(terms.DATA_FIM);
+    const estaNoPrazo =
+      agora.getTime() >= dataInicio.getTime() &&
+      agora.getTime() <= dataFim.getTime();
+    // Brecha
+    const loopholeToEditSchedule = await this.loopholeToEditSchedule(horarioIdParam)
+    if (!loopholeToEditSchedule) {
+      throw new BadRequestException(
+        'Este Horário não tem permissão de ser Editado .',
+      );
+    }
+    const dataInicioLoophole = new Date(loopholeToEditSchedule.DATA_INICIO);
+    const dataFimLoophole = new Date(loopholeToEditSchedule.DATA_FIM);
+
+    const loopholeToEdit =
+      agora.getTime() >= dataInicioLoophole.getTime() &&
+      agora.getTime() <= dataFimLoophole.getTime();
+
+    if (!estaNoPrazo && !loopholeToEdit) {
+      throw new BadRequestException(
+        'O prazo de Edição de Horário já terminou .',
+      );
+    }
+  return await this.createOrUpdateHorario(userId, dto, horarioIdParam);
   }
 
   async delete(userId: number, horarioId: number) {
@@ -1223,7 +1276,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       whereConditions.push(` c.CODIGO = ${unidadeCurricular}`);
     }
     if (anoCurricular !== undefined && anoCurricular !== null) {
-      whereConditions.push( `c.CODIGO_CLASSE =${anoCurricular}`);
+      whereConditions.push(`c.CODIGO_CLASSE =${anoCurricular}`);
     }
 
 
@@ -1744,5 +1797,24 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
      
   `, [cheduleId]);
   }
-
+  private async promptToCreateAndEditSchedule(tipo_prazo: number, ano_lectivo: number): Promise<any> {
+    const result = await this.dataSource.query(
+      `SELECT DATA_INICIO,DATA_FIM,PK_PRAZO,OBSERVACAO,FK_TIPO_PRAZO
+     FROM FK2_MCAL_TB_PRAZO
+     WHERE FK_TIPO_PRAZO = :tipo_prazo
+     AND FK_ANO_LECTIVO = :ano_lectivo`,
+      { tipo_prazo, ano_lectivo } as any
+    );
+    return result[0]
+  }
+  private async loopholeToEditSchedule(scheduleId: number): Promise<any> {
+    const result = await this.dataSource.query(
+      `SELECT DATA_INICIO,DATA_FIM,PK_PERMISAO_EDICAO_HORARIO
+     FROM FK2_MGH_TB_PERMISAO_EDICAO_HORARIO
+     WHERE FK_HORARIO = :scheduleId
+     AND ATIVE_STATE = 1`,
+      { scheduleId } as any
+    );
+    return result[0]
+  }
 }
