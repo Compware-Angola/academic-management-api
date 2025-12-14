@@ -125,6 +125,21 @@ export class ScheduleService {
 
   async createPermissionToEditSchedule(query: CreatePermissionEditScheduleDto) {
     const json_user = `{"pk": ${query.userId}, "desc": " ", "corLetra": "black", "disponivel": true}`;
+
+
+
+      const agora = new Date();
+    const dataInicio = new Date(query.dataInicio);
+    const dataFim = new Date(query.dataFim);
+      const interval =
+      agora.getTime() >= dataInicio.getTime() &&
+      agora.getTime() <= dataFim.getTime();
+
+    if (!interval) {
+      throw new BadRequestException(
+        `Não podes criar uma Permissão Com estes intervalo de Data Vencida: ${query.dataInicio} - ${query.dataFim}`,
+      );
+    }
     const result = await this.dataSource.query(
       `
     INSERT INTO FK2_MGH_TB_PERMISAO_EDICAO_HORARIO (
