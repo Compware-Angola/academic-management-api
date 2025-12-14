@@ -18,7 +18,9 @@ import { ListScheduleDayOfWeekto } from './dto/list-schedule-day-of-week.dto';
 export class ScheduleService {
   constructor(private readonly dataSource: DataSource) { }
   async create(userId: number, dto: CreateScheduleDto) {
-
+   
+       
+  
     const terms = await this.promptToCreateAndEditSchedule(3, dto.anoLectivo);
     if (!terms) {
       throw new BadRequestException(
@@ -75,7 +77,7 @@ export class ScheduleService {
         'O prazo de Edição de Horário já terminou .',
       );
     }
-  return await this.createOrUpdateHorario(userId, dto, horarioIdParam);
+    return await this.createOrUpdateHorario(userId, dto, horarioIdParam);
   }
 
   async delete(userId: number, horarioId: number) {
@@ -292,8 +294,8 @@ export class ScheduleService {
     if (!designation) {
       throw new BadRequestException('Designação do horário inválido');
     }
-  const horarioResult = await this.dataSource.query(
-  `
+    const horarioResult = await this.dataSource.query(
+      `
   SELECT DISTINCT
     h."PK_HORARIO"                                            AS "CODIGO",
     h."DESIGNACAO"                                            AS "DESIGNACAO",
@@ -331,8 +333,8 @@ export class ScheduleService {
         REGEXP_REPLACE(UPPER(:designation), '\\s+', '')
 
   `,
-  [designation],
-);
+      [designation],
+    );
 
 
     const horarioRows = Array.isArray(horarioResult)
@@ -1397,8 +1399,12 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       throw new BadRequestException(`Com Este número de estudantes selecionado, vas exceder a capacidade suportado. Atual: ${to[0].TOTAL_ALUNOS} Previsão Com os novos : ${to[0].CAPACIDADE + studentsCurriculumIds.length}`)
 
     }
+        const user = await this.getUser(userId);
+     
+    
     const json_schedule = `{"pk":${to[0].CODIGO},"desc":"${escapeQuotes(to[0].DESIGNACAO)}", "corLetra": "black", "disponivel": true}`;
-    const json_user = `{"pk": ${userId}, "desc": " ", "corLetra": "black", "disponivel": true}`
+      const json_user = `{"pk": ${userId}, "desc": ${escapeQuotes(user?.nome || '')}, "corLetra": "black", "disponivel": true}`
+      
     if (studentsCurriculumIds.length === 0) return;
     const validIdsResult = await this.dataSource.query(`
   SELECT "CODIGO"
@@ -1621,7 +1627,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       const ref_aula = `{"pk":${tipoAula},"desc":${modalidade} - ${this.diaSemanaParaTexto(aula.diaSemana)} ${aula.hora_inicio}-${aula.hora_fim}}`;
 
       // REF_SALA: se tiver sala, traz o código, senão "Por atribuir"
-      const ref_sala = `{"pk":${aula.sala}},"desc":"TESTE"`;
+      const ref_sala = `{"pk":${aula.sala}},"desc":""`;
 
       // REF_TURMAS_PARTICIPANTES: podes usar a turma do horário ou deixar vazio
       const ref_turmas = dto.turma ? `{"pk":${dto.turma}}` : null;
@@ -1821,5 +1827,46 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       { scheduleId } as any
     );
     return result[0]
+  }
+
+  private async getUser(userId: number) {
+    const query = `
+SELECT
+        -- Dados pessoais
+        td.CODIGO                         AS codigo_docente,
+        tu.EMAIL                          AS email,
+        tu.USERNAME                       AS username,
+        tu.nome                           AS nome,
+        pe.NOME_DO_PAI                    AS nome_pai,
+        pe.NOME_DA_MAE                    AS nome_mae,
+        pe.DATA_DE_NASCIMENTO             AS data_nascimento,
+        pe.NUM_DOC_IDENTIFICACAO          AS numero_documento,
+        pe.DATA_DE_EMISSAO_DOCUMENTO      AS data_emissao,
+        pe.ENDERECO                       AS endereco,
+        pe.TELEFONE1                      AS contacto_1,
+        pe.TELEFONE2                      AS contacto_2,
+
+        -- Dados do Docente
+        td.N_MECANOGRAFICO                AS n_mecanografico,
+        td.FK_ESCALAO                     AS codigo_escalao,
+        td.DATAINICIODOCENCIA                     AS data_inicio_docente,
+        td.TB_CATEGORIA_DOCENTE           AS codigo_categoria,
+        cd.DESIGNACAO                     AS descricao_categoria,
+        ed.DESIGNACAO                     AS escalao,
+        ga.DESIGNACAO                     AS descricao_grau_academico,
+        fa.DESIGNACAO                     AS faculdade_designacao
+FROM FK2_MCA_TB_UTILIZADOR         tu 
+LEFT JOIN FK2_MGD_TB_DOCENTE       td  ON json_value(td.CODIGO_UTILIZADOR,'$.pk') = tu.PK_UTILIZADOR
+LEFT JOIN FK2_TB_ESCALAO_DOCENTE   ed  ON ed.codigo = td.FK_ESCALAO
+LEFT JOIN FK2_TB_CATEGORIA_DOCENTE cd  ON cd.codigo = td.TB_CATEGORIA_DOCENTE
+LEFT JOIN FK2_MGD_TB_CANDIDATURA   ccc ON ccc.codigo = td.FK_CANDIDATURA
+LEFT JOIN FK2_TB_GRAU_ACADEMICO    ga  ON ga.codigo = ccc.GRAU_ACADEMICO
+LEFT JOIN FK2_TB_PESSOA            pe  ON pe.pk_pessoa = json_value(tu.REF_PESSOA,'$.pk')
+LEFT JOIN FK2_TB_FACULDADE         fa  ON fa.codigo = td.faculdade
+WHERE tu.PK_UTILIZADOR = :1
+`;
+const userData =  toLowerCaseKeys(await this.dataSource.query(query, [userId]))
+
+    return userData[0];
   }
 }
