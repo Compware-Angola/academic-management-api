@@ -17,15 +17,11 @@ import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ListScheduleDto } from './dto/list-schedule.dto';
 import { ListScheduleUCDto } from './dto/list-schedule-uc.dto';
-<<<<<<< HEAD
 import { CreatePermissionEditScheduleDto } from './dto/create-permission-edit-schedule.dto';
-@ApiTags('schedule')
-=======
 import { ListScheduleDocenteDto } from './dto/list-schedule-docente.dto';
 import { MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
 import { ListScheduleDayOfWeekto } from './dto/list-schedule-day-of-week.dto';
 @ApiTags("schedule")
->>>>>>> develop
 @Controller('schedule')
 export class ScheduleController {
   constructor(private readonly scheduleService: ScheduleService) {}
@@ -55,9 +51,7 @@ export class ScheduleController {
   async findAll(@Query(ValidationPipe) query: ListScheduleDto) {
     return this.scheduleService.findAll(query);
   }
-<<<<<<< HEAD
-  @Get('by-uc')
-=======
+
   @Post('move-students/:userId')
   @ApiOperation({ summary: 'Movimentar Estudante' })
   @ApiParam({ name: 'userId', type: Number, required: true, description: 'ID do usuário' })
@@ -69,7 +63,7 @@ export class ScheduleController {
     return this.scheduleService.moveStudents(dto,userId);
   }
   @Get("by-uc")
->>>>>>> develop
+
   @ApiOperation({
     summary: 'Listar horários by uc  com filtros avançados e paginação',
     description:
