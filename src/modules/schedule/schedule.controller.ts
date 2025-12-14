@@ -17,8 +17,15 @@ import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ListScheduleDto } from './dto/list-schedule.dto';
 import { ListScheduleUCDto } from './dto/list-schedule-uc.dto';
+<<<<<<< HEAD
 import { CreatePermissionEditScheduleDto } from './dto/create-permission-edit-schedule.dto';
 @ApiTags('schedule')
+=======
+import { ListScheduleDocenteDto } from './dto/list-schedule-docente.dto';
+import { MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
+import { ListScheduleDayOfWeekto } from './dto/list-schedule-day-of-week.dto';
+@ApiTags("schedule")
+>>>>>>> develop
 @Controller('schedule')
 export class ScheduleController {
   constructor(private readonly scheduleService: ScheduleService) {}
@@ -48,7 +55,21 @@ export class ScheduleController {
   async findAll(@Query(ValidationPipe) query: ListScheduleDto) {
     return this.scheduleService.findAll(query);
   }
+<<<<<<< HEAD
   @Get('by-uc')
+=======
+  @Post('move-students/:userId')
+  @ApiOperation({ summary: 'Movimentar Estudante' })
+  @ApiParam({ name: 'userId', type: Number, required: true, description: 'ID do usuário' })
+  @ApiResponse({ status: 201, description: 'Estudantes Movimentados.' })
+  @ApiResponse({ status: 400, description: 'Dados inválidos.' })
+
+  moveStudents( @Param('userId') userId: number,@Body() dto: MoveStudentsToScheduleDto) {
+    
+    return this.scheduleService.moveStudents(dto,userId);
+  }
+  @Get("by-uc")
+>>>>>>> develop
   @ApiOperation({
     summary: 'Listar horários by uc  com filtros avançados e paginação',
     description:
@@ -61,6 +82,46 @@ export class ScheduleController {
   @ApiResponse({ status: 400, description: 'Parâmetros inválidos' })
   async findScheduleByUC(@Query(ValidationPipe) query: ListScheduleUCDto) {
     return this.scheduleService.findScheduleByUC(query);
+  }
+    @Get('by-docente')
+  @ApiOperation({
+    summary: 'Listar horário por docente',
+    description:
+      'Retorna todos os horários associados ao docente selecionado, filtrados por ano letivo, semestre e período.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Horários encontrados com sucesso',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Parâmetros inválidos',
+  })
+  async findScheduleByDocente(
+    @Query(ValidationPipe) query: ListScheduleDocenteDto,
+  ) {
+ 
+    return this.scheduleService.findScheduleByDocente(query);
+  }
+  @Get('by-day-of-week')
+  @ApiOperation({
+    summary: 'Listar horário por dia da semana!',
+    description:
+      'Retorna todos os horários associados ao docente selecionado, filtrados por ano letivo, semestre e período.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Horários encontrados com sucesso',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Parâmetros inválidos',
+  })
+  async findScheduleByDayOfTheweek(
+    @Query(ValidationPipe) query: ListScheduleDayOfWeekto,
+  ) {
+ 
+    return this.scheduleService.findScheduleByDayOfTheweek(query);
   }
   @Get('registration-by-schedule')
   @ApiOperation({
@@ -108,6 +169,14 @@ export class ScheduleController {
   async findAllDeleted(@Query(ValidationPipe) query: ListScheduleDto) {
     return this.scheduleService.findAllDeleted(query);
   }
+@Get('designation/:designation')
+@ApiOperation({ summary: 'Buscar horário completo pela designação' })
+@ApiParam({ name: 'designation', example: 'ACSP.2.HEMAT I-H1' })
+@ApiResponse({ status: 200, description: 'Horário encontrado' })
+@ApiResponse({ status: 404, description: 'Horário não encontrado' })
+async findOneByDesignation(@Param('designation') designation: string) {
+  return this.scheduleService.findOneByDesignation(designation);
+}
   @Get(':id')
   @ApiOperation({ summary: 'Buscar horário completo por ID' })
   @ApiParam({ name: 'id', example: 13047 })
@@ -116,6 +185,7 @@ export class ScheduleController {
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return this.scheduleService.findOneById(id);
   }
+
   @Post(':userId')
   @ApiOperation({ summary: 'Criar novo horário de uma UC' })
   @ApiParam({

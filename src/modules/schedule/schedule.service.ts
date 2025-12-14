@@ -11,6 +11,10 @@ import { ListScheduleDto } from './dto/list-schedule.dto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { ListScheduleUCDto } from './dto/list-schedule-uc.dto';
 import { CreatePermissionEditScheduleDto } from './dto/create-permission-edit-schedule.dto';
+import { ListScheduleDocenteDto } from './dto/list-schedule-docente.dto';
+import { MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
+import { escapeQuotes } from '../util/escape-quotes';
+import { ListScheduleDayOfWeekto } from './dto/list-schedule-day-of-week.dto';
 
 // deletar passar para estaso 0 e as aulas que estao com este hotario mudar oestado tbm para 0
 // Validar horario
@@ -19,10 +23,65 @@ import { CreatePermissionEditScheduleDto } from './dto/create-permission-edit-sc
 export class ScheduleService {
   constructor(private readonly dataSource: DataSource) {}
   async create(userId: number, dto: CreateScheduleDto) {
+   
+       
+  
+    const terms = await this.promptToCreateAndEditSchedule(3, dto.anoLectivo);
+    if (!terms) {
+      throw new BadRequestException(
+        'O prazo de criação Ainda Não foi  definido.',
+      );
+    }
+    const agora = new Date();
+    const dataInicio = new Date(terms.DATA_INICIO);
+    const dataFim = new Date(terms.DATA_FIM);
+
+    const estaNoPrazo =
+      agora.getTime() >= dataInicio.getTime() &&
+      agora.getTime() <= dataFim.getTime();
+
+    if (!estaNoPrazo) {
+      throw new BadRequestException(
+        'O prazo de criação de Horário já terminou .',
+      );
+    }
+
     return await this.createOrUpdateHorario(userId, dto);
   }
 
   async update(userId: number, horarioIdParam: number, dto: UpdateScheduleDto) {
+
+    const terms = await this.promptToCreateAndEditSchedule(3, dto.anoLectivo);
+    if (!terms) {
+      throw new BadRequestException(
+        'O prazo de criação Ainda Não foi  definido.',
+      );
+    }
+    const agora = new Date();
+    const dataInicio = new Date(terms.DATA_INICIO);
+    const dataFim = new Date(terms.DATA_FIM);
+    const estaNoPrazo =
+      agora.getTime() >= dataInicio.getTime() &&
+      agora.getTime() <= dataFim.getTime();
+    // Brecha
+    const loopholeToEditSchedule = await this.loopholeToEditSchedule(horarioIdParam)
+    if (!loopholeToEditSchedule) {
+      throw new BadRequestException(
+        'Este Horário não tem permissão de ser Editado .',
+      );
+    }
+    const dataInicioLoophole = new Date(loopholeToEditSchedule.DATA_INICIO);
+    const dataFimLoophole = new Date(loopholeToEditSchedule.DATA_FIM);
+
+    const loopholeToEdit =
+      agora.getTime() >= dataInicioLoophole.getTime() &&
+      agora.getTime() <= dataFimLoophole.getTime();
+
+    if (!estaNoPrazo && !loopholeToEdit) {
+      throw new BadRequestException(
+        'O prazo de Edição de Horário já terminou .',
+      );
+    }
     return await this.createOrUpdateHorario(userId, dto, horarioIdParam);
   }
 
@@ -139,8 +198,6 @@ export class ScheduleService {
       dataRestauracao: new Date().toISOString(),
     };
   }
-
-  // schedule.service.ts
 
   async findOneById(horarioId: number) {
     if (!horarioId || horarioId <= 0) {
@@ -292,6 +349,84 @@ export class ScheduleService {
       })),
     };
   }
+  async findOneByDesignation(designation: string) {
+    if (!designation) {
+      throw new BadRequestException('Designação do horário inválido');
+    }
+    const horarioResult = await this.dataSource.query(
+      `
+  SELECT DISTINCT
+    h."PK_HORARIO"                                            AS "CODIGO",
+    h."DESIGNACAO"                                            AS "DESIGNACAO",
+    TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", ''))            AS "UNIDADECURRICULARID",
+    d."DESIGNACAO"                                            AS "UNIDADECURRICULAR",
+    c."SIGLA"                                                 AS "CURSO",
+    cl."DESIGNACAO"                                           AS "ANO",
+    h."CAPACIDADE"                                            AS "CAPACIDADE",
+    CASE WHEN h."APENASPRIMEIROANO" = 1 THEN 'Sim' ELSE 'Não' END AS "RESERVADO",
+    h."FK_PERIODO"                                            AS "SEMESTRE",
+    ew."DESIGNACAO"                                           AS "ESTADO",
+    ew."COR"                                                  AS "ESTADOCOR",
+    ew."PK_ESTADO_HORARIO_WF"                                 AS "ESTADOID",
+    CASE WHEN h."DIPONIVEL" = 1 THEN 'Disponivel' ELSE 'Fechado' END AS "DISPONIBILIDADE",
+    NVL(ut_criador."NOME", h."CREATED_BY")                    AS "CRIADOPOR",
+    NVL(ut_atualizador."NOME", h."LAST_UPDATED_BY")           AS "ATUALIZADOPOR",
+    TO_CHAR(h."UPDATED_AT", 'DD/MM/YYYY HH24:MI')             AS "DATAULTIMAATUALIZACAO",
+    TO_CHAR(h."CREATED_AT", 'DD/MM/YYYY HH24:MI')             AS "DATACRIACAO"
+  FROM "FK2_MGH_TB_HORARIO" h
+  INNER JOIN "FK2_TB_GRADE_CURRICULAR" g 
+    ON TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", '')) = g."CODIGO"
+  LEFT JOIN "FK2_TB_DISCIPLINAS" d     
+    ON g."CODIGO_DISCIPLINA" = d."CODIGO"
+  LEFT JOIN "FK2_TB_CURSOS" c          
+    ON g."CODIGO_CURSO" = c."CODIGO"
+  LEFT JOIN "FK2_TB_CLASSES" cl        
+    ON g."CODIGO_CLASSE" = cl."CODIGO"
+  LEFT JOIN "FK2_MGH_TB_ESTADO_HORARIO_WF" ew 
+    ON h."FK_ESTADO_HORARIO_WF" = ew."PK_ESTADO_HORARIO_WF"
+  LEFT JOIN "FK2_MCA_TB_UTILIZADOR" ut_criador  
+    ON h."CREATED_BY" = ut_criador."PK_UTILIZADOR"
+  LEFT JOIN "FK2_MCA_TB_UTILIZADOR" ut_atualizador  
+    ON h."LAST_UPDATED_BY" = ut_atualizador."PK_UTILIZADOR"
+  WHERE REGEXP_REPLACE(UPPER(h."DESIGNACAO"), '\\s+', '') =
+        REGEXP_REPLACE(UPPER(:designation), '\\s+', '')
+
+  `,
+      [designation],
+    );
+
+
+    const horarioRows = Array.isArray(horarioResult)
+      ? (Array.isArray(horarioResult[0]) ? horarioResult[0] : horarioResult)
+      : [horarioResult];
+
+    if (horarioRows.length === 0) {
+      throw new NotFoundException(`Horário com a Designação ${designation} não encontrado`);
+    }
+
+    const h = horarioRows[0];
+    return {
+      codigo: Number(h.CODIGO),
+      designacao: h.DESIGNACAO,
+      unidadeCurricularId: Number(h.UNIDADECURRICULARID),
+      unidadeCurricular: h.UNIDADECURRICULAR,
+      curso: h.CURSO,
+      ano: h.ANO,
+      capacidade: Number(h.CAPACIDADE),
+      reservado: h.RESERVADO,
+      semestre: Number(h.SEMESTRE),
+      estado: h.ESTADO,
+      estadoCor: h.ESTADOCOR,
+      estadoId: Number(h.ESTADOID),
+      disponibilidade: h.DISPONIBILIDADE,
+      disponivel: h.DISPONIBILIDADE === 'Disponivel',
+      criadoPor: h.CRIADOPOR,
+      atualizadoPor: h.ATUALIZADOPOR || null,
+      dataUltimaAtualizacao: h.DATAULTIMAATUALIZACAO,
+      dataCriacao: h.DATACRIACAO,
+
+    };
+  }
   async validate(userId: number, horarioId: number) {
     if (!horarioId || horarioId <= 0) {
       throw new BadRequestException('ID do horário inválido');
@@ -434,7 +569,8 @@ export class ScheduleService {
       dataAtualizacao: new Date().toISOString(),
     };
   }
-  // horarios.service.ts
+ 
+
   async findAll(filters: ListScheduleDto) {
     const {
       anoLectivo,
@@ -574,8 +710,6 @@ export class ScheduleService {
     ORDER BY rn
   `;
 
-    console.log('SQL:', sql);
-    console.log('PARAMS:', params);
 
     const result = await this.dataSource.query(sql, params);
 
@@ -631,7 +765,8 @@ export class ScheduleService {
         cl."DESIGNACAO"                               AS "ANO",
         h."CAPACIDADE"                                            AS "CAPACIDADE",
         CASE WHEN h."APENASPRIMEIROANO" = 1 THEN 'Sim' ELSE 'Não' END AS "RESERVADO",
-        h."FK_PERIODO"                                            AS "SEMESTRE",
+        h."FK_SEMESTRE"                                             AS "SEMESTRE",
+          h."FK_PERIODO"                                            AS "PERIODO",
         ew."DESIGNACAO"                                           AS "ESTADO",
         ew."COR"                                                  AS "ESTADOCOR",
         ew."PK_ESTADO_HORARIO_WF"                                 AS "ESTADOID",
@@ -748,6 +883,11 @@ export class ScheduleService {
     ORDER BY rn
   `;
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> develop
     const result = await this.dataSource.query(sql, params);
 
     const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
@@ -765,7 +905,8 @@ export class ScheduleService {
     };
   }
   async detailsRegistrationBySchedule(scheduleId: number) {
-    let sql = `SELECT
+
+    let sql = `SELECT  
 GCA.CODIGO  AS codigo_grade_aluno ,
 MAT.CODIGO AS NUMERO_DE_MATRICULA,
 PRE.NOME_COMPLETO AS NOME_COMPLETO,
@@ -777,7 +918,8 @@ PRE.NOME_COMPLETO AS NOME_COMPLETO,
       cl."DESIGNACAO"                             AS "ANO",
       H."CAPACIDADE"                                            AS "CAPACIDADE",
       CASE WHEN H."APENASPRIMEIROANO" = 1 THEN 'Sim' ELSE 'Não' END AS "RESERVADO",
-      H."FK_PERIODO"                                            AS "SEMESTRE",
+      H."FK_SEMESTRE"                                            AS "SEMESTRE",
+        H."FK_PERIODO"                                            AS "PERIODO",
       ew."DESIGNACAO"                                           AS "ESTADO",
       ew."COR"                                                  AS "ESTADOCOR",
       ew."PK_ESTADO_HORARIO_WF"                                 AS "ESTADOID",
@@ -813,7 +955,8 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
    `;
 
     const result = await this.dataSource.query(sql);
-    return await toLowerCaseKeys(result);
+
+    return await toLowerCaseKeys(result)
   }
 
   async findAllDeleted(filters: ListScheduleDto) {
@@ -955,8 +1098,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     ORDER BY rn
   `;
 
-    console.log('SQL:', sql);
-    console.log('PARAMS:', params);
+
 
     const result = await this.dataSource.query(sql, params);
 
@@ -1067,6 +1209,323 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       totalPages,
     };
   }
+  async findScheduleByDocente({
+    docenteId,
+    anoLectivo,
+    semestre,
+    periodo,
+    limit = 25,
+    page = 1,
+  }: ListScheduleDocenteDto) {
+    const offset = (page - 1) * limit;
+
+    // Construindo WHERE dinamicamente baseado nos campos opcionais
+    const whereConditions: string[] = [
+      `TO_NUMBER(json_value(al.REF_DOCENTE,'$.pkDocente')) = ${docenteId}`,
+      `h.FK_ANO_LECTIVO = ${anoLectivo}`,
+      `h.ACTIVE_STATE = 1`,
+      `al.ACTIVE_STATE = 1`,
+      `h.DIPONIVEL = 1`,
+      `h.FK_ESTADO_HORARIO_WF != 4`,
+    ];
+
+    // Adiciona semestre apenas se fornecido
+    if (semestre !== undefined && semestre !== null) {
+      whereConditions.push(`h.FK_SEMESTRE = ${semestre}`);
+    }
+
+    // Adiciona período apenas se fornecido
+    if (periodo !== undefined && periodo !== null) {
+      whereConditions.push(`h.FK_PERIODO = ${periodo}`);
+    }
+
+    const baseWhere = whereConditions.join('\n      AND ');
+
+    // -------------------- QUERY PRINCIPAL (SEM DISTINCT) --------------------
+    const sql = `
+    SELECT
+      h.PK_HORARIO                                       AS CODIGO,
+      DBMS_LOB.SUBSTR(h.DESIGNACAO, 4000, 1)             AS HORARIO_NOME,
+      json_value(al.REF_DOCENTE, '$.nome')               AS DOCENTE_NOME,
+      json_value(al.REF_DOCENTE, '$.pkDocente')          AS CODIGO_DOCENTE,
+      al.HORA_INICIO                                     AS HORA_INICIO,
+      al.HORA_TERMINO                                    AS HORA_TERMINO,
+      TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, ''))       AS CODIGO_GRADE,
+      DBMS_LOB.SUBSTR(d.DESIGNACAO, 4000, 1)             AS DISCIPLINA,
+      DBMS_LOB.SUBSTR(m.DESIGNACAO, 4000, 1)             AS MODALIDADE,
+      DBMS_LOB.SUBSTR(at.DESIGNACAO, 4000, 1)            AS TIPO_AULA,
+      DBMS_LOB.SUBSTR(ds.DESIGNACAO, 4000, 1)            AS DIA_SEMANA,
+      ds.ORDEM                                           AS ORDEM_DIA_SEMANA,
+      json_value(al.REF_SALA, '$.desc')                  AS SALA,
+      c.CODIGO_CURSO                                     AS CODIGO_CURSO,
+      c2.SIGLA                                           AS CURSO,
+      DBMS_LOB.SUBSTR(cl.DESIGNACAO, 4000, 1)            AS ANO,
+      h.CAPACIDADE                                       AS CAPACIDADE,
+      CASE WHEN h.APENASPRIMEIROANO = 1 THEN 'Sim' ELSE 'Não' END AS RESERVADO,
+      h.FK_PERIODO                                       AS PERIODO,
+      DBMS_LOB.SUBSTR(ew.DESIGNACAO, 4000, 1)            AS ESTADO,
+      ew.COR                                             AS ESTADOCOR,
+      ew.PK_ESTADO_HORARIO_WF                            AS ESTADOID,
+      CASE WHEN h.DIPONIVEL = 1 THEN 'Disponivel' ELSE 'Fechado' END AS DISPONIBILIDADE,
+      NVL(ut_criador.NOME, h.CREATED_BY)                 AS CRIADOPOR,
+      NVL(ut_atualizador.NOME, h.LAST_UPDATED_BY)        AS ATUALIZADOPOR,
+      TO_CHAR(h.UPDATED_AT, 'DD/MM/YYYY HH24:MI')        AS DATAULTIMAATUALIZACAO,
+      TO_CHAR(h.CREATED_AT, 'DD/MM/YYYY HH24:MI')        AS DATACRIACAO
+    FROM FK2_MGH_TB_HORARIO h
+        INNER JOIN FK2_MGH_TB_AULA al
+                ON al.FK_HORARIO = h.PK_HORARIO
+        INNER JOIN FK2_MGH_TB_TIPO_AULA at
+                ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
+        INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
+                ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+        INNER JOIN FK2_MGH_TB_MODALIDADE m
+                ON m.PK_MODALIDADE = al.FK_MODALIDADE
+        INNER JOIN FK2_TB_GRADE_CURRICULAR c
+                ON TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, '')) = c.CODIGO
+        LEFT JOIN FK2_TB_DISCIPLINAS d
+                ON c.CODIGO_DISCIPLINA = d.CODIGO
+        LEFT JOIN FK2_TB_CURSOS c2
+                ON c.CODIGO_CURSO = c2.CODIGO
+        LEFT JOIN FK2_TB_CLASSES cl
+                ON c.CODIGO_CLASSE = cl.CODIGO
+        LEFT JOIN FK2_MGH_TB_ESTADO_HORARIO_WF ew
+                ON h.FK_ESTADO_HORARIO_WF = ew.PK_ESTADO_HORARIO_WF
+        LEFT JOIN FK2_MCA_TB_UTILIZADOR ut_criador
+                ON h.CREATED_BY = ut_criador.PK_UTILIZADOR
+        LEFT JOIN FK2_MCA_TB_UTILIZADOR ut_atualizador
+                ON h.LAST_UPDATED_BY = ut_atualizador.PK_UTILIZADOR
+    WHERE ${baseWhere}
+
+    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+  `;
+
+    // -------------------- QUERY DE CONTAGEM --------------------
+    const sqlCount = `
+    SELECT COUNT(*) AS TOTAL
+    FROM FK2_MGH_TB_HORARIO h
+      INNER JOIN FK2_MGH_TB_AULA al
+              ON al.FK_HORARIO = h.PK_HORARIO
+      INNER JOIN FK2_MGH_TB_TIPO_AULA at
+              ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
+      INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
+              ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+      INNER JOIN FK2_MGH_TB_MODALIDADE m
+              ON m.PK_MODALIDADE = al.FK_MODALIDADE
+      INNER JOIN FK2_TB_GRADE_CURRICULAR c
+              ON TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, '')) = c.CODIGO
+    WHERE ${baseWhere}
+  `;
+
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql),
+      this.dataSource.query(sqlCount),
+    ]);
+
+    const total = Number(countResult[0].TOTAL);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: await toLowerCaseKeys(result),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
+  async findScheduleByDayOfTheweek({
+    unidadeCurricular,
+    anoCurricular,
+    diaSemana,
+    anoLectivo,
+    semestre,
+    periodo,
+    curso,
+    limit = 10,
+    page = 1,
+  }: ListScheduleDayOfWeekto) {
+    const offset = (page - 1) * limit;
+
+    const whereConditions: string[] = [
+      `c.CODIGO_CURSO  = ${curso}`,
+      `ds.PK_DIA_DA_SEMANA = ${diaSemana}`,
+      `h.FK_ANO_LECTIVO = ${anoLectivo}`,
+      `h.ACTIVE_STATE = 1`,
+      `al.ACTIVE_STATE = 1`,
+      `h.DIPONIVEL = 1`,
+      `h.FK_ESTADO_HORARIO_WF != 4`,
+    ];
+    // Adiciona semestre apenas se fornecido
+    if (semestre !== undefined && semestre !== null) {
+      whereConditions.push(`h.FK_SEMESTRE = ${semestre}`);
+    }
+
+    // Adiciona período apenas se fornecido
+    if (periodo !== undefined && periodo !== null) {
+      whereConditions.push(`h.FK_PERIODO = ${periodo}`);
+    }
+
+    if (unidadeCurricular !== undefined && unidadeCurricular !== null) {
+      whereConditions.push(` c.CODIGO = ${unidadeCurricular}`);
+    }
+    if (anoCurricular !== undefined && anoCurricular !== null) {
+      whereConditions.push(`c.CODIGO_CLASSE =${anoCurricular}`);
+    }
+
+
+    const baseWhere = whereConditions.join('\n      AND ');
+
+    // -------------------- QUERY PRINCIPAL (SEM DISTINCT) --------------------
+    const sql = `
+    SELECT
+      h.PK_HORARIO                                       AS CODIGO,
+      DBMS_LOB.SUBSTR(h.DESIGNACAO, 4000, 1)             AS HORARIO_NOME,
+      json_value(al.REF_DOCENTE, '$.nome')               AS DOCENTE_NOME,
+      json_value(al.REF_DOCENTE, '$.pkDocente')          AS CODIGO_DOCENTE,
+      al.HORA_INICIO                                     AS HORA_INICIO,
+      al.HORA_TERMINO                                    AS HORA_TERMINO,
+      TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, ''))       AS CODIGO_GRADE,
+      DBMS_LOB.SUBSTR(d.DESIGNACAO, 4000, 1)             AS DISCIPLINA,
+      DBMS_LOB.SUBSTR(m.DESIGNACAO, 4000, 1)             AS MODALIDADE,
+      DBMS_LOB.SUBSTR(at.DESIGNACAO, 4000, 1)            AS TIPO_AULA,
+      DBMS_LOB.SUBSTR(ds.DESIGNACAO, 4000, 1)            AS DIA_SEMANA,
+      ds.ORDEM                                           AS ORDEM_DIA_SEMANA,
+      json_value(al.REF_SALA, '$.desc')                  AS SALA,
+      c.CODIGO_CURSO                                     AS CODIGO_CURSO,
+      c2.SIGLA                                           AS CURSO,
+      DBMS_LOB.SUBSTR(cl.DESIGNACAO, 4000, 1)            AS ANO,
+      h.CAPACIDADE                                       AS CAPACIDADE,
+      CASE WHEN h.APENASPRIMEIROANO = 1 THEN 'Sim' ELSE 'Não' END AS RESERVADO,
+      h.FK_PERIODO                                       AS PERIODO,
+      DBMS_LOB.SUBSTR(ew.DESIGNACAO, 4000, 1)            AS ESTADO,
+      ew.COR                                             AS ESTADOCOR,
+      ew.PK_ESTADO_HORARIO_WF                            AS ESTADOID,
+      CASE WHEN h.DIPONIVEL = 1 THEN 'Disponivel' ELSE 'Fechado' END AS DISPONIBILIDADE,
+      NVL(ut_criador.NOME, h.CREATED_BY)                 AS CRIADOPOR,
+      NVL(ut_atualizador.NOME, h.LAST_UPDATED_BY)        AS ATUALIZADOPOR,
+      TO_CHAR(h.UPDATED_AT, 'DD/MM/YYYY HH24:MI')        AS DATAULTIMAATUALIZACAO,
+      TO_CHAR(h.CREATED_AT, 'DD/MM/YYYY HH24:MI')        AS DATACRIACAO
+    FROM FK2_MGH_TB_HORARIO h
+        INNER JOIN FK2_MGH_TB_AULA al
+                ON al.FK_HORARIO = h.PK_HORARIO
+        INNER JOIN FK2_MGH_TB_TIPO_AULA at
+                ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
+        INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
+                ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+        INNER JOIN FK2_MGH_TB_MODALIDADE m
+                ON m.PK_MODALIDADE = al.FK_MODALIDADE
+        INNER JOIN FK2_TB_GRADE_CURRICULAR c
+                ON TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, '')) = c.CODIGO
+        LEFT JOIN FK2_TB_DISCIPLINAS d
+                ON c.CODIGO_DISCIPLINA = d.CODIGO
+        LEFT JOIN FK2_TB_CURSOS c2
+                ON c.CODIGO_CURSO = c2.CODIGO
+        LEFT JOIN FK2_TB_CLASSES cl
+                ON c.CODIGO_CLASSE = cl.CODIGO
+        LEFT JOIN FK2_MGH_TB_ESTADO_HORARIO_WF ew
+                ON h.FK_ESTADO_HORARIO_WF = ew.PK_ESTADO_HORARIO_WF
+        LEFT JOIN FK2_MCA_TB_UTILIZADOR ut_criador
+                ON h.CREATED_BY = ut_criador.PK_UTILIZADOR
+        LEFT JOIN FK2_MCA_TB_UTILIZADOR ut_atualizador
+                ON h.LAST_UPDATED_BY = ut_atualizador.PK_UTILIZADOR
+    WHERE ${baseWhere}
+
+    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+  `;
+
+    // -------------------- QUERY DE CONTAGEM --------------------
+    const sqlCount = `
+    SELECT COUNT(*) AS TOTAL
+    FROM FK2_MGH_TB_HORARIO h
+      INNER JOIN FK2_MGH_TB_AULA al
+              ON al.FK_HORARIO = h.PK_HORARIO
+      INNER JOIN FK2_MGH_TB_TIPO_AULA at
+              ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
+      INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
+              ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+      INNER JOIN FK2_MGH_TB_MODALIDADE m
+              ON m.PK_MODALIDADE = al.FK_MODALIDADE
+      INNER JOIN FK2_TB_GRADE_CURRICULAR c
+              ON TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, '')) = c.CODIGO
+    WHERE ${baseWhere}
+  `;
+
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql),
+      this.dataSource.query(sqlCount),
+    ]);
+
+    const total = Number(countResult[0].TOTAL);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: await toLowerCaseKeys(result),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
+
+  async moveStudents(dto: MoveStudentsToScheduleDto, userId: number) {
+    const { fromScheduleId, toScheduleId, studentsCurriculumIds } = dto
+    if (fromScheduleId == toScheduleId) {
+      throw new BadRequestException('O horário de origem e o horário de destino devem ser diferentes')
+    }
+    const from = await this.getschedule(fromScheduleId)
+    if (!from || from.length === 0) {
+      throw new NotFoundException(`Horário ${from}  de Origem não encontrado ou inativo`);
+    }
+    const to = await this.getschedule(toScheduleId)
+    if (!to || to.length === 0) {
+      throw new NotFoundException(`Horário ${to} de Destino não encontrado ou inativo`);
+    }
+
+    if ((to[0].TOTAL_ALUNOS + studentsCurriculumIds.length) > to[0].CAPACIDADE) {
+      throw new BadRequestException(`Com Este número de estudantes selecionado, vas exceder a capacidade suportado. Atual: ${to[0].TOTAL_ALUNOS} Previsão Com os novos : ${to[0].CAPACIDADE + studentsCurriculumIds.length}`)
+
+    }
+        const user = await this.getUser(userId);
+     
+    
+    const json_schedule = `{"pk":${to[0].CODIGO},"desc":"${escapeQuotes(to[0].DESIGNACAO)}", "corLetra": "black", "disponivel": true}`;
+      const json_user = `{"pk": ${userId}, "desc": ${escapeQuotes(user?.nome || '')}, "corLetra": "black", "disponivel": true}`
+      
+    if (studentsCurriculumIds.length === 0) return;
+    const validIdsResult = await this.dataSource.query(`
+  SELECT "CODIGO"
+  FROM "FK2_TB_GRADE_CURRICULAR_ALUNO"
+  WHERE "CODIGO" IN (${studentsCurriculumIds.join(',')})
+`);
+
+    const validIds = validIdsResult.map(row => row.CODIGO);
+
+    if (validIds.length === 0) {
+      console.warn('Nenhum aluno válido encontrado para atualizar o horário.');
+      throw new NotFoundException(`Nenhum aluno válido encontrado para atualizar o horário`);
+
+    }
+
+    console.log(`Atualizando horário de ${validIds.length} aluno(s)`);
+
+    await this.dataSource.query(`
+  UPDATE "FK2_TB_GRADE_CURRICULAR_ALUNO"
+  SET 
+    "REF_HORARIO" = :json_schedule,
+    "USER_ID"=:userId,
+    "CODIGO_UTILIZADOR" =:utilizador,
+    "REF_UTILIZADOR"=:json_user,
+    "UPDATED_AT" = SYSDATE
+  WHERE "CODIGO" IN (${validIds.join(',')})
+`, { json_schedule, userId, utilizador: userId, json_user } as any);
+
+
+    return {
+      success: true,
+      message: `${studentsCurriculumIds.length} Estudante(s) Movimentados com sucesso`
+    }
+
+
+  }
 
   private async createOrUpdateHorario(
     userId: number = 1,
@@ -1097,7 +1556,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     const v_desc_periodo = await this.getDescricaoPeriodo(periodo);
     const v_desc_ano_lectivo = await this.getDescricaoAnoLectivo(anoLectivo);
 
-    const escapeQuotes = (str: string) => str.replace(/"/g, '\\"');
+
 
     const v_json_grade = `{"pk":${v_grade_curricular},"desc":"${escapeQuotes(v_desc_grade)}","corLetra":"black"}`;
     const v_json_periodo = `{"pkPeriodo":${periodo},"desc":"${escapeQuotes(v_desc_periodo)}"}`;
@@ -1265,7 +1724,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       const ref_aula = `{"pk":${tipoAula},"desc":${modalidade} - ${this.diaSemanaParaTexto(aula.diaSemana)} ${aula.hora_inicio}-${aula.hora_fim}}`;
 
       // REF_SALA: se tiver sala, traz o código, senão "Por atribuir"
-      const ref_sala = `{"pk":${aula.sala}},"desc":"TESTE"`;
+      const ref_sala = `{"pk":${aula.sala}},"desc":""`;
 
       // REF_TURMAS_PARTICIPANTES: podes usar a turma do horário ou deixar vazio
       const ref_turmas = dto.turma ? `{"pk":${dto.turma}}` : null;
@@ -1434,5 +1893,92 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       'Sábado',
     ];
     return dias[dia] || 'Segunda';
+  }
+  private async getschedule(cheduleId: number): Promise<any> {
+    return await this.dataSource.query(`
+    SELECT DISTINCT
+      h."PK_HORARIO"                                            AS "CODIGO",
+      h."DESIGNACAO"                                            AS "DESIGNACAO",
+      h."CAPACIDADE"                                            AS "CAPACIDADE",
+        NVL(alu."TOTAL_ALUNOS", 0)                                AS "TOTAL_ALUNOS"
+    FROM "FK2_MGH_TB_HORARIO" h
+   INNER JOIN "FK2_TB_GRADE_CURRICULAR" g 
+    ON TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", '')) = g."CODIGO"
+  LEFT JOIN (
+    SELECT 
+        "CODIGO_GRADE_CURRICULAR",
+        JSON_VALUE("REF_HORARIO", '$.pk' RETURNING NUMBER) AS "HORARIO_ID",
+        COUNT(*) AS "TOTAL_ALUNOS"
+    FROM "FK2_TB_GRADE_CURRICULAR_ALUNO"
+     GROUP BY 
+        "CODIGO_GRADE_CURRICULAR",
+        JSON_VALUE("REF_HORARIO", '$.pk' RETURNING NUMBER)
+) alu 
+    ON alu."CODIGO_GRADE_CURRICULAR" = g."CODIGO"
+   AND alu."HORARIO_ID" = h."PK_HORARIO"
+    WHERE h."PK_HORARIO" = :cheduleId
+     
+  `, [cheduleId]);
+  }
+  private async promptToCreateAndEditSchedule(tipo_prazo: number, ano_lectivo: number): Promise<any> {
+    const result = await this.dataSource.query(
+      `SELECT DATA_INICIO,DATA_FIM,PK_PRAZO,OBSERVACAO,FK_TIPO_PRAZO
+     FROM FK2_MCAL_TB_PRAZO
+     WHERE FK_TIPO_PRAZO = :tipo_prazo
+     AND FK_ANO_LECTIVO = :ano_lectivo`,
+      { tipo_prazo, ano_lectivo } as any
+    );
+    return result[0]
+  }
+  private async loopholeToEditSchedule(scheduleId: number): Promise<any> {
+    const result = await this.dataSource.query(
+      `SELECT DATA_INICIO,DATA_FIM,PK_PERMISAO_EDICAO_HORARIO
+     FROM FK2_MGH_TB_PERMISAO_EDICAO_HORARIO
+     WHERE FK_HORARIO = :scheduleId
+     AND ATIVE_STATE = 1`,
+      { scheduleId } as any
+    );
+    return result[0]
+  }
+
+  private async getUser(userId: number) {
+    const query = `
+SELECT
+        -- Dados pessoais
+        td.CODIGO                         AS codigo_docente,
+        tu.EMAIL                          AS email,
+        tu.USERNAME                       AS username,
+        tu.nome                           AS nome,
+        pe.NOME_DO_PAI                    AS nome_pai,
+        pe.NOME_DA_MAE                    AS nome_mae,
+        pe.DATA_DE_NASCIMENTO             AS data_nascimento,
+        pe.NUM_DOC_IDENTIFICACAO          AS numero_documento,
+        pe.DATA_DE_EMISSAO_DOCUMENTO      AS data_emissao,
+        pe.ENDERECO                       AS endereco,
+        pe.TELEFONE1                      AS contacto_1,
+        pe.TELEFONE2                      AS contacto_2,
+
+        -- Dados do Docente
+        td.N_MECANOGRAFICO                AS n_mecanografico,
+        td.FK_ESCALAO                     AS codigo_escalao,
+        td.DATAINICIODOCENCIA                     AS data_inicio_docente,
+        td.TB_CATEGORIA_DOCENTE           AS codigo_categoria,
+        cd.DESIGNACAO                     AS descricao_categoria,
+        ed.DESIGNACAO                     AS escalao,
+        ga.DESIGNACAO                     AS descricao_grau_academico,
+        fa.DESIGNACAO                     AS faculdade_designacao
+FROM FK2_MCA_TB_UTILIZADOR         tu 
+LEFT JOIN FK2_MGD_TB_DOCENTE       td  ON json_value(td.CODIGO_UTILIZADOR,'$.pk') = tu.PK_UTILIZADOR
+LEFT JOIN FK2_TB_ESCALAO_DOCENTE   ed  ON ed.codigo = td.FK_ESCALAO
+LEFT JOIN FK2_TB_CATEGORIA_DOCENTE cd  ON cd.codigo = td.TB_CATEGORIA_DOCENTE
+LEFT JOIN FK2_MGD_TB_CANDIDATURA   ccc ON ccc.codigo = td.FK_CANDIDATURA
+LEFT JOIN FK2_TB_GRAU_ACADEMICO    ga  ON ga.codigo = ccc.GRAU_ACADEMICO
+LEFT JOIN FK2_TB_PESSOA            pe  ON pe.pk_pessoa = json_value(tu.REF_PESSOA,'$.pk')
+LEFT JOIN FK2_TB_FACULDADE         fa  ON fa.codigo = td.faculdade
+WHERE tu.PK_UTILIZADOR = :1
+`;
+const userData =  toLowerCaseKeys(await this.dataSource.query(query, [userId]))
+
+    return userData[0];
   }
 }
