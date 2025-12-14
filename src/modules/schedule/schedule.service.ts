@@ -873,7 +873,6 @@ export class ScheduleService {
       )
     `;
     }
-
     // Fechar tudo corretamente
     sql += `
       ) dados
@@ -883,11 +882,6 @@ export class ScheduleService {
     ORDER BY rn
   `;
 
-<<<<<<< HEAD
-=======
-
-
->>>>>>> develop
     const result = await this.dataSource.query(sql, params);
 
     const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
