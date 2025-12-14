@@ -403,8 +403,25 @@ export class ScheduleService {
     ON h."CREATED_BY" = ut_criador."PK_UTILIZADOR"
   LEFT JOIN "FK2_MCA_TB_UTILIZADOR" ut_atualizador  
     ON h."LAST_UPDATED_BY" = ut_atualizador."PK_UTILIZADOR"
-  WHERE REGEXP_REPLACE(UPPER(h."DESIGNACAO"), '\\s+', '') =
-        REGEXP_REPLACE(UPPER(:designation), '\\s+', '')
+WHERE
+  REGEXP_REPLACE(
+    REGEXP_REPLACE(UPPER(h."DESIGNACAO"), '\\s+', ''),
+    '-H[0-9]+$', '-H'
+  ) =
+  REGEXP_REPLACE(
+    REGEXP_REPLACE(UPPER(:designation), '\\s+', ''),
+    '-H[0-9]+$', '-H'
+  )
+ORDER BY
+  REGEXP_REPLACE(UPPER(h."DESIGNACAO"), '-H[0-9]+$', '-H'),
+  TO_NUMBER(
+    NVL(
+      REGEXP_SUBSTR(h."DESIGNACAO", '-H([0-9]+)$', 1, 1, NULL, 1),
+      0
+    )
+  )
+
+
 
   `,
       [designation],
@@ -419,26 +436,9 @@ export class ScheduleService {
       throw new NotFoundException(`Horário com a Designação ${designation} não encontrado`);
     }
 
-    const h = horarioRows[0];
     return {
-      codigo: Number(h.CODIGO),
-      designacao: h.DESIGNACAO,
-      unidadeCurricularId: Number(h.UNIDADECURRICULARID),
-      unidadeCurricular: h.UNIDADECURRICULAR,
-      curso: h.CURSO,
-      ano: h.ANO,
-      capacidade: Number(h.CAPACIDADE),
-      reservado: h.RESERVADO,
-      semestre: Number(h.SEMESTRE),
-      estado: h.ESTADO,
-      estadoCor: h.ESTADOCOR,
-      estadoId: Number(h.ESTADOID),
-      disponibilidade: h.DISPONIBILIDADE,
-      disponivel: h.DISPONIBILIDADE === 'Disponivel',
-      criadoPor: h.CRIADOPOR,
-      atualizadoPor: h.ATUALIZADOPOR || null,
-      dataUltimaAtualizacao: h.DATAULTIMAATUALIZACAO,
-      dataCriacao: h.DATACRIACAO,
+      success:true,
+      data : await toLowerCaseKeys(horarioResult)
 
     };
   }
