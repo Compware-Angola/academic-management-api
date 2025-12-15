@@ -149,12 +149,10 @@ export class CreateScheduleDto {
   @ApiPropertyOptional({ description: 'Se é apenas 1º ano (capacidade = 100)', example: 0, default: 0 })
   @IsOptional()
   @IsInt()
-  @Min(0)
-  @Max(1)
   @ApiPropertyOptional()
   @IsInt()
   @IsOptional()
-  estadoHorario?: number = 1;
+  estadoHorario?: number = 2;
   @ApiProperty({
     description: 'Descrição/nome do horário (ex: "Horário LEI 1º ano - 2024/25")',
     example: 'Horário LEI 1º ano - Programação Web',
