@@ -26,7 +26,7 @@ export class ScheduleService {
    
        
   
-    const terms = await this.promptToCreateAndEditSchedule(3, dto.anoLectivo);
+    const terms = await this.promptToCreateAndEditSchedule(5, dto.anoLectivo);
     if (!terms) {
       throw new BadRequestException(
         'O prazo de criação Ainda Não foi  definido.',
@@ -53,7 +53,7 @@ export class ScheduleService {
 
   async update(userId: number, horarioIdParam: number, dto: UpdateScheduleDto) {
 
-    const terms = await this.promptToCreateAndEditSchedule(3, dto.anoLectivo);
+    const terms = await this.promptToCreateAndEditSchedule(5, dto.anoLectivo);
     if (!terms) {
       throw new BadRequestException(
         'O prazo de criação Ainda Não foi  definido.',
