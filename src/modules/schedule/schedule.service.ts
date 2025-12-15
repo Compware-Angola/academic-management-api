@@ -1871,7 +1871,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       const ref_aula = `{"pk":${tipoAula},"desc":${v_desc_grade}}`;
 
       // REF_SALA: se tiver sala, traz o código, senão "Por atribuir"
-      const ref_sala = `{"pk":${aula.sala}},"desc":""`;
+      const ref_sala = `{"pk":${aula.sala}},"desc":" "`;
 
       // REF_TURMAS_PARTICIPANTES: podes usar a turma do horário ou deixar vazio
       const ref_turmas = dto.turma ? `{"pk":${dto.turma}}` : null;
