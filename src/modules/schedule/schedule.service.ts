@@ -648,7 +648,7 @@ ORDER BY
         ON h."CREATED_BY" = ut."PK_UTILIZADOR"
       WHERE h."ACTIVE_STATE" = 1
         AND TO_NUMBER(NULLIF(h."FK_ANO_LECTIVO", '')) = :anoLectivo
-        AND ew."SIGLA" != 'ab'
+       AND ew."SIGLA" != 'ab'
 `;
 
     // Filtros opcionais (só adiciona se vier)
@@ -661,7 +661,9 @@ ORDER BY
       params.periodo = periodo;
     }
     if (unidadeCurricular != null) {
-      sql += ` AND g."CODIGO" = :unidadeCurricular`;
+      console.log(unidadeCurricular);
+      
+      sql += ` AND h."FK_GRADE_CURRICULAR" = :unidadeCurricular`;
       params.unidadeCurricular = unidadeCurricular;
     }
     if (anoCurricular != null) {
@@ -1691,7 +1693,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       modalidade,
       tipoAula,
       apenasPrimeiroAno = false,
-      estadoHorario = 1,
+      estadoHorario = 2,
       aulas,
       obs = null,
     } = dto;
