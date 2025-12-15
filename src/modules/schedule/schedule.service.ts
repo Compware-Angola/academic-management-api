@@ -619,7 +619,7 @@ ORDER BY
         h."DESIGNACAO"                                            AS "DESIGNACAO",
         TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", ''))            AS "GRADECURRICULARID",
         d."DESIGNACAO"                                            AS "UNIDADECURRICULAR",
-         d."CODIGO"                                            AS "UNIDADECURRICULARID",
+     
         c."SIGLA"                                                 AS "CURSO",
         cl."DESIGNACAO"                               AS "ANO",
         h."CAPACIDADE"                                            AS "CAPACIDADE",
@@ -661,7 +661,7 @@ ORDER BY
       params.periodo = periodo;
     }
     if (unidadeCurricular != null) {
-      sql += ` AND d."CODIGO" = :unidadeCurricular`;
+      sql += ` AND g."CODIGO" = :unidadeCurricular`;
       params.unidadeCurricular = unidadeCurricular;
     }
     if (anoCurricular != null) {
@@ -1698,6 +1698,9 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
 
     // === 1. Buscar dados descritivos ===
     const v_grade_curricular = await this.getGradeCurricular(unidadeCurricular);
+
+    console.log(v_grade_curricular,unidadeCurricular);
+    
     const v_desc_grade =
       await this.getDescricaoGradeCurricular(v_grade_curricular);
     const v_desc_periodo = await this.getDescricaoPeriodo(periodo);
@@ -1950,7 +1953,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     const result = await this.dataSource.query(
       `SELECT codigo
      FROM fk2_tb_grade_curricular
-     WHERE CODIGO_DISCIPLINA = :codigoUnidadeCurricular`,
+     WHERE CODIGO = :codigoUnidadeCurricular`,
       [codigoUnidadeCurricular],
     );
 
