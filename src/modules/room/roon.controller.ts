@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, ParseIntPipe, Put } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, ParseIntPipe, Put, Query, ValidationPipe } from '@nestjs/common';
 
 import { UpdateRoonDto } from './dto/update-roon.dto';
 import { RoomService } from './roon.service';
 import { CreateRoomDto } from './dto/create-roon.dto';
-import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { SearchAvailableRoomsDto } from './dto/search-available-rooms.dto';
 
 @Controller('rooms')
 export class RoonController {
@@ -26,6 +27,25 @@ export class RoonController {
   async getAllRooms() {
     return this.roomService.fecthAllRooms();
   }
+
+ @Get('disponiveis')
+  @ApiOperation({
+    summary: 'Listar salas disponíveis',
+    description:
+      'Retorna salas que não possuem aulas no ano lectivo, dia da semana e intervalo de horas informados',
+  })
+
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de salas disponíveis',
+  })
+
+  async findAvailableRooms(
+    @Query(ValidationPipe) dto: SearchAvailableRoomsDto,
+  ) {
+    return this.roomService.findAvailableRooms(dto);
+  }
+
   @Get("types")
   @ApiOperation({
     summary: 'Listar tipos de salas',
