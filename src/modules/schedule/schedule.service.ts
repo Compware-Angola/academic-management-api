@@ -617,13 +617,14 @@ ORDER BY
       SELECT DISTINCT
         h."PK_HORARIO"                                            AS "CODIGO",
         h."DESIGNACAO"                                            AS "DESIGNACAO",
-        TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", ''))            AS "UNIDADECURRICULARID",
+        TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", ''))            AS "GRADECURRICULARID",
         d."DESIGNACAO"                                            AS "UNIDADECURRICULAR",
+         d."CODIGO"                                            AS "UNIDADECURRICULARID",
         c."SIGLA"                                                 AS "CURSO",
         cl."DESIGNACAO"                               AS "ANO",
         h."CAPACIDADE"                                            AS "CAPACIDADE",
         CASE WHEN h."APENASPRIMEIROANO" = 1 THEN 'Sim' ELSE 'Não' END AS "RESERVADO",
-        h."FK_PERIODO"                                            AS "SEMESTRE",
+        h."FK_SEMESTRE"                                            AS "SEMESTRE",
         ew."DESIGNACAO"                                           AS "ESTADO",
         ew."COR"                                                  AS "ESTADOCOR",
         ew."PK_ESTADO_HORARIO_WF"                                 AS "ESTADOID",
@@ -660,7 +661,7 @@ ORDER BY
       params.periodo = periodo;
     }
     if (unidadeCurricular != null) {
-      sql += ` AND g."CODIGO" = :unidadeCurricular`;
+      sql += ` AND d."CODIGO" = :unidadeCurricular`;
       params.unidadeCurricular = unidadeCurricular;
     }
     if (anoCurricular != null) {
@@ -1530,7 +1531,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       DBMS_LOB.SUBSTR(at.DESIGNACAO, 4000, 1)            AS TIPO_AULA,
       DBMS_LOB.SUBSTR(ds.DESIGNACAO, 4000, 1)            AS DIA_SEMANA,
       ds.ORDEM                                           AS ORDEM_DIA_SEMANA,
-      au.DESIGNACAO                 AS SALA,
+      au.DESIGNACAO                                          AS SALA,
       json_value(al.REF_SALA, '$.pk')                      AS SALAID,
       c.CODIGO_CURSO                                     AS CODIGO_CURSO,
       c2.SIGLA                                           AS CURSO,
@@ -1949,7 +1950,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     const result = await this.dataSource.query(
       `SELECT codigo
      FROM fk2_tb_grade_curricular
-     WHERE codigo = :codigo`,
+     WHERE CODIGO_DISCIPLINA = :codigoUnidadeCurricular`,
       [codigoUnidadeCurricular],
     );
 
