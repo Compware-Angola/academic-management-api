@@ -22,6 +22,7 @@ import { CreatePermissionEditScheduleDto } from './dto/create-permission-edit-sc
 import { ListScheduleDocenteDto } from './dto/list-schedule-docente.dto';
 import { MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
 import { ListScheduleDayOfWeekto } from './dto/list-schedule-day-of-week.dto';
+import { ListScheduleClassRoomDto } from './dto/list-schedule-class-room.dto';
 
 @ApiTags('schedule')
 @Controller('schedule')
@@ -64,6 +65,11 @@ export class ScheduleController {
   @ApiOperation({ summary: 'Listar horário por dia da semana' })
   findScheduleByDayOfTheweek(@Query(ValidationPipe) query: ListScheduleDayOfWeekto) {
     return this.scheduleService.findScheduleByDayOfTheweek(query);
+  }
+  @Get('by-class-room')
+  @ApiOperation({ summary: 'Listar horário por dia da semana' })
+  findScheduleByClassRoom(@Query(ValidationPipe) query: ListScheduleClassRoomDto) {
+    return this.scheduleService.findScheduleByClassRoom(query);
   }
 
   @Get('registration-by-schedule')

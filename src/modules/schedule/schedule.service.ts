@@ -15,6 +15,7 @@ import { ListScheduleDocenteDto } from './dto/list-schedule-docente.dto';
 import { MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
 import { escapeQuotes } from '../util/escape-quotes';
 import { ListScheduleDayOfWeekto } from './dto/list-schedule-day-of-week.dto';
+import { ListScheduleClassRoomDto } from './dto/list-schedule-class-room.dto';
 
 // deletar passar para estaso 0 e as aulas que estao com este hotario mudar oestado tbm para 0
 // Validar horario
@@ -32,7 +33,7 @@ export class ScheduleService {
         'O prazo de criação Ainda Não foi  definido.',
       );
     }
-    console.log(terms);
+
     
     const agora = new Date();
     const dataInicio = new Date(terms.DATA_INICIO);
@@ -1477,6 +1478,139 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       totalPages,
     };
   }
+    async findScheduleByClassRoom({
+    unidadeCurricular,
+    anoCurricular,
+    sala,
+    anoLectivo,
+    semestre,
+    periodo,
+    curso,
+    limit = 10,
+    page = 1,
+  }: ListScheduleClassRoomDto) {
+    const offset = (page - 1) * limit;
+
+    const whereConditions: string[] = [
+      `c.CODIGO_CURSO  = ${curso}`,
+      `json_value(al.REF_SALA, '$.pk')  = ${sala}`,
+      `h.FK_ANO_LECTIVO = ${anoLectivo}`,
+      `h.ACTIVE_STATE = 1`,
+      `al.ACTIVE_STATE = 1`,
+      `h.DIPONIVEL = 1`,
+      `h.FK_ESTADO_HORARIO_WF != 4`,
+    ];
+    // Adiciona semestre apenas se fornecido
+    if (semestre !== undefined && semestre !== null) {
+      whereConditions.push(`h.FK_SEMESTRE = ${semestre}`);
+    }
+
+    // Adiciona período apenas se fornecido
+    if (periodo !== undefined && periodo !== null) {
+      whereConditions.push(`h.FK_PERIODO = ${periodo}`);
+    }
+
+    if (unidadeCurricular !== undefined && unidadeCurricular !== null) {
+      whereConditions.push(` c.CODIGO = ${unidadeCurricular}`);
+    }
+    if (anoCurricular !== undefined && anoCurricular !== null) {
+      whereConditions.push(`c.CODIGO_CLASSE =${anoCurricular}`);
+    }
+
+
+    const baseWhere = whereConditions.join('\n      AND ');
+
+    // -------------------- QUERY PRINCIPAL (SEM DISTINCT) --------------------
+    const sql = `
+    SELECT
+      h.PK_HORARIO                                       AS CODIGO,
+      DBMS_LOB.SUBSTR(h.DESIGNACAO, 4000, 1)             AS HORARIO_NOME,
+      json_value(al.REF_DOCENTE, '$.nome')               AS DOCENTE_NOME,
+      json_value(al.REF_DOCENTE, '$.pkDocente')          AS CODIGO_DOCENTE,
+      al.HORA_INICIO                                     AS HORA_INICIO,
+      al.HORA_TERMINO                                    AS HORA_TERMINO,
+      TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, ''))       AS CODIGO_GRADE,
+      DBMS_LOB.SUBSTR(d.DESIGNACAO, 4000, 1)             AS DISCIPLINA,
+      DBMS_LOB.SUBSTR(m.DESIGNACAO, 4000, 1)             AS MODALIDADE,
+      DBMS_LOB.SUBSTR(at.DESIGNACAO, 4000, 1)            AS TIPO_AULA,
+      DBMS_LOB.SUBSTR(ds.DESIGNACAO, 4000, 1)            AS DIA_SEMANA,
+      ds.ORDEM                                           AS ORDEM_DIA_SEMANA,
+      json_value(al.REF_SALA, '$.desc')                  AS SALA,
+      c.CODIGO_CURSO                                     AS CODIGO_CURSO,
+      c2.SIGLA                                           AS CURSO,
+      DBMS_LOB.SUBSTR(cl.DESIGNACAO, 4000, 1)            AS ANO,
+      h.CAPACIDADE                                       AS CAPACIDADE,
+      CASE WHEN h.APENASPRIMEIROANO = 1 THEN 'Sim' ELSE 'Não' END AS RESERVADO,
+      h.FK_PERIODO                                       AS PERIODO,
+      DBMS_LOB.SUBSTR(ew.DESIGNACAO, 4000, 1)            AS ESTADO,
+      ew.COR                                             AS ESTADOCOR,
+      ew.PK_ESTADO_HORARIO_WF                            AS ESTADOID,
+      CASE WHEN h.DIPONIVEL = 1 THEN 'Disponivel' ELSE 'Fechado' END AS DISPONIBILIDADE,
+      NVL(ut_criador.NOME, h.CREATED_BY)                 AS CRIADOPOR,
+      NVL(ut_atualizador.NOME, h.LAST_UPDATED_BY)        AS ATUALIZADOPOR,
+      TO_CHAR(h.UPDATED_AT, 'DD/MM/YYYY HH24:MI')        AS DATAULTIMAATUALIZACAO,
+      TO_CHAR(h.CREATED_AT, 'DD/MM/YYYY HH24:MI')        AS DATACRIACAO
+    FROM FK2_MGH_TB_HORARIO h
+        INNER JOIN FK2_MGH_TB_AULA al
+                ON al.FK_HORARIO = h.PK_HORARIO
+        INNER JOIN FK2_MGH_TB_TIPO_AULA at
+                ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
+        INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
+                ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+        INNER JOIN FK2_MGH_TB_MODALIDADE m
+                ON m.PK_MODALIDADE = al.FK_MODALIDADE
+        INNER JOIN FK2_TB_GRADE_CURRICULAR c
+                ON TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, '')) = c.CODIGO
+        LEFT JOIN FK2_TB_DISCIPLINAS d
+                ON c.CODIGO_DISCIPLINA = d.CODIGO
+        LEFT JOIN FK2_TB_CURSOS c2
+                ON c.CODIGO_CURSO = c2.CODIGO
+        LEFT JOIN FK2_TB_CLASSES cl
+                ON c.CODIGO_CLASSE = cl.CODIGO
+        LEFT JOIN FK2_MGH_TB_ESTADO_HORARIO_WF ew
+                ON h.FK_ESTADO_HORARIO_WF = ew.PK_ESTADO_HORARIO_WF
+        LEFT JOIN FK2_MCA_TB_UTILIZADOR ut_criador
+                ON h.CREATED_BY = ut_criador.PK_UTILIZADOR
+        LEFT JOIN FK2_MCA_TB_UTILIZADOR ut_atualizador
+                ON h.LAST_UPDATED_BY = ut_atualizador.PK_UTILIZADOR
+    WHERE ${baseWhere}
+
+    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+  `;
+
+    // -------------------- QUERY DE CONTAGEM --------------------
+    const sqlCount = `
+    SELECT COUNT(*) AS TOTAL
+    FROM FK2_MGH_TB_HORARIO h
+      INNER JOIN FK2_MGH_TB_AULA al
+              ON al.FK_HORARIO = h.PK_HORARIO
+      INNER JOIN FK2_MGH_TB_TIPO_AULA at
+              ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
+      INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
+              ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+      INNER JOIN FK2_MGH_TB_MODALIDADE m
+              ON m.PK_MODALIDADE = al.FK_MODALIDADE
+      INNER JOIN FK2_TB_GRADE_CURRICULAR c
+              ON TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, '')) = c.CODIGO
+    WHERE ${baseWhere}
+  `;
+
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql),
+      this.dataSource.query(sqlCount),
+    ]);
+
+    const total = Number(countResult[0].TOTAL);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: await toLowerCaseKeys(result),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
 
   async moveStudents(dto: MoveStudentsToScheduleDto, userId: number) {
     const { fromScheduleId, toScheduleId, studentsCurriculumIds } = dto
@@ -1733,7 +1867,8 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       const ref_docente = `{"pkDocente":${aula.docente},"nome":"${escape(nomeDocente)}"}`;
 
       // REF_AULA: normalmente é algo como "TP - Terça 09:00-11:00"
-      const ref_aula = `{"pk":${tipoAula},"desc":${modalidade} - ${this.diaSemanaParaTexto(aula.diaSemana)} ${aula.hora_inicio}-${aula.hora_fim}}`;
+      // - ${this.diaSemanaParaTexto(aula.diaSemana)} ${aula.hora_inicio}-${aula.hora_fim}
+      const ref_aula = `{"pk":${tipoAula},"desc":${v_desc_grade}}`;
 
       // REF_SALA: se tiver sala, traz o código, senão "Por atribuir"
       const ref_sala = `{"pk":${aula.sala}},"desc":""`;
