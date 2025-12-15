@@ -22,11 +22,11 @@ import { ListScheduleClassRoomDto } from './dto/list-schedule-class-room.dto';
 // Disponibilidade  1-diponivel 0-indisponivel
 @Injectable()
 export class ScheduleService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
   async create(userId: number, dto: CreateScheduleDto) {
-   
-       
-  
+
+
+
     const terms = await this.promptToCreateAndEditSchedule(5, dto.anoLectivo);
     if (!terms) {
       throw new BadRequestException(
@@ -34,7 +34,7 @@ export class ScheduleService {
       );
     }
 
-    
+
     const agora = new Date();
     const dataInicio = new Date(terms.DATA_INICIO);
     const dataFim = new Date(terms.DATA_FIM);
@@ -131,10 +131,10 @@ export class ScheduleService {
 
 
 
-      const agora = new Date();
+    const agora = new Date();
     const dataInicio = new Date(query.dataInicio);
     const dataFim = new Date(query.dataFim);
-      const interval =
+    const interval =
       agora.getTime() >= dataInicio.getTime() &&
       agora.getTime() <= dataFim.getTime();
 
@@ -290,8 +290,9 @@ export class ScheduleService {
       dsm."DESIGNACAO"               AS diaSemana,
       a."ORDEM"                      AS ordem,
       sala."DESIGNACAO"              AS sala,
-      a."HORA_INICIO"                AS horaInicio,
-      a."HORA_TERMINO"               AS horaTermino,
+    TO_CHAR(a."HORA_INICIO",  'HH24:MI') AS horaInicio,
+   TO_CHAR(a."HORA_TERMINO", 'HH24:MI') AS horaTermino,
+
       a."REF_DOCENTE"                AS refDocente,
       a."REF_TURMAS_PARTICIPANTES"   AS turmasParticipantes,
       a."OBS"                        AS observacoes,
@@ -432,12 +433,12 @@ ORDER BY
     );
 
 
-  
+
 
 
     return {
-      success:true,
-      data : await toLowerCaseKeys(horarioResult)
+      success: true,
+      data: await toLowerCaseKeys(horarioResult)
 
     };
   }
@@ -583,7 +584,7 @@ ORDER BY
       dataAtualizacao: new Date().toISOString(),
     };
   }
- 
+
 
   async findAll(filters: ListScheduleDto) {
     const {
@@ -662,7 +663,7 @@ ORDER BY
     }
     if (unidadeCurricular != null) {
       console.log(unidadeCurricular);
-      
+
       sql += ` AND h."FK_GRADE_CURRICULAR" = :unidadeCurricular`;
       params.unidadeCurricular = unidadeCurricular;
     }
@@ -1392,8 +1393,8 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       DBMS_LOB.SUBSTR(h.DESIGNACAO, 4000, 1)             AS HORARIO_NOME,
       json_value(al.REF_DOCENTE, '$.nome')               AS DOCENTE_NOME,
       json_value(al.REF_DOCENTE, '$.pkDocente')          AS CODIGO_DOCENTE,
-      al.HORA_INICIO                                     AS HORA_INICIO,
-      al.HORA_TERMINO                                    AS HORA_TERMINO,
+      TO_CHAR(al."HORA_INICIO",  'HH24:MI') AS HORA_INICIO,
+      TO_CHAR(al."HORA_TERMINO", 'HH24:MI') AS HORA_TERMINO,
       TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, ''))       AS CODIGO_GRADE,
       DBMS_LOB.SUBSTR(d.DESIGNACAO, 4000, 1)             AS DISCIPLINA,
       DBMS_LOB.SUBSTR(m.DESIGNACAO, 4000, 1)             AS MODALIDADE,
@@ -1480,7 +1481,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       totalPages,
     };
   }
-    async findScheduleByClassRoom({
+  async findScheduleByClassRoom({
     unidadeCurricular,
     anoCurricular,
     sala,
@@ -1608,7 +1609,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     const total = Number(countResult[0].TOTAL);
     const totalPages = Math.ceil(total / limit);
     console.log(result);
-    
+
 
     return {
       data: await toLowerCaseKeys(result),
@@ -1637,12 +1638,12 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       throw new BadRequestException(`Com Este número de estudantes selecionado, vas exceder a capacidade suportado. Atual: ${to[0].TOTAL_ALUNOS} Previsão Com os novos : ${to[0].CAPACIDADE + studentsCurriculumIds.length}`)
 
     }
-        const user = await this.getUser(userId);
-     
-    
+    const user = await this.getUser(userId);
+
+
     const json_schedule = `{"pk":${to[0].CODIGO},"desc":"${escapeQuotes(to[0].DESIGNACAO)}", "corLetra": "black", "disponivel": true}`;
-      const json_user = `{"pk": ${userId}, "desc": ${escapeQuotes(user?.nome || '')}, "corLetra": "black", "disponivel": true}`
-      
+    const json_user = `{"pk": ${userId}, "desc": ${escapeQuotes(user?.nome || '')}, "corLetra": "black", "disponivel": true}`
+
     if (studentsCurriculumIds.length === 0) return;
     const validIdsResult = await this.dataSource.query(`
   SELECT "CODIGO"
@@ -1705,13 +1706,13 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     // === 1. Buscar dados descritivos ===
     const v_grade_curricular = await this.getGradeCurricular(unidadeCurricular);
 
-    console.log(v_grade_curricular,unidadeCurricular);
-    
+
+
     const v_desc_grade =
       await this.getDescricaoGradeCurricular(v_grade_curricular);
     const v_desc_periodo = await this.getDescricaoPeriodo(periodo);
     const v_desc_ano_lectivo = await this.getDescricaoAnoLectivo(anoLectivo);
-  
+
 
 
     const v_json_grade = `{"pk":${v_grade_curricular},"desc":"${escapeQuotes(v_desc_grade)}","corLetra":"black"}`;
@@ -1875,7 +1876,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       const escape = (str: string) => str.replace(/"/g, '\\"');
 
       const ref_docente = `{"pkDocente":${aula.docente},"nome":"${escape(nomeDocente)}"}`;
-     const v_dec_sala = await this.getDescricaoSala(aula.sala)
+      const v_dec_sala = await this.getDescricaoSala(aula.sala)
 
       // REF_AULA: normalmente é algo como "TP - Terça 09:00-11:00"
       // - ${this.diaSemanaParaTexto(aula.diaSemana)} ${aula.hora_inicio}-${aula.hora_fim}
@@ -2040,7 +2041,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     return result[0].DESIGNACAO as string;
   }
   //
- private async getDescricaoSala(sala:number):Promise<string> {
+  private async getDescricaoSala(sala: number): Promise<string> {
     const result = await this.dataSource.query(
       `SELECT designacao
      FROM FK2_TB_SALAS
@@ -2055,8 +2056,8 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     }
 
     return result[0].DESIGNACAO as string;
-  
- }
+
+  }
   private async getschedule(cheduleId: number): Promise<any> {
     return await this.dataSource.query(`
     SELECT DISTINCT
@@ -2140,7 +2141,7 @@ LEFT JOIN FK2_TB_PESSOA            pe  ON pe.pk_pessoa = json_value(tu.REF_PESSO
 LEFT JOIN FK2_TB_FACULDADE         fa  ON fa.codigo = td.faculdade
 WHERE tu.PK_UTILIZADOR = :1
 `;
-const userData =  toLowerCaseKeys(await this.dataSource.query(query, [userId]))
+    const userData = toLowerCaseKeys(await this.dataSource.query(query, [userId]))
 
     return userData[0];
   }
