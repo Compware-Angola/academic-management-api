@@ -432,13 +432,8 @@ ORDER BY
     );
 
 
-    const horarioRows = Array.isArray(horarioResult)
-      ? (Array.isArray(horarioResult[0]) ? horarioResult[0] : horarioResult)
-      : [horarioResult];
+  
 
-    if (horarioRows.length === 0) {
-      throw new NotFoundException(`Horário com a Designação ${designation} não encontrado`);
-    }
 
     return {
       success:true,
