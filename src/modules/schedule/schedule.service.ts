@@ -32,6 +32,8 @@ export class ScheduleService {
         'O prazo de criação Ainda Não foi  definido.',
       );
     }
+    console.log(terms);
+    
     const agora = new Date();
     const dataInicio = new Date(terms.DATA_INICIO);
     const dataFim = new Date(terms.DATA_FIM);

@@ -10,6 +10,7 @@ import {
   ValidationPipe,
   Query,
   ParseIntPipe,
+  UsePipes,
 } from '@nestjs/common';
 import { ScheduleService } from './schedule.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
@@ -21,270 +22,143 @@ import { CreatePermissionEditScheduleDto } from './dto/create-permission-edit-sc
 import { ListScheduleDocenteDto } from './dto/list-schedule-docente.dto';
 import { MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
 import { ListScheduleDayOfWeekto } from './dto/list-schedule-day-of-week.dto';
-@ApiTags("schedule")
+
+@ApiTags('schedule')
 @Controller('schedule')
 export class ScheduleController {
   constructor(private readonly scheduleService: ScheduleService) {}
-  @Post(':permission')
-  @ApiOperation({ summary: 'Criar nova perimissao para editar  horário ' })
-  @ApiResponse({ status: 201, description: 'Permissão  criado com sucesso.' })
+
+  // ================ PERMISSÃO DE EDIÇÃO ================
+  @Post('permission') // Corrigido: era ':permission' → 'permission'
+  @ApiOperation({ summary: 'Criar nova permissão para editar horário' })
+  @ApiResponse({ status: 201, description: 'Permissão criada com sucesso.' })
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
   createPermission(
-    @Body() createPermissionEditScheduleDto: CreatePermissionEditScheduleDto,
+    @Body(ValidationPipe) createPermissionEditScheduleDto: CreatePermissionEditScheduleDto,
   ) {
     return this.scheduleService.createPermissionToEditSchedule(
       createPermissionEditScheduleDto,
     );
   }
 
+  // ================ LISTAGENS ================
   @Get()
-  @ApiOperation({
-    summary: 'Listar horários com filtros avançados e paginação',
-    description:
-      'Retorna horários filtrados por ano letivo, curso, docente, estado, etc.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de horários retornada com sucesso',
-  })
-  @ApiResponse({ status: 400, description: 'Parâmetros inválidos' })
-  async findAll(@Query(ValidationPipe) query: ListScheduleDto) {
+  @ApiOperation({ summary: 'Listar horários com filtros avançados e paginação' })
+  findAll(@Query(ValidationPipe) query: ListScheduleDto) {
     return this.scheduleService.findAll(query);
   }
 
-  @Post('move-students/:userId')
-  @ApiOperation({ summary: 'Movimentar Estudante' })
-  @ApiParam({ name: 'userId', type: Number, required: true, description: 'ID do usuário' })
-  @ApiResponse({ status: 201, description: 'Estudantes Movimentados.' })
-  @ApiResponse({ status: 400, description: 'Dados inválidos.' })
-
-  moveStudents( @Param('userId') userId: number,@Body() dto: MoveStudentsToScheduleDto) {
-    
-    return this.scheduleService.moveStudents(dto,userId);
-  }
-  @Get("by-uc")
-
-  @ApiOperation({
-    summary: 'Listar horários by uc  com filtros avançados e paginação',
-    description:
-      'Retorna horários filtrados por ano letivo, curso, docente, estado, etc.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de horários retornada com sucesso',
-  })
-  @ApiResponse({ status: 400, description: 'Parâmetros inválidos' })
-  async findScheduleByUC(@Query(ValidationPipe) query: ListScheduleUCDto) {
+  @Get('by-uc')
+  @ApiOperation({ summary: 'Listar horários por UC com filtros avançados' })
+  findScheduleByUC(@Query(ValidationPipe) query: ListScheduleUCDto) {
     return this.scheduleService.findScheduleByUC(query);
   }
-    @Get('by-docente')
-  @ApiOperation({
-    summary: 'Listar horário por docente',
-    description:
-      'Retorna todos os horários associados ao docente selecionado, filtrados por ano letivo, semestre e período.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Horários encontrados com sucesso',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Parâmetros inválidos',
-  })
-  async findScheduleByDocente(
-    @Query(ValidationPipe) query: ListScheduleDocenteDto,
-  ) {
- 
+
+  @Get('by-docente')
+  @ApiOperation({ summary: 'Listar horário por docente' })
+  findScheduleByDocente(@Query(ValidationPipe) query: ListScheduleDocenteDto) {
     return this.scheduleService.findScheduleByDocente(query);
   }
+
   @Get('by-day-of-week')
-  @ApiOperation({
-    summary: 'Listar horário por dia da semana!',
-    description:
-      'Retorna todos os horários associados ao docente selecionado, filtrados por ano letivo, semestre e período.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Horários encontrados com sucesso',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Parâmetros inválidos',
-  })
-  async findScheduleByDayOfTheweek(
-    @Query(ValidationPipe) query: ListScheduleDayOfWeekto,
-  ) {
- 
+  @ApiOperation({ summary: 'Listar horário por dia da semana' })
+  findScheduleByDayOfTheweek(@Query(ValidationPipe) query: ListScheduleDayOfWeekto) {
     return this.scheduleService.findScheduleByDayOfTheweek(query);
   }
+
   @Get('registration-by-schedule')
-  @ApiOperation({
-    summary: 'Listar horários Por Incricoes com filtros avançados e paginação',
-    description:
-      'Retorna horários filtrados por ano letivo, curso, docente, estado, etc.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de horários Por Inscricao retornada com sucesso',
-  })
-  @ApiResponse({ status: 400, description: 'Parâmetros inválidos' })
-  async findAllRegistrationBySchedule(
-    @Query(ValidationPipe) query: ListScheduleDto,
-  ) {
+  findAllRegistrationBySchedule(@Query(ValidationPipe) query: ListScheduleDto) {
     return this.scheduleService.findAllRegistrationBySchedule(query);
   }
+
   @Get('registration-by-schedule/details/:scheduleId')
-  @ApiOperation({
-    summary: 'Listar horários Por Incricoes com filtros avançados e paginação',
-    description:
-      'Retorna horários filtrados por ano letivo, curso, docente, estado, etc.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de horários Por Inscricao retornada com sucesso',
-  })
-  @ApiResponse({ status: 400, description: 'Parâmetros inválidos' })
-  async detailsRegistrationBySchedule(
-    @Param('scheduleId', ParseIntPipe) scheduleId: number,
-  ) {
+  detailsRegistrationBySchedule(@Param('scheduleId', ParseIntPipe) scheduleId: number) {
     return this.scheduleService.detailsRegistrationBySchedule(scheduleId);
   }
+
   @Get('eliminated')
-  @ApiOperation({
-    summary: 'Listar horários Eliminados com filtros avançados e paginação',
-    description:
-      'Retorna horários filtrados por ano letivo, curso, docente, estado, etc.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de horários Eliminados retornada com sucesso',
-  })
-  @ApiResponse({ status: 400, description: 'Parâmetros inválidos' })
-  async findAllDeleted(@Query(ValidationPipe) query: ListScheduleDto) {
+  findAllDeleted(@Query(ValidationPipe) query: ListScheduleDto) {
     return this.scheduleService.findAllDeleted(query);
   }
-@Get('designation/:designation')
-@ApiOperation({ summary: 'Buscar horário completo pela designação' })
-@ApiParam({ name: 'designation', example: 'ACSP.2.HEMAT I-H1' })
-@ApiResponse({ status: 200, description: 'Horário encontrado' })
-@ApiResponse({ status: 404, description: 'Horário não encontrado' })
-async findOneByDesignation(@Param('designation') designation: string) {
-  return this.scheduleService.findOneByDesignation(designation);
-}
+
+  @Get('designation/:designation')
+  @ApiOperation({ summary: 'Buscar horário completo pela designação' })
+  @ApiParam({ name: 'designation', example: 'ACSP.2.HEMAT I-H1' })
+  findOneByDesignation(@Param('designation') designation: string) {
+    return this.scheduleService.findOneByDesignation(designation);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Buscar horário completo por ID' })
   @ApiParam({ name: 'id', example: 13047 })
-  @ApiResponse({ status: 200, description: 'Horário encontrado' })
-  @ApiResponse({ status: 404, description: 'Horário não encontrado' })
-  async findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id', ParseIntPipe) id: number) {
     return this.scheduleService.findOneById(id);
   }
 
+  // ================ CRIAÇÃO (O QUE ESTAVA A DAR ERRO) ================
   @Post(':userId')
   @ApiOperation({ summary: 'Criar novo horário de uma UC' })
-  @ApiParam({
-    name: 'userId',
-    type: Number,
-    required: true,
-    description: 'ID do usuário',
-  })
+  @ApiParam({ name: 'userId', type: Number, description: 'ID do usuário' })
   @ApiResponse({ status: 201, description: 'Horário criado com sucesso.' })
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
   create(
-    @Param('userId') userId: number,
-    @Body() createScheduleDto: CreateScheduleDto,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Body(ValidationPipe) createScheduleDto: CreateScheduleDto, // <--- AQUI ESTAVA O PROBLEMA!
   ) {
     return this.scheduleService.create(userId, createScheduleDto);
   }
 
+  // ================ ATUALIZAÇÃO ================
   @Put(':userId/:id')
   @ApiOperation({ summary: 'Atualizar horário de uma UC' })
-  @ApiParam({
-    name: 'userId',
-    type: Number,
-    required: true,
-    description: 'ID do usuário',
-  })
-  @ApiParam({
-    name: 'id',
-    type: Number,
-    required: true,
-    description: 'ID do horário',
-  })
-  @ApiResponse({ status: 200, description: 'Horário atualizado com sucesso.' })
-  @ApiResponse({ status: 404, description: 'Horário não encontrado.' })
-  @ApiResponse({ status: 400, description: 'Dados inválidos.' })
+  @ApiParam({ name: 'userId', type: Number })
+  @ApiParam({ name: 'id', type: Number })
   update(
-    @Param('userId') userId: number,
-    @Param('id') id: number,
-    @Body() updateScheduleDto: UpdateScheduleDto,
+    @Param('userId', ParseIntPipe) userId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body(ValidationPipe) updateScheduleDto: UpdateScheduleDto,
   ) {
     return this.scheduleService.update(userId, id, updateScheduleDto);
   }
 
+  // ================ MOVIMENTAR ESTUDANTES ================
+  @Post('move-students/:userId')
+  @ApiOperation({ summary: 'Movimentar Estudante' })
+  @ApiParam({ name: 'userId', type: Number, description: 'ID do usuário' })
+  moveStudents(
+    @Param('userId', ParseIntPipe) userId: number,
+    @Body(ValidationPipe) dto: MoveStudentsToScheduleDto,
+  ) {
+    return this.scheduleService.moveStudents(dto, userId);
+  }
+
+  // ================ OUTRAS AÇÕES ================
   @Delete(':horarioId/excluir/:userId')
-  @ApiOperation({
-    summary: 'Excluir horário (soft delete)',
-    description: 'Define ACTIVE_STATE = 0 e registra quem excluiu',
-  })
-  @ApiParam({ name: 'horarioId', example: 13047 })
-  @ApiParam({ name: 'userId', example: 57 })
-  @ApiResponse({ status: 200, description: 'Horário excluído com sucesso' })
-  @ApiResponse({ status: 404, description: 'Horário não encontrado' })
-  async delete(
+  delete(
     @Param('horarioId', ParseIntPipe) horarioId: number,
     @Param('userId', ParseIntPipe) userId: number,
   ) {
     return this.scheduleService.delete(userId, horarioId);
   }
+
   @Patch(':horarioId/disponibilidade/:userId')
-  @ApiOperation({
-    summary: 'Alternar disponibilidade do horário (toggle)',
-    description: 'Se estava disponível → fecha. Se estava fechado → abre.',
-  })
-  @ApiParam({ name: 'horarioId', description: 'ID do horário', example: 123 })
-  @ApiParam({
-    name: 'userId',
-    description: 'ID do utilizador que está a alterar',
-    example: 57,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Disponibilidade alterada com sucesso',
-  })
-  @ApiResponse({ status: 404, description: 'Horário não encontrado' })
-  async toggleAvailability(
+  toggleAvailability(
     @Param('horarioId', ParseIntPipe) horarioId: number,
     @Param('userId', ParseIntPipe) userId: number,
   ) {
     return this.scheduleService.toggleAvailability(userId, horarioId);
   }
+
   @Patch(':horarioId/validar/:userId')
-  @ApiOperation({
-    summary: 'Validar horário (avançar no workflow)',
-    description: 'Avança o estado do horário conforme o workflow definido',
-  })
-  @ApiParam({ name: 'horarioId', example: 13047 })
-  @ApiParam({ name: 'userId', example: 57 })
-  @ApiResponse({ status: 200, description: 'Horário validado com sucesso' })
-  @ApiResponse({ status: 404, description: 'Horário não encontrado' })
-  @ApiResponse({ status: 400, description: 'Não foi possível validar' })
-  async validate(
+  validate(
     @Param('horarioId', ParseIntPipe) horarioId: number,
     @Param('userId', ParseIntPipe) userId: number,
   ) {
     return this.scheduleService.validate(userId, horarioId);
   }
+
   @Patch(':horarioId/restaurar/:userId')
-  @ApiOperation({
-    summary: 'Restaurar horário excluído (reverter soft delete)',
-    description: 'Torna o horário ativo novamente (ACTIVE_STATE = 1)',
-  })
-  @ApiParam({ name: 'horarioId', example: 13047 })
-  @ApiParam({ name: 'userId', example: 57 })
-  @ApiResponse({ status: 200, description: 'Horário restaurado com sucesso' })
-  @ApiResponse({ status: 404, description: 'Horário não está excluído' })
-  async restore(
+  restore(
     @Param('horarioId', ParseIntPipe) horarioId: number,
     @Param('userId', ParseIntPipe) userId: number,
   ) {
