@@ -1535,7 +1535,8 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       DBMS_LOB.SUBSTR(at.DESIGNACAO, 4000, 1)            AS TIPO_AULA,
       DBMS_LOB.SUBSTR(ds.DESIGNACAO, 4000, 1)            AS DIA_SEMANA,
       ds.ORDEM                                           AS ORDEM_DIA_SEMANA,
-      json_value(al.REF_SALA, '$.desc')                  AS SALA,
+      au.DESIGNACAO                 AS SALA,
+      json_value(al.REF_SALA, '$.pk')                      AS SALAID,
       c.CODIGO_CURSO                                     AS CODIGO_CURSO,
       c2.SIGLA                                           AS CURSO,
       DBMS_LOB.SUBSTR(cl.DESIGNACAO, 4000, 1)            AS ANO,
@@ -1553,6 +1554,8 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     FROM FK2_MGH_TB_HORARIO h
         INNER JOIN FK2_MGH_TB_AULA al
                 ON al.FK_HORARIO = h.PK_HORARIO
+                INNER JOIN     FK2_TB_SALAS        au
+                ON  json_value(al.REF_SALA, '$.pk') =au. CODIGO
         INNER JOIN FK2_MGH_TB_TIPO_AULA at
                 ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
         INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
@@ -1602,6 +1605,8 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
 
     const total = Number(countResult[0].TOTAL);
     const totalPages = Math.ceil(total / limit);
+    console.log(result);
+    
 
     return {
       data: await toLowerCaseKeys(result),
@@ -1701,7 +1706,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       await this.getDescricaoGradeCurricular(v_grade_curricular);
     const v_desc_periodo = await this.getDescricaoPeriodo(periodo);
     const v_desc_ano_lectivo = await this.getDescricaoAnoLectivo(anoLectivo);
-
+  
 
 
     const v_json_grade = `{"pk":${v_grade_curricular},"desc":"${escapeQuotes(v_desc_grade)}","corLetra":"black"}`;
@@ -1865,13 +1870,14 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       const escape = (str: string) => str.replace(/"/g, '\\"');
 
       const ref_docente = `{"pkDocente":${aula.docente},"nome":"${escape(nomeDocente)}"}`;
+     const v_dec_sala = await this.getDescricaoSala(aula.sala)
 
       // REF_AULA: normalmente é algo como "TP - Terça 09:00-11:00"
       // - ${this.diaSemanaParaTexto(aula.diaSemana)} ${aula.hora_inicio}-${aula.hora_fim}
       const ref_aula = `{"pk":${tipoAula},"desc":${v_desc_grade}}`;
 
       // REF_SALA: se tiver sala, traz o código, senão "Por atribuir"
-      const ref_sala = `{"pk":${aula.sala}},"desc":" "`;
+      const ref_sala = `{"pk":${aula.sala}},"desc":${v_dec_sala}`;
 
       // REF_TURMAS_PARTICIPANTES: podes usar a turma do horário ou deixar vazio
       const ref_turmas = dto.turma ? `{"pk":${dto.turma}}` : null;
@@ -2029,18 +2035,23 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     return result[0].DESIGNACAO as string;
   }
   //
-  private diaSemanaParaTexto(dia: number): string {
-    const dias = [
-      'Domingo',
-      'Segunda',
-      'Terça',
-      'Quarta',
-      'Quinta',
-      'Sexta',
-      'Sábado',
-    ];
-    return dias[dia] || 'Segunda';
-  }
+ private async getDescricaoSala(sala:number):Promise<string> {
+    const result = await this.dataSource.query(
+      `SELECT designacao
+     FROM FK2_TB_SALAS
+     WHERE CODIGO = :sala`,
+      [sala],
+    );
+
+    if (!result || result.length === 0) {
+      throw new Error(
+        `Sala não encontrado para o código ${sala}`,
+      );
+    }
+
+    return result[0].DESIGNACAO as string;
+  
+ }
   private async getschedule(cheduleId: number): Promise<any> {
     return await this.dataSource.query(`
     SELECT DISTINCT
