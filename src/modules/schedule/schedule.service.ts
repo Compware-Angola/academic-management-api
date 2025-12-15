@@ -1400,7 +1400,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       DBMS_LOB.SUBSTR(at.DESIGNACAO, 4000, 1)            AS TIPO_AULA,
       DBMS_LOB.SUBSTR(ds.DESIGNACAO, 4000, 1)            AS DIA_SEMANA,
       ds.ORDEM                                           AS ORDEM_DIA_SEMANA,
-      json_value(al.REF_SALA, '$.desc')                  AS SALA,
+     au.DESIGNACAO                                        AS SALA,
       c.CODIGO_CURSO                                     AS CODIGO_CURSO,
       c2.SIGLA                                           AS CURSO,
       DBMS_LOB.SUBSTR(cl.DESIGNACAO, 4000, 1)            AS ANO,
@@ -1418,6 +1418,10 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     FROM FK2_MGH_TB_HORARIO h
         INNER JOIN FK2_MGH_TB_AULA al
                 ON al.FK_HORARIO = h.PK_HORARIO
+                  INNER JOIN FK2_MGH_TB_AULA al
+                ON al.FK_HORARIO = h.PK_HORARIO
+               INNER JOIN     FK2_TB_SALAS        au
+                ON  json_value(al.REF_SALA, '$.pk') =au. CODIGO
         INNER JOIN FK2_MGH_TB_TIPO_AULA at
                 ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
         INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
