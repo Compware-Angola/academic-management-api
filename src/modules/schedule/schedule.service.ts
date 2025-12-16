@@ -325,6 +325,7 @@ export class ScheduleService {
 
     return {
       codigo: Number(h.CODIGO),
+      fk_ano_lectivo:Number(h.FK_ANO_LECTIVO),
       designacao: h.DESIGNACAO,
       unidadeCurricularId: Number(h.UNIDADECURRICULARID),
       unidadeCurricular: h.UNIDADECURRICULAR,
