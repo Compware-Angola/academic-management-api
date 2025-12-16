@@ -146,7 +146,7 @@ export class CreateScheduleDto {
   @IsInt()
   @Min(1)
   modalidade: number;
-  @ApiPropertyOptional({ description: 'Se é apenas 1º ano (capacidade = 100)', example: 0, default: 0 })
+  @ApiPropertyOptional({ description: 'Se é apenas 1º ano (capacidade = 100)', example: 0, default: 2})
   @IsOptional()
   @IsInt()
   @ApiPropertyOptional()
