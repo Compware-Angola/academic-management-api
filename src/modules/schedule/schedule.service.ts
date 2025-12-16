@@ -227,10 +227,11 @@ export class ScheduleService {
     SELECT DISTINCT
       h."PK_HORARIO"                                            AS "CODIGO",
       h."DESIGNACAO"                                            AS "DESIGNACAO",
+      h."FK_ANO_LECTIVO"                                            AS "FK_ANO_LECTIVO",
       TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", ''))            AS "UNIDADECURRICULARID",
       d."DESIGNACAO"                                            AS "UNIDADECURRICULAR",
       c."SIGLA"                                                 AS "CURSO",
-      cl."DESIGNACAO"                             AS "ANO",
+      cl."DESIGNACAO"                                           AS "ANO",
       h."CAPACIDADE"                                            AS "CAPACIDADE",
       CASE WHEN h."APENASPRIMEIROANO" = 1 THEN 'Sim' ELSE 'Não' END AS "RESERVADO",
       h."FK_PERIODO"                                            AS "SEMESTRE",
