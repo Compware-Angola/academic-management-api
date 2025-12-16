@@ -16,6 +16,7 @@ import { MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
 import { escapeQuotes } from '../util/escape-quotes';
 import { ListScheduleDayOfWeekto } from './dto/list-schedule-day-of-week.dto';
 import { ListScheduleClassRoomDto } from './dto/list-schedule-class-room.dto';
+import { FindScheduleByDesignationDto } from './dto/find-schedule-by-designation.dto';
 
 // deletar passar para estaso 0 e as aulas que estao com este hotario mudar oestado tbm para 0
 // Validar horario
@@ -374,55 +375,58 @@ export class ScheduleService {
       })),
     };
   }
-  async findOneByDesignation(designation: string) {
+  async findOneByDesignation(dto:FindScheduleByDesignationDto) {
+    const {designation,ano_lectivo,periodo} = dto
     if (!designation) {
       throw new BadRequestException('Designação do horário inválido');
     }
     const horarioResult = await this.dataSource.query(
       `
-  SELECT DISTINCT
-    h."PK_HORARIO"                                            AS "CODIGO",
-    h."DESIGNACAO"                                            AS "DESIGNACAO",
-    TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", ''))            AS "UNIDADECURRICULARID",
-    d."DESIGNACAO"                                            AS "UNIDADECURRICULAR",
-    c."SIGLA"                                                 AS "CURSO",
-    cl."DESIGNACAO"                                           AS "ANO",
-    h."CAPACIDADE"                                            AS "CAPACIDADE",
-    CASE WHEN h."APENASPRIMEIROANO" = 1 THEN 'Sim' ELSE 'Não' END AS "RESERVADO",
-    h."FK_SEMESTRE"                                            AS "SEMESTRE",
-    h."FK_PERIODO"                                            AS "PERIODO",
-    ew."DESIGNACAO"                                           AS "ESTADO",
-    ew."COR"                                                  AS "ESTADOCOR",
-    ew."PK_ESTADO_HORARIO_WF"                                 AS "ESTADOID",
-    CASE WHEN h."DIPONIVEL" = 1 THEN 'Disponivel' ELSE 'Fechado' END AS "DISPONIBILIDADE",
-    NVL(ut_criador."NOME", h."CREATED_BY")                    AS "CRIADOPOR",
-    NVL(ut_atualizador."NOME", h."LAST_UPDATED_BY")           AS "ATUALIZADOPOR",
-    TO_CHAR(h."UPDATED_AT", 'DD/MM/YYYY HH24:MI')             AS "DATAULTIMAATUALIZACAO",
-    TO_CHAR(h."CREATED_AT", 'DD/MM/YYYY HH24:MI')             AS "DATACRIACAO"
-  FROM "FK2_MGH_TB_HORARIO" h
-  INNER JOIN "FK2_TB_GRADE_CURRICULAR" g 
-    ON TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", '')) = g."CODIGO"
-  LEFT JOIN "FK2_TB_DISCIPLINAS" d     
-    ON g."CODIGO_DISCIPLINA" = d."CODIGO"
-  LEFT JOIN "FK2_TB_CURSOS" c          
-    ON g."CODIGO_CURSO" = c."CODIGO"
-  LEFT JOIN "FK2_TB_CLASSES" cl        
-    ON g."CODIGO_CLASSE" = cl."CODIGO"
-  LEFT JOIN "FK2_MGH_TB_ESTADO_HORARIO_WF" ew 
-    ON h."FK_ESTADO_HORARIO_WF" = ew."PK_ESTADO_HORARIO_WF"
-  LEFT JOIN "FK2_MCA_TB_UTILIZADOR" ut_criador  
-    ON h."CREATED_BY" = ut_criador."PK_UTILIZADOR"
-  LEFT JOIN "FK2_MCA_TB_UTILIZADOR" ut_atualizador  
-    ON h."LAST_UPDATED_BY" = ut_atualizador."PK_UTILIZADOR"
+SELECT DISTINCT
+  h."PK_HORARIO"                                            AS "CODIGO",
+  h."DESIGNACAO"                                            AS "DESIGNACAO",
+  TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", ''))            AS "UNIDADECURRICULARID",
+  d."DESIGNACAO"                                            AS "UNIDADECURRICULAR",
+  c."SIGLA"                                                 AS "CURSO",
+  cl."DESIGNACAO"                                           AS "ANO",
+  h."CAPACIDADE"                                            AS "CAPACIDADE",
+  CASE WHEN h."APENASPRIMEIROANO" = 1 THEN 'Sim' ELSE 'Não' END AS "RESERVADO",
+  h."FK_SEMESTRE"                                           AS "SEMESTRE",
+  h."FK_PERIODO"                                            AS "PERIODO",
+  ew."DESIGNACAO"                                           AS "ESTADO",
+  ew."COR"                                                  AS "ESTADOCOR",
+  ew."PK_ESTADO_HORARIO_WF"                                 AS "ESTADOID",
+  CASE WHEN h."DIPONIVEL" = 1 THEN 'Disponivel' ELSE 'Fechado' END AS "DISPONIBILIDADE",
+  NVL(ut_criador."NOME", h."CREATED_BY")                    AS "CRIADOPOR",
+  NVL(ut_atualizador."NOME", h."LAST_UPDATED_BY")           AS "ATUALIZADOPOR",
+  TO_CHAR(h."UPDATED_AT", 'DD/MM/YYYY HH24:MI')             AS "DATAULTIMAATUALIZACAO",
+  TO_CHAR(h."CREATED_AT", 'DD/MM/YYYY HH24:MI')             AS "DATACRIACAO"
+FROM "FK2_MGH_TB_HORARIO" h
+INNER JOIN "FK2_TB_GRADE_CURRICULAR" g 
+  ON TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", '')) = g."CODIGO"
+LEFT JOIN "FK2_TB_DISCIPLINAS" d     
+  ON g."CODIGO_DISCIPLINA" = d."CODIGO"
+LEFT JOIN "FK2_TB_CURSOS" c          
+  ON g."CODIGO_CURSO" = c."CODIGO"
+LEFT JOIN "FK2_TB_CLASSES" cl        
+  ON g."CODIGO_CLASSE" = cl."CODIGO"
+LEFT JOIN "FK2_MGH_TB_ESTADO_HORARIO_WF" ew 
+  ON h."FK_ESTADO_HORARIO_WF" = ew."PK_ESTADO_HORARIO_WF"
+LEFT JOIN "FK2_MCA_TB_UTILIZADOR" ut_criador  
+  ON h."CREATED_BY" = ut_criador."PK_UTILIZADOR"
+LEFT JOIN "FK2_MCA_TB_UTILIZADOR" ut_atualizador  
+  ON h."LAST_UPDATED_BY" = ut_atualizador."PK_UTILIZADOR"
 WHERE
   REGEXP_REPLACE(
-    REGEXP_REPLACE(UPPER(h."DESIGNACAO"), '\\s+', ''),
+    REGEXP_REPLACE(UPPER(h."DESIGNACAO"), '\s+', ''),
     '-H[0-9]+$', '-H'
   ) =
   REGEXP_REPLACE(
-    REGEXP_REPLACE(UPPER(:designation), '\\s+', ''),
+    REGEXP_REPLACE(UPPER(:designation), '\s+', ''),
     '-H[0-9]+$', '-H'
   )
+  AND h."FK_PERIODO" = :periodo
+  AND h."FK_ANO_LECTIVO" = :ano_lectivo
 ORDER BY
   REGEXP_REPLACE(UPPER(h."DESIGNACAO"), '-H[0-9]+$', '-H'),
   TO_NUMBER(
@@ -433,9 +437,8 @@ ORDER BY
   )
 
 
-
   `,
-      [designation],
+      {designation,periodo, ano_lectivo } as any,
     );
 
 

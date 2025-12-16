@@ -23,6 +23,7 @@ import { ListScheduleDocenteDto } from './dto/list-schedule-docente.dto';
 import { MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
 import { ListScheduleDayOfWeekto } from './dto/list-schedule-day-of-week.dto';
 import { ListScheduleClassRoomDto } from './dto/list-schedule-class-room.dto';
+import { FindScheduleByDesignationDto } from './dto/find-schedule-by-designation.dto';
 
 @ApiTags('schedule')
 @Controller('schedule')
@@ -87,11 +88,11 @@ export class ScheduleController {
     return this.scheduleService.findAllDeleted(query);
   }
 
-  @Get('designation/:designation')
+  @Get('designation')
   @ApiOperation({ summary: 'Buscar horário completo pela designação' })
-  @ApiParam({ name: 'designation', example: 'ACSP.2.HEMAT I-H1' })
-  findOneByDesignation(@Param('designation') designation: string) {
-    return this.scheduleService.findOneByDesignation(designation);
+  
+  findOneByDesignation(@Query() query: FindScheduleByDesignationDto) {
+    return this.scheduleService.findOneByDesignation(query);
   }
 
   @Get(':id')
