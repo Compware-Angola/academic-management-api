@@ -189,7 +189,7 @@ export class CreateScheduleDto {
     example: 1,
   })
   @IsInt()
-  @Min(1)
+
   tipoAula: number;
 
   @ApiProperty({
