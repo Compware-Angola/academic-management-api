@@ -2281,85 +2281,115 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     }
 
     // === INSERIR AULAS DETALHADAS (tabela filha) ===
+    // 1. Busca o maior PK_AULA atual (apenas uma vez, fora do loop)
+    let maxPkAulaResult = await this.dataSource.query(`
+  SELECT MAX(PK_AULA) AS max_id FROM FK2_MGH_TB_AULA
+`);
+
+    let proximoPkAula = (maxPkAulaResult[0]?.MAX_ID || 0) + 1;
+
+    console.log(
+      `[DEV] Maior PK_AULA atual: ${maxPkAulaResult[0]?.MAX_ID}. Próximo será: ${proximoPkAula}`,
+    );
+
+    // 2. Loop das aulas com PK_AULA manual e incremental
     for (const aula of aulas) {
-      // Montar os JSONs de referência exatamente como no teu legado
       const nomeDocente = await this.getNomeDocente(aula.docente);
-      const escape = (str: string) => str.replace(/"/g, '\\"');
+      const escape = (str: string) =>
+        str.replace(/"/g, '\\"').replace(/\n/g, '\\n');
 
       const ref_docente = `{"pkDocente":${aula.docente},"nome":"${escape(nomeDocente)}"}`;
-      const v_dec_sala = await this.getDescricaoSala(aula.sala);
 
-      // REF_AULA: normalmente é algo como "TP - Terça 09:00-11:00"
-      // - ${this.diaSemanaParaTexto(aula.diaSemana)} ${aula.hora_inicio}-${aula.hora_fim}
-      const ref_aula = `{"pk":${aula.tipoAula},"desc":${v_desc_grade}}`;
+      const v_desc_sala = await this.getDescricaoSala(aula.sala);
+      const ref_sala = aula.sala
+        ? `{"pk":${aula.sala},"desc":"${escape(v_desc_sala)}"}`
+        : `{"pk":null,"desc":"Por atribuir"}`;
 
-      // REF_SALA: se tiver sala, traz o código, senão "Por atribuir"
-      const ref_sala = `{"pk":${aula.sala}},"desc":${v_dec_sala}`;
+      // Corrigi aqui: estava faltando aspas no desc do ref_aula
+      const ref_aula = `{"pk":${aula.tipoAula},"desc":"${escape(v_desc_grade || '')}"}`;
 
-      // REF_TURMAS_PARTICIPANTES: podes usar a turma do horário ou deixar vazio
       const ref_turmas = dto.turma ? `{"pk":${dto.turma}}` : null;
 
-      await this.dataSource.query(
-        `
-    INSERT INTO FK2_MGH_TB_AULA (
-      FK_HORARIO,
+      try {
+        await this.dataSource.query(
+          `
+      INSERT INTO FK2_MGH_TB_AULA (
+        PK_AULA,                  -- ← Adicionado manualmente
+        FK_HORARIO,
+        FK_DIA_DA_SEMANA,
+        FK_TIPO_AULA,
+        FK_MODALIDADE,
+        ORDEM,
+        HORA_INICIO,
+        HORA_TERMINO,
+        REF_AULA,
+        REF_SALA,
+        REF_DOCENTE,
+        REF_TURMAS_PARTICIPANTES,
+        OBS,
+        CREATED_BY,
+        LAST_UPDATED_BY,
+        CREATED_AT,
+        UPDATED_AT,
+        ACTIVE_STATE
+      ) VALUES (
+        :pkAula,                  -- ← Valor manual
+        :horarioId,
+        :diaSemana,
+        :fkTipoAula,
+        :fkModalidade,
+        :ordem,
+        TO_DATE(:horaInicio, 'HH24:MI'),
+        TO_DATE(:horaFim, 'HH24:MI'),
+        :refAula,
+        :refSala,
+        :refDocente,
+        :refTurmas,
+        :obs,
+        :userId,
+        :userId,
+        SYSDATE,
+        SYSDATE,
+        1
+      )
+      `,
+          {
+            pkAula: proximoPkAula, // ← Valor incremental
+            horarioId,
+            diaSemana: aula.diaSemana,
+            fkTipoAula: aula.tipoAula,
+            fkModalidade: modalidade,
+            ordem: aula.ordemTempo || 1,
+            horaInicio: aula.hora_inicio,
+            horaFim: aula.hora_fim,
+            refAula: ref_aula,
+            refSala: ref_sala,
+            refDocente: ref_docente,
+            refTurmas: ref_turmas,
+            obs: aula.obs || null,
+            userId: userId || 1,
+          } as any,
+        );
 
-      FK_DIA_DA_SEMANA,
-      FK_TIPO_AULA,
-      FK_MODALIDADE,
-      ORDEM,
-      HORA_INICIO,
-      HORA_TERMINO,
-      REF_AULA,
-      REF_SALA,
-      REF_DOCENTE,
-      REF_TURMAS_PARTICIPANTES,
-      OBS,
-      CREATED_BY,
-      LAST_UPDATED_BY,
-      CREATED_AT,
-      UPDATED_AT,
-      ACTIVE_STATE
-    ) VALUES (
-      :horarioId,
+        console.log(
+          `[DEV] Aula inserida com PK_AULA = ${proximoPkAula} (Horário: ${horarioId}, Dia: ${aula.diaSemana}, Início: ${aula.hora_inicio})`,
+        );
 
-      :diaSemana,
-      :fkTipoAula,
-      :fkModalidade,
-      :ordem,
-      TO_DATE(:horaInicio, 'HH24:MI'),
-  TO_DATE(:horaFim, 'HH24:MI'),
-      :refAula,
-      :refSala,
-      :refDocente,
-      :refTurmas,
-      :obs,
-      :userId,
-      :userId,
-      SYSDATE,
-      SYSDATE,
-      1
-    )
-  `,
-        {
-          horarioId,
-
-          diaSemana: aula.diaSemana, // 1=Seg, 2=Ter, etc.
-          fkTipoAula: aula.tipoAula,
-          fkModalidade: modalidade,
-          ordem: aula.ordemTempo || 1,
-          horaInicio: aula.hora_inicio, // ex: '0900'
-          horaFim: aula.hora_fim, // ex: '1100'
-
-          refAula: ref_aula,
-          refSala: ref_sala,
-          refDocente: ref_docente,
-          refTurmas: ref_turmas,
-          obs: aula.obs || null,
-          userId: userId || 1,
-        } as any,
-      );
+        // Incrementa para a próxima aula
+        proximoPkAula++;
+      } catch (error: any) {
+        console.error(
+          `[DEV] Erro ao inserir aula com PK_AULA = ${proximoPkAula}`,
+          error.message,
+        );
+        // Se quiser parar no primeiro erro:
+        // throw error;
+        // Ou continua tentando as próximas (útil em dev)
+      }
     }
+
+    // Opcional: mostra o próximo ID que seria usado na próxima execução
+    console.log(`[DEV] Próximo PK_AULA disponível: ${proximoPkAula}`);
     const message = horarioIdParam
       ? 'Horário atualizado com sucesso!'
       : 'Horário criado com sucesso!';
