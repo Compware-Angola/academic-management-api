@@ -355,7 +355,7 @@ async findSchedulesByAnoPeriodoGrade(
       docenteNome: r.DOCENTE_NOME,
       tipoAula: r.TIPO_AULA,
       modalidade: r.MODALIDADE,
-      diaSemana: r.DIA_SEMANA_DESC,
+      diaSemana: r.DIA_SEMANA,
       ordemDiaSemana: Number(r.ORDEM_DIA_SEMANA),
       sala: r.SALA,
       horaInicio: r.HORA_INICIO,
