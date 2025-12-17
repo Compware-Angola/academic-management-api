@@ -308,7 +308,7 @@ async findSchedulesByAnoPeriodoGrade(
       AND h.ACTIVE_STATE = 1
       AND al.ACTIVE_STATE = 1
       AND h.DIPONIVEL = 1
-      AND h.FK_ESTADO_HORARIO_WF != 4
+      AND h.FK_ESTADO_HORARIO_WF = 3
     ORDER BY ds.ORDEM, al.ORDEM
     `,
     { anoLectivo, periodo, gradeCurricular } as any,
