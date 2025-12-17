@@ -24,6 +24,7 @@ import { MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
 import { ListScheduleDayOfWeekto } from './dto/list-schedule-day-of-week.dto';
 import { ListScheduleClassRoomDto } from './dto/list-schedule-class-room.dto';
 import { FindScheduleByDesignationDto } from './dto/find-schedule-by-designation.dto';
+import { FindSchedulesByGradeDto } from './dto/find-schedules-by-gradedto';
 
 @ApiTags('schedule')
 @Controller('schedule')
@@ -94,7 +95,17 @@ export class ScheduleController {
   findOneByDesignation(@Query() query: FindScheduleByDesignationDto) {
     return this.scheduleService.findOneByDesignation(query);
   }
-
+@Get('by-ano-periodo-grade')
+@UsePipes(new ValidationPipe({ transform: true }))
+async findSchedulesByAnoPeriodoGrade(
+  @Query() query: FindSchedulesByGradeDto,
+) {
+  return this.scheduleService.findSchedulesByAnoPeriodoGrade(
+    query.anoLectivo,
+    query.periodo,
+    query.gradeCurricular,
+  );
+}
   @Get(':id')
   @ApiOperation({ summary: 'Buscar horário completo por ID' })
   @ApiParam({ name: 'id', example: 13047 })

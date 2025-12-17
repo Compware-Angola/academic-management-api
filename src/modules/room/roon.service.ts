@@ -244,22 +244,11 @@ async findAvailableRooms(dto: SearchAvailableRoomsDto) {
           AND al.FK_TIPO_AULA      = :tipoAula
           AND al.ACTIVE_STATE      = 1
           -- colisão de horário
-          AND (
-                TO_DATE(
-                  REGEXP_SUBSTR(
-                    DBMS_LOB.SUBSTR(al.HORA_INICIO, 20, 1),
-                    '[0-2][0-9]:[0-5][0-9]'
-                  ),
-                  'HH24:MI'
-                ) < TO_DATE(:horaFim, 'HH24:MI')
-            AND TO_DATE(
-                  REGEXP_SUBSTR(
-                    DBMS_LOB.SUBSTR(al.HORA_TERMINO, 20, 1),
-                    '[0-2][0-9]:[0-5][0-9]'
-                  ),
-                  'HH24:MI'
-                ) > TO_DATE(:horaInicio, 'HH24:MI')
-          )
+AND (
+    TO_DATE(REGEXP_SUBSTR(al.HORA_INICIO, '[0-2][0-9]:[0-5][0-9]'), 'HH24:MI') < TO_DATE(:horaFim, 'HH24:MI')
+AND TO_DATE(REGEXP_SUBSTR(al.HORA_TERMINO, '[0-2][0-9]:[0-5][0-9]'), 'HH24:MI') > TO_DATE(:horaInicio, 'HH24:MI')
+)
+
     )
     ORDER BY au.DESIGNACAO
   `;
