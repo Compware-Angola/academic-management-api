@@ -25,6 +25,8 @@ import { ListScheduleDayOfWeekto } from './dto/list-schedule-day-of-week.dto';
 import { ListScheduleClassRoomDto } from './dto/list-schedule-class-room.dto';
 import { FindScheduleByDesignationDto } from './dto/find-schedule-by-designation.dto';
 import { FindSchedulesByGradeDto } from './dto/find-schedules-by-gradedto';
+import { ListScheduleWithPermissionDto } from './dto/list-schedule-with-permission.dto';
+import { UpdatePermissionEditScheduleDto } from './dto/update-permission-edit-schedule.dto';
 
 @ApiTags('schedule')
 @Controller('schedule')
@@ -37,7 +39,8 @@ export class ScheduleController {
   @ApiResponse({ status: 201, description: 'Permissão criada com sucesso.' })
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
   createPermission(
-    @Body(ValidationPipe) createPermissionEditScheduleDto: CreatePermissionEditScheduleDto,
+    @Body(ValidationPipe)
+    createPermissionEditScheduleDto: CreatePermissionEditScheduleDto,
   ) {
     return this.scheduleService.createPermissionToEditSchedule(
       createPermissionEditScheduleDto,
@@ -46,9 +49,35 @@ export class ScheduleController {
 
   // ================ LISTAGENS ================
   @Get()
-  @ApiOperation({ summary: 'Listar horários com filtros avançados e paginação' })
+  @ApiOperation({
+    summary: 'Listar horários com filtros avançados e paginação',
+  })
   findAll(@Query(ValidationPipe) query: ListScheduleDto) {
     return this.scheduleService.findAll(query);
+  }
+
+  @Get('with-permission')
+  @ApiOperation({
+    summary: 'Listar horários com filtros avançados e paginação com permissão',
+  })
+  findAllWithPermission(
+    @Query(ValidationPipe) query: ListScheduleWithPermissionDto,
+  ) {
+    return this.scheduleService.findAllWithPermission(query);
+  }
+
+  @Put('with-permission/:permissionId')
+  @ApiOperation({
+    summary: 'Atualizar permissão de edição de horário pelo ID da permissão',
+  })
+  updatePermissionToEditSchedule(
+    @Param('permissionId', ValidationPipe) permissionId: number,
+    @Query(ValidationPipe) query: UpdatePermissionEditScheduleDto,
+  ) {
+    return this.scheduleService.updatePermissionToEditSchedule(
+      permissionId,
+      query,
+    );
   }
 
   @Get('by-uc')
@@ -65,12 +94,16 @@ export class ScheduleController {
 
   @Get('by-day-of-week')
   @ApiOperation({ summary: 'Listar horário por dia da semana' })
-  findScheduleByDayOfTheweek(@Query(ValidationPipe) query: ListScheduleDayOfWeekto) {
+  findScheduleByDayOfTheweek(
+    @Query(ValidationPipe) query: ListScheduleDayOfWeekto,
+  ) {
     return this.scheduleService.findScheduleByDayOfTheweek(query);
   }
   @Get('by-class-room')
   @ApiOperation({ summary: 'Listar horário por dia da semana' })
-  findScheduleByClassRoom(@Query(ValidationPipe) query: ListScheduleClassRoomDto) {
+  findScheduleByClassRoom(
+    @Query(ValidationPipe) query: ListScheduleClassRoomDto,
+  ) {
     return this.scheduleService.findScheduleByClassRoom(query);
   }
 
@@ -80,7 +113,9 @@ export class ScheduleController {
   }
 
   @Get('registration-by-schedule/details/:scheduleId')
-  detailsRegistrationBySchedule(@Param('scheduleId', ParseIntPipe) scheduleId: number) {
+  detailsRegistrationBySchedule(
+    @Param('scheduleId', ParseIntPipe) scheduleId: number,
+  ) {
     return this.scheduleService.detailsRegistrationBySchedule(scheduleId);
   }
 
@@ -91,21 +126,20 @@ export class ScheduleController {
 
   @Get('designation')
   @ApiOperation({ summary: 'Buscar horário completo pela designação' })
-  
   findOneByDesignation(@Query() query: FindScheduleByDesignationDto) {
     return this.scheduleService.findOneByDesignation(query);
   }
-@Get('by-ano-periodo-grade')
-@UsePipes(new ValidationPipe({ transform: true }))
-async findSchedulesByAnoPeriodoGrade(
-  @Query() query: FindSchedulesByGradeDto,
-) {
-  return this.scheduleService.findSchedulesByAnoPeriodoGrade(
-    query.anoLectivo,
-    query.periodo,
-    query.gradeCurricular,
-  );
-}
+  @Get('by-ano-periodo-grade')
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async findSchedulesByAnoPeriodoGrade(
+    @Query() query: FindSchedulesByGradeDto,
+  ) {
+    return this.scheduleService.findSchedulesByAnoPeriodoGrade(
+      query.anoLectivo,
+      query.periodo,
+      query.gradeCurricular,
+    );
+  }
   @Get(':id')
   @ApiOperation({ summary: 'Buscar horário completo por ID' })
   @ApiParam({ name: 'id', example: 13047 })
