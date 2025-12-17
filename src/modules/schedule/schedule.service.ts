@@ -54,6 +54,16 @@ export class ScheduleService {
   }
 
   async update(userId: number, horarioIdParam: number, dto: UpdateScheduleDto) {
+    let dataInicioLoophole
+    let dataFimLoophole
+
+    let dataInicio
+    let dataFim
+
+    let estaNoPrazo
+
+    let loopholeToEdit
+    const agora = new Date();
 
     const terms = await this.promptToCreateAndEditSchedule(5, dto.anoLectivo);
     if (!terms) {
@@ -61,25 +71,33 @@ export class ScheduleService {
         'O prazo de criação Ainda Não foi  definido.',
       );
     }
-    const agora = new Date();
-    const dataInicio = new Date(terms.DATA_INICIO);
-    const dataFim = new Date(terms.DATA_FIM);
-    const estaNoPrazo =
+    if(terms){
+    dataInicio = new Date(terms.DATA_INICIO);
+     dataFim = new Date(terms.DATA_FIM);
+      estaNoPrazo =
       agora.getTime() >= dataInicio.getTime() &&
       agora.getTime() <= dataFim.getTime();
+    }
+    
+    
+  
     // Brecha
     const loopholeToEditSchedule = await this.loopholeToEditSchedule(horarioIdParam)
-    if (!loopholeToEditSchedule) {
+    if (!estaNoPrazo && !loopholeToEditSchedule) {
       throw new BadRequestException(
         'Este Horário não tem permissão de ser Editado .',
       );
     }
-    const dataInicioLoophole = new Date(loopholeToEditSchedule.DATA_INICIO);
-    const dataFimLoophole = new Date(loopholeToEditSchedule.DATA_FIM);
-
-    const loopholeToEdit =
+    if(loopholeToEditSchedule){
+    dataInicioLoophole = new Date(loopholeToEditSchedule.DATA_INICIO);
+     dataFimLoophole = new Date(loopholeToEditSchedule.DATA_FIM);
+       loopholeToEdit =
       agora.getTime() >= dataInicioLoophole.getTime() &&
       agora.getTime() <= dataFimLoophole.getTime();
+    }
+    
+
+   
 
     if (!estaNoPrazo && !loopholeToEdit) {
       throw new BadRequestException(
@@ -294,6 +312,7 @@ export class ScheduleService {
       dsm."DESIGNACAO"               AS diaSemana,
       a."ORDEM"                      AS ordem,
       sala."DESIGNACAO"              AS sala,
+      sala."CODIGO"                  AS salaid,
     TO_CHAR(a."HORA_INICIO",  'HH24:MI') AS horaInicio,
    TO_CHAR(a."HORA_TERMINO", 'HH24:MI') AS horaTermino,
 
@@ -361,6 +380,7 @@ export class ScheduleService {
         diaSemanaId: Number(a.DIASEMANAID),
         ordem: Number(a.ORDEM),
         sala: a.SALA,
+        salaid:Number(a.SALAID),
         horaInicio: a.HORAINICIO,
         horaTermino: a.HORATERMINO,
         docenteId: a.DOCENTEID ? Number(a.DOCENTEID) : null,
@@ -1705,7 +1725,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       capacidade = 30,
       turma,
       modalidade,
-      tipoAula,
+    
       apenasPrimeiroAno = false,
       estadoHorario = 2,
       aulas,
@@ -1889,7 +1909,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
 
       // REF_AULA: normalmente é algo como "TP - Terça 09:00-11:00"
       // - ${this.diaSemanaParaTexto(aula.diaSemana)} ${aula.hora_inicio}-${aula.hora_fim}
-      const ref_aula = `{"pk":${tipoAula},"desc":${v_desc_grade}}`;
+      const ref_aula = `{"pk":${aula.tipoAula},"desc":${v_desc_grade}}`;
 
       // REF_SALA: se tiver sala, traz o código, senão "Por atribuir"
       const ref_sala = `{"pk":${aula.sala}},"desc":${v_dec_sala}`;
@@ -1943,7 +1963,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
           horarioId,
 
           diaSemana: aula.diaSemana, // 1=Seg, 2=Ter, etc.
-          fkTipoAula: tipoAula,
+          fkTipoAula: aula.tipoAula,
           fkModalidade: modalidade,
           ordem: aula.ordemTempo || 1,
           horaInicio: aula.hora_inicio, // ex: '0900'

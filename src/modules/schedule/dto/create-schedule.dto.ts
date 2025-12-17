@@ -184,13 +184,7 @@ export class CreateScheduleDto {
   @IsOptional()
   @IsInt()
   apenasPrimeiroAno?: number = 0;
-  @ApiProperty({
-    description: 'Tipo de aula geral da UC (normalmente 1 = Teórica)',
-    example: 2,
-  })
-  @IsInt()
 
-  tipoAula: number;
 
   @ApiProperty({
     type: [AulaDto],
