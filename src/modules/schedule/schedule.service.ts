@@ -193,6 +193,8 @@ export class ScheduleService {
     const fields: string[] = [];
     const params: any = { permissionId };
 
+    
+
     if (query.dataInicio && query.dataFim) {
       const agora = new Date();
       const inicio = new Date(query.dataInicio);
@@ -222,6 +224,8 @@ export class ScheduleService {
       params.ativeState = query.ativeState;
       fields.push(`ATIVE_STATE = :ativeState`);
     }
+  
+    
 
     if (fields.length === 0) {
       throw new BadRequestException(
@@ -235,7 +239,7 @@ export class ScheduleService {
      WHERE PK_PERMISAO_EDICAO_HORARIO = :permissionId
      RETURNING PK_PERMISAO_EDICAO_HORARIO INTO :outId
   `;
-
+  console.log(params,sql,fields);
     const result = await this.dataSource.query(sql, {
       ...params,
       outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },

@@ -91,16 +91,6 @@ export class BuscarDisciplinasProvaDto {
   anoLectivoSelecionado?: number;
 
   @ApiPropertyOptional({
-    description: 'Tipo de prova (1 = Normal, 2 = Recuperação, etc.)',
-    type: Number,
-    example: 1,
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  tipoProvaSelecionada?: number;
-
-  @ApiPropertyOptional({
     description: 'Tipo de avaliação (1 = Teste, 2 = Exame, 3 = Trabalho, etc.)',
     type: Number,
     example: 2,
