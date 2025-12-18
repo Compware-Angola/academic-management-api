@@ -10,9 +10,9 @@ export class HistoryNoteReleaseService {
 
      async searchcurricularByRegistrationNumberAndAcademicYear(params:FilterCurriculumGradeAlunoDto){
 
-const { codigoAnoLectivo, codigoMatricula } = params;
+     const { codigoAnoLectivo, codigoMatricula } = params;
 
-  const sql = `
+    const sql = `
     SELECT DISTINCT
       gca.CODIGO    AS CODIGO_GRADE_CURRICULAR_ALUNO ,
       gca.CODIGO_GRADE_CURRICULAR,
@@ -33,7 +33,7 @@ const { codigoAnoLectivo, codigoMatricula } = params;
     ORDER BY td.DESIGNACAO
   `;
 
-  const resultados = await this.dataSource.query(sql, [
+   const resultados = await this.dataSource.query(sql, [
     codigoAnoLectivo,
     codigoMatricula,
   ]);
