@@ -17,6 +17,7 @@ import { NoteReleaseService } from './note_release.service';
 import { StudentEvaluationDto } from './dto/student-evaluation.dto';
 import { HistoryNoteReleaseService } from './history_note_release.service';
 import { FilterCurriculumGradeAlunoDto } from './dto/filter-student-curriculum.dto';
+import { HistoryNoteReleaseDto } from './dto/history_note_release.dto';
 
 @Controller('assessment')
 export class AssessmentController {
@@ -38,12 +39,31 @@ export class AssessmentController {
   async upsertEvaluation(@Body() dto: StudentEvaluationDto) {
     return await this.noteReleaseService.upsertStudentEvaluation(dto);
   }
-  @Get('searchcurricular-plan-student')
-  async searchcurricularByRegistrationNumberAndAcademicYear(
+ @Get('search-curriculum-plan-student')
+  async searchCurricularByStudenty(
     @Query() params: FilterCurriculumGradeAlunoDto,
   ) {
-    return this.historyNoteReleaseService.searchcurricularByRegistrationNumberAndAcademicYear(params);
+    return this.historyNoteReleaseService.searchCurricularByStudenty(params);
   }
+@Get('get-history-note-release')
+@ApiOperation({
+  summary: 'Busca o histórico de lançamento de notas',
+  description: `
+    - Se informar apenas <code>codigo_grade_curricular_aluno</code>: retorna o histórico dessa disciplina específica.<br>
+    - Caso contrário: precisa informar <code>codigoAnoLectivo</code> + <code>codigoMatricula</code> para buscar todas as disciplinas do aluno.
+  `,
+})
+@ApiResponse({
+  status: 200,
+  description: 'Histórico retornado com sucesso (pode ser array vazio)',
+})
+@ApiResponse({
+  status: 400,
+  description: 'Parâmetros inválidos ou combinação incorreta',
+})
+async historyNoteRelease(@Query() params: HistoryNoteReleaseDto) {
+  return this.historyNoteReleaseService.historyNoteRelease(params);
+}
 
  @Get('filtrar')
 @ApiOperation({ summary: 'Filtrar alunos por critérios específicos' })
