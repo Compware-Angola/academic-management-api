@@ -15,10 +15,12 @@ import { BuscarDisciplinasProvaDto } from './dto/buscar-disciplinas-prova.dto';
 import { StudentFiltersDto } from './dto/studenty-filter.dto';
 import { NoteReleaseService } from './note_release.service';
 import { StudentEvaluationDto } from './dto/student-evaluation.dto';
+import { HistoryNoteReleaseService } from './history_note_release.service';
+import { FilterCurriculumGradeAlunoDto } from './dto/filter-student-curriculum.dto';
 
 @Controller('assessment')
 export class AssessmentController {
-  constructor(private readonly noteReleaseService:NoteReleaseService,private readonly service: AssessmentService,private readonly defineFormulaUcService:DefineFormulaUcService,private readonly oralService:DefineFormulaUcOralService) {}
+  constructor( private readonly historyNoteReleaseService:HistoryNoteReleaseService, private readonly noteReleaseService:NoteReleaseService,private readonly service: AssessmentService,private readonly defineFormulaUcService:DefineFormulaUcService,private readonly oralService:DefineFormulaUcOralService) {}
   @Post('upsert')
   @ApiOperation({
     summary: 'Criar ou atualizar uma avaliação do aluno',
@@ -36,6 +38,13 @@ export class AssessmentController {
   async upsertEvaluation(@Body() dto: StudentEvaluationDto) {
     return await this.noteReleaseService.upsertStudentEvaluation(dto);
   }
+  @Get('searchcurricular-plan-student')
+  async searchcurricularByRegistrationNumberAndAcademicYear(
+    @Query() params: FilterCurriculumGradeAlunoDto,
+  ) {
+    return this.historyNoteReleaseService.searchcurricularByRegistrationNumberAndAcademicYear(params);
+  }
+
  @Get('filtrar')
 @ApiOperation({ summary: 'Filtrar alunos por critérios específicos' })
 @ApiResponse({ status: 200, description: 'Lista de alunos filtrados' })
