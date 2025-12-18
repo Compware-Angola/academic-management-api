@@ -72,7 +72,7 @@ export class ScheduleController {
   })
   updatePermissionToEditSchedule(
     @Param('permissionId', ValidationPipe) permissionId: number,
-    @Query(ValidationPipe) query: UpdatePermissionEditScheduleDto,
+    @Body(ValidationPipe) query: UpdatePermissionEditScheduleDto,
   ) {
     return this.scheduleService.updatePermissionToEditSchedule(
       permissionId,
