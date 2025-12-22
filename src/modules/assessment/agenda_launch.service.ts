@@ -74,9 +74,9 @@ async getAll(filtros: FiltroLancamentoPautaDto) {
           ON td.CODIGO = tgc.CODIGO_DISCIPLINA
         INNER JOIN FK2_MCAL_TB_TIPO_AVALIACAO av
           ON pt.FK_TIPO_AVALIACAO = av.PK_TIPO_AVALIACAO
-        WHERE pt.ACTIVE_STATE = 1
+        WHERE tgc.STATUS_ = 1
           AND JSON_VALUE(pt.REF_ANO_LECTIVO, '$.pk') = :anoLectivo
-          AND  tgc.STATUS_ = 1
+          
   `;
 
   // Filtros opcionais
