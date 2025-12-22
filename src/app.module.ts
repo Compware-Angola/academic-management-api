@@ -10,6 +10,7 @@ import { AcademicActivitiesModule } from './modules/academic_activities/academic
 import { TeacherModule } from './modules/teacher/teacher.module';
 import { ScheduleModule } from './modules/schedule/schedule.module';
 import { HistoryNoteReleaseService } from './modules/assessment/history_note_release.service';
+import { AcessManagementModule } from './modules/acess_management/acess_management.module';
 @Module({
   imports: [ ConfigModule.forRoot({
       isGlobal: true,
@@ -46,6 +47,7 @@ TypeOrmModule.forRootAsync({
     AcademicActivitiesModule,
     TeacherModule,
     ScheduleModule,
+    AcessManagementModule,
 ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService],
