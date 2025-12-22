@@ -1,5 +1,5 @@
 // src/users/users.controller.ts
-import { Controller, Post, Get, Body, ValidationPipe } from '@nestjs/common';
+import { Controller, Post, Headers, Body, ValidationPipe } from '@nestjs/common';
 import { UsersService } from './users.service'
 import { CreatePersonUserDto } from './dto/create-person-user.dto';
 import { CreatePersonUserResponseDto } from './dto/create-person-user-response.dto';
@@ -16,9 +16,8 @@ export class AcessManagementController {
   @ApiResponse({ status: 201, type: CreatePersonUserResponseDto })
   async criarPessoaEUtilizador(
     @Body(ValidationPipe) dto: CreatePersonUserDto,
+    @Headers('x-user-logado-id') usuarioLogadoId: number
   ): Promise<CreatePersonUserResponseDto> {
-    // TODO: pegar usuarioLogadoId do JWT (ex: @GetUser() user)
-    const usuarioLogadoId = 1; // temporário
     return this.usersService.criarPessoaEUtilizador(dto, usuarioLogadoId);
   }
 
