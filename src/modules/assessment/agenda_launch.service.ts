@@ -1,10 +1,11 @@
 
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { FiltroLancamentoPautaDto } from './dto/filtro-lancamento-pauta.dto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { CreateLancamentoPautaDto } from './dto/create-lancamento-pauta.dto';
 import { escapeQuotes } from '../util/escape-quotes';
+import { UpdateEstadoPautaDto } from './dto/update-estado-pauta.dto';
 
 @Injectable()
 export class AgendaLaunchService {
@@ -46,6 +47,8 @@ async getAll(filtros: FiltroLancamentoPautaDto) {
           pt.PK_LANCAMENTO_PAUTA                              AS codigo,
           pt.CREATED_AT                                       AS created_at,
           pt.UPDATED_AT                                       AS updated_at,
+          pt.FK_ESTADO_LANCAMENTO_PAUTA                       AS estado_pauta,
+          estn.DESIGNACAO                                   AS estado_pauta_designacao,
           pt.ACTIVE_STATE                                     AS active_state,
           pt.FICHEIRO_NAME                                    AS ficheiro_name,
           pt.FK_TIPO_AVALIACAO                                AS fk_tipo_avaliacao,
@@ -68,6 +71,8 @@ async getAll(filtros: FiltroLancamentoPautaDto) {
           ON fts.CODIGO = tgc.CODIGO_SEMESTRE
         LEFT JOIN FK2_TB_CURSOS ftc2
           ON ftc2.CODIGO = tgc.CODIGO_CURSO
+          LEFT JOIN FK2_MGD_ESTADO_LANCAMENTO_PAUTA estn
+          ON estn.PK_ESTADO = pt.FK_ESTADO_LANCAMENTO_PAUTA
         LEFT JOIN FK2_TB_ANO_LECTIVO al
           ON al.CODIGO = JSON_VALUE(pt.REF_ANO_LECTIVO, '$.pk')
         INNER JOIN FK2_TB_DISCIPLINAS td
@@ -76,6 +81,7 @@ async getAll(filtros: FiltroLancamentoPautaDto) {
           ON pt.FK_TIPO_AVALIACAO = av.PK_TIPO_AVALIACAO
         WHERE tgc.STATUS_ = 1
           AND JSON_VALUE(pt.REF_ANO_LECTIVO, '$.pk') = :anoLectivo
+          AND pt.ACTIVE_STATE =1
           
   `;
 
@@ -111,7 +117,7 @@ async getAll(filtros: FiltroLancamentoPautaDto) {
   `;
 
   const result = await this.dataSource.query(sql, params);
-  console.log(result);
+
   
 
   const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
@@ -205,6 +211,80 @@ const query = `
       `Erro ao inserir lançamento de pauta: ${error.message || error}`,
     );
   }
+}
+
+async updateEstado(
+  id: number,
+  updateEstadoDto: UpdateEstadoPautaDto,
+) {
+  const { fkEstadoLancamentoPauta } = updateEstadoDto;
+
+  // Validação extra: só permite mudar de Pendente para Aprovado/Rejeitado
+  const pautaExistente = await this.verificarExistenciaPauta(id);
+ 
+  
+
+  if (pautaExistente.FK_ESTADO_LANCAMENTO_PAUTA !== 1) {
+    throw new BadRequestException(
+      'Só é possível aprovar ou rejeitar pautas que estão no estado Pendente.',
+    );
+  }
+
+  const now = new Date().toISOString();
+
+  const query = `
+    UPDATE FK2_MGD_TB_LANCAMENTO_PAUTA
+    SET 
+      FK_ESTADO_LANCAMENTO_PAUTA = :novoEstado,
+      UPDATED_AT = TO_TIMESTAMP(:now, 'YYYY-MM-DD"T"HH24:MI:SS.FF3"Z"')
+    WHERE PK_LANCAMENTO_PAUTA = :id
+  `;
+
+  const parameters = {
+    novoEstado: fkEstadoLancamentoPauta,
+    now,
+    id,
+  };
+
+  try {
+    const result = await this.dataSource.query(query, parameters as any);
+
+    // Verifica se alguma linha foi afetada
+    if (result[1] === 0) {
+      throw new BadRequestException('Pauta não encontrada.');
+    }
+
+    const estadoDesc = fkEstadoLancamentoPauta === 2 ? 'aprovada' : 'rejeitada';
+
+    return {
+      success: true,
+      message: `Pauta ${estadoDesc} com sucesso.`,
+    };
+  } catch (error) {
+    if (error instanceof BadRequestException) {
+      throw error;
+    }
+    throw new BadRequestException(
+      `Erro ao atualizar estado da pauta: ${error.message || error}`,
+    );
+  }
+}
+
+// Método auxiliar (se não tiveres, adiciona)
+private async verificarExistenciaPauta(id: number) {
+  const query = `
+    SELECT FK_ESTADO_LANCAMENTO_PAUTA AS fk_estado_lancamento_pauta
+    FROM FK2_MGD_TB_LANCAMENTO_PAUTA
+    WHERE PK_LANCAMENTO_PAUTA = :id
+  `;
+
+  const result = await this.dataSource.query(query, [id]);
+
+  if (!result || result.length === 0) {
+    throw new NotFoundException('Pauta não encontrada.');
+  }
+
+  return result[0];
 }
   async getDescricaoGradeCurricular(codigoGrade: number): Promise<string> {
     const result = await this.dataSource.query(

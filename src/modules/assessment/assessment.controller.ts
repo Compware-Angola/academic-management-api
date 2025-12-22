@@ -24,6 +24,7 @@ import { UpdateParametroAvaliacaoAttendanceListDto } from './dto/update-parametr
 import { FiltroLancamentoPautaDto } from './dto/filtro-lancamento-pauta.dto';
 import { AgendaLaunchService } from './agenda_launch.service';
 import { CreateLancamentoPautaDto } from './dto/create-lancamento-pauta.dto';
+import { UpdateEstadoPautaDto } from './dto/update-estado-pauta.dto';
 
 @Controller('assessment')
 export class AssessmentController {
@@ -129,7 +130,13 @@ findAll(@Query() filtro: FiltroLancamentoPautaDto) {
     return this.agendaLaunch.create(createDto);
   }
 
-
+@Patch('lancamento-pauta/:id/estado')
+async atualizarEstado(
+  @Param('id', ParseIntPipe) id: number,
+  @Body() updateEstadoDto: UpdateEstadoPautaDto,
+) {
+  return this.agendaLaunch.updateEstado(id, updateEstadoDto);
+}
  @Get('filtrar')
 @ApiOperation({ summary: 'Filtrar alunos por critérios específicos' })
 @ApiResponse({ status: 200, description: 'Lista de alunos filtrados' })
