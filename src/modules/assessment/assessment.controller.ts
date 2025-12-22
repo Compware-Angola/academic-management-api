@@ -21,10 +21,13 @@ import { HistoryNoteReleaseDto } from './dto/history_note_release.dto';
 import { GeneralParametersForEvaluationService } from './general_parameters_for_evaluation.service';
 import { CreateParametroAvaliacaoMutueDto, UpdateParametroAvaliacaoMutueDto } from './dto/parametros-avaliacoes.dto';
 import { UpdateParametroAvaliacaoAttendanceListDto } from './dto/update-parametro-avaliacao-attendance-list.dto';
+import { FiltroLancamentoPautaDto } from './dto/filtro-lancamento-pauta.dto';
+import { AgendaLaunchService } from './agenda_launch.service';
+import { CreateLancamentoPautaDto } from './dto/create-lancamento-pauta.dto';
 
 @Controller('assessment')
 export class AssessmentController {
-  constructor( private readonly generalParametersForEvaluationService:GeneralParametersForEvaluationService, private readonly historyNoteReleaseService:HistoryNoteReleaseService, private readonly noteReleaseService:NoteReleaseService,private readonly service: AssessmentService,private readonly defineFormulaUcService:DefineFormulaUcService,private readonly oralService:DefineFormulaUcOralService) {}
+  constructor( private readonly agendaLaunch:AgendaLaunchService, private readonly generalParametersForEvaluationService:GeneralParametersForEvaluationService, private readonly historyNoteReleaseService:HistoryNoteReleaseService, private readonly noteReleaseService:NoteReleaseService,private readonly service: AssessmentService,private readonly defineFormulaUcService:DefineFormulaUcService,private readonly oralService:DefineFormulaUcOralService) {}
   @Post('upsert')
   @ApiOperation({
     summary: 'Criar ou atualizar uma avaliação do aluno',
@@ -115,6 +118,17 @@ async historyNoteRelease(@Query() params: HistoryNoteReleaseDto) {
   async(){
     return this.generalParametersForEvaluationService.attendanceList()
   }
+@Get("lancamento/pauta")
+@ApiOperation({ summary: 'Filtrar pautas lançadas' })
+@ApiResponse({ status: 200, description: 'Lista ....' })
+findAll(@Query() filtro: FiltroLancamentoPautaDto) {
+  return this.agendaLaunch.getAll(filtro);
+}
+@Post("lancamento/pauta/create")
+  async create(@Body() createDto: CreateLancamentoPautaDto) {
+    return this.agendaLaunch.create(createDto);
+  }
+
 
  @Get('filtrar')
 @ApiOperation({ summary: 'Filtrar alunos por critérios específicos' })

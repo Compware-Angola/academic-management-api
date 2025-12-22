@@ -10,6 +10,7 @@ import { NoteReleaseService } from './note_release.service';
 import { AcademicYear } from '../shared/entities/academic.year.entity';
 import { HistoryNoteReleaseService } from './history_note_release.service';
 import { GeneralParametersForEvaluationService } from './general_parameters_for_evaluation.service';
+import { AgendaLaunchService } from './agenda_launch.service';
 
 @Module({
   imports: [    TypeOrmModule.forFeature([
@@ -18,6 +19,6 @@ import { GeneralParametersForEvaluationService } from './general_parameters_for_
      
       ]),],
   controllers: [AssessmentController],
-  providers: [AssessmentService,AnoLectivoUtil, DefineFormulaUcService, DefineFormulaUcOralService,NoteReleaseService,HistoryNoteReleaseService, GeneralParametersForEvaluationService],
+  providers: [AgendaLaunchService,AssessmentService,AnoLectivoUtil, DefineFormulaUcService, DefineFormulaUcOralService,NoteReleaseService,HistoryNoteReleaseService, GeneralParametersForEvaluationService],
 })
 export class AssessmentModule {}
