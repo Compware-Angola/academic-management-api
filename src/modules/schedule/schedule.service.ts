@@ -2454,18 +2454,23 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
 
   // 4.3) Nome do docente
   async getNomeDocente(codigoDocente: number): Promise<string> {
-    const result = await this.dataSource.query(
-      `SELECT nome
-     FROM fk2_tb_docente
-     WHERE CODIGO = :codigoDocente`,
-      [codigoDocente],
-    );
+  const result = await this.dataSource.query(
+  `
+  SELECT 
+    JSON_VALUE(CODIGO_UTILIZADOR, '$.desc') AS "nome"
+  FROM FK2_MGD_TB_DOCENTE
+  WHERE CODIGO = :codigoDocente
+  `,
+  [codigoDocente],
+);
+
+
 
     if (!result || result.length === 0) {
       throw new Error(`Docente não encontrado para o código ${codigoDocente}`);
     }
 
-    return result[0].NOME as string;
+    return result[0].nome as string;
   }
 
   // 4.4) Descrição do ano lectivo
