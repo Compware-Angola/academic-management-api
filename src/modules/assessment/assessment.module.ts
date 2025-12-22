@@ -9,6 +9,7 @@ import { DefineFormulaUcOralService } from './define_formula_uc_oral.service';
 import { NoteReleaseService } from './note_release.service';
 import { AcademicYear } from '../shared/entities/academic.year.entity';
 import { HistoryNoteReleaseService } from './history_note_release.service';
+import { GeneralParametersForEvaluationService } from './general_parameters_for_evaluation.service';
 
 @Module({
   imports: [    TypeOrmModule.forFeature([
@@ -17,6 +18,6 @@ import { HistoryNoteReleaseService } from './history_note_release.service';
      
       ]),],
   controllers: [AssessmentController],
-  providers: [AssessmentService,AnoLectivoUtil, DefineFormulaUcService, DefineFormulaUcOralService,NoteReleaseService,HistoryNoteReleaseService],
+  providers: [AssessmentService,AnoLectivoUtil, DefineFormulaUcService, DefineFormulaUcOralService,NoteReleaseService,HistoryNoteReleaseService, GeneralParametersForEvaluationService],
 })
 export class AssessmentModule {}

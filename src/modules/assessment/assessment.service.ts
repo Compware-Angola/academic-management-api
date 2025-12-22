@@ -6,6 +6,7 @@ import { DataSource } from 'typeorm';
 import { AnoLectivoUtil } from '../util/current-academic-year';
 import { BuscarNotasDto } from './dto/buscar-notas.dto';
 import { BuscarDisciplinasProvaDto, FiltroNota } from './dto/buscar-disciplinas-prova.dto';
+import { toUpperCaseKeys } from '../util/toUpperCaseKeys';
 
 export interface LancamentoNotaPorCursoModel {
   disciplina: string;
@@ -41,7 +42,7 @@ export class AssessmentService {
     params: BuscarDisciplinasProvaDto,
   ): Promise<LancamentoNotaPorCursoModel[]> {
     const {
-      verHorario = false,
+      verHorario = true,
       filtro = FiltroNota.TODAS,
       gradeSelecionada,
       cursoSelecionado,
@@ -62,6 +63,8 @@ export class AssessmentService {
           return this.findByTodasHorario(gradeSelecionada, anoCurricularSelecionado!, semestre, anoLectivoId, tipoAvaliacaoId);
 
         case FiltroNota.COM_NOTA:
+  
+          
           return this.findByComNotaHorario(gradeSelecionada, semestre, anoLectivoId, tipoAvaliacaoId);
 
         case FiltroNota.SEM_NOTA:
@@ -80,6 +83,9 @@ export class AssessmentService {
           return this.findByComNota(cursoSelecionado, anoCurricularSelecionado!, semestre, anoLectivoId, tipoAvaliacaoId);
 
         case FiltroNota.SEM_NOTA:
+
+        console.log("AQUI");
+        
           return this.findBySemNota(cursoSelecionado, anoCurricularSelecionado!, semestre, anoLectivoId, tipoAvaliacaoId);
 
         default:
@@ -210,6 +216,8 @@ export class AssessmentService {
     ORDER BY td.Designacao
   `, [gradeId, semestre, classeId, anoLectivoId]);
 
+  
+
     return this.enriquecerHorario(rows, semestre, anoLectivoId, tipoAvaliacaoId);
   }
 
@@ -241,14 +249,17 @@ export class AssessmentService {
       AND tgc.status_ != 0
       AND mth.active_state = 1
       AND mth.fk_estado_horario_wf != 4
-      AND tgcaa.tipo_avaliacao = :tipoAvaliacaoId
+     AND tgcaa.tipo_avaliacao = :tipoAvaliacaoId
     ORDER BY td.Designacao
   `, [gradeId,
       semestre,
       anoLectivoId,
-      tipoAvaliacaoId,]);
-
-    return this.enriquecerHorario(rows, semestre, anoLectivoId, tipoAvaliacaoId);
+      tipoAvaliacaoId]);
+   
+      
+ const transformer = await toUpperCaseKeys(rows)
+    console.log(rows,transformer);
+    return this.enriquecerHorario(transformer, semestre, anoLectivoId, tipoAvaliacaoId);
   }
 
   // 1. SEM NOTA + HORÁRIO (melhorado)
@@ -287,7 +298,10 @@ export class AssessmentService {
     ORDER BY td.Designacao
   `, [gradeId, semestre, anoLectivoId, tipoAvaliacaoId]);
 
-    return rows.map(row => ({
+  console.log(rows,"33333333333");
+   const transformer = await toUpperCaseKeys(rows)
+  
+    return transformer.map(row => ({
       disciplina: row.DISCIPLINA,
       turmaOuHorario: row.TURMAOUHORARIO,
       semestre: semestre === 1 ? 'I SEMESTRE' : 'II SEMESTRE',
@@ -409,7 +423,9 @@ export class AssessmentService {
       classeId,
       semestre,
       anoLectivoId,
-      tipoAvaliacaoId,]);
+      tipoAvaliacaoId]);
+
+
 
     return rows.map(row => ({
       disciplina: row.DISCIPLINA,
@@ -444,10 +460,10 @@ export class AssessmentService {
         tipoAvaliacaoId,
       );
       const r = this.normalizeRow(row);
-      console.log(r, "TESTE ###$");
+    
 
       const anoCorrente = this.anoAtualPrincipal;
-      const inscritos = await this.buscarNumeroDeIscritos(r, r.turmaouhorario, anoCorrente);
+      const inscritos = await this.buscarNumeroDeIscritos(r, r.turmaouhorario, anoLectivoId);
       const numNotaPorLancar = inscritos >= totalLancadas
         ? inscritos - totalLancadas
         : 0;
