@@ -11,6 +11,7 @@ import { DataSource } from 'typeorm';
 import { CreatePersonUserDto } from './dto/create-person-user.dto';
 import { CreatePersonUserResponseDto } from './dto/create-person-user-response.dto';
 import * as bcrypt from 'bcrypt'; // ou 'bcrypt'
+import { gerarHashExterno } from '../util/hash.util'
 
 @Injectable()
 export class UsersService {
@@ -117,8 +118,8 @@ export class UsersService {
       username = await this.gerarUsernameUnico(baseUsername);
 
       // 5. Hash da senha temporária
-      const senhaTemp = Math.random().toString(36).slice(-8) + 'A1@';
-      const senhaHash = await bcrypt.hash(senhaTemp, 12);
+      //const senhaTemp = Math.random().toString(36).slice(-8) + 'A1@';
+      const senhaHash = await gerarHashExterno("compware123")
 
       // 6. Inserir Utilizador
       await queryRunner.manager.query(`
