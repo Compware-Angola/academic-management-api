@@ -1,9 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ValidationPipe, Query, Put } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ValidationPipe, Query, Put, ParseIntPipe } from '@nestjs/common';
 import { AssessmentService, NotaLancadaResponseDto } from './assessment.service';
 
 
 import { BuscarNotasDto } from './dto/buscar-notas.dto';
-import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { ListarUnidadesCurricularesDto } from './dto/listar-unidades-curriculares.dto';
 import { DefineFormulaUcService } from './define_formula_uc.service';
 import { AtualizarFormulaDto } from './dto/atualizar-formula.dto';
@@ -17,10 +17,14 @@ import { NoteReleaseService } from './note_release.service';
 import { StudentEvaluationDto } from './dto/student-evaluation.dto';
 import { HistoryNoteReleaseService } from './history_note_release.service';
 import { FilterCurriculumGradeAlunoDto } from './dto/filter-student-curriculum.dto';
+import { HistoryNoteReleaseDto } from './dto/history_note_release.dto';
+import { GeneralParametersForEvaluationService } from './general_parameters_for_evaluation.service';
+import { CreateParametroAvaliacaoMutueDto, UpdateParametroAvaliacaoMutueDto } from './dto/parametros-avaliacoes.dto';
+import { UpdateParametroAvaliacaoAttendanceListDto } from './dto/update-parametro-avaliacao-attendance-list.dto';
 
 @Controller('assessment')
 export class AssessmentController {
-  constructor( private readonly historyNoteReleaseService:HistoryNoteReleaseService, private readonly noteReleaseService:NoteReleaseService,private readonly service: AssessmentService,private readonly defineFormulaUcService:DefineFormulaUcService,private readonly oralService:DefineFormulaUcOralService) {}
+  constructor( private readonly generalParametersForEvaluationService:GeneralParametersForEvaluationService, private readonly historyNoteReleaseService:HistoryNoteReleaseService, private readonly noteReleaseService:NoteReleaseService,private readonly service: AssessmentService,private readonly defineFormulaUcService:DefineFormulaUcService,private readonly oralService:DefineFormulaUcOralService) {}
   @Post('upsert')
   @ApiOperation({
     summary: 'Criar ou atualizar uma avaliação do aluno',
@@ -38,11 +42,78 @@ export class AssessmentController {
   async upsertEvaluation(@Body() dto: StudentEvaluationDto) {
     return await this.noteReleaseService.upsertStudentEvaluation(dto);
   }
-  @Get('searchcurricular-plan-student')
-  async searchcurricularByRegistrationNumberAndAcademicYear(
+  @Post('parametros-avaliacoes')
+@ApiOperation({ summary: 'Cria um novo parâmetro de avaliação MUTUE' })
+@ApiResponse({ status: 201, description: 'Parâmetro criado com sucesso' })
+@ApiResponse({ status: 400, description: 'Dados inválidos' })
+async createParametro(@Body(ValidationPipe) dto: CreateParametroAvaliacaoMutueDto) {
+  return this.generalParametersForEvaluationService.createParametro(dto);
+}
+
+@Put('parametros-avaliacoes/:parametroId')
+@ApiOperation({ summary: 'Atualiza um parâmetro de avaliação MUTUE existente' })
+@ApiResponse({ status: 200, description: 'Parâmetro atualizado com sucesso' })
+@ApiResponse({ status: 404, description: 'Parâmetro não encontrado' })
+@ApiResponse({ status: 400, description: 'Dados inválidos' })
+async updateParametro(  @Param('parametroId', ValidationPipe) parametroId: number,@Body(ValidationPipe) dto: UpdateParametroAvaliacaoMutueDto) {
+  return this.generalParametersForEvaluationService.updateParametro(dto,parametroId);
+}
+ @Get('search-curriculum-plan-student')
+  async searchCurricularByStudenty(
     @Query() params: FilterCurriculumGradeAlunoDto,
   ) {
-    return this.historyNoteReleaseService.searchcurricularByRegistrationNumberAndAcademicYear(params);
+    return this.historyNoteReleaseService.searchCurricularByStudenty(params);
+  }
+@Get('get-history-note-release')
+@ApiOperation({
+  summary: 'Busca o histórico de lançamento de notas',
+  description: `
+    - Se informar apenas <code>codigo_grade_curricular_aluno</code>: retorna o histórico dessa disciplina específica.<br>
+    - Caso contrário: precisa informar <code>codigoAnoLectivo</code> + <code>codigoMatricula</code> para buscar todas as disciplinas do aluno.
+  `,
+})
+@ApiResponse({
+  status: 200,
+  description: 'Histórico retornado com sucesso (pode ser array vazio)',
+})
+@ApiResponse({
+  status: 400,
+  description: 'Parâmetros inválidos ou combinação incorreta',
+})
+async historyNoteRelease(@Query() params: HistoryNoteReleaseDto) {
+  return this.historyNoteReleaseService.historyNoteRelease(params);
+}
+@Get('parametros-avaliacoes')
+@ApiOperation({
+  summary: 'Lista os parâmetros de avaliações  ativos',
+  description: `
+    Retorna todos os registros da tabela <code>FK2_TB_PARAMETROS_AVALIACOES_MUTUE</code> 
+    que estão com <code>ACTIVO = 1</code>, ordenados por <code>CODIGO</code>.<br><br>
+    Os campos são retornados com as chaves em <strong>lowercase</strong> para facilitar o consumo no frontend.
+  `,
+})
+@ApiResponse({
+  status: 200,
+  description: 'Lista de parâmetros retornada com sucesso (pode ser array vazio)',
+  type: [Object], 
+})
+@ApiResponse({
+  status: 500,
+  description: 'Erro interno no servidor ao executar a consulta',
+})
+@ApiQuery({
+  name: 'search',
+  required: false,
+  type: String,
+  description: 'Pesquisa parcial (ignorando maiúsculas/minúsculas) na descrição ou observação',
+  example: 'pontual',
+})
+  async viewNote(@Query('search') search?: string) {
+    return this.generalParametersForEvaluationService.viewNote(search);
+  }
+  @Get('parametros-avaliacoes-attendance-list')
+  async(){
+    return this.generalParametersForEvaluationService.attendanceList()
   }
 
  @Get('filtrar')
@@ -50,6 +121,21 @@ export class AssessmentController {
 @ApiResponse({ status: 200, description: 'Lista de alunos filtrados' })
 filtrarAlunos(@Query() filtro: StudentFiltersDto) {
   return this.noteReleaseService.findstudents(filtro);
+}
+@Put('parametros-avaliacoes-attendance-list/:codigo')
+@ApiOperation({ summary: 'Atualiza um parâmetro de avaliação (attendance list)' })
+@ApiParam({
+  name: 'codigo',
+  description: 'Código identificador do parâmetro',
+  example: 16,
+})
+@ApiResponse({ status: 200, description: 'Atualizado com sucesso' })
+@ApiResponse({ status: 404, description: 'Registro não encontrado' })
+async update(
+  @Param('codigo', ParseIntPipe) codigo: number,
+  @Body() updateData: UpdateParametroAvaliacaoAttendanceListDto,
+) {
+  return this.generalParametersForEvaluationService.updateAttendanceList(codigo, updateData);
 }
 
   @Get('disciplinas-prova')
