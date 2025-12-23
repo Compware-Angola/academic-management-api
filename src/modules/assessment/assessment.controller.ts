@@ -25,10 +25,12 @@ import { FiltroLancamentoPautaDto } from './dto/filtro-lancamento-pauta.dto';
 import { AgendaLaunchService } from './agenda_launch.service';
 import { CreateLancamentoPautaDto } from './dto/create-lancamento-pauta.dto';
 import { UpdateEstadoPautaDto } from './dto/update-estado-pauta.dto';
+import { GeneralAgendaDto } from './dto/list-general-agenda.dto';
+import { GenaralAgendaService } from './general_agenda.service';
 
 @Controller('assessment')
 export class AssessmentController {
-  constructor( private readonly agendaLaunch:AgendaLaunchService, private readonly generalParametersForEvaluationService:GeneralParametersForEvaluationService, private readonly historyNoteReleaseService:HistoryNoteReleaseService, private readonly noteReleaseService:NoteReleaseService,private readonly service: AssessmentService,private readonly defineFormulaUcService:DefineFormulaUcService,private readonly oralService:DefineFormulaUcOralService) {}
+  constructor( private readonly genaralAgendaService:GenaralAgendaService, private readonly agendaLaunch:AgendaLaunchService, private readonly generalParametersForEvaluationService:GeneralParametersForEvaluationService, private readonly historyNoteReleaseService:HistoryNoteReleaseService, private readonly noteReleaseService:NoteReleaseService,private readonly service: AssessmentService,private readonly defineFormulaUcService:DefineFormulaUcService,private readonly oralService:DefineFormulaUcOralService) {}
   @Post('upsert')
   @ApiOperation({
     summary: 'Criar ou atualizar uma avaliação do aluno',
@@ -52,6 +54,10 @@ export class AssessmentController {
 @ApiResponse({ status: 400, description: 'Dados inválidos' })
 async createParametro(@Body(ValidationPipe) dto: CreateParametroAvaliacaoMutueDto) {
   return this.generalParametersForEvaluationService.createParametro(dto);
+}
+@Get('pautas-geral')
+async getAllPauta(@Query() query: GeneralAgendaDto){
+ return this.genaralAgendaService.findAll(query)
 }
 
 @Put('parametros-avaliacoes/:parametroId')
