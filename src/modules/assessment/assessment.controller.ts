@@ -1,6 +1,17 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ValidationPipe, Query, Put } from '@nestjs/common';
-import { AssessmentService, NotaLancadaResponseDto } from './assessment.service';
-
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  ValidationPipe,
+  Query,
+  Put,
+} from '@nestjs/common';
+import {
+  AssessmentService,
+  NotaLancadaResponseDto,
+} from './assessment.service';
 
 import { BuscarNotasDto } from './dto/buscar-notas.dto';
 import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
@@ -15,10 +26,28 @@ import { BuscarDisciplinasProvaDto } from './dto/buscar-disciplinas-prova.dto';
 import { StudentFiltersDto } from './dto/studenty-filter.dto';
 import { NoteReleaseService } from './note_release.service';
 import { StudentEvaluationDto } from './dto/student-evaluation.dto';
+import { StudentEnrolledByAssessmentDTO } from './dto/student-enrolled-by-assessment.dto';
+import { StudentsEnrolledByAssessmentsService } from './students-enrolled-by-assessments.service';
+import { PermissionAssessmentDTO } from './dto/permission-assessment.dto';
+import { PermissionAssessmentsService } from './permission-assessment.service';
+import { CreatePermissionAssessmentDTO } from './dto/create-permission-assessment.dto';
+import { StatisticAssessmentDTO } from './dto/statistic-assessment.dto';
+import { StatisticAssessmentsService } from './statistic-assessment.service';
+import { MarkingAssessmentService } from './making-assessment.service';
+import { MarkingAssessmentDTO } from './dto/marking-assessment.dto';
 
 @Controller('assessment')
 export class AssessmentController {
-  constructor(private readonly noteReleaseService:NoteReleaseService,private readonly service: AssessmentService,private readonly defineFormulaUcService:DefineFormulaUcService,private readonly oralService:DefineFormulaUcOralService) {}
+  constructor(
+    private readonly noteReleaseService: NoteReleaseService,
+    private readonly service: AssessmentService,
+    private readonly defineFormulaUcService: DefineFormulaUcService,
+    private readonly oralService: DefineFormulaUcOralService,
+    private readonly studentAssessmentService: StudentsEnrolledByAssessmentsService,
+    private readonly permissionService: PermissionAssessmentsService,
+    private readonly statisticService: StatisticAssessmentsService,
+    private readonly markingAssessmentService: MarkingAssessmentService,
+  ) {}
   @Post('upsert')
   @ApiOperation({
     summary: 'Criar ou atualizar uma avaliação do aluno',
@@ -36,13 +65,35 @@ export class AssessmentController {
   async upsertEvaluation(@Body() dto: StudentEvaluationDto) {
     return await this.noteReleaseService.upsertStudentEvaluation(dto);
   }
- @Get('filtrar')
-@ApiOperation({ summary: 'Filtrar alunos por critérios específicos' })
-@ApiResponse({ status: 200, description: 'Lista de alunos filtrados' })
-filtrarAlunos(@Query() filtro: StudentFiltersDto) {
-  return this.noteReleaseService.findstudents(filtro);
-}
-
+  @Get('filtrar')
+  @ApiOperation({ summary: 'Filtrar alunos por critérios específicos' })
+  @ApiResponse({ status: 200, description: 'Lista de alunos filtrados' })
+  filtrarAlunos(@Query() filtro: StudentFiltersDto) {
+    return this.noteReleaseService.findstudents(filtro);
+  }
+  @Get('permissoes')
+  async findPermissionLaunch(
+    @Query(ValidationPipe) params: PermissionAssessmentDTO,
+  ) {
+    return this.permissionService.findPermissionLaunch(params);
+  }
+  @Post('permissoes')
+  @ApiOperation({
+    summary: 'Criar Permissão de  avaliação do aluno',
+    description:
+      'Faz um INSERT se na tabela de permissões de lançamento de nota caso estiver em um intervalo futuro',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Permissão da Avaliação criada ou atualizada com sucesso.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos enviados.',
+  })
+  async createPermissionAssessment(@Body() dto: CreatePermissionAssessmentDTO) {
+    return await this.permissionService.createPermissionAssessment(dto);
+  }
   @Get('disciplinas-prova')
   async buscarDisciplinasProva(
     @Query(ValidationPipe) params: BuscarDisciplinasProvaDto,
@@ -50,24 +101,34 @@ filtrarAlunos(@Query() filtro: StudentFiltersDto) {
     return this.service.buscarDisciplinasProva(params);
   }
 
-@Get('notas')
+  @Get('notas')
   async buscarNotas(
     @Query(ValidationPipe) params: BuscarNotasDto,
   ): Promise<NotaLancadaResponseDto[]> {
     return this.service.buscarNotas(params.turmaOuHorarioId, params);
   }
+  @Get('estudantes-inscritos')
+  async findAllStudentEnrolledAvaluation(
+    @Query(ValidationPipe) params: StudentEnrolledByAssessmentDTO,
+  ) {
+    return this.studentAssessmentService.findAllStudentEnrolledAvaluation(
+      params,
+    );
+  }
   @Get('unidades-curriculares')
-@ApiOperation({ summary: 'Listar fórmulas de avaliação por curso, ano e semestre' })
-async listarUnidadesCurriculares(
-  @Query(ValidationPipe) params: ListarUnidadesCurricularesDto,
-) {
-  return this.defineFormulaUcService.listarUnidadesCurriculares(params);
-}
-@Put('unidades-curriculares') // ou @Put
-async salvarFormula(@Body() body: AtualizarFormulaDto) {
-  return this.defineFormulaUcService.atualizarFormula(body);
-}
-@Get('definir/oral')
+  @ApiOperation({
+    summary: 'Listar fórmulas de avaliação por curso, ano e semestre',
+  })
+  async listarUnidadesCurriculares(
+    @Query(ValidationPipe) params: ListarUnidadesCurricularesDto,
+  ) {
+    return this.defineFormulaUcService.listarUnidadesCurriculares(params);
+  }
+  @Put('unidades-curriculares') // ou @Put
+  async salvarFormula(@Body() body: AtualizarFormulaDto) {
+    return this.defineFormulaUcService.atualizarFormula(body);
+  }
+  @Get('definir/oral')
   @ApiOperation({ summary: 'Listar disciplinas com status de oral habilitado' })
   @ApiResponse({ status: 200, type: [DefinirOralGradeDto] })
   async buscar(
@@ -76,17 +137,31 @@ async salvarFormula(@Body() body: AtualizarFormulaDto) {
     return this.oralService.buscar(params);
   }
   @Patch('definir/oral/status')
-@ApiOperation({ summary: 'Habilitar ou desabilitar prova oral para uma disciplina' })
-@ApiBody({ type: AtualizarStatusOralDto })
-@ApiResponse({ status: 200, description: 'Status atualizado com sucesso' })
-@ApiResponse({ status: 404, description: 'Disciplina não encontrada' })
-async atualizarStatus(
-  @Body(ValidationPipe) dto: AtualizarStatusOralDto,
-): Promise<{ message: string; habilitar: boolean }> {
-  await this.oralService.atualizarStatus(dto);
-  return {
-    message: 'Status da oral atualizado com sucesso',
-    habilitar: dto.habilitar,
-  };
-}
+  @ApiOperation({
+    summary: 'Habilitar ou desabilitar prova oral para uma disciplina',
+  })
+  @ApiBody({ type: AtualizarStatusOralDto })
+  @ApiResponse({ status: 200, description: 'Status atualizado com sucesso' })
+  @ApiResponse({ status: 404, description: 'Disciplina não encontrada' })
+  async atualizarStatus(
+    @Body(ValidationPipe) dto: AtualizarStatusOralDto,
+  ): Promise<{ message: string; habilitar: boolean }> {
+    await this.oralService.atualizarStatus(dto);
+    return {
+      message: 'Status da oral atualizado com sucesso',
+      habilitar: dto.habilitar,
+    };
+  }
+  @Get('estatistica-avaliacao')
+  async buscarEstatisticaAvaliacao(
+    @Query(ValidationPipe) params: StatisticAssessmentDTO,
+  ) {
+    return this.statisticService.findStatisticAssessment(params);
+  }
+  @Get('marcacoes-provas')
+  async buscarProvasMarcadadaS(
+    @Query(ValidationPipe) params: MarkingAssessmentDTO,
+  ) {
+    return this.markingAssessmentService.findMarkingAssementService(params);
+  }
 }
