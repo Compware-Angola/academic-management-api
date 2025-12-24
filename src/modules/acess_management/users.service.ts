@@ -6,11 +6,16 @@ import {
   ConflictException,
   Logger,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { CreatePersonUserDto } from './dto/create-person-user.dto';
 import { CreatePersonUserResponseDto } from './dto/create-person-user-response.dto';
 import * as bcrypt from 'bcrypt'; // ou 'bcrypt'
+import { gerarHashExterno } from '../util/hash.util'
+import { UserFilterDto } from './dto/user-filter.dto';
+import { UserListItemDto } from './dto/user-list-item.dto';
+import { UpdatePasswordDto } from './dto/update-password.dto';
 
 @Injectable()
 export class UsersService {
@@ -49,6 +54,80 @@ export class UsersService {
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return regex.test(email);
   }
+
+  async updatePassword(dto: UpdatePasswordDto, usuarioLogadoId: number): Promise<{ message: string }> {
+  const queryRunner = this.dataSource.createQueryRunner();
+  await queryRunner.connect();
+  await queryRunner.startTransaction();
+
+  try {
+    // Verifica se o utilizador existe
+    const [user] = await queryRunner.manager.query(
+      `SELECT 1 FROM FK2_MCA_TB_UTILIZADOR WHERE PK_UTILIZADOR = ${dto.utilizadorId} AND ROWNUM = 1`
+    );
+
+    if (!user) {
+      throw new NotFoundException('Utilizador não encontrado');
+    }
+
+    // Gera o hash da nova senha
+    // Opção 1: bcrypt local
+    const hashedPassword:string = await gerarHashExterno(dto.novaSenha);
+
+    // Opção 2: se quiser usar o serviço externo de hash
+    // const hashedPassword = await this.hashUtil.gerarHash(dto.novaSenha);
+
+    await queryRunner.manager.query(`
+      UPDATE FK2_MCA_TB_UTILIZADOR
+      SET 
+        PASSWORD = '${hashedPassword}',
+        LAST_PASSWORD_CHANGE = SYSDATE,
+        LAST_UPDATED_BY = ${usuarioLogadoId},
+        UPDATED_AT = SYSDATE
+      WHERE PK_UTILIZADOR = ${dto.utilizadorId}
+    `);
+
+    await queryRunner.commitTransaction();
+
+    return { message: 'Senha atualizada com sucesso' };
+  } catch (err) {
+    await queryRunner.rollbackTransaction();
+    throw err;
+  } finally {
+    await queryRunner.release();
+  }
+}
+
+async listUsers(filter: UserFilterDto): Promise<UserListItemDto[]> {
+  let whereClause = '';
+  const params: any = {};
+
+  if (filter.ativo === 'true') {
+    whereClause = 'WHERE ACTIVE_STATE = 1';
+  } else if (filter.ativo === 'false') {
+    whereClause = 'WHERE ACTIVE_STATE = 0';
+  }
+  // se não vier filtro → traz todos
+
+  const sql = `
+    SELECT 
+      PK_UTILIZADOR,
+      NOME,
+      USERNAME,
+      EMAIL,
+      ACTIVE_STATE,
+      REF_PESSOA,
+      CREATED_AT,
+      UPDATED_AT
+    FROM FK2_MCA_TB_UTILIZADOR
+    ${whereClause}
+    ORDER BY NOME ASC
+  `;
+
+  const result = await this.dataSource.query(sql);
+
+  return result.map(row => new UserListItemDto(row));
+}
 
   async criarPessoaEUtilizador(
     dto: CreatePersonUserDto,
@@ -117,8 +196,8 @@ export class UsersService {
       username = await this.gerarUsernameUnico(baseUsername);
 
       // 5. Hash da senha temporária
-      const senhaTemp = Math.random().toString(36).slice(-8) + 'A1@';
-      const senhaHash = await bcrypt.hash(senhaTemp, 12);
+      //const senhaTemp = Math.random().toString(36).slice(-8) + 'A1@';
+      const senhaHash = await gerarHashExterno("compware123")
 
       // 6. Inserir Utilizador
       await queryRunner.manager.query(`
