@@ -1,5 +1,5 @@
 // src/users/users.controller.ts
-import { Controller, Post, Get, Headers, Query, Body, ValidationPipe } from '@nestjs/common';
+import { Controller, Post, Put, Get, Headers, Query, Body, ValidationPipe } from '@nestjs/common';
 import { UsersService } from './users.service'
 import { CreatePersonUserDto } from './dto/create-person-user.dto';
 import { CreatePersonUserResponseDto } from './dto/create-person-user-response.dto';
@@ -7,7 +7,10 @@ import { LogsService } from './logs.service';
 import { FilterLogsAcessoDto } from './dto/filter-logs-acesso.dto';
 import { LogAcessoResponseDto } from './dto/log-acesso-response.dto';
 
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiNotFoundResponse, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { UserListItemDto } from './dto/user-list-item.dto';
+import { UpdatePasswordDto } from './dto/update-password.dto';
+import { UserFilterDto } from './dto/user-filter.dto';
 
 @Controller('acess_management')
 export class AcessManagementController {
@@ -23,6 +26,26 @@ export class AcessManagementController {
     @Headers('x-user-logado-id') usuarioLogadoId: number
   ): Promise<CreatePersonUserResponseDto> {
     return this.usersService.criarPessoaEUtilizador(dto, usuarioLogadoId);
+  }
+
+  @Put('teacher-password')
+  @ApiOperation({ summary: 'Atualizar a senha de um utilizador' })
+  @ApiResponse({ status: 200, description: 'Senha atualizada' })
+  @ApiNotFoundResponse({ description: 'Utilizador não encontrado' })
+  async updatePassword(
+    @Body(ValidationPipe) dto: UpdatePasswordDto,
+    @Headers('x-user-logado-id') usuarioLogadoId: number,  // ou @UserLogado('id') userId: number
+  ) {
+    return this.usersService.updatePassword(dto, usuarioLogadoId);
+  }
+
+  @Get('users')
+  @ApiOperation({ summary: 'Listar utilizadores (com filtro por ativo/inativo)' })
+  @ApiResponse({ status: 200, type: [UserListItemDto] })
+  async list(
+    @Query(ValidationPipe) filter: UserFilterDto,
+  ): Promise<UserListItemDto[]> {
+    return this.usersService.listUsers(filter);
   }
 
   @Get('logs-acessos-funcionalidade')
