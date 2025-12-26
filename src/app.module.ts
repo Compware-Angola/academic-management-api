@@ -12,6 +12,7 @@ import { ScheduleModule } from './modules/schedule/schedule.module';
 import { HistoryNoteReleaseService } from './modules/assessment/history_note_release.service';
 import { AcessManagementModule } from './modules/acess_management/acess_management.module';
 import { AcademicCalendarModule } from './modules/academic_calendar/academic_calendar.module';
+import { TeamOldRulesModule } from './modules/team_old_rules/team_old_rules.module';
 @Module({
   imports: [ ConfigModule.forRoot({
       isGlobal: true,
@@ -50,6 +51,7 @@ TypeOrmModule.forRootAsync({
     ScheduleModule,
     AcessManagementModule,
     AcademicCalendarModule,
+    TeamOldRulesModule,
 ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService],

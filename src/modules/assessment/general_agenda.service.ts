@@ -1266,8 +1266,6 @@ ORDER BY tp2.Nome_Completo ASC
         }
     }
 
-
-
     private async buscarAvaliacao(codigoAvaliacao: number, codigoGradeAluno: number): Promise<any | null> {
         const avaliation = await this.dataSource.query(`
     
@@ -1282,8 +1280,6 @@ ORDER BY tp2.Nome_Completo ASC
 
         return avaliation[0];
     }
-
-
 
     private async temPratica(plano: any): Promise<boolean> {
         return plano?.PESO_PRATICA > 0;
@@ -1304,7 +1300,7 @@ ORDER BY tp2.Nome_Completo ASC
 
     }
 
-private async temNotaLancadaNaTurma(gradeAluno: any, tipoavaliacao: number): Promise<boolean> {
+   private async temNotaLancadaNaTurma(gradeAluno: any, tipoavaliacao: number): Promise<boolean> {
     const turma = gradeAluno.TURMA;
     const gradeCurricular = gradeAluno.CODIGO_GRADE_CURRICULAR;
 
