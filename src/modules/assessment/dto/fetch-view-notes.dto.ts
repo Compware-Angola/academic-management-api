@@ -11,7 +11,7 @@ import {
   Max,
 } from 'class-validator';
 
-export class MarkingAssessmentDTO {
+export class FetchViewNotesDTO {
   @ApiProperty({
     description: 'Ano letivo obrigatório',
     example: 22,
@@ -22,57 +22,36 @@ export class MarkingAssessmentDTO {
   @Type(() => Number)
   anoLectivo: number;
 
-  @ApiPropertyOptional({
-    description: 'Filtrar por semestre (1 ou 2)',
+  @ApiProperty({
+    description: 'Tipo de Prova Obrigário',
     example: 1,
-    enum: [1, 2],
+    minimum: 1,
   })
-  @IsInt()
-  @IsIn([1, 2], { message: 'semestre deve ser 1 ou 2' })
+  @IsNumber()
+  @IsPositive()
   @Type(() => Number)
-  semestre: number;
-  @IsOptional()
-  @ApiPropertyOptional({
-    description: 'Filtrar por período',
-    example: 5,
-  })
-  @IsInt()
-  @Type(() => Number)
-  periodo: number;
+  tipoProva: number;
 
-  @ApiPropertyOptional({
-    description: 'Filtrar por código do curso',
-    example: 20,
-  })
-  @IsInt()
-  @Type(() => Number)
-  curso: number;
-
-  @ApiPropertyOptional({
-    description: 'Filtrar por código da ano curricular (grade curricular)',
-    example: 1,
-  })
-  @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  anoCurricular: number;
-
-  @ApiPropertyOptional({
-    description: 'Filtrar por código da da avaliacao',
+  @ApiProperty({
+    description: 'Tipo de Avaliacao Obrigário',
     example: 2,
+    minimum: 1,
   })
-  @IsInt()
+  @IsNumber()
+  @IsPositive()
   @Type(() => Number)
   tipoAvaliacao: number;
 
-  @ApiPropertyOptional({
-    description:
-      'Filtrar por tipo de horário caso 1 - Horários com provas, caso 2 Horários sem provas',
-    example: 1,
+  @ApiProperty({
+    description: 'id do Horário',
+    example: 24879,
+    minimum: 1,
   })
-  @IsInt()
+  @IsNumber()
+  @IsPositive()
   @Type(() => Number)
-  tipoHorario: number;
+  horarioId: number;
+
   @ApiPropertyOptional({
     description: 'Número da página',
     example: 1,

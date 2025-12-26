@@ -7,6 +7,7 @@ import {
   ValidationPipe,
   Query,
   Put,
+  Param,
 } from '@nestjs/common';
 import {
   AssessmentService,
@@ -35,6 +36,9 @@ import { StatisticAssessmentDTO } from './dto/statistic-assessment.dto';
 import { StatisticAssessmentsService } from './statistic-assessment.service';
 import { MarkingAssessmentService } from './making-assessment.service';
 import { MarkingAssessmentDTO } from './dto/marking-assessment.dto';
+import { UpdatePermissionEditScheduleDto } from '../schedule/dto/update-permission-edit-schedule.dto';
+import { ViewNotesService } from './view-notes.service';
+import { FetchViewNotesDTO } from './dto/fetch-view-notes.dto';
 
 @Controller('assessment')
 export class AssessmentController {
@@ -47,6 +51,7 @@ export class AssessmentController {
     private readonly permissionService: PermissionAssessmentsService,
     private readonly statisticService: StatisticAssessmentsService,
     private readonly markingAssessmentService: MarkingAssessmentService,
+    private readonly viewNotesService: ViewNotesService,
   ) {}
   @Post('upsert')
   @ApiOperation({
@@ -163,5 +168,25 @@ export class AssessmentController {
     @Query(ValidationPipe) params: MarkingAssessmentDTO,
   ) {
     return this.markingAssessmentService.findMarkingAssementService(params);
+  }
+
+  @Put('permissoes/:permissionId')
+  @ApiOperation({
+    summary:
+      'Atualizar permissão de edição de Lançamento de prova fora do prazo pelo ID da permissão',
+  })
+  updatePermissionToEditSchedule(
+    @Param('permissionId', ValidationPipe) permissionId: number,
+    @Body(ValidationPipe) query: UpdatePermissionEditScheduleDto,
+  ) {
+    return this.permissionService.updatePermissionAssessment(
+      permissionId,
+      query,
+    );
+  }
+
+  @Get('visualizar-notas')
+  async visualizarNots(@Query(ValidationPipe) params: FetchViewNotesDTO) {
+    return this.viewNotesService.findNoteByHorario(params);
   }
 }

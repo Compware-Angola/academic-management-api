@@ -12,6 +12,7 @@ import { StudentsEnrolledByAssessmentsService } from './students-enrolled-by-ass
 import { PermissionAssessmentsService } from './permission-assessment.service';
 import { StatisticAssessmentsService } from './statistic-assessment.service';
 import { MarkingAssessmentService } from './making-assessment.service';
+import { ViewNotesService } from './view-notes.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([AcademicYear])],
@@ -26,6 +27,7 @@ import { MarkingAssessmentService } from './making-assessment.service';
     PermissionAssessmentsService,
     StatisticAssessmentsService,
     MarkingAssessmentService,
+    ViewNotesService,
   ],
 })
 export class AssessmentModule {}

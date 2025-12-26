@@ -25,17 +25,16 @@ export class MarkingAssessmentService {
     }
 
     const offset = (page - 1) * limit;
-
     const isComProva = tipoHorario === 1;
     const isSemProva = tipoHorario === 2;
 
     // ==================================================
-    // 🔹 PARAMS BASE
+    // PARAMS BASE
     // ==================================================
     const baseParams: any = { anoLectivo };
 
     // ==================================================
-    // 🔹 WHERE DINÂMICO BASE
+    // WHERE DINÂMICO BASE
     // ==================================================
     const whereConditions: string[] = ['tal.Codigo = :anoLectivo'];
 
@@ -59,11 +58,6 @@ export class MarkingAssessmentService {
     if (anoCurricular !== undefined) {
       whereConditions.push('tgc.Codigo_Classe = :anoCurricular');
       baseParams.anoCurricular = anoCurricular;
-    }
-
-    if (isComProva && tipoAvaliacao !== undefined) {
-      whereConditions.push('mtta.pk_tipo_avaliacao = :tipoAvaliacao');
-      baseParams.tipoAvaliacao = tipoAvaliacao;
     }
 
     const whereClause = 'WHERE ' + whereConditions.join(' AND ');
@@ -106,12 +100,16 @@ export class MarkingAssessmentService {
           INNER JOIN fk2_tb_ano_lectivo tal
             ON tal.Codigo = json_value(tt.ref_ano_lectivo, '$.pk')
           INNER JOIN fk2_tb_faculdade tf ON tf.Codigo = tc.faculdade_id
-          LEFT JOIN fk2_tb_calendario_prova tcp
-            ON tt.pk_horario = json_value(tcp.ref_horario, '$.pk')
         ${whereClause}
           AND tt.fk_estado_horario_wf = 3
           AND tt.active_state = 1
-          AND tcp.Codigo IS NULL
+          AND NOT EXISTS (
+            SELECT 1
+            FROM fk2_tb_calendario_prova tcp
+              INNER JOIN fk2_mcal_tb_prazo pz
+                ON json_value(tcp.ref_prazo, '$.pk_prazo') = pz.pk_prazo
+            WHERE json_value(tcp.ref_horario, '$.pk') = tt.pk_horario
+          )
         ORDER BY td.Designacao, tt.Designacao
         OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
       `;
@@ -123,12 +121,16 @@ export class MarkingAssessmentService {
             ON tgc.Codigo = json_value(tt.ref_grade_curricular, '$.pk')
           INNER JOIN fk2_tb_ano_lectivo tal
             ON tal.Codigo = json_value(tt.ref_ano_lectivo, '$.pk')
-          LEFT JOIN fk2_tb_calendario_prova tcp
-            ON tt.pk_horario = json_value(tcp.ref_horario, '$.pk')
         ${whereClause}
           AND tt.fk_estado_horario_wf = 3
           AND tt.active_state = 1
-          AND tcp.Codigo IS NULL
+          AND NOT EXISTS (
+            SELECT 1
+            FROM fk2_tb_calendario_prova tcp
+              INNER JOIN fk2_mcal_tb_prazo pz
+                ON json_value(tcp.ref_prazo, '$.pk_prazo') = pz.pk_prazo
+            WHERE json_value(tcp.ref_horario, '$.pk') = tt.pk_horario
+          )
       `;
     }
 
@@ -136,6 +138,13 @@ export class MarkingAssessmentService {
     // 🔹 HORÁRIOS COM PROVA
     // ==================================================
     if (isComProva) {
+      if (tipoAvaliacao !== undefined) {
+        whereConditions.push('mtta.pk_tipo_avaliacao = :tipoAvaliacao');
+        baseParams.tipoAvaliacao = tipoAvaliacao;
+      }
+
+      const whereComProva = 'WHERE ' + whereConditions.join(' AND ');
+
       mainSql = `
         SELECT
           td.Designacao AS disciplina,
@@ -179,20 +188,18 @@ export class MarkingAssessmentService {
             ON tb_salas.Codigo = tcp.codigo_sala
           INNER JOIN fk2_mcal_tb_prazo prazo
             ON json_value(tcp.ref_prazo, '$.pk_prazo') = prazo.pk_prazo
-          INNER JOIN fk2_tb_faculdade tf ON tc.faculdade_id = tf.Codigo
           INNER JOIN fk2_mcal_tb_tipo_avaliacao mtta
             ON mtta.pk_tipo_avaliacao = prazo.fk_tipo_avaliacao
-        ${whereClause}
+          INNER JOIN fk2_tb_faculdade tf ON tc.faculdade_id = tf.Codigo
+        ${whereComProva}
         ORDER BY td.Designacao, tt.Designacao
         OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
       `;
 
       countSql = `
         SELECT COUNT(DISTINCT tcp.Codigo) AS TOTAL
-        FROM fk2_tb_disciplinas td
+        FROM fk2_mgh_tb_horario tt
           INNER JOIN fk2_tb_grade_curricular tgc
-            ON td.Codigo = tgc.Codigo_Disciplina
-          INNER JOIN fk2_mgh_tb_horario tt
             ON tgc.Codigo = json_value(tt.ref_grade_curricular, '$.pk')
           INNER JOIN fk2_tb_ano_lectivo tal
             ON json_value(tt.ref_ano_lectivo, '$.pk') = tal.Codigo
@@ -202,7 +209,7 @@ export class MarkingAssessmentService {
             ON json_value(tcp.ref_prazo, '$.pk_prazo') = prazo.pk_prazo
           INNER JOIN fk2_mcal_tb_tipo_avaliacao mtta
             ON mtta.pk_tipo_avaliacao = prazo.fk_tipo_avaliacao
-        ${whereClause}
+        ${whereComProva}
       `;
     }
 

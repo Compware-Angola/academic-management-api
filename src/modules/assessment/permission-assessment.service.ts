@@ -4,8 +4,8 @@ import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { PermissionAssessmentDTO } from './dto/permission-assessment.dto';
 import * as oracledb from 'oracledb';
 import { CreatePermissionAssessmentDTO } from './dto/create-permission-assessment.dto';
-import { ScheduleService } from '../schedule/schedule.service';
 import { escapeQuotes } from '../util/escape-quotes';
+import { UpdatePermissionAssessmentDTO } from './dto/update-permission-assessment.dto';
 
 interface IcheckDateIntervalConflict {
   dataInicio: string;
@@ -28,8 +28,8 @@ export class PermissionAssessmentsService {
   constructor(private readonly dataSource: DataSource) {}
   async getNomeDocente(codigoDocente: number): Promise<string> {
     const result = await this.dataSource.query(
-      `SELECT nome
-     FROM fk2_tb_docente
+      `SELECT json_value(CODIGO_UTILIZADOR,'$.desc') AS NOME
+     FROM FK2_MGD_TB_DOCENTE
      WHERE CODIGO = :codigoDocente`,
       [codigoDocente],
     );
@@ -129,7 +129,39 @@ export class PermissionAssessmentsService {
       })),
     };
   }
+  async checkDateIntervalConflictExcludeSelf(
+    params: IcheckDateIntervalConflict & { permissionId: number },
+  ): Promise<DateConflictResult> {
+    const result = await this.dataSource.query(
+      `
+      SELECT
+        ml.PK_PERMICAO,
+        ml.DATA_INICIO,
+        ml.DATA_FIM
+      FROM FK2_MAV_PERMICAO_LANCAMENTO ml
+      WHERE ml.ACTIVE_STATE = 1
+        AND ml.PK_PERMICAO <> :permissionId
+        AND JSON_VALUE(ml.REF_DOCENTE,'$.pk')     = :docenteId
+        AND JSON_VALUE(ml.REF_GRADE,'$.pk')       = :gradeId
+        AND JSON_VALUE(ml.REF_ANO_LECTIVO,'$.pk') = :anoLectivoId
+        AND ml.TIPOAVALIAÇÃO                      = :tipoAvaliacao
+        AND (
+              TO_DATE(:dataInicio,'YYYY-MM-DD') <= ml.DATA_FIM
+          AND TO_DATE(:dataFim,'YYYY-MM-DD')    >= ml.DATA_INICIO
+        )
+      `,
+      params as any,
+    );
 
+    return {
+      total: result.length,
+      conflicts: result.map((row) => ({
+        pkPermicao: Number(row.PK_PERMICAO),
+        dataInicio: row.DATA_INICIO,
+        dataFim: row.DATA_FIM,
+      })),
+    };
+  }
   async getDescricaoGradeCurricular(codigoGrade: number): Promise<string> {
     const result = await this.dataSource.query(
       `SELECT d.designacao
@@ -249,18 +281,21 @@ export class PermissionAssessmentsService {
     // -------------------- WHERE BASE --------------------
     const baseWhere = `
     json_value(ml.REF_ANO_LECTIVO,'$.pk') = ${anoLectivo}
-    AND ml.ACTIVE_STATE = 1
+    ---AND ml.ACTIVE_STATE = 1
   `;
 
     // -------------------- QUERY PRINCIPAL --------------------
     const sql = `
     SELECT DISTINCT
+        ml.PK_PERMICAO                               AS CODIGO_PERMISSAO,
         ml.ACTIVE_STATE                              AS ESTADO,
         al.DESIGNACAO                                AS ANO_LECTIVO,
+        cs.DESIGNACAO                                AS CURSO,
         av.DESIGNACAO                                AS AVALIACAO,
         ut.NOME                                      AS UTILIZADOR,
         d.DESIGNACAO                                 AS DISCIPLINA,
         ml.DATA_INICIO                               AS DATA_INICIO,
+        ml.DATA_FIM                                  AS DATA_FIM,
         ml.CREATED_AT                                AS CREATED_AT
     FROM FK2_MAV_PERMICAO_LANCAMENTO ml
         INNER JOIN FK2_MGD_TB_DOCENTE dc_doc
@@ -271,11 +306,13 @@ export class PermissionAssessmentsService {
                 ON gc.CODIGO = json_value(ml.REF_GRADE,'$.pk')
         INNER JOIN FK2_TB_DISCIPLINAS d
                 ON d.CODIGO = gc.CODIGO_DISCIPLINA
+        INNER JOIN FK2_TB_CURSOS cs on cs.codigo = gc.CODIGO_CURSO
         INNER JOIN FK2_MCAL_TB_TIPO_AVALIACAO av
                 ON av.PK_TIPO_AVALIACAO = ml.TIPOAVALIAÇÃO
         INNER JOIN FK2_MCA_TB_UTILIZADOR ut
                 ON ut.PK_UTILIZADOR = json_value(ml.REF_UTILIZADOR,'$.pk')
     WHERE ${baseWhere}
+    ORDER BY ml.PK_PERMICAO ASC
     OFFSET ${offset} ROWS FETCH NEXT ${filters.limit} ROWS ONLY
   `;
 
@@ -300,13 +337,72 @@ export class PermissionAssessmentsService {
     const total = Number(countResult[0].TOTAL);
     const totalPages = Math.ceil(total / filters.limit!);
 
-    // -------------------- RETORNO --------------------
     return {
       data: await toLowerCaseKeys(result),
       total,
       page,
       limit,
       totalPages,
+    };
+  }
+
+  async updatePermissionAssessment(
+    permissionId: number,
+    query: UpdatePermissionAssessmentDTO,
+  ) {
+    const sets: string[] = [];
+    const params: any = { permissionId: permissionId };
+
+    if (query.dataInicio) {
+      sets.push(`DATA_INICIO = TO_DATE(:dataInicio,'YYYY-MM-DD')`);
+      params.dataInicio = query.dataInicio;
+    }
+
+    if (query.dataFim) {
+      sets.push(`DATA_FIM = TO_DATE(:dataFim,'YYYY-MM-DD')`);
+      params.dataFim = query.dataFim;
+    }
+
+    if (query.ativeState !== undefined) {
+      sets.push(`ACTIVE_STATE = :activeState`);
+      params.activeState = query.ativeState;
+    }
+
+    if (sets.length === 0) {
+      throw new BadRequestException(
+        'Nenhum parâmetro foi enviado para actualização',
+      );
+    }
+
+    if (query.dataInicio && query.dataFim) {
+      const agora = new Date();
+      const inicio = new Date(query.dataInicio);
+      const fim = new Date(query.dataFim);
+
+      if (agora < inicio || agora > fim) {
+        throw new BadRequestException(
+          `Intervalo de datas inválido: ${query.dataInicio} - ${query.dataFim}`,
+        );
+      }
+    }
+
+    const result = await this.dataSource.query(
+      `
+    UPDATE FK2_MAV_PERMICAO_LANCAMENTO
+    SET ${sets.join(', ')},
+        UPDATED_AT = SYSDATE
+    WHERE PK_PERMICAO = :permissionId
+    `,
+      params,
+    );
+
+    if (result.rowsAffected === 0) {
+      throw new BadRequestException('Permissão não encontrada');
+    }
+
+    return {
+      message: 'Permissão actualizada com sucesso',
+      permissionId: permissionId,
     };
   }
 }
