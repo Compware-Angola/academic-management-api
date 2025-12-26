@@ -1,5 +1,5 @@
 // src/oral/dto/listar-definir-oral.dto.ts
-import { IsInt, Min, IsIn } from 'class-validator';
+import { IsInt, Min, IsIn, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -22,6 +22,7 @@ export class GeneralAgendaDto {
      required:false
   })
   @IsInt()
+    @IsOptional()
   @Type(() => Number)
   gradeCurricular: number;
 
@@ -31,9 +32,10 @@ export class GeneralAgendaDto {
     type: Number,
      required:false
   })
+  @IsOptional()
   @IsInt()
   @Type(() => Number)
-  horario: number;
+  horario?: number;
 
   @ApiProperty({
     description: 'Semestre da disciplina',
@@ -42,6 +44,7 @@ export class GeneralAgendaDto {
     type: Number,
   })
   @IsInt()
+    @IsOptional()
   @IsIn([1, 2])
   @Type(() => Number)
   semestre: number;
@@ -53,6 +56,7 @@ export class GeneralAgendaDto {
     required:false
   })
   @IsInt()
+    @IsOptional()
   @Type(() => Number)
   turma: number;
 
@@ -63,6 +67,7 @@ export class GeneralAgendaDto {
      required:false
   })
   @IsInt()
+    @IsOptional()
   @Type(() => Number)
   gradeCurricularTurma: number;
 }
