@@ -236,6 +236,7 @@ export class ScheduleService {
      RETURNING PK_PERMISAO_EDICAO_HORARIO INTO :outId
   `;
     console.log(params, sql, fields);
+    console.log(params, sql, fields);
     const result = await this.dataSource.query(sql, {
       ...params,
       outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
@@ -515,7 +516,7 @@ export class ScheduleService {
       	LEFT 	JOIN "FK2_MGH_TB_TIPO_AULA" tau ON a.FK_TIPO_AULA = tau."PK_TIPO_AULA"
       	    	LEFT 	JOIN "FK2_MGH_TB_MODALIDADE" mdl ON a.FK_MODALIDADE  = mdl."PK_MODALIDADE"
       	    	LEFT  JOIN  "FK2_MGH_TB_DIA_DA_SEMANA" dsm ON a.FK_DIA_DA_SEMANA  = dsm."PK_DIA_DA_SEMANA"
-      	    	LEFT JOIN "FK2_TB_SALAS" sala  ON JSON_VALUE(a."REF_AULA", '$.pk' RETURNING NUMBER) = sala."CODIGO"
+      	    	LEFT JOIN "FK2_TB_SALAS" sala  ON JSON_VALUE(a."REF_SALA", '$.pk' RETURNING NUMBER) = sala."CODIGO"
     WHERE a."FK_HORARIO" = :horarioId
     ORDER BY a."FK_DIA_DA_SEMANA", a."ORDEM"
   `,
@@ -2451,9 +2452,12 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
   // 4.3) Nome do docente
   async getNomeDocente(codigoDocente: number): Promise<string> {
     const result = await this.dataSource.query(
-      `SELECT nome
-     FROM fk2_tb_docente
-     WHERE CODIGO = :codigoDocente`,
+      `
+  SELECT
+    JSON_VALUE(CODIGO_UTILIZADOR, '$.desc') AS "nome"
+  FROM FK2_MGD_TB_DOCENTE
+  WHERE CODIGO = :codigoDocente
+  `,
       [codigoDocente],
     );
 
@@ -2461,7 +2465,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       throw new Error(`Docente não encontrado para o código ${codigoDocente}`);
     }
 
-    return result[0].NOME as string;
+    return result[0].nome as string;
   }
 
   // 4.4) Descrição do ano lectivo

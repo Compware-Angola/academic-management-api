@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DefinirOralGradeDto } from './dto/definir-oral-grade.dto';
 import { ListarDefinirOralDto } from './dto/listar-definir-oral.dto';
 import { DataSource } from 'typeorm';
@@ -8,35 +8,57 @@ import { AtualizarStatusOralDto } from './dto/atualizar-status-oral.dto';
 export class DefineFormulaUcOralService {
     constructor(private readonly dataSource: DataSource) {}
 
-  async buscar(params: ListarDefinirOralDto): Promise<DefinirOralGradeDto[]> {
-    const { cursoId, anoCurricular, semestre } = params;
+async buscar(params: ListarDefinirOralDto): Promise<DefinirOralGradeDto[]> {
+  const { cursoId, anoCurricular, semestre, anoLectivo } = params;
 
-    const sql = `
-      SELECT 
-        tgc.CODIGO AS grade,
-        td.DESIGNACAO AS disciplina,
-        NVL(tgcdo.HABILITAR, 0) AS habilitar
-      FROM FK2_TB_GRADE_CURRICULAR tgc
-      LEFT JOIN FK2_TB_GRADE_CURRICULAR_DEFINIR_ORAL tgcdo 
-        ON tgcdo.CODIGOGRADECURRICULAR = tgc.CODIGO
-      INNER JOIN FK2_TB_DISCIPLINAS td 
-        ON td.CODIGO = tgc.CODIGO_DISCIPLINA
-      WHERE tgc.CODIGO_CURSO = ${cursoId}
-        AND tgc.CODIGO_CLASSE = ${anoCurricular}
-        AND tgc.CODIGO_SEMESTRE = ${semestre}
-      ORDER BY td.DESIGNACAO
-    `;
+  // 1. Buscar o plano curricular ativo (mesma lógica do outro método)
+  const planoSql = `
+    SELECT CODIGO
+    FROM FK2_TB_PLANO_CURRICULAR_CURSO
+    WHERE (CODIGO_CURSO = ${cursoId} OR ${cursoId} = 0)
+      AND (CODIGO_ANO_LECTIVO = ${anoLectivo} OR ${anoLectivo} = 0)
+    ORDER BY CODIGO DESC
+    FETCH FIRST 1 ROW ONLY
+  `;
 
-    const resultado = await this.dataSource.query(sql);
+  const planos = await this.dataSource.query(planoSql);
 
-    return resultado.map((row: any) =>
-      new DefinirOralGradeDto(
-        row.GRADE,
-        row.DISCIPLINA,
-        row.HABILITAR === 1, // Oracle devolve 1/0
-      ),
-    );
+  if (!planos || planos.length === 0) {
+    throw new NotFoundException(`Plano não encontrado para curso ${cursoId} e ano letivo ${anoLectivo}`);
   }
+
+  const planoCodigo = planos[0].CODIGO;
+
+  // 2. Buscar as disciplinas com configuração de oral, filtrando pelo plano ativo
+  const sql = `
+    SELECT 
+      tgc.CODIGO AS grade,
+      td.DESIGNACAO AS disciplina,
+      NVL(tgcdo.HABILITAR, 0) AS habilitar
+    FROM FK2_TB_PLANO_CURRICULAR_GRADE pcg
+    INNER JOIN FK2_TB_GRADE_CURRICULAR tgc 
+      ON tgc.CODIGO = pcg.CODIGO_GRADE_CURRICULAR
+    INNER JOIN FK2_TB_DISCIPLINAS td 
+      ON td.CODIGO = tgc.CODIGO_DISCIPLINA
+    LEFT JOIN FK2_TB_GRADE_CURRICULAR_DEFINIR_ORAL tgcdo 
+      ON tgcdo.CODIGOGRADECURRICULAR = tgc.CODIGO
+    WHERE pcg.CODIGO_PLANO_CURRICULAR_CURSO = ${planoCodigo}
+      AND tgc.CODIGO_CURSO = ${cursoId}
+      AND tgc.CODIGO_CLASSE = ${anoCurricular}
+      AND tgc.CODIGO_SEMESTRE = ${semestre}
+    ORDER BY td.DESIGNACAO
+  `;
+
+  const resultado = await this.dataSource.query(sql);
+
+  return resultado.map((row: any) =>
+    new DefinirOralGradeDto(
+      row.GRADE,
+      row.DISCIPLINA,
+      row.HABILITAR === 1,
+    ),
+  );
+}
   async atualizarStatus(dto: AtualizarStatusOralDto): Promise<void> {
   const { codigoGrade, habilitar } = dto;
 

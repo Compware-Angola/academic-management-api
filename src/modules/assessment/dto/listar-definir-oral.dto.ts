@@ -4,6 +4,14 @@ import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ListarDefinirOralDto {
+    @ApiProperty({
+    description: 'Ano letivo (últimos 2 dígitos, ex: 23 = 2023/2024)',
+    example: 23,
+  })
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
+  anoLectivo: number;
   @ApiProperty({ example: 5, description: 'Código do curso' })
   @IsInt()
   @Type(() => Number)
