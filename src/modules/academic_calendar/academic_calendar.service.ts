@@ -44,8 +44,8 @@ async viewMonths(params: ViewMonthsDto) {
 
   query += `
     ORDER BY 
-      ORDEM_MES ASC
-  `; // Sem ; no final (Oracle + TypeORM)
+      PRESTACAO ASC
+  `; 
 
   const result = await this.dataSource.query(query, Object.values(parameters));
   
