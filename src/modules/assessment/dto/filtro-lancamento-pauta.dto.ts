@@ -26,7 +26,7 @@ export class FiltroLancamentoPautaDto {
   @Min(1)
   tipoAvaliacao?: number;
 
-    @ApiPropertyOptional({
+  @ApiPropertyOptional({
     description: 'Código do semestra',
     example: 1,
     minimum: 1,
@@ -37,7 +37,7 @@ export class FiltroLancamentoPautaDto {
   @Min(1)
   semestre?: number;
 
-    @ApiPropertyOptional({
+  @ApiPropertyOptional({
     description: 'Código do ano curricular',
     example: 1,
     minimum: 1,
@@ -59,7 +59,7 @@ export class FiltroLancamentoPautaDto {
   @Min(1)
   codigoGrade?: number;
 
-    @ApiPropertyOptional({
+  @ApiPropertyOptional({
     description: 'Código do curso',
     example: 10,
     minimum: 1,
@@ -69,6 +69,16 @@ export class FiltroLancamentoPautaDto {
   @IsInt()
   @Min(1)
   curso?: number;
+  @ApiPropertyOptional({
+    description: 'Estado da pauta',
+    example: 10,
+    minimum: 1,
+  })
+  @IsOptional()
+  @Transform(({ value }) => parseInt(value))
+  @IsInt()
+  @Min(1)
+  estadoPauta?: number;
 
   // ---------------- PAGINAÇÃO ----------------
 
