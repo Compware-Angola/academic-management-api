@@ -8,8 +8,8 @@ import { UpdateParametroAvaliacaoAttendanceListDto } from './dto/update-parametr
 export class GeneralParametersForEvaluationService {
   constructor(private readonly dataSource: DataSource) { }
 
-  async viewNote(search?: string) {
-    let viewql = `
+async viewNote(search?: string) {
+  let viewql = `
     SELECT
       DESCRICAO,
       OBSERVACAO1,
@@ -24,30 +24,35 @@ export class GeneralParametersForEvaluationService {
       CODIGO
     FROM
       FK2_TB_PARAMETROS_AVALIACOES_MUTUE
-    WHERE
-      ACTIVO = 1
   `;
 
-    const params: Record<string, any> = {};
-    if (search != null && search.trim() !== '') {
-      const termo = `%${search.trim().toLowerCase()}%`;
-      viewql += `
-      AND (
-        LOWER(DESCRICAO) LIKE :searchTerm
-        
-      )`;
-      params.searchTerm = termo;
-    }
+  const params: Record<string, any> = {};
 
+  if (search != null && search.trim() !== '') {
+    const termo = `%${search.trim().toLowerCase()}%`;
     viewql += `
-    ORDER BY
-      CODIGO ASC
+      WHERE
+        LOWER(DESCRICAO) LIKE :searchTerm
+        OR DESCRICAO = :exactSearch
+    `;
+    params.searchTerm = termo;
+    params.exactSearch = search.trim();
+  } else {
+    viewql += `
+      WHERE ACTIVO = 1
+    `;
+  }
+
+  viewql += `
+    ORDER BY CODIGO ASC
   `;
 
-    const view = await this.dataSource.query(viewql, params as any);
+  const view = await this.dataSource.query(viewql, params as any);
 
-    return toLowerCaseKeys(view);
-  }
+  return toLowerCaseKeys(view);
+}
+
+
   async createParametro(dto: CreateParametroAvaliacaoMutueDto) {
     const query = `
     INSERT INTO FK2_TB_PARAMETROS_AVALIACOES_MUTUE (
@@ -131,7 +136,6 @@ export class GeneralParametersForEvaluationService {
       message: 'Parâmetro atualizado com sucesso',
     };
   }
-
 
 async attendanceList() {
   let viewql = `
