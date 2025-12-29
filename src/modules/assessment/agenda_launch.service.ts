@@ -346,7 +346,6 @@ export class AgendaLaunchService {
     `;
 
     const result = await this.dataSource.query(sql);
-    console.log(result);
 
     return result.map((row: any) => ({
       codigo: row.PK_ESTADO,
