@@ -1,5 +1,8 @@
-
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { FiltroLancamentoPautaDto } from './dto/filtro-lancamento-pauta.dto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
@@ -11,39 +14,40 @@ import { UpdateEstadoPautaDto } from './dto/update-estado-pauta.dto';
 export class AgendaLaunchService {
   constructor(private readonly dataSource: DataSource) {}
 
-async getAll(filtros: FiltroLancamentoPautaDto) {
-  const {
-    anoLectivo,
-    tipoAvaliacao,
-    codigoGrade,
-    curso,
-    semestre,
-    anoCurricular,
-    page = 1,
-    limit = 20,
-  } = filtros;
+  async getAll(filtros: FiltroLancamentoPautaDto) {
+    const {
+      anoLectivo,
+      tipoAvaliacao,
+      codigoGrade,
+      curso,
+      semestre,
+      anoCurricular,
+      page = 1,
+      limit = 20,
+      estadoPauta,
+    } = filtros;
 
-  if (!anoLectivo) {
-    throw new BadRequestException('O campo anoLectivo é obrigatório');
-  }
+    if (!anoLectivo) {
+      throw new BadRequestException('O campo anoLectivo é obrigatório');
+    }
 
-  const offset = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-  const params: any = {
-    anoLectivo,
-    offset,
-    limitFinal: offset + limit,
-  };
+    const params: any = {
+      anoLectivo,
+      offset,
+      limitFinal: offset + limit,
+    };
 
-  let sql = `
+    let sql = `
     SELECT *
     FROM (
-      SELECT 
+      SELECT
         dados.*,
         ROW_NUMBER() OVER (ORDER BY dados.created_at DESC, dados.codigo DESC) AS rn,
         COUNT(*) OVER () AS total_registros
       FROM (
-        SELECT 
+        SELECT
           pt.PK_LANCAMENTO_PAUTA                              AS codigo,
           pt.CREATED_AT                                       AS created_at,
           pt.UPDATED_AT                                       AS updated_at,
@@ -82,33 +86,37 @@ async getAll(filtros: FiltroLancamentoPautaDto) {
         WHERE tgc.STATUS_ = 1
           AND JSON_VALUE(pt.REF_ANO_LECTIVO, '$.pk') = :anoLectivo
           AND pt.ACTIVE_STATE =1
-          
+
   `;
 
-  // Filtros opcionais
+    // Filtros opcionais
     if (curso != null) {
-    sql += ` AND ftc2.CODIGO = :curso`;
-    params.curso = curso;
-  }
-      if (semestre != null) {
-    sql += ` AND fts.CODIGO = :semestre`;
-    params.semestre = semestre;
-  }
+      sql += ` AND ftc2.CODIGO = :curso`;
+      params.curso = curso;
+    }
+    if (semestre != null) {
+      sql += ` AND fts.CODIGO = :semestre`;
+      params.semestre = semestre;
+    }
     if (anoCurricular != null) {
-    sql += ` AND ftc.CODIGO = :anoCurricular`;
-    params.anoCurricular = anoCurricular;
-  }
-  if (tipoAvaliacao != null) {
-    sql += ` AND pt.FK_TIPO_AVALIACAO = :tipoAvaliacao`;
-    params.tipoAvaliacao = tipoAvaliacao;
-  }
+      sql += ` AND ftc.CODIGO = :anoCurricular`;
+      params.anoCurricular = anoCurricular;
+    }
+    if (tipoAvaliacao != null) {
+      sql += ` AND pt.FK_TIPO_AVALIACAO = :tipoAvaliacao`;
+      params.tipoAvaliacao = tipoAvaliacao;
+    }
 
-  if (codigoGrade != null) {
-    sql += ` AND tgc.CODIGO = :codigoGrade`;
-    params.codigoGrade = codigoGrade;
-  }
+    if (codigoGrade != null) {
+      sql += ` AND tgc.CODIGO = :codigoGrade`;
+      params.codigoGrade = codigoGrade;
+    }
+    if (estadoPauta != null) {
+      sql += ` AND pt.FK_ESTADO_LANCAMENTO_PAUTA = :estadoPauta`;
+      params.estadoPauta = estadoPauta;
+    }
 
-  sql += `
+    sql += `
       ) dados
     )
     WHERE rn > :offset
@@ -116,53 +124,48 @@ async getAll(filtros: FiltroLancamentoPautaDto) {
     ORDER BY rn
   `;
 
-  const result = await this.dataSource.query(sql, params);
+    const result = await this.dataSource.query(sql, params);
 
-  
+    const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
 
-  const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
+    const data = result.map((row: any) => {
+      const { rn, total_registros, ...item } = row;
+      return item;
+    });
 
+    return {
+      data: await toLowerCaseKeys(data),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
 
-  const data = result.map((row: any) => {
-    const { rn, total_registros, ...item } = row;
-    return item;
-  });
+  async create(createDto: CreateLancamentoPautaDto) {
+    const {
+      anoLectivoId,
+      docenteId,
+      gradeCurricularId,
+      fkEstadoLancamentoPauta,
+      fkTipoAvaliacao,
 
-  return {
-    data: await toLowerCaseKeys(data),
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit),
-  };
-}
-
-async create(createDto: CreateLancamentoPautaDto) {
-  const {
-    anoLectivoId,
-    docenteId,
-    gradeCurricularId,
-    fkEstadoLancamentoPauta,
-    fkTipoAvaliacao,
-  
-    ficheiroName,
-  } = createDto;
+      ficheiroName,
+    } = createDto;
 
     const v_desc_grade =
-        await this.getDescricaoGradeCurricular(gradeCurricularId);
-    
-      const v_desc_ano_lectivo = await this.getDescricaoAnoLectivo(anoLectivoId);
-       const nomeDoc = await this.getNomeDocente(docenteId);
-         
-  
-      const v_json_docente = `{"pk":${docenteId},"desc":"${escapeQuotes(nomeDoc)}","corLetra":"black"}`;
-      const v_json_grade = `{"pk":${gradeCurricularId},"desc":"${escapeQuotes(v_desc_grade)}","corLetra":"black"}`;
-      const v_json_ano_lectivo = `{"pk":${anoLectivoId},"desc":"${escapeQuotes(v_desc_ano_lectivo)}","corLetra":"black"}`;
+      await this.getDescricaoGradeCurricular(gradeCurricularId);
 
+    const v_desc_ano_lectivo = await this.getDescricaoAnoLectivo(anoLectivoId);
+    const nomeDoc = await this.getNomeDocente(docenteId);
 
-  const now = new Date().toISOString();
+    const v_json_docente = `{"pk":${docenteId},"desc":"${escapeQuotes(nomeDoc)}","corLetra":"black"}`;
+    const v_json_grade = `{"pk":${gradeCurricularId},"desc":"${escapeQuotes(v_desc_grade)}","corLetra":"black"}`;
+    const v_json_ano_lectivo = `{"pk":${anoLectivoId},"desc":"${escapeQuotes(v_desc_ano_lectivo)}","corLetra":"black"}`;
 
-const query = `
+    const now = new Date().toISOString();
+
+    const query = `
   INSERT INTO FK2_MGD_TB_LANCAMENTO_PAUTA (
     REF_ANO_LECTIVO,
     REF_DOCENTE,
@@ -186,106 +189,99 @@ const query = `
   )
 `;
 
-
-  const parameters = {
-    refAnoLectivo:v_json_ano_lectivo,
-    refDocente:v_json_docente,
-    refGradeCurricular:v_json_grade,
-    fkEstado: fkEstadoLancamentoPauta,
-    now,
-    ficheiroName: ficheiroName || null,
-    fkTipoAvaliacao,
-  
-  };
-
-  try {
-    await this.dataSource.query(query, parameters as any);
-
-    return {
-      success: true,
-      message: 'Lançamento de pauta criado com sucesso.',
-  
+    const parameters = {
+      refAnoLectivo: v_json_ano_lectivo,
+      refDocente: v_json_docente,
+      refGradeCurricular: v_json_grade,
+      fkEstado: fkEstadoLancamentoPauta,
+      now,
+      ficheiroName: ficheiroName || null,
+      fkTipoAvaliacao,
     };
-  } catch (error) {
-    throw new BadRequestException(
-      `Erro ao inserir lançamento de pauta: ${error.message || error}`,
-    );
-  }
-}
 
-async updateEstado(
-  id: number,
-  updateEstadoDto: UpdateEstadoPautaDto,
-) {
-  const { fkEstadoLancamentoPauta } = updateEstadoDto;
+    try {
+      await this.dataSource.query(query, parameters as any);
 
-  // Validação extra: só permite mudar de Pendente para Aprovado/Rejeitado
-  const pautaExistente = await this.verificarExistenciaPauta(id);
- 
-  
-
-  if (pautaExistente.FK_ESTADO_LANCAMENTO_PAUTA !== 1) {
-    throw new BadRequestException(
-      'Só é possível aprovar ou rejeitar pautas que estão no estado Pendente.',
-    );
+      return {
+        success: true,
+        message: 'Lançamento de pauta criado com sucesso.',
+      };
+    } catch (error) {
+      throw new BadRequestException(
+        `Erro ao inserir lançamento de pauta: ${error.message || error}`,
+      );
+    }
   }
 
-  const now = new Date().toISOString();
+  async updateEstado(id: number, updateEstadoDto: UpdateEstadoPautaDto) {
+    const { fkEstadoLancamentoPauta } = updateEstadoDto;
 
-  const query = `
+    // Validação extra: só permite mudar de Pendente para Aprovado/Rejeitado
+    const pautaExistente = await this.verificarExistenciaPauta(id);
+
+    if (pautaExistente.FK_ESTADO_LANCAMENTO_PAUTA !== 1) {
+      throw new BadRequestException(
+        'Só é possível aprovar ou rejeitar pautas que estão no estado Pendente.',
+      );
+    }
+
+    const now = new Date().toISOString();
+
+    const query = `
     UPDATE FK2_MGD_TB_LANCAMENTO_PAUTA
-    SET 
+    SET
       FK_ESTADO_LANCAMENTO_PAUTA = :novoEstado,
       UPDATED_AT = TO_TIMESTAMP(:now, 'YYYY-MM-DD"T"HH24:MI:SS.FF3"Z"')
     WHERE PK_LANCAMENTO_PAUTA = :id
   `;
 
-  const parameters = {
-    novoEstado: fkEstadoLancamentoPauta,
-    now,
-    id,
-  };
-
-  try {
-    const result = await this.dataSource.query(query, parameters as any);
-
-    // Verifica se alguma linha foi afetada
-    if (result[1] === 0) {
-      throw new BadRequestException('Pauta não encontrada.');
-    }
-
-    const estadoDesc = fkEstadoLancamentoPauta === 2 ? 'aprovada' : 'rejeitada';
-
-    return {
-      success: true,
-      message: `Pauta ${estadoDesc} com sucesso.`,
+    const parameters = {
+      novoEstado: fkEstadoLancamentoPauta,
+      now,
+      id,
     };
-  } catch (error) {
-    if (error instanceof BadRequestException) {
-      throw error;
-    }
-    throw new BadRequestException(
-      `Erro ao atualizar estado da pauta: ${error.message || error}`,
-    );
-  }
-}
 
-// Método auxiliar (se não tiveres, adiciona)
-private async verificarExistenciaPauta(id: number) {
-  const query = `
+    try {
+      const result = await this.dataSource.query(query, parameters as any);
+
+      // Verifica se alguma linha foi afetada
+      if (result[1] === 0) {
+        throw new BadRequestException('Pauta não encontrada.');
+      }
+
+      const estadoDesc =
+        fkEstadoLancamentoPauta === 2 ? 'aprovada' : 'rejeitada';
+
+      return {
+        success: true,
+        message: `Pauta ${estadoDesc} com sucesso.`,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException(
+        `Erro ao atualizar estado da pauta: ${error.message || error}`,
+      );
+    }
+  }
+
+  // Método auxiliar (se não tiveres, adiciona)
+  private async verificarExistenciaPauta(id: number) {
+    const query = `
     SELECT FK_ESTADO_LANCAMENTO_PAUTA AS fk_estado_lancamento_pauta
     FROM FK2_MGD_TB_LANCAMENTO_PAUTA
     WHERE PK_LANCAMENTO_PAUTA = :id
   `;
 
-  const result = await this.dataSource.query(query, [id]);
+    const result = await this.dataSource.query(query, [id]);
 
-  if (!result || result.length === 0) {
-    throw new NotFoundException('Pauta não encontrada.');
+    if (!result || result.length === 0) {
+      throw new NotFoundException('Pauta não encontrada.');
+    }
+
+    return result[0];
   }
-
-  return result[0];
-}
   async getDescricaoGradeCurricular(codigoGrade: number): Promise<string> {
     const result = await this.dataSource.query(
       `SELECT d.designacao
@@ -304,20 +300,17 @@ private async verificarExistenciaPauta(id: number) {
     return result[0].DESIGNACAO as string;
   }
 
-
   // 4.3) Nome do docente
   async getNomeDocente(codigoDocente: number): Promise<string> {
-  const result = await this.dataSource.query(
-  `
-  SELECT 
+    const result = await this.dataSource.query(
+      `
+  SELECT
     JSON_VALUE(CODIGO_UTILIZADOR, '$.desc') AS "nome"
   FROM FK2_MGD_TB_DOCENTE
   WHERE CODIGO = :codigoDocente
   `,
-  [codigoDocente],
-);
-
-
+      [codigoDocente],
+    );
 
     if (!result || result.length === 0) {
       throw new Error(`Docente não encontrado para o código ${codigoDocente}`);
@@ -342,5 +335,22 @@ private async verificarExistenciaPauta(id: number) {
     }
 
     return result[0].DESIGNACAO as string;
+  }
+
+  async getPautaEstado() {
+    const sql = `
+      SELECT
+        DESIGNACAO,
+        PK_ESTADO
+      FROM FK2_MGD_ESTADO_LANCAMENTO_PAUTA
+    `;
+
+    const result = await this.dataSource.query(sql);
+    console.log(result);
+
+    return result.map((row: any) => ({
+      codigo: row.PK_ESTADO,
+      designacao: row.DESIGNACAO,
+    }));
   }
 }
