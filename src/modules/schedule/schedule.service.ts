@@ -25,7 +25,7 @@ import { UpdatePermissionEditScheduleDto } from './dto/update-permission-edit-sc
 // Disponibilidade  1-diponivel 0-indisponivel
 @Injectable()
 export class ScheduleService {
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly dataSource: DataSource) {}
   async create(userId: number, dto: CreateScheduleDto) {
     const terms = await this.promptToCreateAndEditSchedule(5, dto.anoLectivo);
     if (!terms) {
@@ -193,8 +193,6 @@ export class ScheduleService {
     const fields: string[] = [];
     const params: any = { permissionId };
 
-
-
     if (query.dataInicio && query.dataFim) {
       const agora = new Date();
       const inicio = new Date(query.dataInicio);
@@ -225,8 +223,6 @@ export class ScheduleService {
       fields.push(`ATIVE_STATE = :ativeState`);
     }
 
-
-
     if (fields.length === 0) {
       throw new BadRequestException(
         'Nenhum dado foi fornecido para atualização',
@@ -239,6 +235,7 @@ export class ScheduleService {
      WHERE PK_PERMISAO_EDICAO_HORARIO = :permissionId
      RETURNING PK_PERMISAO_EDICAO_HORARIO INTO :outId
   `;
+    console.log(params, sql, fields);
     console.log(params, sql, fields);
     const result = await this.dataSource.query(sql, {
       ...params,
@@ -2454,17 +2451,15 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
 
   // 4.3) Nome do docente
   async getNomeDocente(codigoDocente: number): Promise<string> {
-  const result = await this.dataSource.query(
-  `
-  SELECT 
+    const result = await this.dataSource.query(
+      `
+  SELECT
     JSON_VALUE(CODIGO_UTILIZADOR, '$.desc') AS "nome"
   FROM FK2_MGD_TB_DOCENTE
   WHERE CODIGO = :codigoDocente
   `,
-  [codigoDocente],
-);
-
-
+      [codigoDocente],
+    );
 
     if (!result || result.length === 0) {
       throw new Error(`Docente não encontrado para o código ${codigoDocente}`);
