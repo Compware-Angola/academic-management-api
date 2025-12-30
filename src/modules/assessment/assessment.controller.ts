@@ -50,6 +50,8 @@ import { CreateLancamentoPautaDto } from './dto/create-lancamento-pauta.dto';
 import { UpdateEstadoPautaDto } from './dto/update-estado-pauta.dto';
 import { GeneralAgendaDto } from './dto/list-general-agenda.dto';
 import { GenaralAgendaService } from './general_agenda.service';
+import { getAttendanceListDto } from './dto/get-attendanceList.dto';
+import { AttendanceListService } from './attendancelist.service';
 
 @Controller('assessment')
 export class AssessmentController {
@@ -62,6 +64,7 @@ export class AssessmentController {
     private readonly service: AssessmentService,
     private readonly defineFormulaUcService: DefineFormulaUcService,
     private readonly oralService: DefineFormulaUcOralService,
+    private readonly attendanceService: AttendanceListService,
   ) {}
   @Post('upsert')
   @ApiOperation({
@@ -135,6 +138,16 @@ export class AssessmentController {
   async historyNoteRelease(@Query() params: HistoryNoteReleaseDto) {
     return this.historyNoteReleaseService.historyNoteRelease(params);
   }
+  @Get('list-presence-attendance')
+  @ApiOperation({ summary: 'Obter lista de presenças/faltas com filtros' })
+  @ApiResponse({ status: 200, description: 'Lista retornada com sucesso.' })
+  @ApiResponse({ status: 400, description: 'Parâmetros inválidos.' })
+  async getAttendanceList(
+    @Query(ValidationPipe) dto: getAttendanceListDto,
+  ) {
+    return this.attendanceService.getAttendanceList(dto);
+  }
+
   @Get('parametros-avaliacoes')
   @ApiOperation({
     summary: 'Lista os parâmetros de avaliações  ativos',
