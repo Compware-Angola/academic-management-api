@@ -462,7 +462,7 @@ export class AssessmentService {
       const r = this.normalizeRow(row);
     
 
-      const anoCorrente = this.anoAtualPrincipal;
+   
       const inscritos = await this.buscarNumeroDeIscritos(r, r.turmaouhorario, anoLectivoId);
       const numNotaPorLancar = inscritos >= totalLancadas
         ? inscritos - totalLancadas

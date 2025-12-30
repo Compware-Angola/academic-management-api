@@ -9,7 +9,7 @@ import {
   Min,
 } from 'class-validator';
 
-export class UpdatePermissionEditScheduleDto {
+export class UpdatePermissionAssessmentDTO {
   @ApiPropertyOptional({
     description: 'Data de início da permissão',
     example: '2023-05-06',
