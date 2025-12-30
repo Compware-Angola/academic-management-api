@@ -58,6 +58,24 @@ export class MarkingAssessmentDTO {
   anoCurricular: number;
 
   @ApiPropertyOptional({
+    description: 'Filtrar por código do Horário',
+    example: 24879,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  horarioId: number;
+
+  @ApiPropertyOptional({
+    description: 'Filtrar por unidade curricular',
+    example: 171,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  unidadeCurricular: number;
+
+  @ApiPropertyOptional({
     description: 'Filtrar por código da da avaliacao',
     example: 2,
   })

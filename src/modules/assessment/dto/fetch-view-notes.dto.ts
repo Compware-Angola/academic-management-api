@@ -43,14 +43,34 @@ export class FetchViewNotesDTO {
   tipoAvaliacao: number;
 
   @ApiProperty({
-    description: 'id do Horário',
+    description: 'id do Horário ou turma',
     example: 24879,
     minimum: 1,
   })
   @IsNumber()
   @IsPositive()
   @Type(() => Number)
-  horarioId: number;
+  horarioOrTurmaId: number;
+
+  @ApiProperty({
+    description: 'unidade curricular id',
+    example: 171,
+    minimum: 1,
+  })
+  @IsNumber()
+  @IsPositive()
+  @Type(() => Number)
+  gradeId: number;
+
+  @ApiProperty({
+    description: '1- para consultar por horario e 2 - consultar por turma',
+    example: 1,
+    minimum: 1,
+  })
+  @IsNumber()
+  @IsPositive()
+  @Type(() => Number)
+  tipoConsulta: number;
 
   @ApiPropertyOptional({
     description: 'Número da página',

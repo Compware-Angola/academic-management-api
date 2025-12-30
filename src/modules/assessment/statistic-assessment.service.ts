@@ -8,8 +8,9 @@ export class StatisticAssessmentsService {
   constructor(private readonly dataSource: DataSource) {}
 
   async findStatisticAssessment(filters: StatisticAssessmentDTO) {
-    const { anoLectivo, tipoProva, horarioId, gradeId } = filters;
-
+    const { anoLectivo, tipoProva, horarioId, gradeId, tipoAvaliacao } =
+      filters;
+    const tiposAvaliacaoIn = `(${tipoAvaliacao.join(',')})`;
     const baseWhere = `
       tgca.CODIGO_ANO_LECTIVO = ${anoLectivo}
       AND tgca.CODIGO_STATUS_GRADE_CURRICULAR NOT IN (4,5)
@@ -28,9 +29,9 @@ export class StatisticAssessmentsService {
         WHERE gc.codigo = ${gradeId}
       ),
       NomeAvaliacao AS (
-        SELECT DESIGNACAO AS avaliacao
-        FROM FK2_MCAL_TB_TIPO_AVALIACAO
-        WHERE PK_TIPO_AVALIACAO = ${tipoProva}
+        SELECT DESIGNACAO AS avaliacao, codigo as tipo_avaliacao
+        FROM FK2_TB_TIPO_AVALIACAO
+        WHERE codigo IN ${tiposAvaliacaoIn}
       ),
       NomeHorario AS (
         SELECT DESIGNACAO AS nomehorario
@@ -50,7 +51,7 @@ export class StatisticAssessmentsService {
         FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
         INNER JOIN fk2_tb_grade_curricular_aluno_avaliacoes tgcaa
           ON tgcaa.grade_curricular_aluno = tgca.codigo
-          AND tgcaa.tipo_avaliacao IN (2, 3)
+          AND tgcaa.tipo_avaliacao IN ${tiposAvaliacaoIn}
           AND tgcaa.tipo_de_prova = ${tipoProva}
         WHERE ${baseWhere}
       )
@@ -77,7 +78,8 @@ export class StatisticAssessmentsService {
       FROM AvaliacoesPorTipo a
       CROSS JOIN Inscritos i
       CROSS JOIN DadosGrade dg
-      CROSS JOIN NomeAvaliacao na
+      INNER JOIN NomeAvaliacao na
+      ON na.tipo_avaliacao = a.tipo_avaliacao
       CROSS JOIN NomeHorario nh
       GROUP BY
         dg.curso,

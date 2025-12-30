@@ -310,12 +310,24 @@ export class AssessmentController {
       habilitar: dto.habilitar,
     };
   }
-  @Get('estatistica-avaliacao')
+  @Post('estatistica-avaliacao')
+  @ApiOperation({ summary: 'Trazer todas estatisticas' })
+  @ApiResponse({
+    status: 201,
+    description: 'Estatisticas trazidas com sucesso',
+  })
+  @ApiResponse({ status: 400, description: 'Dados inválidos' })
   async buscarEstatisticaAvaliacao(
-    @Query(ValidationPipe) params: StatisticAssessmentDTO,
+    @Body(ValidationPipe) dto: StatisticAssessmentDTO,
   ) {
-    return this.statisticService.findStatisticAssessment(params);
+    return this.statisticService.findStatisticAssessment(dto);
   }
+  // @Get('estatistica-avaliacao')
+  // async buscarEstatisticaAvaliacao(
+  //   @Query(ValidationPipe) params: StatisticAssessmentDTO,
+  // ) {
+  //   return this.statisticService.findStatisticAssessment(params);
+  // }
   @Get('marcacoes-provas')
   async buscarProvasMarcadadaS(
     @Query(ValidationPipe) params: MarkingAssessmentDTO,

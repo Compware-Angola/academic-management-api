@@ -9,10 +9,12 @@ export class MarkingAssessmentService {
 
   async findMarkingAssementService(filters: MarkingAssessmentDTO) {
     const {
+      unidadeCurricular,
       anoLectivo,
       semestre,
       periodo,
       curso,
+      horarioId,
       anoCurricular,
       tipoAvaliacao,
       tipoHorario, // 1 = com prova | 2 = sem prova
@@ -28,14 +30,8 @@ export class MarkingAssessmentService {
     const isComProva = tipoHorario === 1;
     const isSemProva = tipoHorario === 2;
 
-    // ==================================================
-    // PARAMS BASE
-    // ==================================================
     const baseParams: any = { anoLectivo };
 
-    // ==================================================
-    // WHERE DINÂMICO BASE
-    // ==================================================
     const whereConditions: string[] = ['tal.Codigo = :anoLectivo'];
 
     if (semestre !== undefined) {
@@ -53,6 +49,15 @@ export class MarkingAssessmentService {
     if (curso !== undefined) {
       whereConditions.push('tgc.Codigo_Curso = :curso');
       baseParams.curso = curso;
+    }
+
+    if (horarioId !== undefined) {
+      whereConditions.push('tt.PK_HORARIO = :horarioId');
+      baseParams.horarioId = horarioId;
+    }
+    if (unidadeCurricular !== undefined) {
+      whereConditions.push('tt.FK_GRADE_CURRICULAR = :unidadeCurricular');
+      baseParams.unidadeCurricular = unidadeCurricular;
     }
 
     if (anoCurricular !== undefined) {
@@ -108,7 +113,9 @@ export class MarkingAssessmentService {
             FROM fk2_tb_calendario_prova tcp
               INNER JOIN fk2_mcal_tb_prazo pz
                 ON json_value(tcp.ref_prazo, '$.pk_prazo') = pz.pk_prazo
-            WHERE json_value(tcp.ref_horario, '$.pk') = tt.pk_horario
+            WHERE 1=1
+            and json_value(tcp.ref_horario, '$.pk') = tt.pk_horario
+            and pz.fk_tipo_avaliacao = ${tipoAvaliacao}
           )
         ORDER BY td.Designacao, tt.Designacao
         OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
@@ -129,7 +136,9 @@ export class MarkingAssessmentService {
             FROM fk2_tb_calendario_prova tcp
               INNER JOIN fk2_mcal_tb_prazo pz
                 ON json_value(tcp.ref_prazo, '$.pk_prazo') = pz.pk_prazo
-            WHERE json_value(tcp.ref_horario, '$.pk') = tt.pk_horario
+            WHERE 1=1
+            and json_value(tcp.ref_horario, '$.pk') = tt.pk_horario
+            and pz.fk_tipo_avaliacao = ${tipoAvaliacao}
           )
       `;
     }

@@ -9,6 +9,8 @@ import {
   IsPositive,
   IsIn,
   Max,
+  IsArray,
+  ArrayNotEmpty,
 } from 'class-validator';
 
 export class StatisticAssessmentDTO {
@@ -33,14 +35,17 @@ export class StatisticAssessmentDTO {
   tipoProva: number;
 
   @ApiProperty({
-    description: 'Tipo de Avaliacao Obrigário',
-    example: 2,
+    description: 'Tipos de Avaliação (array de ids)',
+    example: [2, 3],
+    type: [Number],
     minimum: 1,
   })
-  @IsNumber()
-  @IsPositive()
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsNumber({}, { each: true })
+  @IsPositive({ each: true })
   @Type(() => Number)
-  tipoAvaliacao: number;
+  tipoAvaliacao: number[];
 
   @ApiProperty({
     description: 'id do Horário',

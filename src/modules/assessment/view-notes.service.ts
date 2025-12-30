@@ -7,21 +7,32 @@ import { FetchViewNotesDTO } from './dto/fetch-view-notes.dto';
 export class ViewNotesService {
   constructor(private readonly dataSource: DataSource) {}
   async findNoteByHorario({
+    tipoConsulta,
+    gradeId,
     tipoAvaliacao,
     tipoProva,
-    horarioId,
+    horarioOrTurmaId,
     anoLectivo,
     limit = 25,
     page = 1,
   }: FetchViewNotesDTO) {
     const offset = (page - 1) * limit;
 
-    const baseWhere = `
-    fk2_tb_matriculas.estado_matricula IN ('concluido', 'diplomado', 'activo', 'inactivo')
-    AND JSON_VALUE(fk2_tb_grade_curricular_aluno.ref_horario, '$.pk') = ${horarioId}
-    AND fk2_tb_grade_curricular_aluno.Codigo_Status_Grade_Curricular IN (2, 3)
-    AND fk2_tb_grade_curricular_aluno.codigo_ano_lectivo = ${anoLectivo}
-  `;
+    const whereCommon = `
+      fk2_tb_matriculas.estado_matricula IN ('concluido', 'diplomado', 'activo', 'inactivo')
+      AND fk2_tb_grade_curricular_aluno.Codigo_Status_Grade_Curricular IN (2, 3)
+      AND fk2_tb_grade_curricular_aluno.codigo_ano_lectivo = ${anoLectivo}
+    `;
+    const whereSpecific =
+      tipoConsulta === 1
+        ? `
+        JSON_VALUE(fk2_tb_grade_curricular_aluno.ref_horario, '$.pk') = ${horarioOrTurmaId}
+      `
+        : `
+        fk2_tb_grade_curricular_aluno.turma = ${horarioOrTurmaId}
+        AND fk2_tb_grade_curricular_aluno.codigo_grade_curricular = ${gradeId}
+      `;
+    const baseWhere = `${whereCommon} AND ${whereSpecific}`;
 
     const sql = `
     SELECT
