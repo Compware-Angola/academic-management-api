@@ -1,6 +1,16 @@
-import { IsOptional, IsString, IsNumber, IsInt, IsDateString } from 'class-validator';
+import { IsOptional, IsString, IsNumber, IsInt, IsDateString, IsArray, ValidateNested } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+class VigilanteItemDto {
+  @ApiProperty({
+    description: 'Código do utilizador/docente que será vigilante',
+    example: 1965,
+  })
+  @IsNumber()
+  codigoUtilizador: number;
 
+
+}
 export class CreateCalendarioProvaDto {
   @ApiPropertyOptional({
     description: 'Código único do calendário',
@@ -108,6 +118,13 @@ export class CreateCalendarioProvaDto {
   @IsInt()
   Horario?: number;
 
-
+@ApiProperty({
+    description: 'Lista de vigilantes a serem associados ao calendário',
+    type: [VigilanteItemDto],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VigilanteItemDto)
+  vigilantes: VigilanteItemDto[];
 
 }

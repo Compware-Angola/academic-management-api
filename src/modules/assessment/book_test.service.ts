@@ -13,7 +13,7 @@ export class BookTestService {
 
     const ref_json_utilizador = {
       pk: dto.utilizador || dto.codigoUtilizador,
-      desc: 'Antônio Afonso Bindanda', // pode melhorar depois com busca real
+      desc: 'Antônio Afonso Bindanda', 
       corLetra: 'black',
       disponivel: false,
     };
@@ -121,7 +121,7 @@ const sqlv = `
     CODIGO
   ) VALUES (
     :calendarioProva,
-    :vigilante,
+    :vigilante, 
     SYSDATE,
     :status,
     :codigoUtilizadorRegisto,
@@ -149,7 +149,7 @@ for (const vig of dto.vigilantes) {
     disponivel: true
   }),
   refUtilizadorRegisto: JSON.stringify({
-    pk: 1192,  // ex: usuário que está registrando
+    pk: 1192, 
     desc: 'Nome de quem registrou',
     corLetra: 'black',
     disponivel: false
