@@ -17,6 +17,7 @@ import { PermissionAssessmentsService } from './permission-assessment.service';
 import { StatisticAssessmentsService } from './statistic-assessment.service';
 import { MarkingAssessmentService } from './making-assessment.service';
 import { ViewNotesService } from './view-notes.service';
+import { BookTestService } from './book_test.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([AcademicYear])],
@@ -37,6 +38,8 @@ import { ViewNotesService } from './view-notes.service';
     StatisticAssessmentsService,
     MarkingAssessmentService,
     ViewNotesService,
+    // Adicionado da branch develop
+    BookTestService,
   ],
 })
 export class AssessmentModule {}

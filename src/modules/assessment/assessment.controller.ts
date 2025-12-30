@@ -64,24 +64,20 @@ import { MarkingAssessmentDTO } from './dto/marking-assessment.dto';
 import { UpdatePermissionEditScheduleDto } from '../schedule/dto/update-permission-edit-schedule.dto';
 import { ViewNotesService } from './view-notes.service';
 import { FetchViewNotesDTO } from './dto/fetch-view-notes.dto';
+// Adicionado da branch develop (funcionalidade útil que não existia na HEAD)
+import { BookTestService } from './book_test.service';
+import { CreateCalendarioProvaDto } from './dto/CreateCalendarioProvaDto';
 
 @Controller('assessment')
 export class AssessmentController {
   constructor(
     private readonly genaralAgendaService: GenaralAgendaService,
-
     private readonly agendaLaunch: AgendaLaunchService,
-
     private readonly generalParametersForEvaluationService: GeneralParametersForEvaluationService,
-
     private readonly historyNoteReleaseService: HistoryNoteReleaseService,
-
     private readonly noteReleaseService: NoteReleaseService,
-
     private readonly service: AssessmentService,
-
     private readonly defineFormulaUcService: DefineFormulaUcService,
-
     private readonly oralService: DefineFormulaUcOralService,
     private readonly attendanceService: AttendanceListService,
     private readonly studentAssessmentService: StudentsEnrolledByAssessmentsService,
@@ -89,7 +85,10 @@ export class AssessmentController {
     private readonly statisticService: StatisticAssessmentsService,
     private readonly markingAssessmentService: MarkingAssessmentService,
     private readonly viewNotesService: ViewNotesService,
+    // Serviço adicionado da branch develop
+    private readonly calendarioProvaService: BookTestService,
   ) {}
+
   @Post('upsert')
   @ApiOperation({
     summary: 'Criar ou atualizar uma avaliação do aluno',
@@ -107,6 +106,7 @@ export class AssessmentController {
   async upsertEvaluation(@Body() dto: StudentEvaluationDto) {
     return await this.noteReleaseService.upsertStudentEvaluation(dto);
   }
+
   @Post('parametros-avaliacoes')
   @ApiOperation({ summary: 'Cria um novo parâmetro de avaliação MUTUE' })
   @ApiResponse({ status: 201, description: 'Parâmetro criado com sucesso' })
@@ -116,6 +116,7 @@ export class AssessmentController {
   ) {
     return this.generalParametersForEvaluationService.createParametro(dto);
   }
+
   @Get('pautas-geral')
   async getAllPauta(@Query() query: GeneralAgendaDto) {
     return this.genaralAgendaService.findAll(query);
@@ -137,12 +138,14 @@ export class AssessmentController {
       parametroId,
     );
   }
+
   @Get('search-curriculum-plan-student')
   async searchCurricularByStudenty(
     @Query() params: FilterCurriculumGradeAlunoDto,
   ) {
     return this.historyNoteReleaseService.searchCurricularByStudenty(params);
   }
+
   @Get('get-history-note-release')
   @ApiOperation({
     summary: 'Busca o histórico de lançamento de notas',
@@ -162,6 +165,7 @@ export class AssessmentController {
   async historyNoteRelease(@Query() params: HistoryNoteReleaseDto) {
     return this.historyNoteReleaseService.historyNoteRelease(params);
   }
+
   @Get('list-presence-attendance')
   @ApiOperation({ summary: 'Obter lista de presenças/faltas com filtros' })
   @ApiResponse({ status: 200, description: 'Lista retornada com sucesso.' })
@@ -170,9 +174,18 @@ export class AssessmentController {
     return this.attendanceService.getAttendanceList(dto);
   }
 
+  // Endpoint exclusivo da branch develop – mantido
+  @Post('create-calendario-prova')
+  @ApiOperation({ summary: 'Criar um novo agendamento de prova' })
+  @ApiResponse({ status: 201, description: 'Prova agendada com sucesso' })
+  @ApiResponse({ status: 400, description: 'Dados inválidos' })
+  async createCalendarioProva(@Body() dto: CreateCalendarioProvaDto) {
+    return this.calendarioProvaService.createCalendarioProva(dto);
+  }
+
   @Get('parametros-avaliacoes')
   @ApiOperation({
-    summary: 'Lista os parâmetros de avaliações  ativos',
+    summary: 'Lista os parâmetros de avaliações ativos',
     description: `
     Retorna todos os registros da tabela <code>FK2_TB_PARAMETROS_AVALIACOES_MUTUE</code>
     que estão com <code>ACTIVO = 1</code>, ordenados por <code>CODIGO</code>.<br><br>
@@ -200,8 +213,9 @@ export class AssessmentController {
   async viewNote(@Query('search') search?: string) {
     return this.generalParametersForEvaluationService.viewNote(search);
   }
+
   @Get('parametros-avaliacoes-attendance-list')
-  async() {
+  async attendanceListParams() {
     return this.generalParametersForEvaluationService.attendanceList();
   }
 
@@ -216,6 +230,7 @@ export class AssessmentController {
   async estadoPauta() {
     return this.agendaLaunch.getPautaEstado();
   }
+
   @Post('lancamento/pauta/create')
   async create(@Body() createDto: CreateLancamentoPautaDto) {
     return this.agendaLaunch.create(createDto);
@@ -228,12 +243,14 @@ export class AssessmentController {
   ) {
     return this.agendaLaunch.updateEstado(id, updateEstadoDto);
   }
+
   @Get('filtrar')
   @ApiOperation({ summary: 'Filtrar alunos por critérios específicos' })
   @ApiResponse({ status: 200, description: 'Lista de alunos filtrados' })
   filtrarAlunos(@Query() filtro: StudentFiltersDto) {
     return this.noteReleaseService.findstudents(filtro);
   }
+
   @Put('parametros-avaliacoes-attendance-list/:codigo')
   @ApiOperation({
     summary: 'Atualiza um parâmetro de avaliação (attendance list)',
@@ -254,15 +271,17 @@ export class AssessmentController {
       updateData,
     );
   }
+
   @Get('permissoes')
   async findPermissionLaunch(
     @Query(ValidationPipe) params: PermissionAssessmentDTO,
   ) {
     return this.permissionService.findPermissionLaunch(params);
   }
+
   @Post('permissoes')
   @ApiOperation({
-    summary: 'Criar Permissão de  avaliação do aluno',
+    summary: 'Criar Permissão de avaliação do aluno',
     description:
       'Faz um INSERT se na tabela de permissões de lançamento de nota caso estiver em um intervalo futuro',
   })
@@ -277,6 +296,7 @@ export class AssessmentController {
   async createPermissionAssessment(@Body() dto: CreatePermissionAssessmentDTO) {
     return await this.permissionService.createPermissionAssessment(dto);
   }
+
   @Get('disciplinas-prova')
   async buscarDisciplinasProva(
     @Query(ValidationPipe) params: BuscarDisciplinasProvaDto,
@@ -290,6 +310,7 @@ export class AssessmentController {
   ): Promise<NotaLancadaResponseDto[]> {
     return this.service.buscarNotas(params.turmaOuHorarioId, params);
   }
+
   @Get('estudantes-inscritos')
   async findAllStudentEnrolledAvaluation(
     @Query(ValidationPipe) params: StudentEnrolledByAssessmentDTO,
@@ -298,6 +319,7 @@ export class AssessmentController {
       params,
     );
   }
+
   @Get('unidades-curriculares')
   @ApiOperation({
     summary: 'Listar fórmulas de avaliação por curso, ano e semestre',
@@ -307,10 +329,12 @@ export class AssessmentController {
   ) {
     return this.defineFormulaUcService.listarUnidadesCurriculares(params);
   }
-  @Put('unidades-curriculares') // ou @Put
+
+  @Put('unidades-curriculares')
   async salvarFormula(@Body() body: AtualizarFormulaDto) {
     return this.defineFormulaUcService.atualizarFormula(body);
   }
+
   @Get('definir/oral')
   @ApiOperation({ summary: 'Listar disciplinas com status de oral habilitado' })
   @ApiResponse({ status: 200, type: [DefinirOralGradeDto] })
@@ -319,6 +343,7 @@ export class AssessmentController {
   ): Promise<DefinirOralGradeDto[]> {
     return this.oralService.buscar(params);
   }
+
   @Patch('definir/oral/status')
   @ApiOperation({
     summary: 'Habilitar ou desabilitar prova oral para uma disciplina',
@@ -335,6 +360,7 @@ export class AssessmentController {
       habilitar: dto.habilitar,
     };
   }
+
   @Post('estatistica-avaliacao')
   @ApiOperation({ summary: 'Trazer todas estatisticas' })
   @ApiResponse({
@@ -347,12 +373,7 @@ export class AssessmentController {
   ) {
     return this.statisticService.findStatisticAssessment(dto);
   }
-  // @Get('estatistica-avaliacao')
-  // async buscarEstatisticaAvaliacao(
-  //   @Query(ValidationPipe) params: StatisticAssessmentDTO,
-  // ) {
-  //   return this.statisticService.findStatisticAssessment(params);
-  // }
+
   @Get('marcacoes-provas')
   async buscarProvasMarcadadaS(
     @Query(ValidationPipe) params: MarkingAssessmentDTO,
