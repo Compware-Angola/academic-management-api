@@ -4,11 +4,12 @@ import {
   Post,
   Body,
   Patch,
+  Param,
+  Delete,
   ValidationPipe,
   Query,
   Put,
   ParseIntPipe,
-  Param,
 } from '@nestjs/common';
 import {
   AssessmentService,
@@ -49,6 +50,8 @@ import { CreateLancamentoPautaDto } from './dto/create-lancamento-pauta.dto';
 import { UpdateEstadoPautaDto } from './dto/update-estado-pauta.dto';
 import { GeneralAgendaDto } from './dto/list-general-agenda.dto';
 import { GenaralAgendaService } from './general_agenda.service';
+import { getAttendanceListDto } from './dto/get-attendanceList.dto';
+import { AttendanceListService } from './attendancelist.service';
 import { StudentEnrolledByAssessmentDTO } from './dto/student-enrolled-by-assessment.dto';
 import { StudentsEnrolledByAssessmentsService } from './students-enrolled-by-assessments.service';
 import { PermissionAssessmentDTO } from './dto/permission-assessment.dto';
@@ -66,13 +69,21 @@ import { FetchViewNotesDTO } from './dto/fetch-view-notes.dto';
 export class AssessmentController {
   constructor(
     private readonly genaralAgendaService: GenaralAgendaService,
+
     private readonly agendaLaunch: AgendaLaunchService,
+
     private readonly generalParametersForEvaluationService: GeneralParametersForEvaluationService,
+
     private readonly historyNoteReleaseService: HistoryNoteReleaseService,
+
     private readonly noteReleaseService: NoteReleaseService,
+
     private readonly service: AssessmentService,
+
     private readonly defineFormulaUcService: DefineFormulaUcService,
+
     private readonly oralService: DefineFormulaUcOralService,
+    private readonly attendanceService: AttendanceListService,
     private readonly studentAssessmentService: StudentsEnrolledByAssessmentsService,
     private readonly permissionService: PermissionAssessmentsService,
     private readonly statisticService: StatisticAssessmentsService,
@@ -151,6 +162,14 @@ export class AssessmentController {
   async historyNoteRelease(@Query() params: HistoryNoteReleaseDto) {
     return this.historyNoteReleaseService.historyNoteRelease(params);
   }
+  @Get('list-presence-attendance')
+  @ApiOperation({ summary: 'Obter lista de presenças/faltas com filtros' })
+  @ApiResponse({ status: 200, description: 'Lista retornada com sucesso.' })
+  @ApiResponse({ status: 400, description: 'Parâmetros inválidos.' })
+  async getAttendanceList(@Query(ValidationPipe) dto: getAttendanceListDto) {
+    return this.attendanceService.getAttendanceList(dto);
+  }
+
   @Get('parametros-avaliacoes')
   @ApiOperation({
     summary: 'Lista os parâmetros de avaliações  ativos',
@@ -185,11 +204,17 @@ export class AssessmentController {
   async() {
     return this.generalParametersForEvaluationService.attendanceList();
   }
+
   @Get('lancamento/pauta')
   @ApiOperation({ summary: 'Filtrar pautas lançadas' })
   @ApiResponse({ status: 200, description: 'Lista ....' })
   findAll(@Query() filtro: FiltroLancamentoPautaDto) {
     return this.agendaLaunch.getAll(filtro);
+  }
+
+  @Get('estado-pauta')
+  async estadoPauta() {
+    return this.agendaLaunch.getPautaEstado();
   }
   @Post('lancamento/pauta/create')
   async create(@Body() createDto: CreateLancamentoPautaDto) {

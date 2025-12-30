@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CreateAcademicCalendarDto } from './dto/create-academic_calendar.dto';
-import { UpdateAcademicCalendarDto } from './dto/update-academic_calendar.dto';
+
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { ViewMonthsDto } from './dto/view-months.dto';
 import { DataSource } from 'typeorm';
@@ -44,8 +43,8 @@ async viewMonths(params: ViewMonthsDto) {
 
   query += `
     ORDER BY 
-      ORDEM_MES ASC
-  `; // Sem ; no final (Oracle + TypeORM)
+      PRESTACAO ASC
+  `; 
 
   const result = await this.dataSource.query(query, Object.values(parameters));
   
