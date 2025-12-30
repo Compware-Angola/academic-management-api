@@ -12,6 +12,7 @@ import { GeneralParametersForEvaluationService } from './general_parameters_for_
 import { AgendaLaunchService } from './agenda_launch.service';
 import { GenaralAgendaService } from './general_agenda.service';
 import { AttendanceListService } from './attendancelist.service';
+import { BookTestService } from './book_test.service';
 
 @Module({
   imports: [    TypeOrmModule.forFeature([
@@ -20,6 +21,6 @@ import { AttendanceListService } from './attendancelist.service';
      
       ]),],
   controllers: [AssessmentController],
-  providers: [AttendanceListService,GenaralAgendaService,AgendaLaunchService,AssessmentService,AnoLectivoUtil, DefineFormulaUcService, DefineFormulaUcOralService,NoteReleaseService,HistoryNoteReleaseService, GeneralParametersForEvaluationService],
+  providers: [BookTestService, AttendanceListService,GenaralAgendaService,AgendaLaunchService,AssessmentService,AnoLectivoUtil, DefineFormulaUcService, DefineFormulaUcOralService,NoteReleaseService,HistoryNoteReleaseService, GeneralParametersForEvaluationService],
 })
 export class AssessmentModule {}

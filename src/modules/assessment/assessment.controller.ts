@@ -52,6 +52,8 @@ import { GeneralAgendaDto } from './dto/list-general-agenda.dto';
 import { GenaralAgendaService } from './general_agenda.service';
 import { getAttendanceListDto } from './dto/get-attendanceList.dto';
 import { AttendanceListService } from './attendancelist.service';
+import { BookTestService } from './book_test.service';
+import { CreateCalendarioProvaDto } from './dto/CreateCalendarioProvaDto';
 
 @Controller('assessment')
 export class AssessmentController {
@@ -65,6 +67,7 @@ export class AssessmentController {
     private readonly defineFormulaUcService: DefineFormulaUcService,
     private readonly oralService: DefineFormulaUcOralService,
     private readonly attendanceService: AttendanceListService,
+    private readonly calendarioProvaService: BookTestService,
   ) {}
   @Post('upsert')
   @ApiOperation({
@@ -147,7 +150,13 @@ export class AssessmentController {
   ) {
     return this.attendanceService.getAttendanceList(dto);
   }
-
+@Post('create-calendario-prova')
+  @ApiOperation({ summary: 'Criar um novo agendamento de prova' })
+  @ApiResponse({ status: 201, description: 'Prova agendada com sucesso' })
+  @ApiResponse({ status: 400, description: 'Dados inválidos' })
+  async createCalendarioProva(@Body() dto: CreateCalendarioProvaDto) {
+    return this.calendarioProvaService.createCalendarioProva(dto);
+  }
   @Get('parametros-avaliacoes')
   @ApiOperation({
     summary: 'Lista os parâmetros de avaliações  ativos',
