@@ -9,33 +9,41 @@ export class BookTestService {
   constructor(private readonly dataSource: DataSource) {}
 
   async createCalendarioProva(dto: CreateCalendarioProvaDto) {
-   
-
     const ref_json_utilizador = {
       pk: dto.utilizador || dto.codigoUtilizador,
-      desc: 'Antônio Afonso Bindanda', 
+      desc: dto.descUtilizador,
       corLetra: 'black',
       disponivel: false,
     };
 
     const ref_json_horario = {
-      pk: dto.Horario || 27526,
-      desc: 'ARQUI.5.TFC.D-H2',
+      pk: dto.Horario,
+      desc: dto.descHorario,
       corLetra: 'black',
       disponivel: false,
     };
+    const sqlPrazo = `select * from FK2_MCAL_TB_PRAZO
+where 1=1
+and FK_TIPO_AVALIACAO =${dto.tipoAvaliacao}
+and FK_SEMESTRE = ${dto.semestre}
+and FK_TIPO_PRAZO = ${dto.tipoPrazo}
+and FK_ANO_LECTIVO = ${dto.anoLectivo}
+and ACTIVE_STATE = 1
+and TIPO_CANDIDATURA = ${dto.tipoCandidatura}
+fetch first 1 row only`;
+    const prazo = await this.dataSource.query(sqlPrazo);
 
     const ref_json_prazo = {
-      pk_prazo: 236,
-      semestre: '2º Semestre',
-      tipoPrazo: 'Marcação de Provas',
-      anoLectivo: '2024-2025',
+      pk_prazo: prazo[0].PK_PRAZO,
+      semestre: `${dto.semestre}º Semestre`,
+      tipoPrazo: ' ',
+      anoLectivo: this.extrairAnoLectivoDescDoPrazo(prazo[0].REF_ANO_LECTIVO),
       activeState: 'true',
-      pk_semestre: 2,
-      pk_tipoPrazo: 4,
-      tipoAvalicao: 'Recurso',
-      pk_anoLectivo: 22,
-      pk_tipoAvalicao: 6,
+      pk_semestre: dto.semestre,
+      pk_tipoPrazo: dto.tipoPrazo,
+      tipoAvalicao: '',
+      pk_anoLectivo: dto.anoLectivo,
+      pk_tipoAvalicao: dto.tipoAvaliacao,
     };
 
     const sql = `
@@ -81,7 +89,7 @@ export class BookTestService {
     `;
 
     try {
-    const result = await this.dataSource.query(sql, {
+      const result = await this.dataSource.query(sql, {
         codigoCalendario: dto.codigoCalendario,
         codigoTipoProva: dto.codigoTipoProva,
         codigoModalidade: dto.codigoModalidade,
@@ -100,14 +108,16 @@ export class BookTestService {
         refUtilizador: JSON.stringify(ref_json_utilizador),
         refHorario: JSON.stringify(ref_json_horario),
         refPrazo: JSON.stringify(ref_json_prazo),
-          outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+        outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
       } as any);
 
-    if (!result.outId || result.outId.length === 0) {
-        throw new BadRequestException('Falha ao obter o código do calendário inserido.');
+      if (!result.outId || result.outId.length === 0) {
+        throw new BadRequestException(
+          'Falha ao obter o código do calendário inserido.',
+        );
       }
 
-const sqlv = `
+      const sqlv = `
   INSERT INTO FK2_TB_CALENDARIO_PROVA_VIGILANTE (
     CALENDARIO_PROVA,
     VIGILANTE,
@@ -121,7 +131,7 @@ const sqlv = `
     CODIGO
   ) VALUES (
     :calendarioProva,
-    :vigilante, 
+    :vigilante,
     SYSDATE,
     :status,
     :codigoUtilizadorRegisto,
@@ -132,35 +142,35 @@ const sqlv = `
     :codigo
   )
 `;
-// Dentro do seu método, antes do loop
-let proximoCodigo = await this.obterProximoCodigoVigilante();
+      // Dentro do seu método, antes do loop
+      let proximoCodigo = await this.obterProximoCodigoVigilante();
 
-// Loop
-for (const vig of dto.vigilantes) {
- await this.dataSource.query(sqlv, {
-  calendarioProva: result.outId[0],
-  vigilante: vig.codigoUtilizador,
-  status: 1,
-  codigoUtilizadorRegisto: 1192,  // ex: 1192
-  refVigilante: JSON.stringify({
-    pk: vig.codigoUtilizador,
-    desc: 'Nome do Vigilante',
-    corLetra: 'black',
-    disponivel: true
-  }),
-  refUtilizadorRegisto: JSON.stringify({
-    pk: 1192, 
-    desc: 'Nome de quem registrou',
-    corLetra: 'black',
-    disponivel: false
-  }),
-  estadoAgendamento: 1,
-  codigo: proximoCodigo   
-} as any);
+      // Loop
+      for (const vig of dto.vigilantes) {
+        await this.dataSource.query(sqlv, {
+          calendarioProva: result.outId[0],
+          vigilante: vig.codigoUtilizador,
+          status: 1,
+          codigoUtilizadorRegisto: 1192, // ex: 1192
+          refVigilante: JSON.stringify({
+            pk: vig.codigoUtilizador,
+            desc: vig.desc,
+            corLetra: 'black',
+            disponivel: true,
+          }),
+          refUtilizadorRegisto: JSON.stringify({
+            pk: 1192,
+            desc: 'Nome de quem registrou',
+            corLetra: 'black',
+            disponivel: false,
+          }),
+          estadoAgendamento: 1,
+          codigo: proximoCodigo,
+        } as any);
 
-  proximoCodigo++; 
-}
-      
+        proximoCodigo++;
+      }
+
       return {
         success: true,
         message: 'Calendário de prova criado com sucesso',
@@ -174,13 +184,22 @@ for (const vig of dto.vigilantes) {
     }
   }
   private async obterProximoCodigoVigilante(): Promise<number> {
-  const result = await this.dataSource.query(`
+    const result = await this.dataSource.query(`
     SELECT NVL(MAX(CODIGO), 0) + 1 AS proximo_codigo
     FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE
   `);
 
-  
+    return Number(result[0].PROXIMO_CODIGO);
+  }
 
-  return Number(result[0].PROXIMO_CODIGO);
-}
+  private extrairAnoLectivoDescDoPrazo(anoLectivo: string): string | null {
+    try {
+      if (!anoLectivo) return null;
+      const obj = JSON.parse(anoLectivo);
+      return obj.desc ? String(obj.desc) : null;
+    } catch (e) {
+      console.warn('inválido ou não é JSON:', anoLectivo);
+      return null;
+    }
+  }
 }

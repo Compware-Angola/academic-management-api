@@ -1,4 +1,12 @@
-import { IsOptional, IsString, IsNumber, IsInt, IsDateString, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsNumber,
+  IsInt,
+  IsDateString,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 class VigilanteItemDto {
@@ -9,8 +17,14 @@ class VigilanteItemDto {
   @IsNumber()
   codigoUtilizador: number;
 
-
+  @ApiProperty({
+    description: 'Descrição do vigilante',
+    example: 'Isaac Bunga',
+  })
+  @IsString()
+  desc: string;
 }
+
 export class CreateCalendarioProvaDto {
   @ApiPropertyOptional({
     description: 'Código único do calendário',
@@ -48,6 +62,13 @@ export class CreateCalendarioProvaDto {
   })
   @IsInt()
   codigoUtilizador: number;
+
+  @ApiProperty({
+    description: 'Descrição do utilizador',
+    example: 'Joao Gomes',
+  })
+  @IsString()
+  descUtilizador: string;
 
   @ApiProperty({
     description: 'Código do período letivo',
@@ -91,7 +112,6 @@ export class CreateCalendarioProvaDto {
   @IsString()
   horaProva: string;
 
-
   @ApiPropertyOptional({
     description: 'URL com material ou instruções adicionais',
     example: 'https://exemplo.com/prova-material',
@@ -100,25 +120,71 @@ export class CreateCalendarioProvaDto {
   @IsString()
   url?: string;
 
-
-
   @ApiPropertyOptional({
     description: 'Referência a outro utilizador',
     example: 600,
   })
-  @IsOptional()
   @IsInt()
-  utilizador?: number;
+  utilizador: number;
 
   @ApiPropertyOptional({
     description: 'Referência ao horário',
     example: 50,
   })
+  @IsInt()
+  Horario: number;
+  @ApiPropertyOptional({
+    description: 'Descrição Horário',
+    example: '',
+  })
+  @IsString()
+  descHorario: string;
+  @ApiPropertyOptional({
+    description: 'Id do tipo de prazo',
+    example: 4,
+  })
   @IsOptional()
   @IsInt()
-  Horario?: number;
+  @Type(() => Number)
+  tipoPrazo: number;
 
-@ApiProperty({
+  @ApiPropertyOptional({
+    description: 'Id da avalaicao',
+    example: 2,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  tipoAvaliacao: number;
+
+  @ApiPropertyOptional({
+    description: 'Ano Lectivo',
+    example: 22,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  anoLectivo: number;
+
+  @ApiPropertyOptional({
+    description: 'Id da candidatura',
+    example: 1,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  tipoCandidatura: number;
+
+  @ApiPropertyOptional({
+    description: 'Id do semestre',
+    example: 1,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  semestre: number;
+
+  @ApiProperty({
     description: 'Lista de vigilantes a serem associados ao calendário',
     type: [VigilanteItemDto],
   })
@@ -126,5 +192,4 @@ export class CreateCalendarioProvaDto {
   @ValidateNested({ each: true })
   @Type(() => VigilanteItemDto)
   vigilantes: VigilanteItemDto[];
-
 }
