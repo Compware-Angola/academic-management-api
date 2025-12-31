@@ -151,7 +151,7 @@ fetch first 1 row only`;
           calendarioProva: result.outId[0],
           vigilante: vig.codigoUtilizador,
           status: 1,
-          codigoUtilizadorRegisto: 1192, // ex: 1192
+          codigoUtilizadorRegisto: 1192, 
           refVigilante: JSON.stringify({
             pk: vig.codigoUtilizador,
             desc: vig.desc,
