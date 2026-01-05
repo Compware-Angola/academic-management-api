@@ -27,13 +27,7 @@ export enum DiaSemana {
 }
 
 export class AulaDto {
-  @ApiProperty({
-    description: 'ID do docente',
-    example: 1263,
-  })
-  @IsInt()
-  @Min(1)
-  docente: number;
+
 
   @ApiProperty({
     description: 'Dia da semana (2=Segunda ... 7=Sábado)',
@@ -57,26 +51,9 @@ export class AulaDto {
   })
   @IsInt()
   @Min(1)
-  @Max(10)
+ 
   ordemTempo: number;
 
-  @ApiProperty({
-    description: 'ID da sala',
-    example: 93,
-  })
-  @IsInt()
-  @Min(1)
-  sala: number;
-
-
-
-  @ApiProperty({
-    description: 'Tipo de aula (1 = Teórica, 2 = Prática, etc.)',
-    example: 1,
-  })
-  @IsInt()
-  @Min(1)
-  tipoAula: number;
 
   // No teu exemplo estes campos vêm vazios, por isso são opcionais/empty
   @ApiPropertyOptional({
@@ -203,4 +180,29 @@ export class CreateScheduleDto {
   @IsString()
   @IsOptional()
   obs?: string
+
+    @ApiProperty({
+    description: 'ID do docente',
+    example: 1263,
+  })
+  @IsInt()
+  @Min(1)
+  docente: number;
+
+    @ApiProperty({
+    description: 'ID da sala',
+    example: 93,
+  })
+  @IsInt()
+  @Min(1)
+  sala: number;
+
+
+  @ApiProperty({
+    description: 'Tipo de aula (1 = Teórica, 2 = Prática, etc.)',
+    example: 1,
+  })
+  @IsInt()
+  @Min(1)
+  tipoAula: number;
 }

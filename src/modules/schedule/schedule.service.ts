@@ -20,9 +20,7 @@ import { FindScheduleByDesignationDto } from './dto/find-schedule-by-designation
 import { ListScheduleWithPermissionDto } from './dto/list-schedule-with-permission.dto';
 import { UpdatePermissionEditScheduleDto } from './dto/update-permission-edit-schedule.dto';
 
-// deletar passar para estaso 0 e as aulas que estao com este hotario mudar oestado tbm para 0
-// Validar horario
-// Disponibilidade  1-diponivel 0-indisponivel
+
 @Injectable()
 export class ScheduleService {
   constructor(private readonly dataSource: DataSource) {}
@@ -2122,8 +2120,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     // === 1. Buscar dados descritivos ===
     const v_grade_curricular = await this.getGradeCurricular(unidadeCurricular);
 
-    const v_desc_grade =
-      await this.getDescricaoGradeCurricular(v_grade_curricular);
+    const v_desc_grade = await this.getDescricaoGradeCurricular(v_grade_curricular);
     const v_desc_periodo = await this.getDescricaoPeriodo(periodo);
     const v_desc_ano_lectivo = await this.getDescricaoAnoLectivo(anoLectivo);
 
@@ -2132,15 +2129,6 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     const v_json_ano_lectivo = `{"pk":${anoLectivo},"desc":"${escapeQuotes(v_desc_ano_lectivo)}","corLetra":"black"}`;
 
     // JSON dos docentes (array)
-    const docentesJson: string[] = [];
-    for (const aula of aulas) {
-      const nomeDoc = await this.getNomeDocente(aula.docente);
-      docentesJson.push(
-        `{"pkDocente":${aula.docente},"nomeAbreviado":"${escapeQuotes(nomeDoc)}"}`,
-      );
-    }
-    const v_json_docentes =
-      docentesJson.length > 0 ? `[${docentesJson.join(',')}]` : '[]';
 
     let horarioId: number;
 
@@ -2295,19 +2283,18 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
 
     // 2. Loop das aulas com PK_AULA manual e incremental
     for (const aula of aulas) {
-      const nomeDocente = await this.getNomeDocente(aula.docente);
+      const nomeDocente = await this.getNomeDocente(dto.docente);
       const escape = (str: string) =>
         str.replace(/"/g, '\\"').replace(/\n/g, '\\n');
 
-      const ref_docente = `{"pkDocente":${aula.docente},"nome":"${escape(nomeDocente)}"}`;
-
-      const v_desc_sala = await this.getDescricaoSala(aula.sala);
-      const ref_sala = aula.sala
-        ? `{"pk":${aula.sala},"desc":"${escape(v_desc_sala)}"}`
+      const ref_docente = `{"pkDocente":${dto.docente},"nome":"${escape(nomeDocente)}"}`;
+      const v_desc_sala = await this.getDescricaoSala(dto.sala);
+      const ref_sala = dto.sala
+        ? `{"pk":${dto.sala},"desc":"${escape(v_desc_sala)}"}`
         : `{"pk":null,"desc":"Por atribuir"}`;
 
       // Corrigi aqui: estava faltando aspas no desc do ref_aula
-      const ref_aula = `{"pk":${aula.tipoAula},"desc":"${escape(v_desc_grade || '')}"}`;
+      const ref_aula = `{"pk":${dto.tipoAula},"desc":"${escape(v_desc_grade || '')}"}`;
 
       const ref_turmas = dto.turma ? `{"pk":${dto.turma}}` : null;
 
@@ -2315,7 +2302,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
         await this.dataSource.query(
           `
       INSERT INTO FK2_MGH_TB_AULA (
-        PK_AULA,                  -- ← Adicionado manualmente
+        PK_AULA,                 
         FK_HORARIO,
         FK_DIA_DA_SEMANA,
         FK_TIPO_AULA,
@@ -2358,7 +2345,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
             pkAula: proximoPkAula, // ← Valor incremental
             horarioId,
             diaSemana: aula.diaSemana,
-            fkTipoAula: aula.tipoAula,
+            fkTipoAula: dto.tipoAula,
             fkModalidade: modalidade,
             ordem: aula.ordemTempo || 1,
             horaInicio: aula.hora_inicio,

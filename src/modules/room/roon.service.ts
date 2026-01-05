@@ -227,38 +227,47 @@ async updateRoom(
 
 async findAvailableRooms(dto: SearchAvailableRoomsDto) {
   const sql = `
-    SELECT
-        au.CODIGO     AS SALAID,
-        au.DESIGNACAO AS SALA
-    FROM FK2_TB_SALAS au
-    WHERE NOT EXISTS (
-        SELECT 1
-        FROM FK2_MGH_TB_AULA al
-        INNER JOIN FK2_MGH_TB_HORARIO h
-            ON h.PK_HORARIO = al.FK_HORARIO
-        INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
-            ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
-        WHERE json_value(al.REF_SALA, '$.pk') = au.CODIGO
-          AND h.FK_ANO_LECTIVO     = :anoLectivo
-          AND ds.PK_DIA_DA_SEMANA  = :diaSemana
-          AND al.FK_TIPO_AULA      = :tipoAula
-          AND al.ACTIVE_STATE      = 1
-          -- colisão de horário
-AND (
-    TO_DATE(REGEXP_SUBSTR(al.HORA_INICIO, '[0-2][0-9]:[0-5][0-9]'), 'HH24:MI') < TO_DATE(:horaFim, 'HH24:MI')
-AND TO_DATE(REGEXP_SUBSTR(al.HORA_TERMINO, '[0-2][0-9]:[0-5][0-9]'), 'HH24:MI') > TO_DATE(:horaInicio, 'HH24:MI')
+SELECT
+    au.CODIGO     AS SALAID,
+    au.DESIGNACAO AS SALA
+FROM FK2_TB_SALAS au
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM FK2_MGH_TB_AULA al
+    INNER JOIN FK2_MGH_TB_HORARIO h
+        ON h.PK_HORARIO = al.FK_HORARIO
+    WHERE json_value(al.REF_SALA, '$.pk') = au.CODIGO
+      AND al.FK_TIPO_AULA   = :tipoAula
+      AND al.ACTIVE_STATE   = 1
+      AND h.FK_ANO_LECTIVO  = :anoLectivo
+      AND h.FK_PERIODO =:periodo
+      -- Colisão de horário considerando o mesmo dia da semana
+      AND EXISTS (
+          SELECT 1
+          FROM FK2_MGH_TB_AULA al2
+          WHERE al2.PK_AULA <> al.PK_AULA
+            AND json_value(al2.REF_SALA, '$.pk') = au.CODIGO
+            AND al2.FK_TIPO_AULA = al.FK_TIPO_AULA
+            AND al2.FK_HORARIO IN (al.FK_HORARIO)
+            AND al2.FK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+            AND al2.ACTIVE_STATE = 1
+            AND (
+                TO_DATE(REGEXP_SUBSTR(al2.HORA_INICIO, '[0-2][0-9]:[0-5][0-9]'), 'HH24:MI') 
+                < TO_DATE(al.HORA_TERMINO, 'HH24:MI')
+                AND TO_DATE(REGEXP_SUBSTR(al2.HORA_TERMINO, '[0-2][0-9]:[0-5][0-9]'), 'HH24:MI') 
+                > TO_DATE(al.HORA_INICIO, 'HH24:MI')
+            )
+      )
 )
+ORDER BY au.DESIGNACAO
 
-    )
-    ORDER BY au.DESIGNACAO
   `;
 
   const params = {
     anoLectivo: dto.anoLectivo,
-    diaSemana: dto.diaSemana,
+    periodo: dto.periodo,
     tipoAula: dto.tipoAula,
-    horaInicio: dto.horaInicio, // '10:00'
-    horaFim: dto.horaFim,       // '12:00'
+
   };
 
   const rooms = await this.dataSource.query(sql, params as any);
