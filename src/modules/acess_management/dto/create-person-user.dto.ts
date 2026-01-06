@@ -26,15 +26,15 @@ export class CreatePersonUserDto {
   @IsInt()
   tipoDocumentoId: number;
 
-  @ApiProperty({ example: 1 }) // ID do sexo
+  @ApiProperty({ example: 1 })
   @IsInt()
   sexoId: number;
 
-  @ApiProperty({ example: 2 }) // ID do estado civil
+  @ApiProperty({ example: 2 })
   @IsInt()
   estadoCivilId: number;
 
-  @ApiProperty({ example: 1 }) // ID da nacionalidade
+  @ApiProperty({ example: 1 }) 
   @IsInt()
   nacionalidadeId: number;
 

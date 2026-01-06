@@ -109,7 +109,7 @@ async listUsers(filter: UserFilterDto): Promise<{
   const {
     ativo,
     page = 1,
-    limit = 20, // nome consistente com o padrão comum (podes mudar para limit se preferires)
+    limit = 20, 
     search
   } = filter;
 
@@ -126,7 +126,7 @@ let sql = `
     FROM (
       SELECT
         dados.*,
-        ROW_NUMBER() OVER (ORDER BY dados.createdAtRaw DESC, dados.nome ASC) AS rn,
+        ROW_NUMBER() OVER (ORDER BY dados.createdAt DESC, dados.nome ASC) AS rn,
         COUNT(*) OVER () AS total_registros
       FROM (
         SELECT DISTINCT
@@ -136,8 +136,7 @@ let sql = `
           u.EMAIL                                  AS email,
           u.ACTIVE_STATE                           AS activeState,
           u.OBS                                    AS obs,
-          u.CREATED_AT                             AS createdAtRaw,     
-          u.UPDATED_AT                             AS updatedAtRaw,
+        
           TO_CHAR(u.CREATED_AT, 'DD/MM/YYYY HH24:MI')   AS createdAt,
           TO_CHAR(u.UPDATED_AT, 'DD/MM/YYYY HH24:MI')   AS updatedAt,
           pe.NUM_DOC_IDENTIFICACAO                 AS numeroDocumento,
