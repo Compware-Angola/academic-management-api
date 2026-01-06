@@ -16,12 +16,13 @@ import { gerarHashExterno } from '../util/hash.util'
 import { UserFilterDto } from './dto/user-filter.dto';
 import { UserListItemDto } from './dto/user-list-item.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
+import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   private gerarUsername(nomeCompleto: string): string {
     const partes = nomeCompleto.trim().split(/\s+/);
@@ -56,28 +57,28 @@ export class UsersService {
   }
 
   async updatePassword(dto: UpdatePasswordDto, usuarioLogadoId: number): Promise<{ message: string }> {
-  const queryRunner = this.dataSource.createQueryRunner();
-  await queryRunner.connect();
-  await queryRunner.startTransaction();
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-  try {
-    // Verifica se o utilizador existe
-    const [user] = await queryRunner.manager.query(
-      `SELECT 1 FROM FK2_MCA_TB_UTILIZADOR WHERE PK_UTILIZADOR = ${dto.utilizadorId} AND ROWNUM = 1`
-    );
+    try {
+      // Verifica se o utilizador existe
+      const [user] = await queryRunner.manager.query(
+        `SELECT 1 FROM FK2_MCA_TB_UTILIZADOR WHERE PK_UTILIZADOR = ${dto.utilizadorId} AND ROWNUM = 1`
+      );
 
-    if (!user) {
-      throw new NotFoundException('Utilizador não encontrado');
-    }
+      if (!user) {
+        throw new NotFoundException('Utilizador não encontrado');
+      }
 
-    // Gera o hash da nova senha
-    // Opção 1: bcrypt local
-    const hashedPassword:string = await gerarHashExterno(dto.novaSenha);
+      // Gera o hash da nova senha
+      // Opção 1: bcrypt local
+      const hashedPassword: string = await gerarHashExterno(dto.novaSenha);
 
-    // Opção 2: se quiser usar o serviço externo de hash
-    // const hashedPassword = await this.hashUtil.gerarHash(dto.novaSenha);
+      // Opção 2: se quiser usar o serviço externo de hash
+      // const hashedPassword = await this.hashUtil.gerarHash(dto.novaSenha);
 
-    await queryRunner.manager.query(`
+      await queryRunner.manager.query(`
       UPDATE FK2_MCA_TB_UTILIZADOR
       SET 
         PASSWORD = '${hashedPassword}',
@@ -87,48 +88,114 @@ export class UsersService {
       WHERE PK_UTILIZADOR = ${dto.utilizadorId}
     `);
 
-    await queryRunner.commitTransaction();
+      await queryRunner.commitTransaction();
 
-    return { message: 'Senha atualizada com sucesso' };
-  } catch (err) {
-    await queryRunner.rollbackTransaction();
-    throw err;
-  } finally {
-    await queryRunner.release();
+      return { message: 'Senha atualizada com sucesso' };
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
   }
-}
 
-async listUsers(filter: UserFilterDto): Promise<UserListItemDto[]> {
-  let whereClause = '';
-  const params: any = {};
+async listUsers(filter: UserFilterDto): Promise<{
+  data: UserListItemDto[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}> {
+  const {
+    ativo,
+    page = 1,
+    limit = 20, // nome consistente com o padrão comum (podes mudar para limit se preferires)
+    search
+  } = filter;
 
-  if (filter.ativo === 'true') {
-    whereClause = 'WHERE ACTIVE_STATE = 1';
-  } else if (filter.ativo === 'false') {
-    whereClause = 'WHERE ACTIVE_STATE = 0';
+
+    const offset = (page - 1) * limit;
+ 
+  const params: any = {
+    offset,
+    limit: offset + limit, 
+  };
+
+let sql = `
+    SELECT *
+    FROM (
+      SELECT
+        dados.*,
+        ROW_NUMBER() OVER (ORDER BY dados.createdAtRaw DESC, dados.nome ASC) AS rn,
+        COUNT(*) OVER () AS total_registros
+      FROM (
+        SELECT DISTINCT
+          u.PK_UTILIZADOR                          AS codigo,
+          u.NOME                                   AS nome,
+          u.USERNAME                               AS username,
+          u.EMAIL                                  AS email,
+          u.ACTIVE_STATE                           AS activeState,
+          u.OBS                                    AS obs,
+          u.CREATED_AT                             AS createdAtRaw,     
+          u.UPDATED_AT                             AS updatedAtRaw,
+          TO_CHAR(u.CREATED_AT, 'DD/MM/YYYY HH24:MI')   AS createdAt,
+          TO_CHAR(u.UPDATED_AT, 'DD/MM/YYYY HH24:MI')   AS updatedAt,
+          pe.NUM_DOC_IDENTIFICACAO                 AS numeroDocumento,
+          TO_CHAR(pe.DATA_DE_NASCIMENTO, 'DD/MM/YYYY') AS dataDeNascimento,
+          pe.TELEFONE1                             AS telefone1,
+          pe.TELEFONE2                             AS telefone2
+        FROM FK2_MCA_TB_UTILIZADOR u
+        LEFT JOIN FK2_TB_PESSOA pe 
+          ON pe.pk_pessoa = JSON_VALUE(u.REF_PESSOA, '$.pk')
+        WHERE 1 = 1
+  `;
+  // Filtro ativo/inativo
+  if (ativo === 'true') {
+    sql += ` AND u.ACTIVE_STATE = 1`;
+  } else if (ativo === 'false') {
+    sql += ` AND u.ACTIVE_STATE = 0`;
   }
-  // se não vier filtro → traz todos
 
-  const sql = `
-    SELECT 
-      PK_UTILIZADOR,
-      NOME,
-      USERNAME,
-      EMAIL,
-      ACTIVE_STATE,
-      REF_PESSOA,
-      CREATED_AT,
-      UPDATED_AT
-    FROM FK2_MCA_TB_UTILIZADOR
-    ${whereClause}
-    ORDER BY NOME ASC
+  // Filtro de pesquisa livre (nome, username ou email)
+  if (search && search.trim()) {
+    const searchTerm = `%${search.trim().toUpperCase()}%`;
+    sql += `
+      AND (
+        UPPER(u.NOME) LIKE :search
+        OR UPPER(u.USERNAME) LIKE :search
+        OR UPPER(u.EMAIL) LIKE :search
+      )
+    `;
+    params.search = searchTerm;
+  }
+
+  // Fechar subqueries
+  sql += `
+      ) dados
+    )
+  WHERE rn > :offset
+      AND rn <= :limit
+    ORDER BY rn
   `;
 
-  const result = await this.dataSource.query(sql);
+  const result = await this.dataSource.query(sql, params);
 
-  return result.map(row => new UserListItemDto(row));
+  const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
+
+  // Remover colunas internas rn e total_registros
+  const data = result.map((row: any) => {
+    const { RN, TOTAL_REGISTROS, ...item } = row;
+    return item;
+  });
+
+  return {
+    data: await toLowerCaseKeys(data) ,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
 }
-
   async criarPessoaEUtilizador(
     dto: CreatePersonUserDto,
     usuarioLogadoId: number = 1,
@@ -160,6 +227,7 @@ async listUsers(filter: UserFilterDto): Promise<UserListItemDto[]> {
       await queryRunner.manager.query(`
         INSERT INTO FK2_TB_PESSOA (
           NOME_COMPLETO, NUM_DOC_IDENTIFICACAO, EMAIL,
+          TELEFONE1, TELEFONE2,
           DATA_DE_NASCIMENTO, FK_TIPO_DOCUMENTO_IDENTIFICACAO,
           FK_GENERO, FK_ESTADO_CIVIL, FK_NACIONALIDADE,
           ACTIVE_STATE, CREATED_AT, UPDATED_AT
@@ -167,6 +235,8 @@ async listUsers(filter: UserFilterDto): Promise<UserListItemDto[]> {
           '${dto.nomeCompleto.replace(/'/g, "''")}',
           '${dto.numDocIdentificacao}',
           '${dto.email}',
+          '${dto.telefone1 || ''}',
+          '${dto.telefone2 || ''}',
           ${dto.dataDeNascimento ? `TO_DATE('${dto.dataDeNascimento}', 'YYYY-MM-DD')` : 'NULL'},
           ${dto.tipoDocumentoId},
           ${dto.sexoId},

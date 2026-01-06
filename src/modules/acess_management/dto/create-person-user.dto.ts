@@ -22,7 +22,7 @@ export class CreatePersonUserDto {
   @IsString()
   dataDeNascimento?: string;
 
-  @ApiProperty({ example: 1 }) // ID do tipo de documento (ex: BI)
+  @ApiProperty({ example: 1 }) 
   @IsInt()
   tipoDocumentoId: number;
 
@@ -37,4 +37,14 @@ export class CreatePersonUserDto {
   @ApiProperty({ example: 1 }) // ID da nacionalidade
   @IsInt()
   nacionalidadeId: number;
+
+  @ApiProperty({ example: '912345678', required: false })
+  @IsOptional()
+  @IsString()
+  telefone1?: string;
+
+  @ApiProperty({ example: '987654321', required: false })
+  @IsOptional()
+  @IsString()
+  telefone2?: string;
 }

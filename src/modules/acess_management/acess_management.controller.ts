@@ -71,7 +71,7 @@ export class AcessManagementController {
   @ApiResponse({ status: 200, type: [UserListItemDto] })
   async list(
     @Query(ValidationPipe) filter: UserFilterDto,
-  ): Promise<UserListItemDto[]> {
+  ){
     return this.usersService.listUsers(filter);
   }
 
