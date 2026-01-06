@@ -10,7 +10,8 @@ export class GroupsFilterDto {
     example: 1
   })
   @IsOptional()
-  @IsBooleanString()
+  @IsInt()
+     @Type(() => Number)
   type_group?: number;  
 
 
