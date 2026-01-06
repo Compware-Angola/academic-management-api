@@ -61,11 +61,33 @@ export class AcessManagementController {
   @ApiNotFoundResponse({ description: 'Utilizador não encontrado' })
   async updatePassword(
     @Body(ValidationPipe) dto: UpdatePasswordDto,
-    @Headers('x-user-logado-id') usuarioLogadoId: number,  // ou @UserLogado('id') userId: number
+    @Headers('x-user-logado-id') usuarioLogadoId: number,  
   ) {
     return this.usersService.updatePassword(dto, usuarioLogadoId);
   }
+  @Put('add-group-to-user/:userId/:groupId')
+  @ApiOperation({ summary: 'Adicionar um grupo a um utilizador' })
+  @ApiResponse({ status: 200, description: 'Grupo adicionado ao utilizador' })
+  @ApiNotFoundResponse({ description: 'Utilizador ou grupo não encontrado' })
+  async addGroupToUser(
+    @Param('userId', ParseIntPipe) userId: number,
+    @Param('groupId', ParseIntPipe) groupId: number,
+    @Headers('x-user-logado-id') usuarioLogadoId: number,  
+  ) {
+    return this.usersService.addgroupToUser(userId, groupId, usuarioLogadoId);
+  }
 
+  @Put('remove-group-from-user/:userId/:groupId')
+  @ApiOperation({ summary: 'Remover um grupo de um utilizador' })
+  @ApiResponse({ status: 200, description: 'Grupo removido do utilizador' })
+  @ApiNotFoundResponse({ description: 'Utilizador ou grupo não encontrado' })
+  async removeGroupFromUser(
+    @Param('userId', ParseIntPipe) userId: number,
+    @Param('groupId', ParseIntPipe) groupId: number,
+    @Headers('x-user-logado-id') usuarioLogadoId: number,  
+  ) {
+    return this.usersService.removeGroupFromUser(userId, groupId, usuarioLogadoId);
+  }
   @Get('users')
   @ApiOperation({ summary: 'Listar utilizadores (com filtro por ativo/inativo)' })
   @ApiResponse({ status: 200, type: [UserListItemDto] })

@@ -11,7 +11,6 @@ import {
 import { DataSource } from 'typeorm';
 import { CreatePersonUserDto } from './dto/create-person-user.dto';
 import { CreatePersonUserResponseDto } from './dto/create-person-user-response.dto';
-import * as bcrypt from 'bcrypt'; // ou 'bcrypt'
 import { gerarHashExterno } from '../util/hash.util'
 import { UserFilterDto } from './dto/user-filter.dto';
 import { UserListItemDto } from './dto/user-list-item.dto';
@@ -195,6 +194,53 @@ let sql = `
     totalPages: Math.ceil(total / limit),
   };
 }
+async  addgroupToUser(
+    userId: number,
+    groupId: number,
+    usuarioLogadoId: number,
+  ): Promise<{ message: string }> {
+    try {
+      await this.dataSource.query(`
+        INSERT INTO FK2_MCA_TB_GRUPO_UTILIZADOR (
+          FK_GRUPO, FK_UTILIZADOR, ORDEM, ACTIVE_STATE, CREATED_AT, UPDATED_AT
+        ) VALUES (
+          ${groupId}, ${userId}, 1, 1, SYSDATE, SYSDATE
+        )
+      `);
+
+      this.logger.log(
+        `Grupo ${groupId} adicionado ao utilizador ${userId} por user_id=${usuarioLogadoId}`,
+      );
+
+      return { message: 'Grupo adicionado ao utilizador com sucesso' };
+    } catch (error) {
+      this.logger.error('Erro ao adicionar grupo ao utilizador', error.stack);
+      throw new InternalServerErrorException('Erro interno ao adicionar grupo ao utilizador. Verifique os dados e tente novamente.');
+    }
+  }
+
+  async removeGroupFromUser(
+    userId: number,
+    groupId: number,
+    usuarioLogadoId: number,
+  ): Promise<{ message: string }> {
+    try {
+      await this.dataSource.query(`
+        DELETE FROM FK2_MCA_TB_GRUPO_UTILIZADOR
+        WHERE FK_GRUPO = ${groupId}
+          AND FK_UTILIZADOR = ${userId}
+      `);
+
+      this.logger.log(
+        `Grupo ${groupId} removido do utilizador ${userId} por user_id=${usuarioLogadoId}`,
+      );
+
+      return { message: 'Grupo removido do utilizador com sucesso' };
+    } catch (error) {
+      this.logger.error('Erro ao remover grupo do utilizador', error.stack);
+      throw new InternalServerErrorException('Erro interno ao remover grupo do utilizador. Verifique os dados e tente novamente.');
+    }
+  }
   async criarPessoaEUtilizador(
     dto: CreatePersonUserDto,
     usuarioLogadoId: number = 1,
