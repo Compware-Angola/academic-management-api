@@ -21,7 +21,7 @@ export class GroupsService {
     const offset = (page - 1) * limit;
 
     let query = `
-      SELECT 
+      SELECT
         g.PK_GRUPO AS codigo,
         g.DESIGNACAO AS designacao,
         g.DESCRICAO AS descricao,
@@ -29,7 +29,13 @@ export class GroupsService {
         g.FK_TIPO_DE_GRUPO AS type_group ,
         g.ACTIVE_STATE AS active_state,
         g.CREATED_AT AS created_at,
-        g.UPDATED_AT AS updated_at
+        g.UPDATED_AT AS updated_at,
+             NVL((
+               SELECT COUNT(*)
+               FROM FK2_MCA_TB_GRUPO_UTILIZADOR gu
+               WHERE gu.FK_GRUPO = g.PK_GRUPO
+                 AND gu.ACTIVE_STATE = 1
+             ), 0) AS user_count
       FROM FK2_MCA_TB_GRUPO g
       WHERE g.ACTIVE_STATE = 1
         AND g.FK_TIPO_DE_GRUPO = :typeGroup
@@ -56,8 +62,9 @@ export class GroupsService {
       ORDER BY g.DESIGNACAO ASC
       OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
     `;
-    const rawGroups = await this.dataSource.query(query, params);
 
-    return  toLowerCaseKeys(rawGroups);
+    const groups = await this.dataSource.query(query, params);
+
+    return toLowerCaseKeys(groups);
   }
 }
