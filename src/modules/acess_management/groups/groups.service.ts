@@ -11,63 +11,89 @@ export class GroupsService {
   constructor(private readonly dataSource: DataSource) {}
 
 
-  async findAllGroups(filter: GroupsFilterDto): Promise<any[]> {
-    const {
-      type_group = 1,
-      page = 1,
-      limit = 25,
-      search
-    } = filter;
+async findAllGroups(filter: GroupsFilterDto): Promise<{
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}> {
+  const {
+    type_group = 1,
+    page = 1,
+    limit = 25,
+    search
+  } = filter;
 
-    const offset = (page - 1) * limit;
+  const offset = (page - 1) * limit;
 
-    let query = `
-      SELECT
-        g.PK_GRUPO AS codigo,
-        g.DESIGNACAO AS designacao,
-        g.DESCRICAO AS descricao,
-        g.SIGLA AS sigla,
-        g.FK_TIPO_DE_GRUPO AS type_group ,
-        g.ACTIVE_STATE AS active_state,
-        g.CREATED_AT AS created_at,
-        g.UPDATED_AT AS updated_at,
-             NVL((
-               SELECT COUNT(*)
-               FROM FK2_MCA_TB_GRUPO_UTILIZADOR gu
-               WHERE gu.FK_GRUPO = g.PK_GRUPO
-                 AND gu.ACTIVE_STATE = 1
-             ), 0) AS user_count
-      FROM FK2_MCA_TB_GRUPO g
-      WHERE g.ACTIVE_STATE = 1
-        AND g.FK_TIPO_DE_GRUPO = :typeGroup
-        AND g.PK_GRUPO <> 4375
+  // Parâmetros básicos
+  const params: any = {
+    typeGroup: Number(type_group),
+  };
+
+  let whereClause = `
+    WHERE g.ACTIVE_STATE = 1
+      AND g.FK_TIPO_DE_GRUPO = :typeGroup
+      AND g.PK_GRUPO <> 4375
+  `;
+
+  if (search) {
+    whereClause += `
+      AND (
+        LOWER(g.DESIGNACAO) LIKE :search
+        OR LOWER(g.SIGLA) LIKE :search
+      )
     `;
-
-    const params: any = {
-      typeGroup: Number(type_group),
-      offset,
-      limit
-    };
-
-    if (search) {
-      query += `
-        AND (
-          LOWER(g.DESIGNACAO) LIKE :search
-          OR LOWER(g.SIGLA) LIKE :search
-        )
-      `;
-      params.search = `%${search.toLowerCase()}%`;
-    }
-
-    query += `
-      ORDER BY g.DESIGNACAO ASC
-      OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
-    `;
-
-    const groups = await this.dataSource.query(query, params);
-
-    return toLowerCaseKeys(groups);
+    params.search = `%${search.toLowerCase()}%`;
   }
+
+  // 1️⃣ Consulta para total
+  const totalQuery = `
+    SELECT COUNT(*) AS total
+    FROM FK2_MCA_TB_GRUPO g
+    ${whereClause}
+  `;
+  const totalResult = await this.dataSource.query(totalQuery, params);
+  const total = Number(totalResult[0]?.TOTAL || 0);
+
+  // 2️⃣ Consulta para dados paginados
+  const dataQuery = `
+    SELECT
+      g.PK_GRUPO AS codigo,
+      g.DESIGNACAO AS designacao,
+      g.DESCRICAO AS descricao,
+      g.SIGLA AS sigla,
+      g.FK_TIPO_DE_GRUPO AS type_group,
+      g.ACTIVE_STATE AS active_state,
+      g.CREATED_AT AS created_at,
+      g.UPDATED_AT AS updated_at,
+      NVL((
+        SELECT COUNT(*)
+        FROM FK2_MCA_TB_GRUPO_UTILIZADOR gu
+        WHERE gu.FK_GRUPO = g.PK_GRUPO
+          AND gu.ACTIVE_STATE = 1
+      ), 0) AS user_count
+    FROM FK2_MCA_TB_GRUPO g
+    ${whereClause}
+    ORDER BY g.DESIGNACAO ASC
+    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+  `;
+
+  params.offset = offset;
+  params.limit = limit;
+
+  const groups = await this.dataSource.query(dataQuery, params);
+
+  return {
+    data: toLowerCaseKeys(groups),
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
+}
+
  
  async createGroup(dto: GroupsDto, createdBy: number): Promise<any> {
   const query = `
