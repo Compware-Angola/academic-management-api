@@ -7,9 +7,11 @@ import { ReferenciasService } from './referencias.service';
 import { LogsService } from './logs.service';
 import { GruposController } from './grupo.controller';
 import { GruposService } from './grupos.service';
+import { CargosAdministrativosController } from './cargos-administrativos.controller';
+import { CargosAdministrativosService } from './cargos-administrativos.service';
 
 @Module({
-  controllers: [AcessManagementController, ReferenciasController, GruposController],
-  providers: [AcessosService, UsersService, ReferenciasService, LogsService, GruposService],
+  controllers: [AcessManagementController, ReferenciasController, GruposController, CargosAdministrativosController],
+  providers: [AcessosService, UsersService, ReferenciasService, LogsService, GruposService, CargosAdministrativosService],
 })
 export class AcessManagementModule {}
