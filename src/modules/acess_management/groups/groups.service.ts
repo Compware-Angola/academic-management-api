@@ -1,14 +1,15 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { toLowerCaseKeys } from "src/modules/util/toLowerCaseKeys";
 import { DataSource } from "typeorm";
+import { toLowerCaseKeys } from "src/modules/util/toLowerCaseKeys";
+import { GroupsDto } from "./dto/groups.dto";
 import { GroupsFilterDto } from "./dto/filter-groups";
 
 @Injectable()
 export class GroupsService {
+  private readonly logger = new Logger(GroupsService.name);
 
-  constructor(
-    private readonly dataSource: DataSource,
-  ) {}
+  constructor(private readonly dataSource: DataSource) {}
+
 
   async findAllGroups(filter: GroupsFilterDto): Promise<any[]> {
     const {
@@ -66,5 +67,79 @@ export class GroupsService {
     const groups = await this.dataSource.query(query, params);
 
     return toLowerCaseKeys(groups);
+  }
+ 
+ async createGroup(dto: GroupsDto, createdBy: number): Promise<any> {
+  const query = `
+    INSERT INTO FK2_MCA_TB_GRUPO
+      (DESIGNACAO, DESCRICAO, SIGLA, FK_TIPO_DE_GRUPO, OBS, ORDEM, MODULOS, ACTIVE_STATE, CREATED_BY, CREATED_AT)
+    VALUES
+      (:designacao, :descricao, :sigla, :fkTipoDeGrupo, :obs, :ordem, :modulos, :activeState, :createdBy, SYSTIMESTAMP)
+  `;
+
+  const params = {
+    designacao: dto.designacao,
+    descricao: dto.descricao ?? null,
+    sigla: dto.sigla ?? null,
+    fkTipoDeGrupo: dto.fkTipoDeGrupo,
+    obs: dto.obs ?? null,
+    ordem: dto.ordem ?? null,
+    modulos: dto.modulos ?? null,
+    activeState: dto.active_state ?? 1, 
+    createdBy
+  };
+
+  await this.dataSource.query(query, params as any);
+
+  return { message: 'Grupo criado com sucesso' };
+}
+
+
+  // UPDATE
+async updateGroup(pkGrupo: number, dto: GroupsDto, updatedBy: number): Promise<any> {
+  const query = `
+    UPDATE FK2_MCA_TB_GRUPO
+    SET DESIGNACAO = :designacao,
+        DESCRICAO = :descricao,
+        SIGLA = :sigla,
+        FK_TIPO_DE_GRUPO = :fkTipoDeGrupo,
+        OBS = :obs,
+        ORDEM = :ordem,
+        MODULOS = :modulos,
+        LAST_UPDATED_BY = :updatedBy,
+        UPDATED_AT = SYSTIMESTAMP
+    WHERE PK_GRUPO = :pkGrupo
+  `;
+
+  const params = {
+    designacao: dto.designacao,
+    descricao: dto.descricao ?? null,
+    sigla: dto.sigla ?? null,
+    fkTipoDeGrupo: dto.fkTipoDeGrupo,
+    obs: dto.obs ?? null,
+    ordem: dto.ordem ?? null,
+    modulos: dto.modulos ?? null,
+    updatedBy,
+    pkGrupo
+  };
+
+  await this.dataSource.query(query, params as any);
+
+  return { message: 'Grupo atualizado com sucesso' };
+}
+
+
+  // DELETE (soft delete)
+  async deleteGroup(pkGrupo: number, updatedBy: number): Promise<any> {
+    const query = `
+      UPDATE FK2_MCA_TB_GRUPO
+      SET ACTIVE_STATE = 0,
+          LAST_UPDATED_BY = :updatedBy,
+          UPDATED_AT = SYSTIMESTAMP
+      WHERE PK_GRUPO = :pkGrupo
+    `;
+
+    await this.dataSource.query(query, { updatedBy, pkGrupo } as any);
+    return { message: 'Grupo removido com sucesso' };
   }
 }
