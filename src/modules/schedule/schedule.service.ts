@@ -2516,29 +2516,35 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       [cheduleId],
     );
   }
-  private async promptToCreateAndEditSchedule(
-    tipo_prazo: number,
-    ano_lectivo: number,
-  ): Promise<any> {
-    const result = await this.dataSource.query(
-      `SELECT DATA_INICIO,DATA_FIM,PK_PRAZO,OBSERVACAO,FK_TIPO_PRAZO
+private async promptToCreateAndEditSchedule(
+  tipo_prazo: number,
+  ano_lectivo: number,
+): Promise<any> {
+  const result = await this.dataSource.query(
+    `SELECT DATA_INICIO, DATA_FIM, PK_PRAZO, OBSERVACAO, FK_TIPO_PRAZO
      FROM FK2_MCAL_TB_PRAZO
      WHERE FK_TIPO_PRAZO = :tipo_prazo
-     AND FK_ANO_LECTIVO = :ano_lectivo`,
-      { tipo_prazo, ano_lectivo } as any,
-    );
-    return result[0];
-  }
-  private async loopholeToEditSchedule(scheduleId: number): Promise<any> {
-    const result = await this.dataSource.query(
-      `SELECT DATA_INICIO,DATA_FIM,PK_PERMISAO_EDICAO_HORARIO
+       AND FK_ANO_LECTIVO = :ano_lectivo
+     ORDER BY PK_PRAZO DESC
+     FETCH FIRST 1 ROWS ONLY`,
+    { tipo_prazo, ano_lectivo } as any,
+  );
+  return result[0];
+}
+
+private async loopholeToEditSchedule(scheduleId: number): Promise<any> {
+  const result = await this.dataSource.query(
+    `SELECT DATA_INICIO, DATA_FIM, PK_PERMISAO_EDICAO_HORARIO
      FROM FK2_MGH_TB_PERMISAO_EDICAO_HORARIO
      WHERE FK_HORARIO = :scheduleId
-     AND ATIVE_STATE = 1`,
-      { scheduleId } as any,
-    );
-    return result[0];
-  }
+       AND ATIVE_STATE = 1
+     ORDER BY PK_PERMISAO_EDICAO_HORARIO DESC
+     FETCH FIRST 1 ROWS ONLY`,
+    { scheduleId } as any,
+  );
+  return result[0];
+}
+
 
   private async getUser(userId: number) {
     const query = `
