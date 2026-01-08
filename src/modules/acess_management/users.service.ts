@@ -74,6 +74,7 @@ export class UsersService {
       // Opção 1: bcrypt local
       const hashedPassword: string = await gerarHashExterno(dto.novaSenha);
 
+
       // Opção 2: se quiser usar o serviço externo de hash
       // const hashedPassword = await this.hashUtil.gerarHash(dto.novaSenha);
 

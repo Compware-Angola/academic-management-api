@@ -61,8 +61,9 @@ export class AcessManagementController {
   @ApiNotFoundResponse({ description: 'Utilizador não encontrado' })
   async updatePassword(
     @Body(ValidationPipe) dto: UpdatePasswordDto,
-    @Headers('x-user-logado-id') usuarioLogadoId: number,  
+   
   ) {
+    const usuarioLogadoId = 1;
     return this.usersService.updatePassword(dto, usuarioLogadoId);
   }
   @Put('add-group-to-user/:userId/:groupId')
