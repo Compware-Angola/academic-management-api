@@ -174,9 +174,10 @@ export class AcessManagementController {
   async adicionarAcesso(
     @Param('utilizadorId', ParseIntPipe) utilizadorId: number,
     @Param('acessoId', ParseIntPipe) acessoId: number,
-    @Headers('x-user-logado-id') usuarioLogadoId: number, // ou @UserLogado('id') se quiser só o ID
+   
   ) {
     // Você pode validar se o usuário logado tem permissão aqui
+    const usuarioLogadoId = 1;
     return this.acessosService.adicionarAcesso(
       utilizadorId,
       acessoId,

@@ -139,7 +139,7 @@ export class AcessosService {
     try {
       // 1. Verifica se o acesso existe
       const [acessoExiste] = await queryRunner.manager.query(
-        `SELECT 1 FROM FK2_MCA_TB_ACESSO WHERE PK_ACESSO = ? AND ACTIVE_STATE = 1`,
+        `SELECT 1 FROM FK2_MCA_TB_ACESSO WHERE PK_ACESSO = :acessoId AND ACTIVE_STATE = 1`,
         [acessoId],
       );
       if (!acessoExiste) {
@@ -152,12 +152,14 @@ export class AcessosService {
         SELECT G.PK_GRUPO 
         FROM FK2_MCA_TB_GRUPO G
         INNER JOIN FK2_MCA_TB_GRUPO_UTILIZADOR GU ON G.PK_GRUPO  = GU.FK_GRUPO
-        WHERE GU.FK_UTILIZADOR = ? 
-          AND G.FK_TIPODEGRUPO = 2 
+        WHERE GU.FK_UTILIZADOR = :utilizadorId 
+          AND G.FK_TIPO_DE_GRUPO = 2 
           AND G.ACTIVE_STATE = 1
         `,
         [utilizadorId],
       );
+      console.log(grupoUnitario);
+      
 
       if (!grupoUnitario) {
         throw new NotFoundException('Grupo unitário do utilizador não encontrado');
@@ -168,13 +170,13 @@ export class AcessosService {
       // 3. Verifica se já existe entrada removida
       const [removido] = await queryRunner.manager.query(
         `
-        SELECT PK_GRUPO ACESSOREMOVIDO
+        SELECT FK_GRUPO FK_ACESSO
         FROM FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
-        WHERE FK_GRUPO = ? 
-          AND FK_ACESSO = ?
+        WHERE FK_GRUPO = :grupoId
+          AND FK_ACESSO = :acessoId
           AND ACTIVE_STATE = 1
         `,
-        [grupoId, acessoId],
+        {grupoId, acessoId} as any,
       );
 
       if (removido) {
@@ -184,10 +186,10 @@ export class AcessosService {
           UPDATE FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
           SET ACTIVE_STATE = 0,
               UPDATEDAT = SYSDATE,
-              LASTUPDATEDBY = ?
-          WHERE PK_GRUPO = ?
+              LASTUPDATEDBY = :usuarioLogadoId
+          WHERE FK_GRUPO = :grupoId
           `,
-          [usuarioLogadoId, removido.PK_GRUPO],
+          {usuarioLogadoId, grupoId:removido.FK_GRUPO} as any,
         );
       } else {
         // Verifica se já existe
@@ -195,21 +197,47 @@ export class AcessosService {
           `
           SELECT 1 
           FROM FK2_MCA_TB_GRUPO_ACESSO 
-          WHERE FK_GRUPO = ? 
-            AND FK_ACESSO = ? 
+          WHERE FK_GRUPO = :grupoId
+            AND FK_ACESSO = :acessoId
             AND ACTIVE_STATE = 1
           `,
-          [grupoId, acessoId],
+          {grupoId, acessoId} as any,
         );
 
         if (!jaExiste) {
           await queryRunner.manager.query(
             `
-            INSERT INTO FK2_MCA_TB_GRUPO_ACESSO (
-              FK_GRUPO, FK_ACESSO, ACTIVE_STATE, CREATEDAT, UPDATEDAT, CREATEDBY, LASTUPDATEDBY
-            ) VALUES (?, ?, 1, SYSDATE, SYSDATE, ?, ?)
+ MERGE INTO FK2_MCA_TB_GRUPO_ACESSO t
+USING (
+  SELECT :grupoId AS FK_GRUPO, :acessoId AS FK_ACESSO FROM dual
+) s
+ON (
+  t.FK_GRUPO = s.FK_GRUPO
+  AND t.FK_ACESSO = s.FK_ACESSO
+)
+WHEN NOT MATCHED THEN
+  INSERT (
+    FK_GRUPO,
+    FK_ACESSO,
+    ACTIVE_STATE,
+    CREATED_AT,
+    UPDATED_AT,
+    CREATED_BY,
+    LAST_UPDATED_BY
+  )
+  VALUES (
+    :grupoId,
+    :acessoId,
+    1,
+    SYSDATE,
+    SYSDATE,
+    :usuarioLogadoId,
+    :usuarioLogadoId
+  )
+
+
             `,
-            [grupoId, acessoId, usuarioLogadoId, usuarioLogadoId],
+            {grupoId, acessoId, usuarioLogadoId} as any,
           );
         }
       }
@@ -225,9 +253,9 @@ export class AcessosService {
           FK_ACESSO, 
           FK_OPERACAO_LOG, 
           CREATED_AT
-        ) VALUES (?, ?, ?, 1, SYSDATE)
+        ) VALUES (:logDescricao, :usuarioLogadoId, :acessoId, 1, SYSDATE)
         `,
-        [logDescricao, usuarioLogadoId, acessoId],
+        {logDescricao, usuarioLogadoId, acessoId} as any,
       );
 
       await queryRunner.commitTransaction();
