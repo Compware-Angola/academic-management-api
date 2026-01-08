@@ -1,10 +1,11 @@
 // src/users/referencias.controller.ts
-import { Controller, Get, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ReferenciasService } from './referencias.service';
 import { ReferenciaDto } from '../shared/dto/referencia.dto';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SolicitacaoService } from './solicitacao.service';
 import { FetchEncaminhamentoSolicitacaoDTO } from './dto/fetch-encaminhamento-solicitacao.dto';
+import { RejectarEncaminhamentoSolicitacaoDTO } from './dto/rejectar-encaminhamento-solicitacao.dto';
 
 @ApiTags('solicitacao')
 @Controller('solicitacoa')
@@ -16,5 +17,18 @@ export class SolicitacaoController {
   @ApiResponse({ status: 200, type: [FetchEncaminhamentoSolicitacaoDTO] })
   async findAllEstadoCivil(@Query() query: FetchEncaminhamentoSolicitacaoDTO) {
     return this.solicitacaoService.findEncaminhamentos(query);
+  }
+
+  @Post('rejectar-solicitacao')
+  @ApiOperation({ summary: 'Rejectar uma solicitação' })
+  @ApiResponse({
+    status: 201,
+    description: 'Solicitação rejeitada com sucesso',
+  })
+  @ApiResponse({ status: 400, description: 'Dados inválidos' })
+  async createCalendarioProva(
+    @Body() dto: RejectarEncaminhamentoSolicitacaoDTO,
+  ) {
+    return this.solicitacaoService.rejeitarEncaminhamento(dto);
   }
 }

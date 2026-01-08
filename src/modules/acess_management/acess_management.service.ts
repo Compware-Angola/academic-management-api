@@ -26,10 +26,10 @@ export class AcessosService {
     if (filter.utilizadorId) {
       whereClause += `
         AND EXISTS (
-          SELECT 1 
+          SELECT 1
           FROM FK2_MCA_TB_GRUPO_UTILIZADOR GU
           INNER JOIN FK2_MCA_TB_GRUPO_ACESSO GA ON GU.FK_GRUPO = GA.FK_GRUPO
-          WHERE GU.FK_UTILIZADOR = ? 
+          WHERE GU.FK_UTILIZADOR = ?
             AND GA.FK_ACESSO = A.PK_ACESSO
             AND GA.ACTIVE_STATE = 1
         )`;
@@ -39,9 +39,9 @@ export class AcessosService {
     if (filter.grupoId) {
       whereClause += `
         AND EXISTS (
-          SELECT 1 
+          SELECT 1
           FROM FK2_MCA_TB_GRUPO_ACESSO GA
-          WHERE GA.FK_GRUPO = ? 
+          WHERE GA.FK_GRUPO = ?
             AND GA.FK_ACESSO = A.PK_ACESSO
             AND GA.ACTIVE_STATE = 1
         )`;
@@ -49,7 +49,7 @@ export class AcessosService {
     }
 
     const sql = `
-      SELECT DISTINCT 
+      SELECT DISTINCT
         A.PK_ACESSO,
         A.DESIGNACAO,
         A.SIGLA,
@@ -67,16 +67,18 @@ export class AcessosService {
 
     try {
       const result = await this.dataSource.query(sql, params);
-      return result.map(row => new AcessoResponseDto(row));
+      return result.map((row) => new AcessoResponseDto(row));
     } catch (error) {
       this.logger.error('Erro ao listar acessos', error);
       throw new InternalServerErrorException('Falha ao listar acessos');
     }
   }
 
-  async listarPorUtilizador(utilizadorId: number): Promise<AcessoResponseDto[]> {
+  async listarPorUtilizador(
+    utilizadorId: number,
+  ): Promise<AcessoResponseDto[]> {
     const sql = `
-      SELECT DISTINCT 
+      SELECT DISTINCT
         A.PK_ACESSO,
         A.DESIGNACAO,
         A.SIGLA,
@@ -87,7 +89,7 @@ export class AcessosService {
         A.ACTIVE_DATE AS DATAATIVACAO
       FROM FK2_MCA_TB_ACESSO A
       INNER JOIN FK2_MCA_TB_GRUPO_ACESSO GA ON A.PK_ACESSO = GA.FK_ACESSO
-      INNER JOIN FK2_MCA_TB_GRUPO G ON GA.FK_GRUPO = G.PK_GRUPO 
+      INNER JOIN FK2_MCA_TB_GRUPO G ON GA.FK_GRUPO = G.PK_GRUPO
       INNER JOIN FK2_MCA_TB_GRUPO_UTILIZADOR GU ON G.PK_GRUPO  = GU.FK_GRUPO
       LEFT JOIN FK2_MCA_TB_MODULO M ON A.FK_MODULO = M.PK_MODULO
       LEFT JOIN FK2_MCA_TB_TIPO_ACESSO TA ON A.FK_TIPO_ACESSO = TA.PK_TIPO_ACESSO
@@ -99,12 +101,12 @@ export class AcessosService {
     `;
 
     const result = await this.dataSource.query(sql);
-    return result.map(row => new AcessoResponseDto(row));
+    return result.map((row) => new AcessoResponseDto(row));
   }
 
   async listarPorGrupo(grupoId: number): Promise<AcessoResponseDto[]> {
     const sql = `
-      SELECT DISTINCT 
+      SELECT DISTINCT
         A.PK_ACESSO,
         A.DESIGNACAO,
         A.SIGLA,
@@ -124,7 +126,7 @@ export class AcessosService {
     `;
 
     const result = await this.dataSource.query(sql);
-    return result.map(row => new AcessoResponseDto(row));
+    return result.map((row) => new AcessoResponseDto(row));
   }
 
   async adicionarAcesso(
@@ -149,23 +151,24 @@ export class AcessosService {
       // 2. Busca o grupo unitário do utilizador
       const [grupoUnitario] = await queryRunner.manager.query(
         `
-        SELECT G.PK_GRUPO 
+        SELECT G.PK_GRUPO
         FROM FK2_MCA_TB_GRUPO G
         INNER JOIN FK2_MCA_TB_GRUPO_UTILIZADOR GU ON G.PK_GRUPO  = GU.FK_GRUPO
-        WHERE GU.FK_UTILIZADOR = :utilizadorId 
-          AND G.FK_TIPO_DE_GRUPO = 2 
+        WHERE GU.FK_UTILIZADOR = :utilizadorId
+          AND G.FK_TIPO_DE_GRUPO = 2
           AND G.ACTIVE_STATE = 1
         `,
         [utilizadorId],
       );
       console.log(grupoUnitario);
-      
 
       if (!grupoUnitario) {
-        throw new NotFoundException('Grupo unitário do utilizador não encontrado');
+        throw new NotFoundException(
+          'Grupo unitário do utilizador não encontrado',
+        );
       }
 
-      const grupoId = grupoUnitario.PK_GRUPO ;
+      const grupoId = grupoUnitario.PK_GRUPO;
 
       // 3. Verifica se já existe entrada removida
       const [removido] = await queryRunner.manager.query(
@@ -176,7 +179,7 @@ export class AcessosService {
           AND FK_ACESSO = :acessoId
           AND ACTIVE_STATE = 1
         `,
-        {grupoId, acessoId} as any,
+        { grupoId, acessoId } as any,
       );
 
       if (removido) {
@@ -185,23 +188,23 @@ export class AcessosService {
           `
           UPDATE FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
           SET ACTIVE_STATE = 0,
-              UPDATEDAT = SYSDATE,
-              LASTUPDATEDBY = :usuarioLogadoId
+              UPDATED_AT = SYSDATE,
+              LAST_UPDATED_BY = :usuarioLogadoId
           WHERE FK_GRUPO = :grupoId
           `,
-          {usuarioLogadoId, grupoId:removido.FK_GRUPO} as any,
+          { usuarioLogadoId, grupoId: removido.FK_GRUPO } as any,
         );
       } else {
         // Verifica se já existe
         const [jaExiste] = await queryRunner.manager.query(
           `
-          SELECT 1 
-          FROM FK2_MCA_TB_GRUPO_ACESSO 
+          SELECT 1
+          FROM FK2_MCA_TB_GRUPO_ACESSO
           WHERE FK_GRUPO = :grupoId
             AND FK_ACESSO = :acessoId
             AND ACTIVE_STATE = 1
           `,
-          {grupoId, acessoId} as any,
+          { grupoId, acessoId } as any,
         );
 
         if (!jaExiste) {
@@ -237,7 +240,7 @@ WHEN NOT MATCHED THEN
 
 
             `,
-            {grupoId, acessoId, usuarioLogadoId} as any,
+            { grupoId, acessoId, usuarioLogadoId } as any,
           );
         }
       }
@@ -248,14 +251,14 @@ WHEN NOT MATCHED THEN
       await queryRunner.manager.query(
         `
         INSERT INTO FK2_TB_LOG_ACESSOS_FUNCIONALIDADE (
-          DESCRICAO, 
-          FK_UTILIZADOR_RESPONSAVEL, 
-          FK_ACESSO, 
-          FK_OPERACAO_LOG, 
+          DESCRICAO,
+          FK_UTILIZADOR_RESPONSAVEL,
+          FK_ACESSO,
+          FK_OPERACAO_LOG,
           CREATED_AT
         ) VALUES (:logDescricao, :usuarioLogadoId, :acessoId, 1, SYSDATE)
         `,
-        {logDescricao, usuarioLogadoId, acessoId} as any,
+        { logDescricao, usuarioLogadoId, acessoId } as any,
       );
 
       await queryRunner.commitTransaction();
@@ -285,10 +288,10 @@ WHEN NOT MATCHED THEN
       // Busca grupo unitário (corrigido para maiúsculas)
       const [grupoUnitario] = await queryRunner.manager.query(
         `
-        SELECT PK_GRUPO 
+        SELECT PK_GRUPO
         FROM FK2_MCA_TB_GRUPO
-        WHERE FK_TIPODEGRUPO = 2
-          AND SIGLA = (SELECT USERNAME FROM FK2_MCA_TB_UTILIZADOR WHERE PKUTILIZADOR = ?)
+        WHERE FK_TIPO_DE_GRUPO = 2
+          AND SIGLA = (SELECT USERNAME FROM FK2_MCA_TB_UTILIZADOR WHERE PK_UTILIZADOR = :utilizadorId)
         `,
         [utilizadorId],
       );
@@ -297,14 +300,14 @@ WHEN NOT MATCHED THEN
         throw new NotFoundException('Grupo unitário não encontrado');
       }
 
-      const grupoId = grupoUnitario.PK_GRUPO ;
+      const grupoId = grupoUnitario.PK_GRUPO;
 
       // Verifica se já removido
       const [jaRemovido] = await queryRunner.manager.query(
         `
-        SELECT PK_GRUPO ACESSOREMOVIDO 
-        FROM FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO 
-        WHERE FK_GRUPO = ? AND FK_ACESSO = ?
+        SELECT PK_GRUPO_ACESSO_REMOVIDO
+        FROM FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
+        WHERE FK_GRUPO = :grupoId AND FK_ACESSO = :acessoId
         `,
         [grupoId, acessoId],
       );
@@ -314,18 +317,18 @@ WHEN NOT MATCHED THEN
           `
           UPDATE FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
           SET ACTIVE_STATE = 1,
-              UPDATEDAT = SYSDATE,
-              LASTUPDATEDBY = ?
-          WHERE PK_GRUPO = ?
+              UPDATED_AT = SYSDATE,
+              LAST_UPDATED_BY = :usuarioLogadoId
+          WHERE FK_GRUPO = :grupoId
           `,
-          [usuarioLogadoId, jaRemovido.PK_GRUPO],
+          { usuarioLogadoId, grupoId: jaRemovido.PK_GRUPO } as any,
         );
       } else {
         await queryRunner.manager.query(
           `
           INSERT INTO FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO (
-            FK_GRUPO, FK_ACESSO, ACTIVE_STATE, CREATEDAT, UPDATEDAT, CREATEDBY, LASTUPDATEDBY
-          ) VALUES (?, ?, 1, SYSDATE, SYSDATE, ?, ?)
+            FK_GRUPO, FK_ACESSO, ACTIVE_STATE, CREATED_AT, UPDATED_AT, CREATED_BY, LAST_UPDATED_BY
+          ) VALUES (:grupoId, :acessoId, 1, SYSDATE, SYSDATE, :usuarioLogadoId, :usuarioLogadoId)
           `,
           [grupoId, acessoId, usuarioLogadoId, usuarioLogadoId],
         );
@@ -337,12 +340,12 @@ WHEN NOT MATCHED THEN
       await queryRunner.manager.query(
         `
         INSERT INTO FK2_TB_LOG_ACESSOS_FUNCIONALIDADE (
-          DESCRICAO, 
-          FK_UTILIZADOR_RESPONSAVEL, 
-          FK_ACESSO, 
-          FK_OPERACAO_LOG, 
+          DESCRICAO,
+          FK_UTILIZADOR_RESPONSAVEL,
+          FK_ACESSO,
+          FK_OPERACAO_LOG,
           CREATED_AT
-        ) VALUES (?, ?, ?, 2, SYSDATE)
+        ) VALUES (:logDescricao, :usuarioLogadoId, :acessoId, 2, SYSDATE)
         `,
         [logDescricao, usuarioLogadoId, acessoId],
       );
@@ -358,5 +361,4 @@ WHEN NOT MATCHED THEN
       await queryRunner.release();
     }
   }
-  
 }
