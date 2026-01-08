@@ -6,6 +6,7 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SolicitacaoService } from './solicitacao.service';
 import { FetchEncaminhamentoSolicitacaoDTO } from './dto/fetch-encaminhamento-solicitacao.dto';
 import { RejectarEncaminhamentoSolicitacaoDTO } from './dto/rejectar-encaminhamento-solicitacao.dto';
+import { AprovarEncaminhamentoSolicitacaoDTO } from './dto/aprovar-encaminhamento-solicitacao.dto';
 
 @ApiTags('solicitacao')
 @Controller('solicitacoa')
@@ -26,9 +27,18 @@ export class SolicitacaoController {
     description: 'Solicitação rejeitada com sucesso',
   })
   @ApiResponse({ status: 400, description: 'Dados inválidos' })
-  async createCalendarioProva(
-    @Body() dto: RejectarEncaminhamentoSolicitacaoDTO,
-  ) {
+  async rejetarSolicitacao(@Body() dto: RejectarEncaminhamentoSolicitacaoDTO) {
     return this.solicitacaoService.rejeitarEncaminhamento(dto);
+  }
+
+  @Post('aprovar-solicitacao')
+  @ApiOperation({ summary: 'Aprovar uma solicitação' })
+  @ApiResponse({
+    status: 201,
+    description: 'Solicitação aprovar com sucesso',
+  })
+  @ApiResponse({ status: 400, description: 'Dados inválidos' })
+  async aprovarSolicitacao(@Body() dto: AprovarEncaminhamentoSolicitacaoDTO) {
+    return this.solicitacaoService.aprovarEncaminhamento(dto);
   }
 }

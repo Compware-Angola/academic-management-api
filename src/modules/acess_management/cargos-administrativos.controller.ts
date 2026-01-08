@@ -24,15 +24,21 @@ export class CargosAdministrativosController {
   constructor(private readonly service: CargosAdministrativosService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Lista todos os cargos ativos (com filtros opcionais)' })
+  @ApiOperation({
+    summary: 'Lista todos os cargos ativos (com filtros opcionais)',
+  })
   @ApiQuery({ name: 'tipoCargoId', required: false, type: Number })
   @ApiQuery({ name: 'utilizadorId', required: false, type: Number })
-  async listarTodos(@Query() filter: FilterCargoDto): Promise<CargoResponseDto[]> {
+  async listarTodos(
+    @Query() filter: FilterCargoDto,
+  ): Promise<CargoResponseDto[]> {
     return this.service.listarTodos(filter);
   }
 
   @Get('por-utilizador/:utilizadorId')
-  @ApiOperation({ summary: 'Lista todos os cargos ativos de um utilizador específico' })
+  @ApiOperation({
+    summary: 'Lista todos os cargos ativos de um utilizador específico',
+  })
   async listarPorUtilizador(
     @Param('utilizadorId', ParseIntPipe) utilizadorId: number,
   ): Promise<CargoResponseDto[]> {
@@ -51,8 +57,10 @@ export class CargosAdministrativosController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Define ocupante para cargo de Reitoria' })
   @ApiBody({ type: CreateCargoDto })
-  async definirCargoReitoria(@Body() dto: CreateCargoDto): Promise<{ message: string; pkCargo: number }> {
-    const usuarioLogadoId = 1; // ← substituir por auth real (ex: @Req() req; req.user.id)
+  async definirCargoReitoria(
+    @Body() dto: CreateCargoDto,
+  ): Promise<{ message: string; pkCargo: number }> {
+    const usuarioLogadoId = 146; // ← substituir por auth real (ex: @Req() req; req.user.id)
     return this.service.criarCargoReitoria(dto, usuarioLogadoId);
   }
 
@@ -60,8 +68,10 @@ export class CargosAdministrativosController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Define ocupante para cargo de Faculdade ou Curso' })
   @ApiBody({ type: CreateCargoDto })
-  async definirCargoFaculdade(@Body() dto: CreateCargoDto): Promise<{ message: string; pkCargo: number }> {
-    const usuarioLogadoId = 1; // ← substituir por auth real
+  async definirCargoFaculdade(
+    @Body() dto: CreateCargoDto,
+  ): Promise<{ message: string; pkCargo: number }> {
+    const usuarioLogadoId = 146; // ← substituir por auth real
     return this.service.criarCargoFaculdadeOuCurso(dto, usuarioLogadoId);
   }
 
@@ -72,8 +82,12 @@ export class CargosAdministrativosController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateOcupanteDto,
   ): Promise<{ message: string }> {
-    const usuarioLogadoId = 1; // ← substituir por auth real
-    return this.service.alterarOcupante(id, dto.novoUtilizadorId, usuarioLogadoId);
+    const usuarioLogadoId = 146; // ← substituir por auth real
+    return this.service.alterarOcupante(
+      id,
+      dto.novoUtilizadorId,
+      usuarioLogadoId,
+    );
   }
 
   @Delete(':id/ocupante')
@@ -82,7 +96,7 @@ export class CargosAdministrativosController {
   async removerOcupante(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<{ message: string }> {
-    const usuarioLogadoId = 1; // ← substituir por auth real
+    const usuarioLogadoId = 146; // ← substituir por auth real
     return this.service.removerOcupante(id, usuarioLogadoId);
   }
 }
