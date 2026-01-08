@@ -5,6 +5,7 @@ import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FetchEncaminhamentoSolicitacaoDTO } from './dto/fetch-encaminhamento-solicitacao.dto';
 import { RejectarEncaminhamentoSolicitacaoDTO } from './dto/rejectar-encaminhamento-solicitacao.dto';
 import { escapeQuotes } from '../util/escape-quotes';
+import { AprovarEncaminhamentoSolicitacaoDTO } from './dto/aprovar-encaminhamento-solicitacao.dto';
 
 @Injectable()
 export class SolicitacaoService {
@@ -133,7 +134,7 @@ export class SolicitacaoService {
     await queryRunner.startTransaction();
 
     try {
-      // 🔹 Dados auxiliares
+      // Dados auxiliares
       const estudanteId = await this.getSolicitacaoUserId(solicitacaoId);
 
       const sqlSolicitacao = `
@@ -197,6 +198,226 @@ export class SolicitacaoService {
       return {
         success: true,
         message: 'Encaminhamento rejeitado com sucesso',
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async aprovarEncaminhamento({
+    descricao,
+    solicitacaoId,
+    userId,
+  }: AprovarEncaminhamentoSolicitacaoDTO) {
+    let facturaId = null;
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      //1. Buscar dados auxiliares
+      const estudanteId = await this.getSolicitacaoUserId(solicitacaoId);
+      const [anoLectivo] = await queryRunner.query(
+        `select codigo
+       from fk2_tb_ano_lectivo
+       where status_ = 1
+       order by codigo
+       fetch first 1 row only`,
+      );
+
+      const [solicitacao] = await queryRunner.query(
+        `
+      SELECT
+        s.codigo_matricula,
+        s.codigo_tipo_servico,
+        ts.preco,
+        ts.sigla
+      FROM fk2_tb_solicitacao_uma s
+      JOIN fk2_tb_tipo_servico ts ON ts.id = s.codigo_tipo_servico
+      WHERE s.id = :solicitacaoId
+      `,
+        { solicitacaoId } as any,
+      );
+      if (solicitacao.preco > 0) {
+        const [factura] = await queryRunner.query(
+          `
+            INSERT INTO fk2_tb_factura (
+              data_factura,
+              total_preco,
+              codigo_matricula,
+              estado,
+              corrente,
+              ano_lectivo,
+              valor_a_pagar,
+              desconto,
+              troco,
+              totaliva,
+              totalmulta,
+              total_incidencia,
+              valorentregue,
+              valorentreguemltcx,
+              polo_id,
+              canal
+            ) VALUES (
+                SYSDATE,
+                :preco,
+                :codigoMatricula,
+                0,
+                1,
+                :anoLectivo,
+                :preco,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                1
+            ) RETURNING id INTO :id
+              `,
+          {
+            preco: solicitacao.PRECO,
+            codigoMatricula: solicitacao.CODIGO_MATRICULA,
+            anoLectivo: anoLectivo.codigo,
+          } as any,
+        );
+        facturaId = factura.ID;
+        //3. Itens da fatura
+        await queryRunner.query(
+          `
+        INSERT INTO fk2_tb_factura_itens (
+          codigo_factura,
+          codigo_produto,
+          quantidade,
+          preco,
+          total,
+          estado,
+          codigo_ano_lectivo,
+          descontoproduto,
+          multa,
+          valor_iva,
+          valor_pago,
+          valor_a_transportar
+        ) VALUES (
+          :facturaId,
+          :codigoProduto,
+          1,
+          :preco,
+          :preco,
+          0,
+          :anoLectivo,
+          0,
+          0,
+          0,
+          0,
+          0
+        )
+      `,
+          {
+            facturaId,
+            codigoProduto: solicitacao.CODIGO_TIPO_SERVICO,
+            preco: solicitacao.PRECO,
+            anoLectivo: anoLectivo.CODIGO,
+          } as any,
+        );
+      }
+      //Caso tiver sigla
+      else if (solicitacao.SIGLA == 'AdS') {
+        const [preinscricao] = await queryRunner.query(
+          `
+          SELECT id, saldo, saldo_reset
+          FROM fk2_tb_preinscricao
+          WHERE user_id = :estudanteId
+          `,
+          { estudanteId } as any,
+        );
+        if (preinscricao) {
+          const novoSaldo =
+            Number(preinscricao.SALDO) + Number(preinscricao.SALDO_RESET);
+          await queryRunner.query(
+            `
+          UPDATE fk2_tb_preinscricao
+          SET
+            saldo = :novoSaldo,
+            saldo_reset = 0
+          WHERE codigo = :id
+          `,
+            {
+              novoSaldo,
+              id: preinscricao.ID,
+            } as any,
+          );
+        }
+      }
+      //Reposta ao utilizador
+      await queryRunner.query(
+        `
+      INSERT INTO fk2_resposta_solicitacao (
+        descricao,
+        data_resposta,
+        assunto_id,
+        user_id2,
+        ref_utilizador
+      ) VALUES (
+        :descricao,
+        SYSDATE,
+        :solicitacaoId,
+        :estudanteId,
+        :userId
+      )
+      `,
+        {
+          descricao,
+          solicitacaoId,
+          estudanteId,
+          userId,
+        } as any,
+      );
+      //Actualizar os status do sistema
+      await queryRunner.query(
+        `
+      UPDATE fk2_tb_solicitacao_uma
+      SET
+        status_ = 'Solicitações Respondidas',
+        status_aprovacao_servico = 'Solicitação Aprovada',
+        codigo_fatura = :facturaId
+      WHERE id = :solicitacaoId
+      `,
+        {
+          facturaId,
+          solicitacaoId,
+        } as any,
+      );
+      // 🔹 6. Resposta admin (Mutue)
+      await queryRunner.query(
+        `
+      INSERT INTO fk2_tb_resposta_solicitacao_admin (
+        descricao,
+        codigo_solicitacao,
+        codigo_utilizador,
+        data
+      ) VALUES (
+        :descricao,
+        :solicitacaoId,
+        :userId,
+        SYSDATE
+      )
+      `,
+        {
+          descricao,
+          solicitacaoId,
+          userId,
+        } as any,
+      );
+      await queryRunner.commitTransaction();
+      return {
+        success: true,
+        message: 'Solicitação aprovada e fatura gerada com sucesso',
+        facturaId,
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();

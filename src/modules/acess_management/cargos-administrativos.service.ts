@@ -10,6 +10,7 @@ import { FilterCargoDto } from './dto/filter-cargo.dto';
 import { CreateCargoDto } from './dto/create-cargo.dto';
 import { UpdateOcupanteDto } from './dto/update-ocupante.dto';
 import { CargoResponseDto } from './dto/cargo.response.dto';
+import * as oracledb from 'oracledb';
 
 @Injectable()
 export class CargosAdministrativosService {
@@ -36,20 +37,20 @@ export class CargosAdministrativosService {
 
   async listarTodos(filter: FilterCargoDto): Promise<CargoResponseDto[]> {
     let whereClause = 'WHERE C.ACTIVE = 1';
-    const params: any[] = [];
+    const params: any = {};
 
     if (filter.tipoCargoId !== undefined && filter.tipoCargoId !== 0) {
-      whereClause += ' AND C.FK_TIPO_CARGO = ?';
-      params.push(filter.tipoCargoId);
+      whereClause += ' AND C.FK_TIPO_CARGO = :tipoCargoId';
+      params.tipoCargoId = filter.tipoCargoId;
     }
 
     if (filter.utilizadorId) {
-      whereClause += ' AND C.FK_UTILIZADOR = ?';
-      params.push(filter.utilizadorId);
+      whereClause += ' AND C.FK_UTILIZADOR = :utilizadorId';
+      params.utilizadorId = filter.utilizadorId;
     }
 
     const sql = `
-      SELECT 
+      SELECT
         C.PK_CARGO,
         C.FK_TIPO_CARGO,
         TC.DESCRICAO AS TIPO_CARGO_DESCRICAO,
@@ -73,7 +74,7 @@ export class CargosAdministrativosService {
 
     try {
       const result = await this.dataSource.query(sql, params);
-      return result.map(row => new CargoResponseDto(row));
+      return result.map((row) => new CargoResponseDto(row));
     } catch (error) {
       this.logger.error('Erro ao listar cargos', error);
       throw new InternalServerErrorException('Falha ao listar cargos');
@@ -82,7 +83,7 @@ export class CargosAdministrativosService {
 
   async listarPorUtilizador(utilizadorId: number): Promise<CargoResponseDto[]> {
     const sql = `
-      SELECT 
+      SELECT
         C.PK_CARGO,
         C.FK_TIPO_CARGO,
         TC.DESCRICAO AS TIPO_CARGO_DESCRICAO,
@@ -100,33 +101,38 @@ export class CargosAdministrativosService {
       LEFT JOIN FK2_MCA_TB_UTILIZADOR U ON C.FK_UTILIZADOR = U.PK_UTILIZADOR
       LEFT JOIN FK2_TB_FACULDADE F ON C.FK_FACULDADE = F.CODIGO
       LEFT JOIN FK2_TB_CURSOS CUR ON C.FK_CURSO = CUR.CODIGO
-      WHERE C.FK_UTILIZADOR = ?
+      WHERE C.FK_UTILIZADOR = :utilizadorId
         AND C.ACTIVE = 1
       ORDER BY C.CREATED_AT DESC
     `;
 
     try {
       const result = await this.dataSource.query(sql, [utilizadorId]);
-      return result.map(row => new CargoResponseDto(row));
+      return result.map((row) => new CargoResponseDto(row));
     } catch (error) {
-      this.logger.error(`Erro ao listar cargos do utilizador ${utilizadorId}`, error);
-      throw new InternalServerErrorException('Falha ao listar cargos do utilizador');
+      this.logger.error(
+        `Erro ao listar cargos do utilizador ${utilizadorId}`,
+        error,
+      );
+      throw new InternalServerErrorException(
+        'Falha ao listar cargos do utilizador',
+      );
     }
   }
 
   async hasAnyCargos(cargos: number[], utilizadorId: number): Promise<boolean> {
     if (cargos.length === 0) return false;
 
-    const placeholders = cargos.map(() => '?').join(', ');
+    const placeholders = cargos.map((cargo) => cargo).join(', ');
     const sql = `
       SELECT COUNT(*) AS COUNT
       FROM FK2_MGU_TB_CARGOS_ADMINISTRATIVOS C
-      WHERE C.FK_UTILIZADOR = ?
+      WHERE C.FK_UTILIZADOR = :utilizadorId
         AND C.FK_TIPO_CARGO IN (${placeholders})
         AND C.ACTIVE = 1
     `;
 
-    const params = [utilizadorId, ...cargos];
+    const params = [utilizadorId];
 
     try {
       const [row] = await this.dataSource.query(sql, params);
@@ -141,8 +147,8 @@ export class CargosAdministrativosService {
     const sql = `
       SELECT COUNT(*) AS COUNT
       FROM FK2_MGU_TB_CARGOS_ADMINISTRATIVOS C
-      WHERE C.FK_UTILIZADOR = ?
-        AND C.FK_TIPO_CARGO = ?
+      WHERE C.FK_UTILIZADOR = :utilizadorId
+        AND C.FK_TIPO_CARGO = :cargoId
         AND C.ACTIVE = 1
     `;
 
@@ -155,18 +161,21 @@ export class CargosAdministrativosService {
     }
   }
 
-  async isCargoDefinido(cargoCodigo: number, curso?: number | null): Promise<boolean> {
+  async isCargoDefinido(
+    cargoCodigo: number,
+    curso?: number | null,
+  ): Promise<boolean> {
     let sql = `
       SELECT COUNT(*) AS COUNT
       FROM FK2_MGU_TB_CARGOS_ADMINISTRATIVOS C
-      WHERE C.FK_TIPO_CARGO = ?
+      WHERE C.FK_TIPO_CARGO = :cargoCodigo
         AND C.ACTIVE = 1
     `;
-    const params: any[] = [cargoCodigo];
+    const params: any = { cargoCodigo };
 
     if (curso !== null && curso !== undefined) {
-      sql += ' AND C.FK_CURSO = ?';
-      params.push(curso);
+      sql += ' AND C.FK_CURSO = :cursoId';
+      params.cursoId = curso;
     }
 
     try {
@@ -178,12 +187,15 @@ export class CargosAdministrativosService {
     }
   }
 
-  async isCargoDefinidoByFaculdade(cargoCodigo: number, faculdade: number): Promise<boolean> {
+  async isCargoDefinidoByFaculdade(
+    cargoCodigo: number,
+    faculdade: number,
+  ): Promise<boolean> {
     const sql = `
       SELECT COUNT(*) AS COUNT
       FROM FK2_MGU_TB_CARGOS_ADMINISTRATIVOS C
-      WHERE C.FK_TIPO_CARGO = ?
-        AND C.FK_FACULDADE = ?
+      WHERE C.FK_TIPO_CARGO = :cargoCodigo
+        AND C.FK_FACULDADE =  :faculdade
         AND C.ACTIVE = 1
     `;
 
@@ -196,9 +208,11 @@ export class CargosAdministrativosService {
     }
   }
 
-  async listarPorTipoCargo(tipoCargoAdministrativo: number): Promise<CargoResponseDto[]> {
+  async listarPorTipoCargo(
+    tipoCargoAdministrativo: number,
+  ): Promise<CargoResponseDto[]> {
     const sql = `
-      SELECT 
+      SELECT
         C.PK_CARGO,
         C.FK_TIPO_CARGO,
         TC.DESCRICAO AS TIPO_CARGO_DESCRICAO,
@@ -216,16 +230,21 @@ export class CargosAdministrativosService {
       LEFT JOIN FK2_MCA_TB_UTILIZADOR U ON C.FK_UTILIZADOR = U.PK_UTILIZADOR
       LEFT JOIN FK2_TB_FACULDADE F ON C.FK_FACULDADE = F.CODIGO
       LEFT JOIN FK2_TB_CURSOS CUR ON C.FK_CURSO = CUR.CODIGO
-      WHERE C.FK_TIPO_CARGO = ?
+      WHERE C.FK_TIPO_CARGO = :tipoCargoAdministrativo
         AND C.ACTIVE = 1
       ORDER BY C.CREATED_AT DESC
     `;
 
     try {
-      const result = await this.dataSource.query(sql, [tipoCargoAdministrativo, tipoCargoAdministrativo]);
-      return result.map(row => new CargoResponseDto(row));
+      const result = await this.dataSource.query(sql, [
+        tipoCargoAdministrativo,
+      ]);
+      return result.map((row) => new CargoResponseDto(row));
     } catch (error) {
-      this.logger.error(`Erro ao listar cargos por tipo ${tipoCargoAdministrativo}`, error);
+      this.logger.error(
+        `Erro ao listar cargos por tipo ${tipoCargoAdministrativo}`,
+        error,
+      );
       throw new InternalServerErrorException('Falha ao listar cargos por tipo');
     }
   }
@@ -238,13 +257,19 @@ export class CargosAdministrativosService {
     dto: CreateCargoDto,
     usuarioLogadoId: number,
   ): Promise<{ message: string; pkCargo: number }> {
-    const tiposReitoria = [this.CARGO_REITORIA, this.CARGO_VICEREITOR, this.CARGO_ASSESSORA];
+    const tiposReitoria = [
+      this.CARGO_REITORIA,
+      this.CARGO_VICEREITOR,
+      this.CARGO_ASSESSORA,
+    ];
     if (!tiposReitoria.includes(dto.tipoCargoId)) {
       throw new BadRequestException('Tipo de cargo inválido para Reitoria');
     }
 
     if (dto.faculdadeId || dto.cursoId) {
-      throw new BadRequestException('Cargos de Reitoria não devem ter faculdade ou curso');
+      throw new BadRequestException(
+        'Cargos de Reitoria não devem ter faculdade ou curso',
+      );
     }
 
     const jaDefinido = await this.isCargoDefinido(dto.tipoCargoId, null);
@@ -260,13 +285,26 @@ export class CargosAdministrativosService {
       const hasAny = await this.hasAnyCargos(tiposReitoria, dto.utilizadorId);
 
       if (!hasAny) {
-        await this.adicionarAoGrupo(queryRunner, dto.utilizadorId, this.GRUPO_REITORIA, usuarioLogadoId);
+        await this.adicionarAoGrupo(
+          queryRunner,
+          dto.utilizadorId,
+          this.GRUPO_REITORIA,
+          usuarioLogadoId,
+        );
       }
 
-      const { pkCargo } = await this.criarCargoBase(queryRunner, dto, usuarioLogadoId);
+      const { pkCargo } = await this.criarCargoBase(
+        queryRunner,
+        dto,
+        usuarioLogadoId,
+      );
 
       if (!hasAny) {
-        await this.permissaoReitor(queryRunner, dto.utilizadorId, usuarioLogadoId);
+        await this.permissaoReitor(
+          queryRunner,
+          dto.utilizadorId,
+          usuarioLogadoId,
+        );
       }
 
       await queryRunner.commitTransaction();
@@ -276,7 +314,9 @@ export class CargosAdministrativosService {
       await queryRunner.rollbackTransaction();
       throw error instanceof BadRequestException
         ? error
-        : new InternalServerErrorException('Falha ao atribuir cargo de Reitoria');
+        : new InternalServerErrorException(
+            'Falha ao atribuir cargo de Reitoria',
+          );
     } finally {
       await queryRunner.release();
     }
@@ -286,22 +326,38 @@ export class CargosAdministrativosService {
     dto: CreateCargoDto,
     usuarioLogadoId: number,
   ): Promise<{ message: string; pkCargo: number }> {
-    const tiposFaculdade = [this.CARGO_DECANO, this.CARGO_DIRECTOR, this.CARGO_COORDENADOR];
+    const tiposFaculdade = [
+      this.CARGO_DECANO,
+      this.CARGO_DIRECTOR,
+      this.CARGO_COORDENADOR,
+    ];
     if (!tiposFaculdade.includes(dto.tipoCargoId)) {
-      throw new BadRequestException('Tipo de cargo inválido para Faculdade/Curso');
+      throw new BadRequestException(
+        'Tipo de cargo inválido para Faculdade/Curso',
+      );
     }
 
     if (dto.tipoCargoId === this.CARGO_DECANO && !dto.faculdadeId) {
       throw new BadRequestException('Faculdade é obrigatória para Decano');
     }
 
-    if ((dto.tipoCargoId === this.CARGO_DIRECTOR || dto.tipoCargoId === this.CARGO_COORDENADOR) && !dto.cursoId) {
-      throw new BadRequestException('Curso é obrigatório para Director ou Coordenador');
+    if (
+      (dto.tipoCargoId === this.CARGO_DIRECTOR ||
+        dto.tipoCargoId === this.CARGO_COORDENADOR) &&
+      !dto.cursoId
+    ) {
+      throw new BadRequestException(
+        'Curso é obrigatório para Director ou Coordenador',
+      );
     }
 
-    const jaDefinido = dto.tipoCargoId === this.CARGO_DECANO
-      ? await this.isCargoDefinidoByFaculdade(dto.tipoCargoId, dto.faculdadeId!)
-      : await this.isCargoDefinido(dto.tipoCargoId, dto.cursoId);
+    const jaDefinido =
+      dto.tipoCargoId === this.CARGO_DECANO
+        ? await this.isCargoDefinidoByFaculdade(
+            dto.tipoCargoId,
+            dto.faculdadeId!,
+          )
+        : await this.isCargoDefinido(dto.tipoCargoId, dto.cursoId);
 
     if (jaDefinido) {
       throw new BadRequestException('Este cargo já está atribuído');
@@ -314,31 +370,61 @@ export class CargosAdministrativosService {
     try {
       let grupoId: number;
       if (dto.tipoCargoId === this.CARGO_DECANO) grupoId = this.GRUPO_DECANO;
-      else if (dto.tipoCargoId === this.CARGO_DIRECTOR) grupoId = this.GRUPO_DIRECTOR;
+      else if (dto.tipoCargoId === this.CARGO_DIRECTOR)
+        grupoId = this.GRUPO_DIRECTOR;
       else grupoId = this.GRUPO_COORDENADOR;
 
       const hasAny = await this.hasAnyCargos(tiposFaculdade, dto.utilizadorId);
       if (!hasAny) {
-        await this.adicionarAoGrupo(queryRunner, dto.utilizadorId, grupoId, usuarioLogadoId);
+        await this.adicionarAoGrupo(
+          queryRunner,
+          dto.utilizadorId,
+          grupoId,
+          usuarioLogadoId,
+        );
       }
 
-      const { pkCargo } = await this.criarCargoBase(queryRunner, dto, usuarioLogadoId);
+      const { pkCargo } = await this.criarCargoBase(
+        queryRunner,
+        dto,
+        usuarioLogadoId,
+      );
 
       await this.permissaoDecanoOuCurso(queryRunner, dto, usuarioLogadoId);
 
-      await this.atualizarEntidadeFaculdadeOuCurso(queryRunner, dto, usuarioLogadoId);
+      await this.atualizarEntidadeFaculdadeOuCurso(
+        queryRunner,
+        dto,
+        usuarioLogadoId,
+      );
 
       await queryRunner.commitTransaction();
 
       return { message: 'Cargo atribuído com sucesso', pkCargo };
     } catch (error) {
       await queryRunner.rollbackTransaction();
+      console.log(error);
       throw error instanceof BadRequestException
         ? error
-        : new InternalServerErrorException('Falha ao atribuir cargo de Faculdade/Curso');
+        : new InternalServerErrorException(
+            'Falha ao atribuir cargo de Faculdade/Curso',
+          );
     } finally {
       await queryRunner.release();
     }
+  }
+
+  async getNomeUser(userId: number): Promise<string> {
+    const result = await this.dataSource.query(
+      `select NOME from FK2_MCA_TB_UTILIZADOR where PK_UTILIZADOR = :userId`,
+      [userId],
+    );
+
+    if (!result || result.length === 0) {
+      throw new Error(`Docente não encontrado para o código ${userId}`);
+    }
+
+    return result[0].NOME as string;
   }
 
   private async criarCargoBase(
@@ -346,34 +432,53 @@ export class CargosAdministrativosService {
     dto: CreateCargoDto,
     usuarioLogadoId: number,
   ): Promise<{ pkCargo: number }> {
+    const nomeUsuarioLogado = this.getNomeUser(usuarioLogadoId);
     const sql = `
-      INSERT INTO FK2_MGU_TB_CARGOS_ADMINISTRATIVOS (
-        FK_TIPO_CARGO,
-        FK_UTILIZADOR,
-        ${dto.faculdadeId ? 'FK_FACULDADE,' : ''}
-        ${dto.cursoId ? 'FK_CURSO,' : ''}
-        ACTIVE,
-        CREATED_AT,
-        UPDATED_AT,
-        CREATED_BY
-      ) VALUES (
-        ?, ?,
-        ${dto.faculdadeId ? '?, ' : ''}${dto.cursoId ? '?, ' : ''}1,
-        SYSDATE, SYSDATE, ?
-      )
-      RETURNING PK_CARGO INTO :pk_out
-    `;
+    INSERT INTO FK2_MGU_TB_CARGOS_ADMINISTRATIVOS (
+      FK_TIPO_CARGO,
+      FK_UTILIZADOR,
+      ${dto.faculdadeId ? 'FK_FACULDADE,' : ''}
+      ${dto.cursoId ? 'FK_CURSO,' : ''}
+      ACTIVE,
+      CREATED_AT,
+      UPDATE_AT,
+      CREATED_BY
+    ) VALUES (
+      :tipoCargoId,
+      :utilizadorId,
+      ${dto.faculdadeId ? ':faculdadeId,' : ''}
+      ${dto.cursoId ? ':cursoId,' : ''}
+      1,
+      SYSDATE,
+      SYSDATE,
+      :createdBy
+    )
+    RETURNING PK_CARGO INTO :pk_out
+  `;
 
-    const params = [
-      dto.tipoCargoId,
-      dto.utilizadorId,
-      ...(dto.faculdadeId ? [dto.faculdadeId] : []),
-      ...(dto.cursoId ? [dto.cursoId] : []),
-      JSON.stringify({ pk: usuarioLogadoId, desc: 'usuário logado' }),
-    ];
+    const params: any = {
+      tipoCargoId: dto.tipoCargoId,
+      utilizadorId: dto.utilizadorId,
+      createdBy: JSON.stringify({
+        pk: usuarioLogadoId,
+        desc: nomeUsuarioLogado,
+      }),
+      pk_out: {
+        dir: oracledb.BIND_OUT,
+        type: oracledb.NUMBER,
+      },
+    };
+    if (dto.faculdadeId) {
+      params.faculdadeId = dto.faculdadeId;
+    }
 
-    const result = await queryRunner.manager.query(sql, params);
-    return { pkCargo: result[0].pk_out };
+    if (dto.cursoId) {
+      params.cursoId = dto.cursoId;
+    }
+
+    const { pk_out } = await queryRunner.manager.query(sql, params);
+    console.log(pk_out);
+    return { pkCargo: pk_out[0] };
   }
 
   private async adicionarAoGrupo(
@@ -391,15 +496,15 @@ export class CargosAdministrativosService {
         CREATED_BY,
         LAST_UPDATED_BY,
         ACTIVE_STATE
-      ) VALUES (?, ?, SYSDATE, SYSDATE, ?, ?, 1)
+      ) VALUES (:grupoId, :utilizadorId, SYSDATE, SYSDATE, :createdBy, :lastUpdatedBy, 1)
     `;
 
-    await queryRunner.manager.query(sql, [
+    await queryRunner.manager.query(sql, {
       grupoId,
       utilizadorId,
-      JSON.stringify({ pk: usuarioLogadoId }),
-      JSON.stringify({ pk: usuarioLogadoId }),
-    ]);
+      createdBy: usuarioLogadoId,
+      lastUpdatedBy: usuarioLogadoId,
+    } as any);
   }
 
   private async permissaoReitor(
@@ -411,7 +516,12 @@ export class CargosAdministrativosService {
     const cursos = await queryRunner.manager.query(sqlCursos);
 
     for (const curso of cursos) {
-      await this.adicionarPermissaoCurso(queryRunner, utilizadorId, curso.CODIGO, usuarioLogadoId);
+      await this.adicionarPermissaoCurso(
+        queryRunner,
+        utilizadorId,
+        curso.CODIGO,
+        usuarioLogadoId,
+      );
     }
   }
 
@@ -421,14 +531,26 @@ export class CargosAdministrativosService {
     usuarioLogadoId: number,
   ): Promise<void> {
     if (dto.tipoCargoId === this.CARGO_DECANO) {
-      const sqlCursos = `SELECT CODIGO FROM FK2_TB_CURSOS WHERE FACULDADE_ID = ?`;
-      const cursos = await queryRunner.manager.query(sqlCursos, [dto.faculdadeId]);
+      const sqlCursos = `SELECT CODIGO FROM FK2_TB_CURSOS WHERE FACULDADE_ID = :faculdadeId`;
+      const cursos = await queryRunner.manager.query(sqlCursos, {
+        faculdadeId: dto.faculdadeId,
+      });
 
       for (const curso of cursos) {
-        await this.adicionarPermissaoCurso(queryRunner, dto.utilizadorId, curso.CODIGO, usuarioLogadoId);
+        await this.adicionarPermissaoCurso(
+          queryRunner,
+          dto.utilizadorId,
+          curso.CODIGO,
+          usuarioLogadoId,
+        );
       }
     } else if (dto.cursoId) {
-      await this.adicionarPermissaoCurso(queryRunner, dto.utilizadorId, dto.cursoId, usuarioLogadoId);
+      await this.adicionarPermissaoCurso(
+        queryRunner,
+        dto.utilizadorId,
+        dto.cursoId,
+        usuarioLogadoId,
+      );
     }
   }
 
@@ -446,8 +568,8 @@ export class CargosAdministrativosService {
         CREATED_AT,
         UPDATED_AT
       ) VALUES (
-        (SELECT CODIGO_IMPORTADO FROM FK2_MCA_TB_UTILIZADOR WHERE PK_UTILIZADOR = ?),
-        ?,
+        (SELECT CODIGO_IMPORTADO FROM FK2_MCA_TB_UTILIZADOR WHERE PK_UTILIZADOR = :utilizadorId),
+        :cursoId,
         1,
         SYSDATE,
         SYSDATE
@@ -464,40 +586,40 @@ export class CargosAdministrativosService {
   ): Promise<void> {
     if (dto.tipoCargoId === this.CARGO_DECANO && dto.faculdadeId) {
       const [nome] = await queryRunner.manager.query(
-        `SELECT NOME FROM FK2_MCA_TB_UTILIZADOR WHERE PK_UTILIZADOR = ?`,
-        [dto.utilizadorId],
+        `SELECT NOME FROM FK2_MCA_TB_UTILIZADOR WHERE PK_UTILIZADOR = :utilizadorId`,
+        { utilizadorId: dto.utilizadorId },
       );
 
       await queryRunner.manager.query(
         `
         UPDATE FK2_TB_FACULDADE
-        SET DECANO = ?
-        WHERE CODIGO = ?
+        SET DECANO = :decano
+        WHERE CODIGO = :faculdadeId
         `,
-        [nome?.NOME, dto.faculdadeId],
+        { decano: nome?.NOME, faculdadeId: dto.faculdadeId } as any,
       );
     } else if (dto.tipoCargoId === this.CARGO_DIRECTOR && dto.cursoId) {
       await queryRunner.manager.query(
         `
         UPDATE FK2_TB_CURSOS
-        SET CODIGO_DIRECTOR = ?
-        WHERE CODIGO = ?
+        SET CODIGO_DIRECTOR = :utilizadorId
+        WHERE CODIGO = :cursoId
         `,
-        [dto.utilizadorId, dto.cursoId],
+        { utilizadorId: dto.utilizadorId, cursoId: dto.cursoId },
       );
     } else if (dto.tipoCargoId === this.CARGO_COORDENADOR && dto.cursoId) {
       const [nome] = await queryRunner.manager.query(
-        `SELECT NOME FROM FK2_MCA_TB_UTILIZADOR WHERE PK_UTILIZADOR = ?`,
-        [dto.utilizadorId],
+        `SELECT NOME FROM FK2_MCA_TB_UTILIZADOR WHERE PK_UTILIZADOR = :utilizadorId`,
+        { utilizadorId: dto.utilizadorId },
       );
 
       await queryRunner.manager.query(
         `
         UPDATE FK2_TB_CURSOS
-        SET COORDENADOR = ?
-        WHERE CODIGO = ?
+        SET COORDENADOR = :coordenador
+        WHERE CODIGO = :cursoId?
         `,
-        [nome?.NOME, dto.cursoId],
+        { coordenador: nome?.NOME, cursoId: dto.cursoId },
       );
     }
   }
@@ -513,7 +635,7 @@ export class CargosAdministrativosService {
 
     try {
       const [existe] = await queryRunner.manager.query(
-        `SELECT 1 FROM FK2_MGU_TB_CARGOS_ADMINISTRATIVOS WHERE PK_CARGO = ? AND ACTIVE = 1`,
+        `SELECT 1 FROM FK2_MGU_TB_CARGOS_ADMINISTRATIVOS WHERE PK_CARGO = :pkCargo AND ACTIVE = 1`,
         [pkCargo],
       );
 
@@ -524,12 +646,11 @@ export class CargosAdministrativosService {
       await queryRunner.manager.query(
         `
         UPDATE FK2_MGU_TB_CARGOS_ADMINISTRATIVOS
-        SET FK_UTILIZADOR = ?,
-            UPDATED_AT = SYSDATE,
-            LAST_UPDATED_BY = ?
-        WHERE PK_CARGO = ?
+        SET FK_UTILIZADOR = :novoUtilizadorId,
+            UPDATE_AT = SYSDATE
+        WHERE PK_CARGO = :pkCargo
         `,
-        [novoUtilizadorId, usuarioLogadoId, pkCargo],
+        [novoUtilizadorId, pkCargo],
       );
 
       await queryRunner.commitTransaction();
@@ -555,7 +676,7 @@ export class CargosAdministrativosService {
 
     try {
       const [existe] = await queryRunner.manager.query(
-        `SELECT 1 FROM FK2_MGU_TB_CARGOS_ADMINISTRATIVOS WHERE PK_CARGO = ? AND ACTIVE = 1`,
+        `SELECT 1 FROM FK2_MGU_TB_CARGOS_ADMINISTRATIVOS WHERE PK_CARGO = :pkCargo AND ACTIVE = 1`,
         [pkCargo],
       );
 
@@ -567,11 +688,10 @@ export class CargosAdministrativosService {
         `
         UPDATE FK2_MGU_TB_CARGOS_ADMINISTRATIVOS
         SET ACTIVE = 0,
-            UPDATED_AT = SYSDATE,
-            LAST_UPDATED_BY = ?
-        WHERE PK_CARGO = ?
+            UPDATE_AT = SYSDATE
+        WHERE PK_CARGO = :pkCargo
         `,
-        [usuarioLogadoId, pkCargo],
+        [pkCargo],
       );
 
       await queryRunner.commitTransaction();
@@ -587,7 +707,9 @@ export class CargosAdministrativosService {
     }
   }
 
-  private async verificarCargoJaDefinido(dto: CreateCargoDto): Promise<boolean> {
+  private async verificarCargoJaDefinido(
+    dto: CreateCargoDto,
+  ): Promise<boolean> {
     let sql = `
       SELECT COUNT(*) AS COUNT
       FROM FK2_MGU_TB_CARGOS_ADMINISTRATIVOS C
@@ -609,7 +731,9 @@ export class CargosAdministrativosService {
       const [row] = await this.dataSource.query(sql, params);
       return Number(row.COUNT) > 0;
     } catch (error) {
-      throw new InternalServerErrorException('Erro na verificação de unicidade');
+      throw new InternalServerErrorException(
+        'Erro na verificação de unicidade',
+      );
     }
   }
 }
