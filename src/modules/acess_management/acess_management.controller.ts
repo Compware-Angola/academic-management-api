@@ -113,7 +113,7 @@ export class AcessManagementController {
   @ApiResponse({ status: 200, type: [LogAcessoResponseDto] })
   async findAllByUtilizadorAndDatas(
     @Query(ValidationPipe) dto: FilterLogsAcessoDto,
-  ): Promise<LogAcessoResponseDto[]> {
+  ) {
     return this.logsService.findAllByUtilizadorAndDatas(dto);
   }
 
