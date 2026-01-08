@@ -8,6 +8,7 @@ import {
 import { DataSource } from 'typeorm';
 import { FilterAcessoDto } from './dto/filter-acesso.dto';
 import { AcessoResponseDto } from './dto/acesso.response.dto';
+import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 
 @Injectable()
 export class AcessosService {
@@ -15,9 +16,12 @@ export class AcessosService {
 
   constructor(private readonly dataSource: DataSource) {}
 
-  async listarAcessos(filter: FilterAcessoDto): Promise<AcessoResponseDto[]> {
+  async listarAcessos(filter: FilterAcessoDto) {
     let whereClause = '';
     const params: any[] = [];
+    const page = Number(filter.page ?? 1);
+    const limit = Number(filter.limit ?? 25);
+    const offset = (page - 1) * limit;
 
     if (filter.apenasAtivos === 'true') {
       whereClause += ' AND A.ACTIVE_STATE = 1';
@@ -63,11 +67,30 @@ export class AcessosService {
       LEFT JOIN FK2_MCA_TB_TIPO_ACESSO TA ON A.FK_TIPO_ACESSO = TA.PK_TIPO_ACESSO
       WHERE 1=1 ${whereClause}
       ORDER BY A.DESIGNACAO ASC
+      OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
     `;
+    const sqlCount = `
+    SELECT COUNT(DISTINCT A.PK_ACESSO) AS TOTAL
+    FROM FK2_MCA_TB_ACESSO A
+    WHERE 1 = 1 ${whereClause}
+  `;
 
     try {
-      const result = await this.dataSource.query(sql, params);
-      return result.map((row) => new AcessoResponseDto(row));
+      const [result, countResult] = await Promise.all([
+        this.dataSource.query(sql, params),
+        this.dataSource.query(sqlCount, params),
+      ]);
+
+      const total = Number(countResult[0]?.TOTAL ?? 0);
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: await toLowerCaseKeys(result),
+        total,
+        page,
+        limit,
+        totalPages,
+      };
     } catch (error) {
       this.logger.error('Erro ao listar acessos', error);
       throw new InternalServerErrorException('Falha ao listar acessos');
