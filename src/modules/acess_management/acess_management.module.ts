@@ -13,6 +13,7 @@ import { GroupsController } from './groups/groups.controller';
 import { GroupsService } from './groups/groups.service';
 import { SolicitacaoService } from './solicitacao.service';
 import { SolicitacaoController } from './solicitacao.controller';
+import { HashUtilService } from '../util/hash.util';
 
 @Module({
   controllers: [
@@ -24,6 +25,7 @@ import { SolicitacaoController } from './solicitacao.controller';
     SolicitacaoController,
   ],
   providers: [
+    HashUtilService,
     AcessosService,
     UsersService,
     ReferenciasService,

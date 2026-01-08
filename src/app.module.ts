@@ -13,9 +13,11 @@ import { HistoryNoteReleaseService } from './modules/assessment/history_note_rel
 import { AcessManagementModule } from './modules/acess_management/acess_management.module';
 import { AcademicCalendarModule } from './modules/academic_calendar/academic_calendar.module';
 import { TeamOldRulesModule } from './modules/team_old_rules/team_old_rules.module';
+import { HashUtilService } from './modules/util/hash.util';
 @Module({
   imports: [ ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: '.env',
     }),
 TypeOrmModule.forRootAsync({
   imports: [ConfigModule],
@@ -55,5 +57,6 @@ TypeOrmModule.forRootAsync({
 ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService],
+
 })
 export class AppModule {}

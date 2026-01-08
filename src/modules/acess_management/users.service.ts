@@ -11,17 +11,22 @@ import {
 import { DataSource } from 'typeorm';
 import { CreatePersonUserDto } from './dto/create-person-user.dto';
 import { CreatePersonUserResponseDto } from './dto/create-person-user-response.dto';
-import { gerarHashExterno } from '../util/hash.util'
+
 import { UserFilterDto } from './dto/user-filter.dto';
 import { UserListItemDto } from './dto/user-list-item.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
+import { HashUtilService } from '../util/hash.util';
 
 @Injectable()
 export class UsersService {
+
   private readonly logger = new Logger(UsersService.name);
 
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly hashUtilService: HashUtilService
+  ) { }
 
   private gerarUsername(nomeCompleto: string): string {
     const partes = nomeCompleto.trim().split(/\s+/);
@@ -72,7 +77,7 @@ export class UsersService {
 
       // Gera o hash da nova senha
       // Opção 1: bcrypt local
-      const hashedPassword: string = await gerarHashExterno(dto.novaSenha);
+     const hashedPassword = await this.hashUtilService.gerarHashExterno(dto.novaSenha);
 
 
       // Opção 2: se quiser usar o serviço externo de hash
@@ -312,8 +317,8 @@ async  addgroupToUser(
       username = await this.gerarUsernameUnico(baseUsername);
 
       // 5. Hash da senha temporária
-      //const senhaTemp = Math.random().toString(36).slice(-8) + 'A1@';
-      const senhaHash = await gerarHashExterno("compware123")
+      const senhaTemp = "compware123";
+      const hashedPassword = await this.hashUtilService.gerarHashExterno(senhaTemp);
 
       // 6. Inserir Utilizador
       await queryRunner.manager.query(`
@@ -322,7 +327,7 @@ async  addgroupToUser(
         ) VALUES (
           '${username}',
           '${dto.nomeCompleto.replace(/'/g, "''")}',
-          '${senhaHash}',
+          '${hashedPassword}',
           '${JSON.stringify({ personId: pessoaId, personName: dto.nomeCompleto })}',
           1,
           SYSDATE,
