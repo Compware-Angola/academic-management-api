@@ -8,6 +8,7 @@ import {
 import { DataSource } from 'typeorm';
 import { FilterAcessoDto } from './dto/filter-acesso.dto';
 import { AcessoResponseDto } from './dto/acesso.response.dto';
+import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 
 @Injectable()
 export class AcessosService {
@@ -84,7 +85,7 @@ export class AcessosService {
       const totalPages = Math.ceil(total / limit);
 
       return {
-        data: result,
+        data: await toLowerCaseKeys(result),
         total,
         page,
         limit,
