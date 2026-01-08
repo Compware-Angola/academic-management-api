@@ -3,6 +3,8 @@ import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FetchEncaminhamentoSolicitacaoDTO } from './dto/fetch-encaminhamento-solicitacao.dto';
+import { RejectarEncaminhamentoSolicitacaoDTO } from './dto/rejectar-encaminhamento-solicitacao.dto';
+import { escapeQuotes } from '../util/escape-quotes';
 
 @Injectable()
 export class SolicitacaoService {
@@ -94,5 +96,113 @@ export class SolicitacaoService {
       limit,
       totalPages,
     };
+  }
+
+  async getSolicitacaoUserId(solicitacaoId: number): Promise<number> {
+    const result = await this.dataSource.query(
+      `select USER_ID from fk2_tb_solicitacao_uma where id = :solicitacaoId `,
+      [solicitacaoId],
+    );
+    if (!result || result.length == 0) {
+      throw new Error(`Nenhuma solicitação encontrada ${solicitacaoId}`);
+    }
+    return result[0].USER_ID as number;
+  }
+
+  async getNomeUser(userId: number): Promise<string> {
+    const result = await this.dataSource.query(
+      `select NOME from FK2_MCA_TB_UTILIZADOR where PK_UTILIZADOR = :userId`,
+      [userId],
+    );
+
+    if (!result || result.length === 0) {
+      throw new Error(`Docente não encontrado para o código ${userId}`);
+    }
+
+    return result[0].NOME as string;
+  }
+
+  async rejeitarEncaminhamento({
+    solicitacaoId,
+    userId,
+    descricao,
+  }: RejectarEncaminhamentoSolicitacaoDTO) {
+    const queryRunner = this.dataSource.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // 🔹 Dados auxiliares
+      const estudanteId = await this.getSolicitacaoUserId(solicitacaoId);
+
+      const sqlSolicitacao = `
+      UPDATE fk2_tb_solicitacao_uma
+      SET
+        status_ = 'Solicitações Respondidas',
+        status_aprovacao_servico = 'Solicitação Reprovada'
+      WHERE id = :solicitacaoId
+    `;
+
+      await queryRunner.query(sqlSolicitacao, { solicitacaoId } as any);
+
+      // 🔹 2. Inserir resposta da solicitação
+      const sqlResposta = `
+      INSERT INTO fk2_resposta_solicitacao (
+        descricao,
+        data_resposta,
+        user_id1,
+        assunto_id,
+        user_id2,
+        ref_utilizador
+      ) VALUES (
+        :descricao,
+        SYSDATE,
+        NULL,
+        :solicitacaoId,
+        :userId,
+        :userRef
+      )
+    `;
+
+      await queryRunner.query(sqlResposta, {
+        descricao,
+        solicitacaoId,
+        userId: estudanteId,
+        userRef: userId,
+      } as any);
+
+      const sqlMutueAdmin = `
+      INSERT INTO fk2_tb_resposta_solicitacao_admin (
+        descricao,
+        codigo_solicitacao,
+        codigo_utilizador,
+        data
+        ) VALUES (
+        :descricao,
+        :solicitacaoId,
+        :userId,
+        SYSDATE
+      )
+    `;
+
+      await queryRunner.query(sqlMutueAdmin, {
+        descricao,
+        solicitacaoId,
+        userId,
+      } as any);
+
+      await queryRunner.commitTransaction();
+
+      return {
+        success: true,
+        message: 'Encaminhamento rejeitado com sucesso',
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }
