@@ -28,7 +28,7 @@ export class HashUtilService {
 
     try {
       const response = await axios.post<{ hash: string }>(
-        this.hashServiceUrl,
+        `${this.hashServiceUrl}/hash`,
         { texto: senha },
         {
           headers: {

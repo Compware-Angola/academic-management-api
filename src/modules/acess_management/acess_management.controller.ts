@@ -139,6 +139,24 @@ export class AcessManagementController {
     return this.acessosService.listarAcessos(filter);
   }
 
+   @Get('details/all/dropdown')
+  @ApiOperation({
+    summary: 'Lista todos os acessos com filtros opcionais',
+    description: 'Retorna acessos filtrados por utilizador, grupo ou apenas ativos. Omitir filtros retorna todos os ativos.',
+  })
+  @ApiQuery({ name: 'utilizadorId', required: false, type: Number })
+  @ApiQuery({ name: 'grupoId', required: false, type: Number })
+  @ApiQuery({ name: 'apenasAtivos', required: false, type: Boolean, example: 'true' })
+  @ApiResponse({ status: 200, type: [AcessoResponseDto] })
+  @ApiUnauthorizedResponse({ description: 'Não autenticado' })
+  async listarAcessosDropDown(
+    @Query(ValidationPipe) filter: FilterAcessoDto,
+  ): Promise<AcessoResponseDto[]> {
+    return this.acessosService.listarAcessosDropDown(filter);
+  }
+
+
+
   // GET /acessos/utilizador/:id
   @Get('utilizador/:id')
   @ApiOperation({
