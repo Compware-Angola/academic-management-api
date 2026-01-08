@@ -1,4 +1,4 @@
-// src/users/users.service.ts
+
 
 import {
   Injectable,
@@ -11,11 +11,12 @@ import {
 import { DataSource } from 'typeorm';
 import { CreatePersonUserDto } from './dto/create-person-user.dto';
 import { CreatePersonUserResponseDto } from './dto/create-person-user-response.dto';
-import { gerarHashExterno } from '../util/hash.util'
+
 import { UserFilterDto } from './dto/user-filter.dto';
 import { UserListItemDto } from './dto/user-list-item.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
+import { gerarHashExterno } from '../util/hash.util';
 
 @Injectable()
 export class UsersService {

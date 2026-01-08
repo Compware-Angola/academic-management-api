@@ -65,8 +65,9 @@ export class AcessManagementController {
   @ApiNotFoundResponse({ description: 'Utilizador não encontrado' })
   async updatePassword(
     @Body(ValidationPipe) dto: UpdatePasswordDto,
-    @Headers('x-user-logado-id') usuarioLogadoId: number,
+   
   ) {
+    const usuarioLogadoId = 1;
     return this.usersService.updatePassword(dto, usuarioLogadoId);
   }
   @Put('add-group-to-user/:userId/:groupId')
@@ -137,6 +138,24 @@ export class AcessManagementController {
   async listarTodos(@Query(ValidationPipe) filter: FilterAcessoDto) {
     return this.acessosService.listarAcessos(filter);
   }
+
+   @Get('details/all/dropdown')
+  @ApiOperation({
+    summary: 'Lista todos os acessos com filtros opcionais',
+    description: 'Retorna acessos filtrados por utilizador, grupo ou apenas ativos. Omitir filtros retorna todos os ativos.',
+  })
+  @ApiQuery({ name: 'utilizadorId', required: false, type: Number })
+  @ApiQuery({ name: 'grupoId', required: false, type: Number })
+  @ApiQuery({ name: 'apenasAtivos', required: false, type: Boolean, example: 'true' })
+  @ApiResponse({ status: 200, type: [AcessoResponseDto] })
+  @ApiUnauthorizedResponse({ description: 'Não autenticado' })
+  async listarAcessosDropDown(
+    @Query(ValidationPipe) filter: FilterAcessoDto,
+  ): Promise<AcessoResponseDto[]> {
+    return this.acessosService.listarAcessosDropDown(filter);
+  }
+
+
 
   // GET /acessos/utilizador/:id
   @Get('utilizador/:id')

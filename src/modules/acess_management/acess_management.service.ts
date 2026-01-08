@@ -15,6 +15,64 @@ export class AcessosService {
   private readonly logger = new Logger(AcessosService.name);
 
   constructor(private readonly dataSource: DataSource) {}
+async listarAcessosDropDown(filter: FilterAcessoDto): Promise<AcessoResponseDto[]> {
+    let whereClause = '';
+    const params: any[] = [];
+
+    if (filter.apenasAtivos === 'true') {
+      whereClause += ' AND A.ACTIVE_STATE = 1';
+    }
+
+    if (filter.utilizadorId) {
+      whereClause += `
+        AND EXISTS (
+          SELECT 1
+          FROM FK2_MCA_TB_GRUPO_UTILIZADOR GU
+          INNER JOIN FK2_MCA_TB_GRUPO_ACESSO GA ON GU.FK_GRUPO = GA.FK_GRUPO
+          WHERE GU.FK_UTILIZADOR = ?
+            AND GA.FK_ACESSO = A.PK_ACESSO
+            AND GA.ACTIVE_STATE = 1
+        )`;
+      params.push(filter.utilizadorId);
+    }
+
+    if (filter.grupoId) {
+      whereClause += `
+        AND EXISTS (
+          SELECT 1
+          FROM FK2_MCA_TB_GRUPO_ACESSO GA
+          WHERE GA.FK_GRUPO = ?
+            AND GA.FK_ACESSO = A.PK_ACESSO
+            AND GA.ACTIVE_STATE = 1
+        )`;
+      params.push(filter.grupoId);
+    }
+
+    const sql = `
+      SELECT DISTINCT
+        A.PK_ACESSO,
+        A.DESIGNACAO,
+        A.SIGLA,
+        M.PK_MODULO AS MODULOID,
+        M.DESIGNACAO AS MODULONOME,
+        TA.DESIGNACAO AS TIPOACESSO,
+        A.ACTIVE_STATE AS ATIVO,
+        A.ACTIVE_DATE AS DATAATIVACAO
+      FROM FK2_MCA_TB_ACESSO A
+      LEFT JOIN FK2_MCA_TB_MODULO M ON A.FK_MODULO = M.PK_MODULO
+      LEFT JOIN FK2_MCA_TB_TIPO_ACESSO TA ON A.FK_TIPO_ACESSO = TA.PK_TIPO_ACESSO
+      WHERE 1=1 ${whereClause}
+      ORDER BY A.DESIGNACAO ASC
+    `;
+
+    try {
+      const result = await this.dataSource.query(sql, params);
+      return result.map((row) => new AcessoResponseDto(row));
+    } catch (error) {
+      this.logger.error('Erro ao listar acessos', error);
+      throw new InternalServerErrorException('Falha ao listar acessos');
+    }
+  }
 
   async listarAcessos(filter: FilterAcessoDto) {
     let whereClause = '';

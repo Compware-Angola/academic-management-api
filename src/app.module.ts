@@ -16,6 +16,7 @@ import { TeamOldRulesModule } from './modules/team_old_rules/team_old_rules.modu
 @Module({
   imports: [ ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: '.env',
     }),
 TypeOrmModule.forRootAsync({
   imports: [ConfigModule],
