@@ -1,61 +1,42 @@
-// src/common/utils/hash.util.service.ts
+// src/common/utils/hash.util.ts
 
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
-@Injectable()
-export class HashUtilService {
-  private readonly hashServiceUrl: string;
-  private readonly timeout: number;
-
-  constructor(private configService: ConfigService) {
-    this.hashServiceUrl =
-      this.configService.get<string>('HASH_SERVICE_URL') ||
-      'http://192.168.30.45:3003/api/hash';
-
-    this.timeout =
-      this.configService.get<number>('HASH_SERVICE_TIMEOUT') || 10000;
-
-    console.log('[HashUtilService] URL:', this.hashServiceUrl);
-    console.log('[HashUtilService] Timeout:', this.timeout + 'ms');
+export async function gerarHashExterno(senha: string): Promise<string> {
+  if (!senha || senha.trim() === '') {
+    throw new Error('Senha não pode ser vazia');
   }
 
-  async gerarHashExterno(senha: string): Promise<string> {
-    if (!senha || senha.trim() === '') {
-      throw new Error('Senha não pode ser vazia');
-    }
+  const hashServiceUrl = process.env.HASH_SERVICE_URL;
 
-    try {
-      const response = await axios.post<{ hash: string }>(
-        `${this.hashServiceUrl}/hash`,
-        { texto: senha },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': '*/*',
-          },
-          timeout: this.timeout,
+  if (!hashServiceUrl) {
+    throw new Error('HASH_SERVICE_URL não definida no .env');
+  }
+ console.log(hashServiceUrl);
+ 
+  try {
+    const response = await axios.post<{ hash: string }>(
+      `${hashServiceUrl}/hash`,
+      { texto: senha },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: '*/*',
         },
+        timeout: 10000,
+      },
+    );
+
+    return response.data.hash;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      if (error.code === 'ECONNREFUSED') {
+        throw new Error('Serviço de hash indisponível');
+      }
+      throw new Error(
+        `Erro ao gerar hash: ${error.response?.status || error.message}`,
       );
-
-      if (!response.data?.hash) {
-        throw new Error('Resposta inválida: campo "hash" ausente');
-      }
-
-      return response.data.hash;
-    } catch (error) {
-      // mesmo tratamento de erros que tinhas
-      if (axios.isAxiosError(error)) {
-        if (error.code === 'ECONNREFUSED') {
-          throw new Error('Serviço de hash indisponível');
-        }
-        if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
-          throw new Error(`Timeout de ${this.timeout}ms excedido`);
-        }
-        throw new Error(`Erro HTTP ${error.response?.status || error.message}`);
-      }
-      throw new Error('Falha inesperada ao gerar hash');
     }
+    throw new Error('Falha inesperada ao gerar hash');
   }
 }
