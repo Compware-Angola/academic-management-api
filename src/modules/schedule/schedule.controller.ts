@@ -11,6 +11,7 @@ import {
   Query,
   ParseIntPipe,
   UsePipes,
+  UseGuards,
 } from '@nestjs/common';
 import { ScheduleService } from './schedule.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
@@ -27,6 +28,10 @@ import { FindScheduleByDesignationDto } from './dto/find-schedule-by-designation
 import { FindSchedulesByGradeDto } from './dto/find-schedules-by-gradedto';
 import { ListScheduleWithPermissionDto } from './dto/list-schedule-with-permission.dto';
 import { UpdatePermissionEditScheduleDto } from './dto/update-permission-edit-schedule.dto';
+import { RequiredPermissions } from '../acess_management/common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from '../acess_management/common/enums/permission.type';
+import { PermissionsGuard } from '../acess_management/common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../acess_management/common/guard/remote.jwt-auth.guard';
 
 @ApiTags('schedule')
 @Controller('schedule')
@@ -34,7 +39,7 @@ export class ScheduleController {
   constructor(private readonly scheduleService: ScheduleService) {}
 
   // ================ PERMISSÃO DE EDIÇÃO ================
-  @Post('permission') // Corrigido: era ':permission' → 'permission'
+  @Post('permission') 
   @ApiOperation({ summary: 'Criar nova permissão para editar horário' })
   @ApiResponse({ status: 201, description: 'Permissão criada com sucesso.' })
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
@@ -49,6 +54,11 @@ export class ScheduleController {
 
   // ================ LISTAGENS ================
   @Get()
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+  @RequiredPermissions(
+    PermissionTypeDetails.FULL_ACCESS.sigla,         
+ 
+  )
   @ApiOperation({
     summary: 'Listar horários com filtros avançados e paginação',
   })
