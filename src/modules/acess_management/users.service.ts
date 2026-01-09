@@ -268,31 +268,51 @@ async  addgroupToUser(
       if (!this.validarEmail(dto.email)) {
         throw new BadRequestException('Endereço de email inválido.');
       }
+console.log(dto);
 
       // 3. Inserir Pessoa
-      await queryRunner.manager.query(`
-        INSERT INTO FK2_TB_PESSOA (
-          NOME_COMPLETO, NUM_DOC_IDENTIFICACAO, EMAIL,
-          TELEFONE1, TELEFONE2,
-          DATA_DE_NASCIMENTO, FK_TIPO_DOCUMENTO_IDENTIFICACAO,
-          FK_GENERO, FK_ESTADO_CIVIL, FK_NACIONALIDADE,
-          ACTIVE_STATE, CREATED_AT, UPDATED_AT
-        ) VALUES (
-          '${dto.nomeCompleto.replace(/'/g, "''")}',
-          '${dto.numDocIdentificacao}',
-          '${dto.email}',
-          '${dto.telefone1 || ''}',
-          '${dto.telefone2 || ''}',
-          ${dto.dataDeNascimento ? `TO_DATE('${dto.dataDeNascimento}', 'YYYY-MM-DD')` : 'NULL'},
-          ${dto.tipoDocumentoId},
-          ${dto.sexoId},
-          ${dto.estadoCivilId},
-          ${dto.nacionalidadeId},
-          1,
-          SYSDATE,
-          SYSDATE
-        )
-      `);
+await queryRunner.manager.query(`
+  INSERT INTO FK2_TB_PESSOA (
+    NOME_COMPLETO, 
+    NUM_DOC_IDENTIFICACAO, 
+    EMAIL,
+    TELEFONE1, 
+    TELEFONE2,
+    DATA_DE_NASCIMENTO, 
+    FK_TIPO_DOCUMENTO_IDENTIFICACAO,
+    FK_GENERO, 
+    FK_ESTADO_CIVIL, 
+    FK_NACIONALIDADE,
+    ACTIVE_STATE, 
+    CREATED_AT, 
+    UPDATED_AT
+  ) VALUES (
+    :nomeCompleto,
+    :numDocIdentificacao,
+    :email,
+    :telefone1,
+    :telefone2,
+    :dataDeNascimento,
+    :tipoDocumentoId,
+    :sexoId,
+    :estadoCivilId,
+    :nacionalidadeId,
+    1,
+    SYSDATE,
+    SYSDATE
+  )
+`, {
+  nomeCompleto: dto.nomeCompleto || null,
+  numDocIdentificacao: dto.numDocIdentificacao || null,
+  email: dto.email || null,
+  telefone1: dto.telefone1 || null,
+  telefone2: dto.telefone2 || null,
+  dataDeNascimento: dto.dataDeNascimento ? new Date(dto.dataDeNascimento) : null,
+  tipoDocumentoId: dto.tipoDocumentoId || null,
+  sexoId: dto.sexoId || null,
+  estadoCivilId: dto.estadoCivilId || null,
+  nacionalidadeId: dto.nacionalidadeId || null,
+} as any);
 
       // Recuperar ID da pessoa
       const pessoaResult = await queryRunner.manager.query(`
@@ -305,7 +325,9 @@ async  addgroupToUser(
       if (!pessoaResult || pessoaResult.length === 0) {
         throw new InternalServerErrorException('Falha ao recuperar a pessoa recém-criada.');
       }
-      pessoaId = Number(pessoaResult[0].id);
+      console.log(pessoaResult);
+      
+      pessoaId = Number(pessoaResult[0].ID);
 
       // 4. Gerar username único
       const baseUsername = this.gerarUsername(dto.nomeCompleto);
@@ -316,14 +338,16 @@ async  addgroupToUser(
       const senhaHash = await gerarHashExterno("compware123")
 
       // 6. Inserir Utilizador
+    
       await queryRunner.manager.query(`
         INSERT INTO FK2_MCA_TB_UTILIZADOR (
-          USERNAME, NOME, PASSWORD, REF_PESSOA, ACTIVE_STATE, CREATED_AT, UPDATED_AT
+          USERNAME, NOME, PASSWORD, EMAIL,REF_PESSOA, ACTIVE_STATE, CREATED_AT, UPDATED_AT
         ) VALUES (
           '${username}',
           '${dto.nomeCompleto.replace(/'/g, "''")}',
           '${senhaHash}',
-          '${JSON.stringify({ personId: pessoaId, personName: dto.nomeCompleto })}',
+           '${dto.email}',
+          '${JSON.stringify({ pk: pessoaId, desc: dto.nomeCompleto })}',
           1,
           SYSDATE,
           SYSDATE
