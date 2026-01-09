@@ -14,6 +14,7 @@ import {
   HttpCode,
   HttpStatus,
   Headers,
+  Req,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreatePersonUserDto } from './dto/create-person-user.dto';
@@ -38,6 +39,8 @@ import {
 import { UserListItemDto } from './dto/user-list-item.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UserFilterDto } from './dto/user-filter.dto';
+import { CreateAcessoDto } from './dto/create-acesso.dto';
+import { RemoteJwtAuthGuard } from './common/guard/remote.jwt-auth.guard';
 
 @Controller('acess_management')
 export class AcessManagementController {
@@ -58,7 +61,27 @@ export class AcessManagementController {
   ): Promise<CreatePersonUserResponseDto> {
     return this.usersService.criarPessoaEUtilizador(dto, usuarioLogadoId);
   }
+@Post('novo-acesso')
+//  @UseGuards(RemoteJwtAuthGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Cria um novo acesso no sistema' })
+  @ApiResponse({ status: 201, description: 'Acesso criado com sucesso' })
+  @ApiResponse({ status: 400, description: 'Dados inválidos ou sigla duplicada' })
+  @ApiResponse({ status: 401, description: 'Não autorizado' })
+  async criar(
+    @Body() createAcessoDto: CreateAcessoDto,
+    @Req() req,
+  ) {
+    const userId = 146; 
 
+    const novoAcesso = await this.acessosService.criarAcesso(createAcessoDto, userId.toString());
+
+    return {
+      statusCode: HttpStatus.CREATED,
+      message: 'Acesso criado com sucesso',
+      data: novoAcesso,
+    };
+  }
   @Put('teacher-password')
   @ApiOperation({ summary: 'Atualizar a senha de um utilizador' })
   @ApiResponse({ status: 200, description: 'Senha atualizada' })
