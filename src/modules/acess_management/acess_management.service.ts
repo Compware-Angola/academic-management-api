@@ -244,6 +244,9 @@ async listarAcessosDropDown(filter: FilterAcessoDto): Promise<AcessoResponseDto[
       console.log(grupoUnitario);
 
       if (!grupoUnitario) {
+
+
+        
         throw new NotFoundException(
           'Grupo unitário do utilizador não encontrado',
         );
@@ -289,6 +292,7 @@ async listarAcessosDropDown(filter: FilterAcessoDto): Promise<AcessoResponseDto[
         );
 
         if (!jaExiste) {
+
           await queryRunner.manager.query(
             `
  MERGE INTO FK2_MCA_TB_GRUPO_ACESSO t
