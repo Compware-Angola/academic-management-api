@@ -1,33 +1,50 @@
-import { HttpService } from "@nestjs/axios";
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
+import axios from 'axios';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 
 @Injectable()
 export class RemoteJwtAuthGuard implements CanActivate {
-  constructor(private httpService: HttpService) {}
-
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const token = this.extractTokenFromHeader(request);
 
-    if (!token) throw new UnauthorizedException();
+    if (!token) {
+      throw new UnauthorizedException('Token não fornecido');
+    }
+      const hashServiceUrl = process.env.HASH_SERVICE_URL;
 
     try {
-      const response:any = await this.httpService
-        .get('http://127.0.0.1:3003/api/auth/validate-token', {
-          headers: { authorization: `Bearer ${token}` },
-        })
-        .toPromise();
+      const response = await axios.get(
+        `${hashServiceUrl}/auth/validate-token`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          timeout: 5000,
+        },
+      );
 
-      if (!response.data.valid) throw new Error();
+      if (!response.data?.valid) {
+        throw new UnauthorizedException('Token inválido');
+      }
+      console.log(response);
+      
 
       request.user = response.data;
       return true;
-    } catch {
-      throw new UnauthorizedException('Token inválido');
+    } catch (error) {
+        console.log(error);
+        
+      throw new UnauthorizedException('Token inválido ou serviço indisponível');
     }
   }
+
   private extractTokenFromHeader(request: any): string | null {
-    const authHeader = request.headers.authorization;
+    const authHeader = request.headers?.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
     return authHeader.split(' ')[1];
   }

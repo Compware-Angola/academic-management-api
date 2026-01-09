@@ -12,6 +12,7 @@ import {
   ParseIntPipe,
   UsePipes,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { ScheduleService } from './schedule.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
@@ -62,7 +63,12 @@ export class ScheduleController {
   @ApiOperation({
     summary: 'Listar horários com filtros avançados e paginação',
   })
-  findAll(@Query(ValidationPipe) query: ListScheduleDto) {
+  findAll(@Query(ValidationPipe) query: ListScheduleDto ,  @Req() req: any,) {
+     const userPayload = req.user; 
+     console.log(userPayload,"USER#####");
+     
+
+    
     return this.scheduleService.findAll(query);
   }
 
