@@ -32,6 +32,9 @@ export class PermissionsGuard implements CanActivate {
     }
 
     const req = context.switchToHttp().getRequest<Request>();
+
+    console.log(req.user.permissions,"AAAA");
+    
     const userPermissions: string[] = req.user?.permissions || [];
 
     // Verifica se o utilizador tem FULL_ACCESS

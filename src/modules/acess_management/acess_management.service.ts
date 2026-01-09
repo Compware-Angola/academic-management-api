@@ -4,11 +4,13 @@ import {
   NotFoundException,
   InternalServerErrorException,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { FilterAcessoDto } from './dto/filter-acesso.dto';
 import { AcessoResponseDto } from './dto/acesso.response.dto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
+import { CreateAcessoDto } from './dto/create-acesso.dto';
 
 @Injectable()
 export class AcessosService {
@@ -73,6 +75,160 @@ async listarAcessosDropDown(filter: FilterAcessoDto): Promise<AcessoResponseDto[
       throw new InternalServerErrorException('Falha ao listar acessos');
     }
   }
+    async criarAcesso(dto: CreateAcessoDto, userId: string): Promise<any> {
+    const {
+      designacao,
+      descricao,
+      sigla,
+      icone,
+      fkModulo,
+      fkSubmenu,
+      fkPagina,
+      fkTipoAcesso,
+      obs,
+      ordem,
+      activeDate,
+      activeState = true,
+    } = dto;
+
+    if (!designacao || !sigla) {
+      throw new BadRequestException('Designação e Sigla são obrigatórios');
+    }
+
+    const sql = `
+      INSERT INTO FK2_MCA_TB_ACESSO (
+        DESIGNACAO,
+        DESCRICAO,
+        SIGLA,
+        ICONE,
+        FK_MODULO,
+        FK_SUBMENU,
+        FK_PAGINA,
+        FK_TIPO_ACESSO,
+        OBS,
+        ORDEM,
+        CREATED_BY,
+        LAST_UPDATED_BY,
+        CREATED_AT,
+        UPDATED_AT,
+        ACTIVE_DATE,
+        ACTIVE_STATE
+      )
+      VALUES (
+        :designacao,
+        :descricao,
+        :sigla,
+        :icone,
+        :fkModulo,
+        :fkSubmenu,
+        :fkPagina,
+        :fkTipoAcesso,
+        :obs,
+        :ordem,
+        :createdBy,
+        :lastUpdatedBy,
+        SYSDATE,
+        SYSDATE,
+        :activeDate,
+        :activeState
+      )
+      RETURNING 
+        PK_ACESSO,
+        DESIGNACAO,
+        DESCRICAO,
+        SIGLA,
+        ICONE,
+        FK_MODULO,
+        FK_SUBMENU,
+        FK_PAGINA,
+        FK_TIPO_ACESSO,
+        OBS,
+        ORDEM,
+        CREATED_BY,
+        LAST_UPDATED_BY,
+        CREATED_AT,
+        UPDATED_AT,
+        ACTIVE_DATE,
+        ACTIVE_STATE
+      INTO 
+        :pkAcesso,
+        :designacaoOut,
+        :descricaoOut,
+        :siglaOut,
+        :iconeOut,
+        :fkModuloOut,
+        :fkSubmenuOut,
+        :fkPaginaOut,
+        :fkTipoAcessoOut,
+        :obsOut,
+        :ordemOut,
+        :createdByOut,
+        :lastUpdatedByOut,
+        :createdAtOut,
+        :updatedAtOut,
+        :activeDateOut,
+        :activeStateOut
+    `;
+
+    const params = {
+      designacao,
+      descricao: descricao || null,
+      sigla,
+      icone: icone || null,
+      fkModulo: fkModulo || null,
+      fkSubmenu: fkSubmenu || null,
+      fkPagina: fkPagina || null,
+      fkTipoAcesso: fkTipoAcesso || null,
+      obs: obs || null,
+      ordem: ordem || null,
+      createdBy: userId,
+      lastUpdatedBy: userId,
+      activeDate: activeDate || null,
+      activeState: activeState ? 1 : 0,
+
+      // Bindings para RETURNING (TypeORM com Oracle usa objetos de saída)
+      pkAcesso: { dir: 3003, type: 2 },         // 3003 = DB_TYPE_NUMBER
+      designacaoOut: { dir: 3003, type: 2001 }, // 2001 = DB_TYPE_VARCHAR
+      descricaoOut: { dir: 3003, type: 2001 },
+      siglaOut: { dir: 3003, type: 2001 },
+      iconeOut: { dir: 3003, type: 2001 },
+      fkModuloOut: { dir: 3003, type: 2 },
+      fkSubmenuOut: { dir: 3003, type: 2 },
+      fkPaginaOut: { dir: 3003, type: 2 },
+      fkTipoAcessoOut: { dir: 3003, type: 2 },
+      obsOut: { dir: 3003, type: 2001 },
+      ordemOut: { dir: 3003, type: 2 },
+      createdByOut: { dir: 3003, type: 2001 },
+      lastUpdatedByOut: { dir: 3003, type: 2001 },
+      createdAtOut: { dir: 3003, type: 2019 },  // DATE
+      updatedAtOut: { dir: 3003, type: 2019 },
+      activeDateOut: { dir: 3003, type: 2019 },
+      activeStateOut: { dir: 3003, type: 2 },
+    };
+
+    try {
+      const result = await this.dataSource.query(sql, params as any);
+
+      // No Oracle com RETURNING, o resultado vem como array de objetos com os campos de saída
+      if (!result || result.length === 0) {
+        throw new InternalServerErrorException('Falha ao inserir o acesso');
+      }
+
+      const novoAcesso = result[0]; // Primeiro registro retornado
+
+      // Converte chaves para lowercase se a função existir
+      return toLowerCaseKeys ? toLowerCaseKeys(novoAcesso) : novoAcesso;
+    } catch (error) {
+      this.logger.error('Erro ao criar novo acesso (Oracle)', error.stack);
+
+      // Erro de unique constraint no Oracle geralmente é ORA-00001
+      if (error.code === 'ORA-00001') {
+        throw new BadRequestException('Sigla já existe no sistema');
+      }
+
+      throw new InternalServerErrorException('Falha ao cadastrar acesso');
+    }
+    }
 
   async listarAcessos(filter: FilterAcessoDto) {
     let whereClause = '';
@@ -246,7 +402,7 @@ async listarAcessosDropDown(filter: FilterAcessoDto): Promise<AcessoResponseDto[
       if (!grupoUnitario) {
 
 
-        
+
         throw new NotFoundException(
           'Grupo unitário do utilizador não encontrado',
         );

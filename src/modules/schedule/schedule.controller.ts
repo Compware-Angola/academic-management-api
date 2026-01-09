@@ -57,7 +57,10 @@ export class ScheduleController {
   @Get()
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @RequiredPermissions(
-    PermissionTypeDetails.FULL_ACCESS.sigla,         
+
+    PermissionTypeDetails.LISTAR_HORARIOS.sigla,
+ 
+    
  
   )
   @ApiOperation({
