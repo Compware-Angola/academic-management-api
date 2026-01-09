@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-import { PermissionType } from '../enums/permission.type';
+
 
 export const PERMISSIONS_KEY = 'permissions';
 
@@ -9,5 +9,5 @@ export const PERMISSIONS_KEY = 'permissions';
  * Exemplo de uso:
  * @Permissions(PermissionType.UsersCreate)
  */
-export const RequiredPermissions = (...permissions: PermissionType[]) =>
+export const RequiredPermissions = (...permissions: Permissions[]) =>
   SetMetadata(PERMISSIONS_KEY, permissions);
