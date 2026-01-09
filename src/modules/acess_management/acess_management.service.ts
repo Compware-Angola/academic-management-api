@@ -9,13 +9,16 @@ import { DataSource } from 'typeorm';
 import { FilterAcessoDto } from './dto/filter-acesso.dto';
 import { AcessoResponseDto } from './dto/acesso.response.dto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
+import oracledb from 'oracledb';
 
 @Injectable()
 export class AcessosService {
   private readonly logger = new Logger(AcessosService.name);
 
   constructor(private readonly dataSource: DataSource) {}
-async listarAcessosDropDown(filter: FilterAcessoDto): Promise<AcessoResponseDto[]> {
+  async listarAcessosDropDown(
+    filter: FilterAcessoDto,
+  ): Promise<AcessoResponseDto[]> {
     let whereClause = '';
     const params: any[] = [];
 
@@ -210,6 +213,29 @@ async listarAcessosDropDown(filter: FilterAcessoDto): Promise<AcessoResponseDto[
     return result.map((row) => new AcessoResponseDto(row));
   }
 
+  async getUsername(userId: number): Promise<string> {
+    const result = await this.dataSource.query(
+      `select USERNAME from FK2_MCA_TB_UTILIZADOR where PK_UTILIZADOR = :userId`,
+      [userId],
+    );
+
+    if (!result || result.length === 0) {
+      throw new Error(`Utilizador não encontrado ${userId}`);
+    }
+
+    return result[0].USERNAME as string;
+  }
+  async getPkGrupoAcesso(): Promise<number> {
+    const result = await this.dataSource.query(
+      `SELECT MAX (PK_GRUPO_ACESSO) + 1 AS PK_GRUPO_ACESSO FROM FK2_MCA_TB_GRUPO_ACESSO`,
+    );
+    console.log(result, 'mensageiro');
+    if (!result || result.length === 0) {
+      throw new Error(`Erro ao gerar chave`);
+    }
+    return result[0].PK_GRUPO_ACESSO;
+  }
+
   async adicionarAcesso(
     utilizadorId: number,
     acessoId: number,
@@ -218,7 +244,7 @@ async listarAcessosDropDown(filter: FilterAcessoDto): Promise<AcessoResponseDto[
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
-
+    let grupoUnitarioId;
     try {
       // 1. Verifica se o acesso existe
       const [acessoExiste] = await queryRunner.manager.query(
@@ -241,23 +267,45 @@ async listarAcessosDropDown(filter: FilterAcessoDto): Promise<AcessoResponseDto[
         `,
         [utilizadorId],
       );
-      console.log(grupoUnitario);
+      const pkGrupoAcesso = await this.getPkGrupoAcesso();
 
       if (!grupoUnitario) {
-
-
-        
-        throw new NotFoundException(
-          'Grupo unitário do utilizador não encontrado',
+        const username = await this.getUsername(utilizadorId);
+        const result = await queryRunner.manager.query(
+          `
+          INSERT INTO FK2_MCA_TB_GRUPO (
+            DESIGNACAO, SIGLA, DESCRICAO, FK_TIPO_DE_GRUPO, ORDEM, ACTIVE_STATE, CREATED_AT, UPDATED_AT
+        ) VALUES (
+          '${username}', '${username}', 'Grupo unitário', 2, 1, 1, SYSDATE, SYSDATE
+        )RETURNING PK_GRUPO INTO :outId
+      `,
+          {
+            outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+          } as any,
         );
+        if (result?.outId[0] == undefined) {
+          throw new Error(
+            `Erro ao criar grupo unitario para o utilizador ${username}`,
+          );
+        }
+        grupoUnitarioId = result?.outId[0];
+
+        // 8. Associar utilizador ao grupo
+        await queryRunner.manager.query(`
+        INSERT INTO FK2_MCA_TB_GRUPO_UTILIZADOR (
+          FK_GRUPO, FK_UTILIZADOR, ORDEM, ACTIVE_STATE, CREATED_AT, UPDATED_AT
+        ) VALUES (
+          ${grupoUnitarioId}, ${utilizadorId}, 1, 1, SYSDATE, SYSDATE
+        )
+      `);
       }
 
-      const grupoId = grupoUnitario.PK_GRUPO;
+      const grupoId = grupoUnitario ? grupoUnitario.PK_GRUPO : grupoUnitarioId;
 
       // 3. Verifica se já existe entrada removida
       const [removido] = await queryRunner.manager.query(
         `
-        SELECT FK_GRUPO FK_ACESSO
+        SELECT FK_GRUPO, FK_ACESSO
         FROM FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
         WHERE FK_GRUPO = :grupoId
           AND FK_ACESSO = :acessoId
@@ -268,15 +316,20 @@ async listarAcessosDropDown(filter: FilterAcessoDto): Promise<AcessoResponseDto[
 
       if (removido) {
         // Reativa
+        console.log(removido, 'removido');
         await queryRunner.manager.query(
           `
           UPDATE FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
           SET ACTIVE_STATE = 0,
               UPDATED_AT = SYSDATE,
               LAST_UPDATED_BY = :usuarioLogadoId
-          WHERE FK_GRUPO = :grupoId
+          WHERE FK_GRUPO = :grupoId and  FK_ACESSO = :acessoId
           `,
-          { usuarioLogadoId, grupoId: removido.FK_GRUPO } as any,
+          {
+            usuarioLogadoId,
+            grupoId: removido.FK_GRUPO,
+            acessoId: removido.FK_ACESSO,
+          } as any,
         );
       } else {
         // Verifica se já existe
@@ -292,40 +345,43 @@ async listarAcessosDropDown(filter: FilterAcessoDto): Promise<AcessoResponseDto[
         );
 
         if (!jaExiste) {
-
           await queryRunner.manager.query(
             `
- MERGE INTO FK2_MCA_TB_GRUPO_ACESSO t
-USING (
-  SELECT :grupoId AS FK_GRUPO, :acessoId AS FK_ACESSO FROM dual
-) s
-ON (
-  t.FK_GRUPO = s.FK_GRUPO
-  AND t.FK_ACESSO = s.FK_ACESSO
-)
-WHEN NOT MATCHED THEN
-  INSERT (
-    FK_GRUPO,
-    FK_ACESSO,
-    ACTIVE_STATE,
-    CREATED_AT,
-    UPDATED_AT,
-    CREATED_BY,
-    LAST_UPDATED_BY
-  )
-  VALUES (
-    :grupoId,
-    :acessoId,
-    1,
-    SYSDATE,
-    SYSDATE,
-    :usuarioLogadoId,
-    :usuarioLogadoId
-  )
-
-
+            MERGE INTO FK2_MCA_TB_GRUPO_ACESSO t
+            USING (
+              SELECT :grupoId AS FK_GRUPO, :acessoId AS FK_ACESSO FROM dual
+            ) s
+            ON (
+              t.FK_GRUPO = s.FK_GRUPO
+              AND t.FK_ACESSO = s.FK_ACESSO
+            )
+            WHEN MATCHED THEN
+              UPDATE SET
+                t.ACTIVE_STATE = 1,
+                t.UPDATED_AT = SYSDATE
+            WHEN NOT MATCHED THEN
+              INSERT (
+                PK_GRUPO_ACESSO,
+                FK_GRUPO,
+                FK_ACESSO,
+                ACTIVE_STATE,
+                CREATED_AT,
+                UPDATED_AT,
+                CREATED_BY,
+                LAST_UPDATED_BY
+              )
+              VALUES (
+                :pkGrupoAcesso,
+                :grupoId,
+                :acessoId,
+                1,
+                SYSDATE,
+                SYSDATE,
+                :usuarioLogadoId,
+                :usuarioLogadoId
+              )
             `,
-            { grupoId, acessoId, usuarioLogadoId } as any,
+            { pkGrupoAcesso, grupoId, acessoId, usuarioLogadoId } as any,
           );
         }
       }
