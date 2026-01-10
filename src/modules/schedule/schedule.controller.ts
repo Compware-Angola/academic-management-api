@@ -35,6 +35,7 @@ import { PermissionsGuard } from '../acess_management/common/secret/permissions.
 import { RemoteJwtAuthGuard } from '../acess_management/common/guard/remote.jwt-auth.guard';
 
 @ApiTags('schedule')
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('schedule')
 export class ScheduleController {
   constructor(private readonly scheduleService: ScheduleService) {}
@@ -55,23 +56,13 @@ export class ScheduleController {
 
   // ================ LISTAGENS ================
   @Get()
-  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
-  @RequiredPermissions(
 
-    PermissionTypeDetails.LISTAR_HORARIOS.sigla,
- 
-    
- 
-  )
+  @RequiredPermissions( PermissionTypeDetails.LISTAR_HORARIOS.sigla)
   @ApiOperation({
     summary: 'Listar horários com filtros avançados e paginação',
   })
   findAll(@Query(ValidationPipe) query: ListScheduleDto ,  @Req() req: any,) {
-     const userPayload = req.user; 
-     console.log(userPayload,"USER#####");
-     
 
-    
     return this.scheduleService.findAll(query);
   }
 
@@ -139,6 +130,7 @@ export class ScheduleController {
   }
 
   @Get('eliminated')
+   @RequiredPermissions( PermissionTypeDetails.LISTAR_HORARIOS_ELIMINADOS.sigla)
   findAllDeleted(@Query(ValidationPipe) query: ListScheduleDto) {
     return this.scheduleService.findAllDeleted(query);
   }
@@ -168,13 +160,14 @@ export class ScheduleController {
 
   // ================ CRIAÇÃO (O QUE ESTAVA A DAR ERRO) ================
   @Post(':userId')
+   @RequiredPermissions( PermissionTypeDetails.CRIAR_HORARIO.sigla)
   @ApiOperation({ summary: 'Criar novo horário de uma UC' })
   @ApiParam({ name: 'userId', type: Number, description: 'ID do usuário' })
   @ApiResponse({ status: 201, description: 'Horário criado com sucesso.' })
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
   create(
     @Param('userId', ParseIntPipe) userId: number,
-    @Body(ValidationPipe) createScheduleDto: CreateScheduleDto, // <--- AQUI ESTAVA O PROBLEMA!
+    @Body(ValidationPipe) createScheduleDto: CreateScheduleDto,
   ) {
     return this.scheduleService.create(userId, createScheduleDto);
   }
@@ -205,6 +198,7 @@ export class ScheduleController {
 
   // ================ OUTRAS AÇÕES ================
   @Delete(':horarioId/excluir/:userId')
+   
   delete(
     @Param('horarioId', ParseIntPipe) horarioId: number,
     @Param('userId', ParseIntPipe) userId: number,
