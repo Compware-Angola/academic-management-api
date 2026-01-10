@@ -391,6 +391,7 @@ export class AcessosService {
     }
     return result[0].PK_GRUPO_ACESSO;
   }
+  
 
   async adicionarAcesso(
     utilizadorId: number,
