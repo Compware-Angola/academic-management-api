@@ -1,10 +1,22 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, BadRequestException, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  BadRequestException,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { TeamOldRulesService } from './team_old_rules.service';
-
+import { RemoteJwtAuthGuard } from '../acess_management/common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../acess_management/common/secret/permissions.guard';
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('team-old-rules')
 export class TeamOldRulesController {
   constructor(private readonly teamOldRulesService: TeamOldRulesService) {}
-
 
   @Get()
   async findAllUnidadeCurricular(
@@ -19,10 +31,16 @@ export class TeamOldRulesController {
 
     // Validação simples (podes melhorar com class-validator se quiseres)
     if (!codigoTurma || !codigoAno) {
-      throw new BadRequestException('Parâmetros "turma" e "anoLectivo" são obrigatórios');
+      throw new BadRequestException(
+        'Parâmetros "turma" e "anoLectivo" são obrigatórios',
+      );
     }
 
-    return this.teamOldRulesService.findAllUnidadeCurricular(codigoTurma, codigoAno, codigoSemestre);
+    return this.teamOldRulesService.findAllUnidadeCurricular(
+      codigoTurma,
+      codigoAno,
+      codigoSemestre,
+    );
   }
   @Get('/turmas')
   async findAll(
@@ -40,5 +58,4 @@ export class TeamOldRulesController {
 
     return this.teamOldRulesService.findAll(filters);
   }
-
 }

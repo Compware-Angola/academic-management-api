@@ -10,6 +10,7 @@ import {
   ParseIntPipe,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { CargosAdministrativosService } from './cargos-administrativos.service';
@@ -17,8 +18,12 @@ import { FilterCargoDto } from './dto/filter-cargo.dto';
 import { CreateCargoDto } from './dto/create-cargo.dto';
 import { UpdateOcupanteDto } from './dto/update-ocupante.dto';
 import { CargoResponseDto } from './dto/cargo.response.dto';
+import { PermissionTypeDetails } from './common/enums/permission.type';
+import { RemoteJwtAuthGuard } from './common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from './common/secret/permissions.guard';
 
 @ApiTags('Cargos Administrativos')
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('cargos-administrativos')
 export class CargosAdministrativosController {
   constructor(private readonly service: CargosAdministrativosService) {}
