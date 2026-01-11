@@ -57,25 +57,28 @@ export class AcessManagementController {
   @ApiResponse({ status: 201, type: CreatePersonUserResponseDto })
   async criarPessoaEUtilizador(
     @Body(ValidationPipe) dto: CreatePersonUserDto,
-   // @Headers('x-user-logado-id') usuarioLogadoId: number,
+    // @Headers('x-user-logado-id') usuarioLogadoId: number,
   ): Promise<CreatePersonUserResponseDto> {
-    const usuarioLogadoId = 146
+    const usuarioLogadoId = 146;
     return this.usersService.criarPessoaEUtilizador(dto, usuarioLogadoId);
   }
-@Post('novo-acesso')
-//  @UseGuards(RemoteJwtAuthGuard)
+  @Post('novo-acesso')
+  //  @UseGuards(RemoteJwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Cria um novo acesso no sistema' })
   @ApiResponse({ status: 201, description: 'Acesso criado com sucesso' })
-  @ApiResponse({ status: 400, description: 'Dados inválidos ou sigla duplicada' })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos ou sigla duplicada',
+  })
   @ApiResponse({ status: 401, description: 'Não autorizado' })
-  async criar(
-    @Body() createAcessoDto: CreateAcessoDto,
-    @Req() req,
-  ) {
-    const userId = 146; 
+  async criar(@Body() createAcessoDto: CreateAcessoDto, @Req() req) {
+    const userId = 146;
 
-    const novoAcesso = await this.acessosService.criarAcesso(createAcessoDto, userId.toString());
+    const novoAcesso = await this.acessosService.criarAcesso(
+      createAcessoDto,
+      userId.toString(),
+    );
 
     return {
       statusCode: HttpStatus.CREATED,
@@ -87,10 +90,7 @@ export class AcessManagementController {
   @ApiOperation({ summary: 'Atualizar a senha de um utilizador' })
   @ApiResponse({ status: 200, description: 'Senha atualizada' })
   @ApiNotFoundResponse({ description: 'Utilizador não encontrado' })
-  async updatePassword(
-    @Body(ValidationPipe) dto: UpdatePasswordDto,
-   
-  ) {
+  async updatePassword(@Body(ValidationPipe) dto: UpdatePasswordDto) {
     const usuarioLogadoId = 1;
     return this.usersService.updatePassword(dto, usuarioLogadoId);
   }
@@ -163,14 +163,20 @@ export class AcessManagementController {
     return this.acessosService.listarAcessos(filter);
   }
 
-   @Get('details/all/dropdown')
+  @Get('details/all/dropdown')
   @ApiOperation({
     summary: 'Lista todos os acessos com filtros opcionais',
-    description: 'Retorna acessos filtrados por utilizador, grupo ou apenas ativos. Omitir filtros retorna todos os ativos.',
+    description:
+      'Retorna acessos filtrados por utilizador, grupo ou apenas ativos. Omitir filtros retorna todos os ativos.',
   })
   @ApiQuery({ name: 'utilizadorId', required: false, type: Number })
   @ApiQuery({ name: 'grupoId', required: false, type: Number })
-  @ApiQuery({ name: 'apenasAtivos', required: false, type: Boolean, example: 'true' })
+  @ApiQuery({
+    name: 'apenasAtivos',
+    required: false,
+    type: Boolean,
+    example: 'true',
+  })
   @ApiResponse({ status: 200, type: [AcessoResponseDto] })
   @ApiUnauthorizedResponse({ description: 'Não autenticado' })
   async listarAcessosDropDown(
@@ -178,8 +184,6 @@ export class AcessManagementController {
   ): Promise<AcessoResponseDto[]> {
     return this.acessosService.listarAcessosDropDown(filter);
   }
-
-
 
   // GET /acessos/utilizador/:id
   @Get('utilizador/:id')
@@ -254,6 +258,39 @@ export class AcessManagementController {
       usuarioLogadoId, // ou usuarioLogado.pkUtilizador dependendo do payload
     );
   }
+  //Adicionar Grupo no acesso
+  @Post('grupo/:grupoId/acesso/:acessoId')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Adiciona ou reativa acesso para um grupo',
+    description:
+      'Se o acesso estiver removido, reativa. Caso contrário, adiciona ao grupo.',
+  })
+  @ApiParam({ name: 'grupoId', description: 'ID do grupo alvo' })
+  @ApiParam({ name: 'acessoId', description: 'ID do acesso a ser adicionado' })
+  @ApiResponse({
+    status: 201,
+    description: 'Acesso adicionado/reativado com sucesso',
+  })
+  @ApiBadRequestResponse({
+    description: 'Dados inválidos ou acesso já existente',
+  })
+  @ApiNotFoundResponse({
+    description: 'grupo ou acesso não encontrado',
+  })
+  @ApiUnauthorizedResponse({ description: 'Não autenticado' })
+  async adicionarGrupoAcesso(
+    @Param('grupoId', ParseIntPipe) grupoId: number,
+    @Param('acessoId', ParseIntPipe) acessoId: number,
+  ) {
+    // Você pode validar se o usuário logado tem permissão aqui
+    const usuarioLogadoId = 1;
+    return this.acessosService.adicionarGrupoAcesso(
+      grupoId,
+      acessoId,
+      usuarioLogadoId, // ou usuarioLogado.pkUtilizador dependendo do payload
+    );
+  }
 
   // DELETE /acessos/utilizador/:utilizadorId/acesso/:acessoId
   @Delete('utilizador/:utilizadorId/acesso/:acessoId')
@@ -280,6 +317,34 @@ export class AcessManagementController {
   ) {
     return this.acessosService.removerAcesso(
       utilizadorId,
+      acessoId,
+      usuarioLogadoId,
+    );
+  }
+  //Remover Acesso no grupo
+  @Delete('grupo/:grupoId/acesso/:acessoId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Remove ou revoga acesso de um grupo',
+    description: 'Marca o acesso como removido para o grupo .',
+  })
+  @ApiParam({ name: 'grupoId', description: 'ID do grupo alvo' })
+  @ApiParam({ name: 'acessoId', description: 'ID do acesso a ser removido' })
+  @ApiResponse({
+    status: 200,
+    description: 'Acesso removido/revogado com sucesso',
+  })
+  @ApiNotFoundResponse({
+    description: 'Utilizador, grupo ou acesso não encontrado',
+  })
+  @ApiUnauthorizedResponse({ description: 'Não autenticado' })
+  async removerGrupoAcesso(
+    @Param('grupoId', ParseIntPipe) grupoId: number,
+    @Param('acessoId', ParseIntPipe) acessoId: number,
+    @Headers('x-user-logado-id') usuarioLogadoId: number,
+  ) {
+    return this.acessosService.removerGrupoAcesso(
+      grupoId,
       acessoId,
       usuarioLogadoId,
     );

@@ -391,7 +391,6 @@ export class AcessosService {
     }
     return result[0].PK_GRUPO_ACESSO;
   }
-  
 
   async adicionarAcesso(
     utilizadorId: number,
@@ -634,6 +633,241 @@ export class AcessosService {
 
       // Log
       const logDescricao = `Removido acesso ${acessoId} do utilizador ${utilizadorId} por ${usuarioLogadoId}`;
+
+      await queryRunner.manager.query(
+        `
+        INSERT INTO FK2_TB_LOG_ACESSOS_FUNCIONALIDADE (
+          DESCRICAO,
+          FK_UTILIZADOR_RESPONSAVEL,
+          FK_ACESSO,
+          FK_OPERACAO_LOG,
+          CREATED_AT
+        ) VALUES (:logDescricao, :usuarioLogadoId, :acessoId, 2, SYSDATE)
+        `,
+        [logDescricao, usuarioLogadoId, acessoId],
+      );
+
+      await queryRunner.commitTransaction();
+
+      return { message: 'Acesso removido/revogado com sucesso' };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error('Erro ao remover acesso', error);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async adicionarGrupoAcesso(
+    grupoId: number,
+    acessoId: number,
+    usuarioLogadoId: number,
+  ): Promise<{ message: string }> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      // 1. Verifica se o acesso existe
+      const [acessoExiste] = await queryRunner.manager.query(
+        `SELECT 1 FROM FK2_MCA_TB_ACESSO WHERE PK_ACESSO = :acessoId AND ACTIVE_STATE = 1`,
+        [acessoId],
+      );
+      if (!acessoExiste) {
+        throw new NotFoundException('Acesso não encontrado ou inativo');
+      }
+
+      // 2. Busca o grupo se já existe
+      const [grupo] = await queryRunner.manager.query(
+        `
+        SELECT G.PK_GRUPO
+        FROM FK2_MCA_TB_GRUPO G
+        WHERE PK_GRUPO = :grupoId
+          AND G.ACTIVE_STATE = 1
+        `,
+        [grupoId],
+      );
+      const pkGrupoAcesso = await this.getPkGrupoAcesso();
+      if (!grupo) {
+        throw new Error(`Erro ao adicionar acesso, grupo não encontrado`);
+      }
+      // 3. Verifica se já existe entrada removida
+      const [removido] = await queryRunner.manager.query(
+        `
+        SELECT FK_GRUPO, FK_ACESSO
+        FROM FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
+        WHERE FK_GRUPO = :grupoId
+          AND FK_ACESSO = :acessoId
+          AND ACTIVE_STATE = 1
+        `,
+        { grupoId, acessoId } as any,
+      );
+
+      if (removido) {
+        // Reativa
+        console.log(removido, 'removido');
+        await queryRunner.manager.query(
+          `
+          UPDATE FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
+          SET ACTIVE_STATE = 0,
+              UPDATED_AT = SYSDATE,
+              LAST_UPDATED_BY = :usuarioLogadoId
+          WHERE FK_GRUPO = :grupoId and  FK_ACESSO = :acessoId
+          `,
+          {
+            usuarioLogadoId,
+            grupoId: removido.FK_GRUPO,
+            acessoId: removido.FK_ACESSO,
+          } as any,
+        );
+      } else {
+        // Verifica se já existe
+        const [jaExiste] = await queryRunner.manager.query(
+          `
+          SELECT 1
+          FROM FK2_MCA_TB_GRUPO_ACESSO
+          WHERE FK_GRUPO = :grupoId
+            AND FK_ACESSO = :acessoId
+            AND ACTIVE_STATE = 1
+          `,
+          { grupoId, acessoId } as any,
+        );
+
+        if (!jaExiste) {
+          await queryRunner.manager.query(
+            `
+            MERGE INTO FK2_MCA_TB_GRUPO_ACESSO t
+            USING (
+              SELECT :grupoId AS FK_GRUPO, :acessoId AS FK_ACESSO FROM dual
+            ) s
+            ON (
+              t.FK_GRUPO = s.FK_GRUPO
+              AND t.FK_ACESSO = s.FK_ACESSO
+            )
+            WHEN MATCHED THEN
+              UPDATE SET
+                t.ACTIVE_STATE = 1,
+                t.UPDATED_AT = SYSDATE
+            WHEN NOT MATCHED THEN
+              INSERT (
+                PK_GRUPO_ACESSO,
+                FK_GRUPO,
+                FK_ACESSO,
+                ACTIVE_STATE,
+                CREATED_AT,
+                UPDATED_AT,
+                CREATED_BY,
+                LAST_UPDATED_BY
+              )
+              VALUES (
+                :pkGrupoAcesso,
+                :grupoId,
+                :acessoId,
+                1,
+                SYSDATE,
+                SYSDATE,
+                :usuarioLogadoId,
+                :usuarioLogadoId
+              )
+            `,
+            { pkGrupoAcesso, grupoId, acessoId, usuarioLogadoId } as any,
+          );
+        }
+      }
+      // 4. Log
+      const logDescricao = `Adicionado acesso ${acessoId} ao grupo ${grupoId} pelo usuário ${usuarioLogadoId}`;
+
+      await queryRunner.manager.query(
+        `
+        INSERT INTO FK2_TB_LOG_ACESSOS_FUNCIONALIDADE (
+          DESCRICAO,
+          FK_UTILIZADOR_RESPONSAVEL,
+          FK_ACESSO,
+          FK_OPERACAO_LOG,
+          CREATED_AT
+        ) VALUES (:logDescricao, :usuarioLogadoId, :acessoId, 1, SYSDATE)
+        `,
+        { logDescricao, usuarioLogadoId, acessoId } as any,
+      );
+
+      await queryRunner.commitTransaction();
+
+      return { message: 'Acesso adicionado/reativado com sucesso' };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error('Erro ao adicionar acesso', error);
+      throw error instanceof NotFoundException
+        ? error
+        : new InternalServerErrorException('Falha ao adicionar acesso');
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async removerGrupoAcesso(
+    grupoId: number,
+    acessoId: number,
+    usuarioLogadoId: number,
+  ): Promise<{ message: string }> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Verifica se já removido
+      // 1. Verifica se o acesso existe
+      const [acessoExiste] = await queryRunner.manager.query(
+        `SELECT 1 FROM FK2_MCA_TB_ACESSO WHERE PK_ACESSO = :acessoId AND ACTIVE_STATE = 1`,
+        [acessoId],
+      );
+      if (!acessoExiste) {
+        throw new NotFoundException('Acesso não encontrado ou inativo');
+      }
+      // 2. Busca o grupo se já existe
+      const [grupo] = await queryRunner.manager.query(
+        `
+        SELECT G.PK_GRUPO
+        FROM FK2_MCA_TB_GRUPO G
+        WHERE PK_GRUPO = :grupoId
+          AND G.ACTIVE_STATE = 1
+        `,
+        [grupoId],
+      );
+      if (!grupo) {
+        throw new Error(`Erro ao adicionar acesso, grupo não encontrado`);
+      }
+      const [jaRemovido] = await queryRunner.manager.query(
+        `
+        SELECT PK_GRUPO_ACESSO_REMOVIDO
+        FROM FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
+        WHERE FK_GRUPO = :grupoId AND FK_ACESSO = :acessoId
+        `,
+        [grupoId, acessoId],
+      );
+
+      if (jaRemovido) {
+        await queryRunner.manager.query(
+          `
+          UPDATE FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
+          SET ACTIVE_STATE = 1,
+              UPDATED_AT = SYSDATE,
+              LAST_UPDATED_BY = :usuarioLogadoId
+          WHERE FK_GRUPO = :grupoId
+          `,
+          { usuarioLogadoId, grupoId: jaRemovido.PK_GRUPO } as any,
+        );
+      } else {
+        await queryRunner.manager.query(
+          `
+          INSERT INTO FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO (
+            FK_GRUPO, FK_ACESSO, ACTIVE_STATE, CREATED_AT, UPDATED_AT, CREATED_BY, LAST_UPDATED_BY
+          ) VALUES (:grupoId, :acessoId, 1, SYSDATE, SYSDATE, :usuarioLogadoId, :usuarioLogadoId)
+          `,
+          [grupoId, acessoId, usuarioLogadoId, usuarioLogadoId],
+        );
+      }
+      // Log
+      const logDescricao = `Removido acesso ${acessoId} do grupo ${grupoId} por ${usuarioLogadoId}`;
 
       await queryRunner.manager.query(
         `
