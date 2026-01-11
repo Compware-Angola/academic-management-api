@@ -45,7 +45,6 @@ import { PermissionsGuard } from './common/secret/permissions.guard';
 import { PermissionTypeDetails } from './common/enums/permission.type';
 import { RequiredPermissions } from './common/pipes/permissions.decorator';
 
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('acess_management')
 export class AcessManagementController {
   constructor(
