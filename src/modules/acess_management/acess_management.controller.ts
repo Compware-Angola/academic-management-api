@@ -57,8 +57,9 @@ export class AcessManagementController {
   @ApiResponse({ status: 201, type: CreatePersonUserResponseDto })
   async criarPessoaEUtilizador(
     @Body(ValidationPipe) dto: CreatePersonUserDto,
-    @Headers('x-user-logado-id') usuarioLogadoId: number,
+   // @Headers('x-user-logado-id') usuarioLogadoId: number,
   ): Promise<CreatePersonUserResponseDto> {
+    const usuarioLogadoId = 146
     return this.usersService.criarPessoaEUtilizador(dto, usuarioLogadoId);
   }
 @Post('novo-acesso')
