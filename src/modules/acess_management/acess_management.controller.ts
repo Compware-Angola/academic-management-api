@@ -41,7 +41,11 @@ import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UserFilterDto } from './dto/user-filter.dto';
 import { CreateAcessoDto } from './dto/create-acesso.dto';
 import { RemoteJwtAuthGuard } from './common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from './common/secret/permissions.guard';
+import { PermissionTypeDetails } from './common/enums/permission.type';
+import { RequiredPermissions } from './common/pipes/permissions.decorator';
 
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('acess_management')
 export class AcessManagementController {
   constructor(
@@ -57,25 +61,28 @@ export class AcessManagementController {
   @ApiResponse({ status: 201, type: CreatePersonUserResponseDto })
   async criarPessoaEUtilizador(
     @Body(ValidationPipe) dto: CreatePersonUserDto,
-   // @Headers('x-user-logado-id') usuarioLogadoId: number,
+    // @Headers('x-user-logado-id') usuarioLogadoId: number,
   ): Promise<CreatePersonUserResponseDto> {
-    const usuarioLogadoId = 146
+    const usuarioLogadoId = 146;
     return this.usersService.criarPessoaEUtilizador(dto, usuarioLogadoId);
   }
-@Post('novo-acesso')
-//  @UseGuards(RemoteJwtAuthGuard)
+
+  @Post('novo-acesso')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Cria um novo acesso no sistema' })
   @ApiResponse({ status: 201, description: 'Acesso criado com sucesso' })
-  @ApiResponse({ status: 400, description: 'Dados inválidos ou sigla duplicada' })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos ou sigla duplicada',
+  })
   @ApiResponse({ status: 401, description: 'Não autorizado' })
-  async criar(
-    @Body() createAcessoDto: CreateAcessoDto,
-    @Req() req,
-  ) {
-    const userId = 146; 
+  async criar(@Body() createAcessoDto: CreateAcessoDto, @Req() req) {
+    const userId = 146;
 
-    const novoAcesso = await this.acessosService.criarAcesso(createAcessoDto, userId.toString());
+    const novoAcesso = await this.acessosService.criarAcesso(
+      createAcessoDto,
+      userId.toString(),
+    );
 
     return {
       statusCode: HttpStatus.CREATED,
@@ -83,17 +90,16 @@ export class AcessManagementController {
       data: novoAcesso,
     };
   }
+
   @Put('teacher-password')
   @ApiOperation({ summary: 'Atualizar a senha de um utilizador' })
   @ApiResponse({ status: 200, description: 'Senha atualizada' })
   @ApiNotFoundResponse({ description: 'Utilizador não encontrado' })
-  async updatePassword(
-    @Body(ValidationPipe) dto: UpdatePasswordDto,
-   
-  ) {
+  async updatePassword(@Body(ValidationPipe) dto: UpdatePasswordDto) {
     const usuarioLogadoId = 1;
     return this.usersService.updatePassword(dto, usuarioLogadoId);
   }
+
   @Put('add-group-to-user/:userId/:groupId')
   @ApiOperation({ summary: 'Adicionar um grupo a um utilizador' })
   @ApiResponse({ status: 200, description: 'Grupo adicionado ao utilizador' })
@@ -121,6 +127,7 @@ export class AcessManagementController {
       usuarioLogadoId,
     );
   }
+
   @Get('users')
   @ApiOperation({
     summary: 'Listar utilizadores (com filtro por ativo/inativo)',
@@ -163,14 +170,20 @@ export class AcessManagementController {
     return this.acessosService.listarAcessos(filter);
   }
 
-   @Get('details/all/dropdown')
+  @Get('details/all/dropdown')
   @ApiOperation({
     summary: 'Lista todos os acessos com filtros opcionais',
-    description: 'Retorna acessos filtrados por utilizador, grupo ou apenas ativos. Omitir filtros retorna todos os ativos.',
+    description:
+      'Retorna acessos filtrados por utilizador, grupo ou apenas ativos. Omitir filtros retorna todos os ativos.',
   })
   @ApiQuery({ name: 'utilizadorId', required: false, type: Number })
   @ApiQuery({ name: 'grupoId', required: false, type: Number })
-  @ApiQuery({ name: 'apenasAtivos', required: false, type: Boolean, example: 'true' })
+  @ApiQuery({
+    name: 'apenasAtivos',
+    required: false,
+    type: Boolean,
+    example: 'true',
+  })
   @ApiResponse({ status: 200, type: [AcessoResponseDto] })
   @ApiUnauthorizedResponse({ description: 'Não autenticado' })
   async listarAcessosDropDown(
@@ -178,8 +191,6 @@ export class AcessManagementController {
   ): Promise<AcessoResponseDto[]> {
     return this.acessosService.listarAcessosDropDown(filter);
   }
-
-
 
   // GET /acessos/utilizador/:id
   @Get('utilizador/:id')
