@@ -41,7 +41,11 @@ import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UserFilterDto } from './dto/user-filter.dto';
 import { CreateAcessoDto } from './dto/create-acesso.dto';
 import { RemoteJwtAuthGuard } from './common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from './common/secret/permissions.guard';
+import { PermissionTypeDetails } from './common/enums/permission.type';
+import { RequiredPermissions } from './common/pipes/permissions.decorator';
 
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('acess_management')
 export class AcessManagementController {
   constructor(
@@ -62,8 +66,8 @@ export class AcessManagementController {
     const usuarioLogadoId = 146;
     return this.usersService.criarPessoaEUtilizador(dto, usuarioLogadoId);
   }
+
   @Post('novo-acesso')
-  //  @UseGuards(RemoteJwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Cria um novo acesso no sistema' })
   @ApiResponse({ status: 201, description: 'Acesso criado com sucesso' })
@@ -86,6 +90,7 @@ export class AcessManagementController {
       data: novoAcesso,
     };
   }
+
   @Put('teacher-password')
   @ApiOperation({ summary: 'Atualizar a senha de um utilizador' })
   @ApiResponse({ status: 200, description: 'Senha atualizada' })
@@ -94,6 +99,7 @@ export class AcessManagementController {
     const usuarioLogadoId = 1;
     return this.usersService.updatePassword(dto, usuarioLogadoId);
   }
+
   @Put('add-group-to-user/:userId/:groupId')
   @ApiOperation({ summary: 'Adicionar um grupo a um utilizador' })
   @ApiResponse({ status: 200, description: 'Grupo adicionado ao utilizador' })
@@ -121,6 +127,7 @@ export class AcessManagementController {
       usuarioLogadoId,
     );
   }
+
   @Get('users')
   @ApiOperation({
     summary: 'Listar utilizadores (com filtro por ativo/inativo)',
