@@ -6,6 +6,7 @@ import { FetchEncaminhamentoSolicitacaoDTO } from './dto/fetch-encaminhamento-so
 import { RejectarEncaminhamentoSolicitacaoDTO } from './dto/rejectar-encaminhamento-solicitacao.dto';
 import { escapeQuotes } from '../util/escape-quotes';
 import { AprovarEncaminhamentoSolicitacaoDTO } from './dto/aprovar-encaminhamento-solicitacao.dto';
+import oracledb from 'oracledb';
 
 @Injectable()
 export class SolicitacaoService {
@@ -123,6 +124,23 @@ export class SolicitacaoService {
     return result[0].NOME as string;
   }
 
+  async getPreInscricaoByMatricula(matriculaId: number): Promise<number> {
+    const result = await this.dataSource.query(
+      `select p.CODIGO
+        from FK2_TB_MATRICULAS m
+        inner join FK2_TB_ADMISSAO d on d.codigo =  m.codigo_aluno
+        inner join FK2_TB_PREINSCRICAO p on p.codigo = d.PRE_INCRICAO
+        where m.codigo = :matriculaId;`,
+      [matriculaId],
+    );
+
+    if (!result || result.length === 0) {
+      throw new Error(`PreInscricao não encontrada`);
+    }
+
+    return result[0].CODIGO as number;
+  }
+
   async rejeitarEncaminhamento({
     solicitacaoId,
     userId,
@@ -231,105 +249,151 @@ export class SolicitacaoService {
         `
       SELECT
         s.codigo_matricula,
-        s.codigo_tipo_servico,
+        s.codigotiposervico,
         ts.preco,
         ts.sigla
       FROM fk2_tb_solicitacao_uma s
-      JOIN fk2_tb_tipo_servico ts ON ts.id = s.codigo_tipo_servico
+      JOIN fk2_tb_tipo_servicos ts ON ts.codigo = s.codigotiposervico
       WHERE s.id = :solicitacaoId
       `,
         { solicitacaoId } as any,
       );
-      if (solicitacao.preco > 0) {
-        const [factura] = await queryRunner.query(
-          `
-            INSERT INTO fk2_tb_factura (
-              data_factura,
-              total_preco,
-              codigo_matricula,
-              estado,
-              corrente,
-              ano_lectivo,
-              valor_a_pagar,
-              desconto,
-              troco,
-              totaliva,
-              totalmulta,
-              total_incidencia,
-              valorentregue,
-              valorentreguemltcx,
-              polo_id,
-              canal
-            ) VALUES (
-                SYSDATE,
-                :preco,
-                :codigoMatricula,
-                0,
-                1,
-                :anoLectivo,
-                :preco,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                1,
-                1
-            ) RETURNING id INTO :id
-              `,
-          {
-            preco: solicitacao.PRECO,
-            codigoMatricula: solicitacao.CODIGO_MATRICULA,
-            anoLectivo: anoLectivo.codigo,
-          } as any,
+      if (solicitacao.PRECO > 0) {
+        const preInscricaoId = await this.getPreInscricaoByMatricula(
+          solicitacao.CODIGO_MATRICULA,
         );
-        facturaId = factura.ID;
-        //3. Itens da fatura
-        await queryRunner.query(
-          `
-        INSERT INTO fk2_tb_factura_itens (
-          codigo_factura,
-          codigo_produto,
-          quantidade,
-          preco,
-          total,
-          estado,
-          codigo_ano_lectivo,
-          descontoproduto,
-          multa,
-          valor_iva,
-          valor_pago,
-          valor_a_transportar
-        ) VALUES (
-          :facturaId,
-          :codigoProduto,
-          1,
-          :preco,
-          :preco,
-          0,
-          :anoLectivo,
-          0,
-          0,
-          0,
-          0,
-          0
-        )
-      `,
-          {
-            facturaId,
-            codigoProduto: solicitacao.CODIGO_TIPO_SERVICO,
-            preco: solicitacao.PRECO,
-            anoLectivo: anoLectivo.CODIGO,
-          } as any,
-        );
+        const factura = {
+          DataFactura: new Date().toISOString(),
+          polo_id: 1,
+          TotalPreco: solicitacao.PRECO,
+          codigo_descricao: 101,
+          ValorAPagar: solicitacao.PRECO,
+          total_incidencia: 0,
+          total_retencao: 0,
+          CodigoMatricula: solicitacao.CODIGO_MATRICULA,
+          codigo_preinscricao: preInscricaoId,
+          Desconto: 0,
+          totalIVA: 0,
+          TotalMulta: 0,
+          Descricao: 'Factura da solicitação de recaminhamento.',
+          tipo_documento_factura_id: 1,
+          canal: 3,
+          itens: [
+            {
+              CodigoProduto: solicitacao.CODIGO_TIPO_SERVICO,
+              Quantidade: 2,
+              preco: solicitacao.PRECO,
+              Total: solicitacao.PRECO,
+              valor_pago: 0,
+              obs: 'Factura da solicitação de recaminhamento.',
+              taxaIva: 0,
+              valorIva: 0,
+              retencao: 0,
+              incidencia: 0,
+              valorDesconto: 0,
+              descontoProduto: 0,
+              multa: 0,
+              mesTempId: 0,
+              estado: 0,
+              valorPago: 0,
+              valorATransportar: 0,
+            },
+          ],
+        };
+
+        //   const factura = await queryRunner.query(
+        //     `
+        //       INSERT INTO fk2_factura (
+        //         datafactura,
+        //         totalpreco,
+        //         codigomatricula,
+        //         estado,
+        //         corrente,
+        //         ano_lectivo,
+        //         valorapagar,
+        //         desconto,
+        //         troco,
+        //         totaliva,
+        //         totalmulta,
+        //         total_incidencia,
+        //         valorentregue,
+        //         valorentreguemltcx,
+        //         polo_id,
+        //         canal
+        //       ) VALUES (
+        //           SYSDATE,
+        //           :preco,
+        //           :codigoMatricula,
+        //           0,
+        //           1,
+        //           :anoLectivo,
+        //           :valorPagar,
+        //           0,
+        //           0,
+        //           0,
+        //           0,
+        //           0,
+        //           0,
+        //           0,
+        //           1,
+        //           1
+        //       ) RETURNING CODIGO INTO :id
+        //         `,
+        //     {
+        //       preco: solicitacao.PRECO,
+        //       valorPagar: solicitacao.PRECO,
+        //       codigoMatricula: solicitacao.CODIGO_MATRICULA,
+        //       anoLectivo: anoLectivo.CODIGO,
+        //       id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+        //     } as any,
+        //   );
+        //   facturaId = factura.id[0];
+        //   console.log(facturaId, 'facturas');
+
+        //   //3. Itens da fatura
+        //   await queryRunner.query(
+        //     `
+        //   INSERT INTO fk2_factura_items (
+        //     codigo_factura,
+        //     codigo_produto,
+        //     quantidade,
+        //     preco,
+        //     total,
+        //     estado,
+        //     codigo_ano_lectivo,
+        //     descontoproduto,
+        //     multa,
+        //     valor_iva,
+        //     valor_pago,
+        //     valor_a_transportar
+        //   ) VALUES (
+        //     :facturaId,
+        //     :codigoProduto,
+        //     1,
+        //     :preco,
+        //     :preco,
+        //     0,
+        //     :anoLectivo,
+        //     0,
+        //     0,
+        //     0,
+        //     0,
+        //     0
+        //   )
+        // `,
+        //     {
+        //       facturaId,
+        //       codigoProduto: solicitacao.CODIGO_TIPO_SERVICO,
+        //       preco: solicitacao.PRECO,
+        //       anoLectivo: anoLectivo.CODIGO,
+        //     } as any,
+        //   );
       }
       //Caso tiver sigla
       else if (solicitacao.SIGLA == 'AdS') {
         const [preinscricao] = await queryRunner.query(
           `
-          SELECT id, saldo, saldo_reset
+          SELECT codigo, saldo, saldo_reset
           FROM fk2_tb_preinscricao
           WHERE user_id = :estudanteId
           `,
@@ -348,7 +412,7 @@ export class SolicitacaoService {
           `,
             {
               novoSaldo,
-              id: preinscricao.ID,
+              id: preinscricao.CODIGO,
             } as any,
           );
         }
@@ -416,7 +480,7 @@ export class SolicitacaoService {
       await queryRunner.commitTransaction();
       return {
         success: true,
-        message: 'Solicitação aprovada e fatura gerada com sucesso',
+        message: 'Solicitação aprovada e ',
         facturaId,
       };
     } catch (error) {
