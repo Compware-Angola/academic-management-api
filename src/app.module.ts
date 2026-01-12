@@ -13,36 +13,40 @@ import { HistoryNoteReleaseService } from './modules/assessment/history_note_rel
 import { AcessManagementModule } from './modules/acess_management/acess_management.module';
 import { AcademicCalendarModule } from './modules/academic_calendar/academic_calendar.module';
 import { TeamOldRulesModule } from './modules/team_old_rules/team_old_rules.module';
+import { HttpModule } from '@nestjs/axios';
+
 @Module({
-  imports: [ ConfigModule.forRoot({
+  imports: [
+    ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
     }),
-TypeOrmModule.forRootAsync({
-  imports: [ConfigModule],
-  inject: [ConfigService],
-  useFactory: (config: ConfigService) => {
-    const isSSL = config.get<string>('DB_SSL') === 'true';
+    HttpModule,
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const isSSL = config.get<string>('DB_SSL') === 'true';
 
-    return {
-      type: 'oracle' as const,
-      host: config.get<string>('DB_HOST'),
-      port: config.get<number>('DB_PORT', 1521),
-      username: config.get<string>('DB_USERNAME'),
-      password: config.get<string>('DB_PASSWORD'),
-      sid: config.get<string>('DB_SID'),
+        return {
+          type: 'oracle' as const,
+          host: config.get<string>('DB_HOST'),
+          port: config.get<number>('DB_PORT', 1521),
+          username: config.get<string>('DB_USERNAME'),
+          password: config.get<string>('DB_PASSWORD'),
+          sid: config.get<string>('DB_SID'),
 
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: false,
-      logging: ['query', 'error'],
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          synchronize: false,
+          logging: ['query', 'error'],
 
-      extra: {
-        disableInsertDefaultValues: true,
-        ...(isSSL ? { ssl: { rejectUnauthorized: true } } : {}),
+          extra: {
+            disableInsertDefaultValues: true,
+            ...(isSSL ? { ssl: { rejectUnauthorized: true } } : {}),
+          },
+        };
       },
-    };
-  },
-}),
+    }),
 
     AssessmentModule,
     RoonModule,
@@ -53,7 +57,7 @@ TypeOrmModule.forRootAsync({
     AcessManagementModule,
     AcademicCalendarModule,
     TeamOldRulesModule,
-],
+  ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService],
 })

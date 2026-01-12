@@ -1,17 +1,21 @@
 // src/users/referencias.controller.ts
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ReferenciasService } from './referencias.service';
-import { ReferenciaDto } from '../shared/dto/referencia.dto';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SolicitacaoService } from './solicitacao.service';
 import { FetchEncaminhamentoSolicitacaoDTO } from './dto/fetch-encaminhamento-solicitacao.dto';
 import { RejectarEncaminhamentoSolicitacaoDTO } from './dto/rejectar-encaminhamento-solicitacao.dto';
 import { AprovarEncaminhamentoSolicitacaoDTO } from './dto/aprovar-encaminhamento-solicitacao.dto';
+import { ConfigService } from '@nestjs/config';
+import { HttpService } from '@nestjs/axios';
 
 @ApiTags('solicitacao')
 @Controller('solicitacoa')
 export class SolicitacaoController {
-  constructor(private readonly solicitacaoService: SolicitacaoService) {}
+  constructor(
+    private readonly solicitacaoService: SolicitacaoService,
+    private readonly httpService: HttpService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Get('solicitacoes')
   @ApiOperation({ summary: 'Listar todas  as solicitacões encaminhadas' })
@@ -39,6 +43,10 @@ export class SolicitacaoController {
   })
   @ApiResponse({ status: 400, description: 'Dados inválidos' })
   async aprovarSolicitacao(@Body() dto: AprovarEncaminhamentoSolicitacaoDTO) {
-    return this.solicitacaoService.aprovarEncaminhamento(dto);
+    return this.solicitacaoService.aprovarEncaminhamento(
+      dto,
+      this.httpService,
+      this.configService,
+    );
   }
 }

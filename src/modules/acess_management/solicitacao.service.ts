@@ -7,6 +7,9 @@ import { RejectarEncaminhamentoSolicitacaoDTO } from './dto/rejectar-encaminhame
 import { escapeQuotes } from '../util/escape-quotes';
 import { AprovarEncaminhamentoSolicitacaoDTO } from './dto/aprovar-encaminhamento-solicitacao.dto';
 import oracledb from 'oracledb';
+import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class SolicitacaoService {
@@ -130,7 +133,7 @@ export class SolicitacaoService {
         from FK2_TB_MATRICULAS m
         inner join FK2_TB_ADMISSAO d on d.codigo =  m.codigo_aluno
         inner join FK2_TB_PREINSCRICAO p on p.codigo = d.PRE_INCRICAO
-        where m.codigo = :matriculaId;`,
+        where m.codigo = :matriculaId`,
       [matriculaId],
     );
 
@@ -224,12 +227,30 @@ export class SolicitacaoService {
       await queryRunner.release();
     }
   }
-
-  async aprovarEncaminhamento({
-    descricao,
-    solicitacaoId,
-    userId,
-  }: AprovarEncaminhamentoSolicitacaoDTO) {
+  async enviarFactura(
+    httpService: HttpService,
+    configService: ConfigService,
+    payload: any,
+  ) {
+    try {
+      const financeApi = configService.get<string>('FINANCE_API');
+      console.log('payload', payload);
+      const response = await firstValueFrom(
+        httpService.post(`${financeApi}/invoices`, payload),
+      );
+      console.log('Response: ', response.data);
+      return response.data;
+    } catch (error) {
+      throw new Error(
+        error?.response?.data?.message || 'Erro ao enviar invoice',
+      );
+    }
+  }
+  async aprovarEncaminhamento(
+    { descricao, solicitacaoId, userId }: AprovarEncaminhamentoSolicitacaoDTO,
+    httpService: HttpService,
+    configService: ConfigService,
+  ) {
     let facturaId = null;
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -250,6 +271,7 @@ export class SolicitacaoService {
       SELECT
         s.codigo_matricula,
         s.codigotiposervico,
+        s.status_   as estado,
         ts.preco,
         ts.sigla
       FROM fk2_tb_solicitacao_uma s
@@ -258,6 +280,18 @@ export class SolicitacaoService {
       `,
         { solicitacaoId } as any,
       );
+      if (
+        solicitacao.ESTADO?.toUpperCase() !=
+        'solicitacao encaminhada'.toUpperCase()
+      ) {
+        throw new Error(
+          'Para responder o status deve estar na solicitacao encaminhada ',
+        );
+      }
+
+      if (!solicitacao) {
+        throw new Error('Solicitação não encontrada');
+      }
       if (solicitacao.PRECO > 0) {
         const preInscricaoId = await this.getPreInscricaoByMatricula(
           solicitacao.CODIGO_MATRICULA,
@@ -275,17 +309,18 @@ export class SolicitacaoService {
           Desconto: 0,
           totalIVA: 0,
           TotalMulta: 0,
-          Descricao: 'Factura da solicitação de recaminhamento.',
+          Descricao:
+            'Factura da solicitação de recaminhamento ' + solicitacaoId,
           tipo_documento_factura_id: 1,
           canal: 3,
           itens: [
             {
-              CodigoProduto: solicitacao.CODIGO_TIPO_SERVICO,
+              CodigoProduto: solicitacao.CODIGOTIPOSERVICO,
               Quantidade: 2,
               preco: solicitacao.PRECO,
               Total: solicitacao.PRECO,
               valor_pago: 0,
-              obs: 'Factura da solicitação de recaminhamento.',
+              obs: 'Factura da solicitação de recaminhamento',
               taxaIva: 0,
               valorIva: 0,
               retencao: 0,
@@ -300,94 +335,7 @@ export class SolicitacaoService {
             },
           ],
         };
-
-        //   const factura = await queryRunner.query(
-        //     `
-        //       INSERT INTO fk2_factura (
-        //         datafactura,
-        //         totalpreco,
-        //         codigomatricula,
-        //         estado,
-        //         corrente,
-        //         ano_lectivo,
-        //         valorapagar,
-        //         desconto,
-        //         troco,
-        //         totaliva,
-        //         totalmulta,
-        //         total_incidencia,
-        //         valorentregue,
-        //         valorentreguemltcx,
-        //         polo_id,
-        //         canal
-        //       ) VALUES (
-        //           SYSDATE,
-        //           :preco,
-        //           :codigoMatricula,
-        //           0,
-        //           1,
-        //           :anoLectivo,
-        //           :valorPagar,
-        //           0,
-        //           0,
-        //           0,
-        //           0,
-        //           0,
-        //           0,
-        //           0,
-        //           1,
-        //           1
-        //       ) RETURNING CODIGO INTO :id
-        //         `,
-        //     {
-        //       preco: solicitacao.PRECO,
-        //       valorPagar: solicitacao.PRECO,
-        //       codigoMatricula: solicitacao.CODIGO_MATRICULA,
-        //       anoLectivo: anoLectivo.CODIGO,
-        //       id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-        //     } as any,
-        //   );
-        //   facturaId = factura.id[0];
-        //   console.log(facturaId, 'facturas');
-
-        //   //3. Itens da fatura
-        //   await queryRunner.query(
-        //     `
-        //   INSERT INTO fk2_factura_items (
-        //     codigo_factura,
-        //     codigo_produto,
-        //     quantidade,
-        //     preco,
-        //     total,
-        //     estado,
-        //     codigo_ano_lectivo,
-        //     descontoproduto,
-        //     multa,
-        //     valor_iva,
-        //     valor_pago,
-        //     valor_a_transportar
-        //   ) VALUES (
-        //     :facturaId,
-        //     :codigoProduto,
-        //     1,
-        //     :preco,
-        //     :preco,
-        //     0,
-        //     :anoLectivo,
-        //     0,
-        //     0,
-        //     0,
-        //     0,
-        //     0
-        //   )
-        // `,
-        //     {
-        //       facturaId,
-        //       codigoProduto: solicitacao.CODIGO_TIPO_SERVICO,
-        //       preco: solicitacao.PRECO,
-        //       anoLectivo: anoLectivo.CODIGO,
-        //     } as any,
-        //   );
+        await this.enviarFactura(httpService, configService, factura);
       }
       //Caso tiver sigla
       else if (solicitacao.SIGLA == 'AdS') {
@@ -479,9 +427,7 @@ export class SolicitacaoService {
       );
       await queryRunner.commitTransaction();
       return {
-        success: true,
-        message: 'Solicitação aprovada e ',
-        facturaId,
+        message: 'Solicitação aprovada',
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();

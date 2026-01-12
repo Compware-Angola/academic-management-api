@@ -13,8 +13,10 @@ import { GroupsController } from './groups/groups.controller';
 import { GroupsService } from './groups/groups.service';
 import { SolicitacaoService } from './solicitacao.service';
 import { SolicitacaoController } from './solicitacao.controller';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
+  imports: [HttpModule],
   controllers: [
     AcessManagementController,
     ReferenciasController,

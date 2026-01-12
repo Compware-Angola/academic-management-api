@@ -348,8 +348,8 @@ export class AcessManagementController {
   async removerGrupoAcesso(
     @Param('grupoId', ParseIntPipe) grupoId: number,
     @Param('acessoId', ParseIntPipe) acessoId: number,
-    @Headers('x-user-logado-id') usuarioLogadoId: number,
   ) {
+    const usuarioLogadoId = 146;
     return this.acessosService.removerGrupoAcesso(
       grupoId,
       acessoId,
