@@ -195,30 +195,70 @@ let sql = `
     totalPages: Math.ceil(total / limit),
   };
 }
-async  addgroupToUser(
-    userId: number,
-    groupId: number,
-    usuarioLogadoId: number,
-  ): Promise<{ message: string }> {
-    try {
-      await this.dataSource.query(`
-        INSERT INTO FK2_MCA_TB_GRUPO_UTILIZADOR (
-          FK_GRUPO, FK_UTILIZADOR, ORDEM, ACTIVE_STATE, CREATED_AT, UPDATED_AT
-        ) VALUES (
-          ${groupId}, ${userId}, 1, 1, SYSDATE, SYSDATE
-        )
-      `);
+async addgroupToUser(
+  userId: number,
+  groupId: number,
+  usuarioLogadoId: number,
+): Promise<{ message: string }> {
+  try {
+    // 1. Verificar se a associação já existe
+    const [existing] = await this.dataSource.query(`
+      SELECT COUNT(*) as count 
+      FROM FK2_MCA_TB_GRUPO_UTILIZADOR 
+      WHERE FK_GRUPO = ${groupId} 
+      AND FK_UTILIZADOR = ${userId}
+    `);
 
-      this.logger.log(
-        `Grupo ${groupId} adicionado ao utilizador ${userId} por user_id=${usuarioLogadoId}`,
-      );
+    const alreadyExists = Number(existing.count) > 0;
 
-      return { message: 'Grupo adicionado ao utilizador com sucesso' };
-    } catch (error) {
-      this.logger.error('Erro ao adicionar grupo ao utilizador', error.stack);
-      throw new InternalServerErrorException('Erro interno ao adicionar grupo ao utilizador. Verifique os dados e tente novamente.');
+    if (alreadyExists) {
+      return { 
+        message: 'O utilizador já pertence a este grupo' 
+      };
     }
+
+    // 2. Se não existe → inserir
+    await this.dataSource.query(`
+      INSERT INTO FK2_MCA_TB_GRUPO_UTILIZADOR (
+        FK_GRUPO, 
+        FK_UTILIZADOR, 
+        ORDEM, 
+        ACTIVE_STATE, 
+        CREATED_AT, 
+        UPDATED_AT
+      ) VALUES (
+        ${groupId}, 
+        ${userId}, 
+        1, 
+        1, 
+        SYSDATE, 
+        SYSDATE
+      )
+    `);
+
+    this.logger.log(
+      `Grupo ${groupId} adicionado ao utilizador ${userId} por user_id=${usuarioLogadoId}`,
+    );
+
+    return { 
+      message: 'Grupo adicionado ao utilizador com sucesso' 
+    };
+
+  } catch (error) {
+    this.logger.error('Erro ao adicionar grupo ao utilizador', error.stack);
+
+    // Tratamento mais específico para erro de duplicação (caso a constraint exista)
+    if (error.code === 'ORA-00001') { 
+      return { 
+        message: 'O utilizador já pertence a este grupo' 
+      };
+    }
+
+    throw new InternalServerErrorException(
+      'Erro interno ao adicionar grupo ao utilizador. Verifique os dados e tente novamente.'
+    );
   }
+}
 
   async removeGroupFromUser(
     userId: number,
