@@ -2287,7 +2287,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       const escape = (str: string) =>
         str.replace(/"/g, '\\"').replace(/\n/g, '\\n');
 
-      const ref_docente = dto.docente
+      const ref_docente = nomeDocente
       ? `{"pkDocente":${dto.docente},"nome":"${escape(nomeDocente)}"}`
       : `{"pkDocente":null,"nome":"Por atribuir"}`;
       const v_desc_sala = await this.getDescricaoSala(dto.sala);
