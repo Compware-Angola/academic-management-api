@@ -187,6 +187,7 @@ export class CreateScheduleDto {
   })
   @IsInt()
   @Min(1)
+   @IsOptional()
   docente: number;
 
     @ApiProperty({
@@ -195,6 +196,7 @@ export class CreateScheduleDto {
   })
   @IsInt()
   @Min(1)
+   @IsOptional()
   sala: number;
 
 
