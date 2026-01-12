@@ -2401,7 +2401,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       );
     }
 
-    return result[0].CODIGO as number;
+    return result[0]?.CODIGO as number;
   }
   // 4.1) Descrição da disciplina da grade curricular
   async getDescricaoGradeCurricular(codigoGrade: number): Promise<string> {
@@ -2419,7 +2419,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       );
     }
 
-    return result[0].DESIGNACAO as string;
+    return result[0]?.DESIGNACAO as string;
   }
 
   // 4.2) Descrição do período
@@ -2435,7 +2435,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       throw new Error(`Período não encontrado para o código ${codigoPeriodo}`);
     }
 
-    return result[0].DESIGNACAO as string;
+    return result[0]?.DESIGNACAO as string;
   }
 
   // 4.3) Nome do docente
@@ -2452,7 +2452,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
 
   
 
-    return result[0].nome as string;
+    return result[0]?.nome as string;
   }
 
   // 4.4) Descrição do ano lectivo
@@ -2470,7 +2470,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       );
     }
 
-    return result[0].DESIGNACAO as string;
+    return result[0]?.DESIGNACAO as string;
   }
   //
   private async getDescricaoSala(sala: number): Promise<string> {
