@@ -2448,9 +2448,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       [codigoDocente],
     );
 
-    if (!result || result.length === 0) {
-      throw new Error(`Docente não encontrado para o código ${codigoDocente}`);
-    }
+  
 
     return result[0].nome as string;
   }
@@ -2481,9 +2479,7 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       [sala],
     );
 
-    if (!result || result.length === 0) {
-      throw new Error(`Sala não encontrado para o código ${sala}`);
-    }
+  
 
     return result[0].DESIGNACAO as string;
   }
