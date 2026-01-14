@@ -382,7 +382,7 @@ export class ScheduleService {
       if (!horariosMap.has(horarioId)) {
         horariosMap.set(horarioId, {
           codigo: horarioId,
-          anoLectivo: r.ANO_LECTIVO,
+          anoLectivo: r?.ano_lectivo,
           designacao: r.HORARIO_NOME,
           unidadeCurricularId: Number(r.CODIGO_GRADE),
           disciplina: r.DISCIPLINA,

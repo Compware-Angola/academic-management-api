@@ -35,13 +35,14 @@ import { PermissionsGuard } from '../acess_management/common/secret/permissions.
 import { RemoteJwtAuthGuard } from '../acess_management/common/guard/remote.jwt-auth.guard';
 
 @ApiTags('schedule')
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+
 @Controller('schedule')
 export class ScheduleController {
   constructor(private readonly scheduleService: ScheduleService) {}
 
   // ================ PERMISSÃO DE EDIÇÃO ================
   @Post('permission') 
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({ summary: 'Criar nova permissão para editar horário' })
   @ApiResponse({ status: 201, description: 'Permissão criada com sucesso.' })
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
@@ -56,7 +57,7 @@ export class ScheduleController {
 
   // ================ LISTAGENS ================
   @Get()
-
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @RequiredPermissions( PermissionTypeDetails.LISTAR_HORARIOS.sigla)
   @ApiOperation({
     summary: 'Listar horários com filtros avançados e paginação',
@@ -77,6 +78,7 @@ export class ScheduleController {
   }
 
   @Put('with-permission/:permissionId')
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({
     summary: 'Atualizar permissão de edição de horário pelo ID da permissão',
   })
