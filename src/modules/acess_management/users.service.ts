@@ -17,6 +17,7 @@ import { UserListItemDto } from './dto/user-list-item.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { gerarHashExterno } from '../util/hash.util';
+import { FilterUserLogadoDto } from './dto/filter-user-logado.dto';
 
 @Injectable()
 export class UsersService {
@@ -99,29 +100,29 @@ export class UsersService {
     }
   }
 
-async listUsers(filter: UserFilterDto): Promise<{
-  data: UserListItemDto[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}> {
-  const {
-    ativo,
-    page = 1,
-    limit = 20, 
-    search
-  } = filter;
+  async listUsers(filter: UserFilterDto): Promise<{
+    data: UserListItemDto[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const {
+      ativo,
+      page = 1,
+      limit = 20,
+      search
+    } = filter;
 
 
     const offset = (page - 1) * limit;
- 
-  const params: any = {
-    offset,
-    limit: offset + limit, 
-  };
 
-let sql = `
+    const params: any = {
+      offset,
+      limit: offset + limit,
+    };
+
+    let sql = `
     SELECT *
     FROM (
       SELECT
@@ -148,28 +149,28 @@ let sql = `
           ON pe.pk_pessoa = JSON_VALUE(u.REF_PESSOA, '$.pk')
         WHERE 1 = 1
   `;
-  // Filtro ativo/inativo
-  if (ativo === 'true') {
-    sql += ` AND u.ACTIVE_STATE = 1`;
-  } else if (ativo === 'false') {
-    sql += ` AND u.ACTIVE_STATE = 0`;
-  }
+    // Filtro ativo/inativo
+    if (ativo === 'true') {
+      sql += ` AND u.ACTIVE_STATE = 1`;
+    } else if (ativo === 'false') {
+      sql += ` AND u.ACTIVE_STATE = 0`;
+    }
 
-  // Filtro de pesquisa livre (nome, username ou email)
-  if (search && search.trim()) {
-    const searchTerm = `%${search.trim().toUpperCase()}%`;
-    sql += `
+    // Filtro de pesquisa livre (nome, username ou email)
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim().toUpperCase()}%`;
+      sql += `
       AND (
         UPPER(u.NOME) LIKE :search
         OR UPPER(u.USERNAME) LIKE :search
         OR UPPER(u.EMAIL) LIKE :search
       )
     `;
-    params.search = searchTerm;
-  }
+      params.search = searchTerm;
+    }
 
-  // Fechar subqueries
-  sql += `
+    // Fechar subqueries
+    sql += `
       ) dados
     )
   WHERE rn > :offset
@@ -177,48 +178,48 @@ let sql = `
     ORDER BY rn
   `;
 
-  const result = await this.dataSource.query(sql, params);
+    const result = await this.dataSource.query(sql, params);
 
-  const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
+    const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
 
-  // Remover colunas internas rn e total_registros
-  const data = result.map((row: any) => {
-    const { RN, TOTAL_REGISTROS, ...item } = row;
-    return item;
-  });
+    // Remover colunas internas rn e total_registros
+    const data = result.map((row: any) => {
+      const { RN, TOTAL_REGISTROS, ...item } = row;
+      return item;
+    });
 
-  return {
-    data: await toLowerCaseKeys(data) ,
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit),
-  };
-}
-async addgroupToUser(
-  userId: number,
-  groupId: number,
-  usuarioLogadoId: number,
-): Promise<{ message: string }> {
-  try {
-    // 1. Verificar se a associação já existe
-    const [existing] = await this.dataSource.query(`
+    return {
+      data: await toLowerCaseKeys(data),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+  async addgroupToUser(
+    userId: number,
+    groupId: number,
+    usuarioLogadoId: number,
+  ): Promise<{ message: string }> {
+    try {
+      // 1. Verificar se a associação já existe
+      const [existing] = await this.dataSource.query(`
       SELECT COUNT(*) as count 
       FROM FK2_MCA_TB_GRUPO_UTILIZADOR 
       WHERE FK_GRUPO = ${groupId} 
       AND FK_UTILIZADOR = ${userId}
     `);
 
-    const alreadyExists = Number(existing.count) > 0;
+      const alreadyExists = Number(existing.count) > 0;
 
-    if (alreadyExists) {
-      return { 
-        message: 'O utilizador já pertence a este grupo' 
-      };
-    }
+      if (alreadyExists) {
+        return {
+          message: 'O utilizador já pertence a este grupo'
+        };
+      }
 
-    // 2. Se não existe → inserir
-    await this.dataSource.query(`
+      // 2. Se não existe → inserir
+      await this.dataSource.query(`
       INSERT INTO FK2_MCA_TB_GRUPO_UTILIZADOR (
         FK_GRUPO, 
         FK_UTILIZADOR, 
@@ -236,29 +237,29 @@ async addgroupToUser(
       )
     `);
 
-    this.logger.log(
-      `Grupo ${groupId} adicionado ao utilizador ${userId} por user_id=${usuarioLogadoId}`,
-    );
+      this.logger.log(
+        `Grupo ${groupId} adicionado ao utilizador ${userId} por user_id=${usuarioLogadoId}`,
+      );
 
-    return { 
-      message: 'Grupo adicionado ao utilizador com sucesso' 
-    };
-
-  } catch (error) {
-    this.logger.error('Erro ao adicionar grupo ao utilizador', error.stack);
-
-    // Tratamento mais específico para erro de duplicação (caso a constraint exista)
-    if (error.code === 'ORA-00001') { 
-      return { 
-        message: 'O utilizador já pertence a este grupo' 
+      return {
+        message: 'Grupo adicionado ao utilizador com sucesso'
       };
-    }
 
-    throw new InternalServerErrorException(
-      'Erro interno ao adicionar grupo ao utilizador. Verifique os dados e tente novamente.'
-    );
+    } catch (error) {
+      this.logger.error('Erro ao adicionar grupo ao utilizador', error.stack);
+
+      // Tratamento mais específico para erro de duplicação (caso a constraint exista)
+      if (error.code === 'ORA-00001') {
+        return {
+          message: 'O utilizador já pertence a este grupo'
+        };
+      }
+
+      throw new InternalServerErrorException(
+        'Erro interno ao adicionar grupo ao utilizador. Verifique os dados e tente novamente.'
+      );
+    }
   }
-}
 
   async removeGroupFromUser(
     userId: number,
@@ -308,10 +309,10 @@ async addgroupToUser(
       if (!this.validarEmail(dto.email)) {
         throw new BadRequestException('Endereço de email inválido.');
       }
-console.log(dto);
+      console.log(dto);
 
       // 3. Inserir Pessoa
-await queryRunner.manager.query(`
+      await queryRunner.manager.query(`
   INSERT INTO FK2_TB_PESSOA (
     NOME_COMPLETO, 
     NUM_DOC_IDENTIFICACAO, 
@@ -342,17 +343,17 @@ await queryRunner.manager.query(`
     SYSDATE
   )
 `, {
-  nomeCompleto: dto.nomeCompleto || null,
-  numDocIdentificacao: dto.numDocIdentificacao || null,
-  email: dto.email || null,
-  telefone1: dto.telefone1 || null,
-  telefone2: dto.telefone2 || null,
-  dataDeNascimento: dto.dataDeNascimento ? new Date(dto.dataDeNascimento) : null,
-  tipoDocumentoId: dto.tipoDocumentoId || null,
-  sexoId: dto.sexoId || null,
-  estadoCivilId: dto.estadoCivilId || null,
-  nacionalidadeId: dto.nacionalidadeId || null,
-} as any);
+        nomeCompleto: dto.nomeCompleto || null,
+        numDocIdentificacao: dto.numDocIdentificacao || null,
+        email: dto.email || null,
+        telefone1: dto.telefone1 || null,
+        telefone2: dto.telefone2 || null,
+        dataDeNascimento: dto.dataDeNascimento ? new Date(dto.dataDeNascimento) : null,
+        tipoDocumentoId: dto.tipoDocumentoId || null,
+        sexoId: dto.sexoId || null,
+        estadoCivilId: dto.estadoCivilId || null,
+        nacionalidadeId: dto.nacionalidadeId || null,
+      } as any);
 
       // Recuperar ID da pessoa
       const pessoaResult = await queryRunner.manager.query(`
@@ -366,7 +367,7 @@ await queryRunner.manager.query(`
         throw new InternalServerErrorException('Falha ao recuperar a pessoa recém-criada.');
       }
       console.log(pessoaResult);
-      
+
       pessoaId = Number(pessoaResult[0].ID);
 
       // 4. Gerar username único
@@ -378,7 +379,7 @@ await queryRunner.manager.query(`
       const senhaHash = await gerarHashExterno("compware123")
 
       // 6. Inserir Utilizador
-    
+
       await queryRunner.manager.query(`
         INSERT INTO FK2_MCA_TB_UTILIZADOR (
           USERNAME, NOME, PASSWORD, EMAIL,REF_PESSOA, ACTIVE_STATE, CREATED_AT, UPDATED_AT
@@ -462,4 +463,108 @@ await queryRunner.manager.query(`
       await queryRunner.release();
     }
   }
+
+
+  async listUsersAcesso(filter: FilterUserLogadoDto): Promise<{
+    data: any[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const {
+      page = 1,
+      limit = 25,
+      search,
+      estado = 1,
+    } = filter;
+
+    const offset = (page - 1) * limit;
+
+    // Params comuns (usados na query de dados)
+    const params: Record<string, any> = {
+      offset,
+      limit_plus_offset: offset + limit,
+    };
+
+    // Params só para count (vamos adicionar só o que for necessário)
+    let countParams: Record<string, any> = {};
+
+    let whereClause = `WHERE 1 = 1`;
+
+    if (estado === 1) {
+      whereClause += ` AND ca.LOGADO = 1`;
+    } else if (estado === 0) {
+      whereClause += ` AND ca.LOGADO = 0`;
+    }
+    // estado 2 → sem filtro
+
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim().toUpperCase()}%`;
+      whereClause += `
+      AND (
+        UPPER(u.NOME)           LIKE :search
+        OR UPPER(u.USERNAME)    LIKE :search
+        OR UPPER(u.EMAIL)       LIKE :search
+        OR UPPER(ca.IP)         LIKE :search
+        OR TO_CHAR(ca.CODIGOUTILIZADOR) LIKE :search
+      )`;
+      // Adiciona :search tanto no count como na data
+      params.search = searchTerm;
+      countParams.search = searchTerm;
+    }
+
+    // Query de contagem → sem offset/limit
+    const countSql = `
+    SELECT COUNT(*) AS total
+    FROM FK2_TB_CONTROLE_ACESSO_UTILIZADOR ca
+    INNER JOIN FK2_MCA_TB_UTILIZADOR u ON u.PK_UTILIZADOR = ca.CODIGOUTILIZADOR
+    LEFT JOIN FK2_TB_PESSOA pe ON pe.pk_pessoa = JSON_VALUE(u.REF_PESSOA, '$.pk')
+    ${whereClause}
+  `;
+
+    // Executa count com APENAS os binds necessários
+    const countResult = await this.dataSource.query(countSql, countParams as any);
+    const total = Number(countResult[0]?.TOTAL ?? 0);
+
+    // Query de dados paginada
+    const dataSql = `
+    SELECT *
+    FROM (
+      SELECT
+        ca.CODIGO                          AS codigo,
+        u.NOME                                       AS nome,
+        u.USERNAME                                   AS username,
+        u.EMAIL                                      AS email,
+        ca.IP                                        AS ip,
+        TO_CHAR(ca.DATA, 'DD/MM/YYYY HH24:MI:SS')    AS ultimaAtividade,
+        ca.LOGADO                                    AS logado,
+        u.PK_UTILIZADOR                                 As utilizadorid,
+        ROW_NUMBER() OVER (ORDER BY ca.DATA DESC) AS rn
+      FROM FK2_TB_CONTROLE_ACESSO_UTILIZADOR ca
+      INNER JOIN FK2_MCA_TB_UTILIZADOR u ON u.PK_UTILIZADOR = ca.CODIGOUTILIZADOR
+      LEFT JOIN FK2_TB_PESSOA pe ON pe.pk_pessoa = JSON_VALUE(u.REF_PESSOA, '$.pk')
+      ${whereClause}
+    ) t
+    WHERE rn BETWEEN (:offset + 1) AND :limit_plus_offset
+    ORDER BY rn
+  `;
+
+    const result = await this.dataSource.query(dataSql, params as any);
+
+    const data = result.map((row: any) => {
+      const { RN, ...item } = row;
+      return item;
+    });
+
+    return {
+      data: await toLowerCaseKeys(data),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
+
+
 }

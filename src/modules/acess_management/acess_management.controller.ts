@@ -44,6 +44,7 @@ import { RemoteJwtAuthGuard } from './common/guard/remote.jwt-auth.guard';
 import { PermissionsGuard } from './common/secret/permissions.guard';
 import { PermissionTypeDetails } from './common/enums/permission.type';
 import { RequiredPermissions } from './common/pipes/permissions.decorator';
+import { FilterUserLogadoDto } from './dto/filter-user-logado.dto';
 
 @Controller('acess_management')
 export class AcessManagementController {
@@ -75,7 +76,7 @@ export class AcessManagementController {
     description: 'Dados inválidos ou sigla duplicada',
   })
   @ApiResponse({ status: 401, description: 'Não autorizado' })
-  async criar(@Body() createAcessoDto: CreateAcessoDto, @Req() req) {
+  async criar(@Body() createAcessoDto: CreateAcessoDto, @Req() req:any) {
     const userId = 146;
 
     const novoAcesso = await this.acessosService.criarAcesso(
@@ -89,6 +90,11 @@ export class AcessManagementController {
       data: novoAcesso,
     };
   }
+   @Get('users/users-logado')
+  @ApiOperation({ summary: 'Lista acessos de utilizadores (logados ou não)' })
+async listAcessos(@Query() filter: FilterUserLogadoDto) {
+  return this.usersService.listUsersAcesso(filter);
+}
 
   @Put('teacher-password')
   @ApiOperation({ summary: 'Atualizar a senha de um utilizador' })
