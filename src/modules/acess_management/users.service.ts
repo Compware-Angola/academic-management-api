@@ -532,15 +532,15 @@ export class UsersService {
     SELECT *
     FROM (
       SELECT
-        ca.CODIGO                          AS codigo,
+        ca.CODIGO                                   AS codigo,
         u.NOME                                       AS nome,
         u.USERNAME                                   AS username,
         u.EMAIL                                      AS email,
         ca.IP                                        AS ip,
         TO_CHAR(ca.DATA, 'DD/MM/YYYY HH24:MI:SS')    AS ultimaAtividade,
         ca.LOGADO                                    AS logado,
-        u.PK_UTILIZADOR                                 As utilizadorid,
-        ROW_NUMBER() OVER (ORDER BY ca.DATA DESC) AS rn
+        u.PK_UTILIZADOR                              AS utilizador,
+        ROW_NUMBER() OVER (ORDER BY ca.DATA DESC) AS  rn
       FROM FK2_TB_CONTROLE_ACESSO_UTILIZADOR ca
       INNER JOIN FK2_MCA_TB_UTILIZADOR u ON u.PK_UTILIZADOR = ca.CODIGOUTILIZADOR
       LEFT JOIN FK2_TB_PESSOA pe ON pe.pk_pessoa = JSON_VALUE(u.REF_PESSOA, '$.pk')
@@ -556,6 +556,9 @@ export class UsersService {
       const { RN, ...item } = row;
       return item;
     });
+
+    console.log("LLL");
+    
 
     return {
       data: await toLowerCaseKeys(data),
