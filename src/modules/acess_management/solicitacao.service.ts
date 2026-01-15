@@ -47,6 +47,7 @@ export class SolicitacaoService {
         UT.NOME                     AS NOME_REMETENTE,
         UTREC.NOME                  AS NOME_RECEPTOR,
         SU.CODIGO_MATRICULA         AS CODIGO_MATRICULA,
+        EN.CODIGO_SOLICITACAO       AS CODIGO_SOLICITACAO,
         SU.DESCRICAO,
         SU.ASSUNTO,
         SU.DATA_SOLICITACAO,
