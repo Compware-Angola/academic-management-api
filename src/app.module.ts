@@ -14,6 +14,7 @@ import { AcessManagementModule } from './modules/acess_management/acess_manageme
 import { AcademicCalendarModule } from './modules/academic_calendar/academic_calendar.module';
 import { TeamOldRulesModule } from './modules/team_old_rules/team_old_rules.module';
 import { HttpModule } from '@nestjs/axios';
+import { StudentsModule } from './modules/students/students.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { HttpModule } from '@nestjs/axios';
     AcessManagementModule,
     AcademicCalendarModule,
     TeamOldRulesModule,
+    StudentsModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService],
