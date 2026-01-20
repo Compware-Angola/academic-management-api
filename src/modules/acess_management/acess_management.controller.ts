@@ -35,16 +35,15 @@ import {
   ApiQuery,
   ApiBadRequestResponse,
   ApiUnauthorizedResponse,
+  ApiCreatedResponse,
 } from '@nestjs/swagger';
 import { UserListItemDto } from './dto/user-list-item.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UserFilterDto } from './dto/user-filter.dto';
 import { CreateAcessoDto } from './dto/create-acesso.dto';
-import { RemoteJwtAuthGuard } from './common/guard/remote.jwt-auth.guard';
-import { PermissionsGuard } from './common/secret/permissions.guard';
-import { PermissionTypeDetails } from './common/enums/permission.type';
-import { RequiredPermissions } from './common/pipes/permissions.decorator';
+
 import { FilterUserLogadoDto } from './dto/filter-user-logado.dto';
+import { CreateLogsDTO } from './dto/create-logs.dto';
 
 @Controller('acess_management')
 export class AcessManagementController {
@@ -61,7 +60,7 @@ export class AcessManagementController {
   @ApiResponse({ status: 201, type: CreatePersonUserResponseDto })
   async criarPessoaEUtilizador(
     @Body(ValidationPipe) dto: CreatePersonUserDto,
-    // @Headers('x-user-logado-id') usuarioLogadoId: number,
+ 
   ): Promise<CreatePersonUserResponseDto> {
     const usuarioLogadoId = 146;
     return this.usersService.criarPessoaEUtilizador(dto, usuarioLogadoId);
@@ -153,6 +152,19 @@ async listAcessos(@Query() filter: FilterUserLogadoDto) {
   ) {
     return this.logsService.findAllByUtilizadorAndDatas(dto);
   }
+@Post('create-logs')
+  @ApiOperation({
+    summary:
+      'Criar Logs ',
+  })
+@ApiCreatedResponse({
+    description: 'Log de acesso criado com sucesso',
+    type: CreateLogsDTO,
+  })
+  async createLogs(@Body() dto : CreateLogsDTO){
+    return this.logsService.create(dto)
+  }
+
 
   // GET /acessos
   @Get('details/all')
@@ -300,7 +312,7 @@ async listAcessos(@Query() filter: FilterUserLogadoDto) {
     return this.acessosService.adicionarGrupoAcesso(
       grupoId,
       acessoId,
-      usuarioLogadoId, // ou usuarioLogado.pkUtilizador dependendo do payload
+      usuarioLogadoId, 
     );
   }
 

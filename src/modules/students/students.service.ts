@@ -19,7 +19,13 @@ export class StudentsService {
           p.Bilhete_Identidade         AS bi_aluno,
           p.Email                      AS email,
           p.Contactos_Telefonicos      AS telefonicos,
-          p.Data_Nascimento            AS data_nascimento
+          p.Data_Nascimento            AS data_nascimento,
+          p.PAI                AS pai,
+          p.MAE                 AS mae,
+          p.NATURALIDADE   AS naturalidade,
+          nac.DESIGNACAO     AS nacionalidade,
+          p.ESTADO_CIVIL               AS estado_civil,
+          p.SEXO          AS sexo
       FROM FK2_TB_MATRICULAS m
       INNER JOIN FK2_TB_ADMISSAO      a  ON a.codigo  = m.CODIGO_ALUNO
         INNER JOIN FK2_TB_PREINSCRICAO p
@@ -27,6 +33,7 @@ export class StudentsService {
       INNER JOIN FK2_TB_PREINSCRICAO  p  ON p.codigo  = a.PRE_INCRICAO
       INNER JOIN FK2_TB_CURSOS        c  ON c.codigo  = m.CODIGO_CURSO
       INNER JOIN FK2_TB_PERIODOS      pe ON pe.codigo = p.CODIGO_TURNO
+      INNER JOIN FK2_TB_NACIONALIDADES nac ON nac.CODIGO = p.CODIGO_NACIONALIDADE
       WHERE m.codigo = :codigoMatricula
     `;
 

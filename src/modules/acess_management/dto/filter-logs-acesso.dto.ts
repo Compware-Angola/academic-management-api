@@ -16,11 +16,14 @@ export class FilterLogsAcessoDto {
 
   utilizadorId?: number;
 
-  @ApiProperty({ example: '2023-01-01', description: 'Data início (YYYY-MM-DD)' })
+  @ApiProperty({ example: '2023-01-01', description: 'Data início (YYYY-MM-DD)',  required: false})
+     @IsOptional()
   @IsDateString()
+ 
   dataInicio: string;
 
-  @ApiProperty({ example: '2023-12-22', description: 'Data fim (YYYY-MM-DD)' })
+  @ApiProperty({ example: '2023-12-22', description: 'Data fim (YYYY-MM-DD)', required: false })
+    @IsOptional()
   @IsDateString()
   dataFim: string;
   @ApiPropertyOptional({
