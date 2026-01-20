@@ -30,19 +30,22 @@ import { FindScheduleByDesignationDto } from './dto/find-schedule-by-designation
 import { FindSchedulesByGradeDto } from './dto/find-schedules-by-gradedto';
 import { ListScheduleWithPermissionDto } from './dto/list-schedule-with-permission.dto';
 import { UpdatePermissionEditScheduleDto } from './dto/update-permission-edit-schedule.dto';
-import { RequiredPermissions } from '../acess_management/common/pipes/permissions.decorator';
-import { PermissionTypeDetails } from '../acess_management/common/enums/permission.type';
-import { PermissionsGuard } from '../acess_management/common/secret/permissions.guard';
-import { RemoteJwtAuthGuard } from '../acess_management/common/guard/remote.jwt-auth.guard';
+
+import { AccessLogHelper } from '../common/helpers/access-log.helper';
+import { HttpService } from '@nestjs/axios';
+import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { PermissionTypeDetails } from '../common/enums/permission.type';
+import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 
 @ApiTags('schedule')
 
 @Controller('schedule')
 export class ScheduleController {
-  constructor(private readonly scheduleService: ScheduleService) {}
+  constructor(private readonly scheduleService: ScheduleService, private httpService: HttpService) { }
 
   // ================ PERMISSÃO DE EDIÇÃO ================
-  @Post('permission') 
+  @Post('permission')
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({ summary: 'Criar nova permissão para editar horário' })
   @ApiResponse({ status: 201, description: 'Permissão criada com sucesso.' })
@@ -58,12 +61,12 @@ export class ScheduleController {
 
   // ================ LISTAGENS ================
   @Get()
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
-  @RequiredPermissions( PermissionTypeDetails.LISTAR_HORARIOS.sigla)
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+  @RequiredPermissions(PermissionTypeDetails.LISTAR_HORARIOS.sigla)
   @ApiOperation({
     summary: 'Listar horários com filtros avançados e paginação',
   })
-  findAll(@Query(ValidationPipe) query: ListScheduleDto ,  @Req() req: any,) {
+  findAll(@Query(ValidationPipe) query: ListScheduleDto, @Req() req: any,) {
 
     return this.scheduleService.findAll(query);
   }
@@ -133,7 +136,7 @@ export class ScheduleController {
   }
 
   @Get('eliminated')
-   @RequiredPermissions( PermissionTypeDetails.LISTAR_HORARIOS_ELIMINADOS.sigla)
+  @RequiredPermissions(PermissionTypeDetails.LISTAR_HORARIOS_ELIMINADOS.sigla)
   findAllDeleted(@Query(ValidationPipe) query: ListScheduleDto) {
     return this.scheduleService.findAllDeleted(query);
   }
@@ -163,16 +166,34 @@ export class ScheduleController {
 
   // ================ CRIAÇÃO (O QUE ESTAVA A DAR ERRO) ================
   @Post(':userId')
-   @RequiredPermissions( PermissionTypeDetails.CRIAR_HORARIO.sigla)
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+  @RequiredPermissions(PermissionTypeDetails.CRIAR_HORARIO.sigla)
   @ApiOperation({ summary: 'Criar novo horário de uma UC' })
   @ApiParam({ name: 'userId', type: Number, description: 'ID do usuário' })
   @ApiResponse({ status: 201, description: 'Horário criado com sucesso.' })
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
-  create(
+  async create(
     @Param('userId', ParseIntPipe) userId: number,
     @Body(ValidationPipe) createScheduleDto: CreateScheduleDto,
+    @Req() req: any
   ) {
-    return this.scheduleService.create(userId, createScheduleDto);
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user
+   const schedule= await this.scheduleService.create(userId, createScheduleDto);
+    await AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} Criou Horário ${schedule.horarioId}`,
+      fkAcesso: 6,
+      fkFuncionalidade: 91,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 7,
+      ip: ip,
+    });
+
+
+
+
+
+
   }
 
   // ================ ATUALIZAÇÃO ================
@@ -201,7 +222,7 @@ export class ScheduleController {
 
   // ================ OUTRAS AÇÕES ================
   @Delete(':horarioId/excluir/:userId')
-   
+
   delete(
     @Param('horarioId', ParseIntPipe) horarioId: number,
     @Param('userId', ParseIntPipe) userId: number,

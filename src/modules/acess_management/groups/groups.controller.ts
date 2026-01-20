@@ -12,8 +12,8 @@ import {
 import { GroupsService } from './groups.service';
 import { GroupsDto } from './dto/groups.dto';
 import { GroupsFilterDto } from './dto/filter-groups';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { PermissionsGuard } from 'src/modules/common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from 'src/modules/common/guard/remote.jwt-auth.guard';
 
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('groups')

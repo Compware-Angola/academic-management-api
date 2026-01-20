@@ -68,10 +68,9 @@ import { FetchViewNotesDTO } from './dto/fetch-view-notes.dto';
 // Adicionado da branch develop (funcionalidade útil que não existia na HEAD)
 import { BookTestService } from './book_test.service';
 import { CreateCalendarioProvaDto } from './dto/CreateCalendarioProvaDto';
-import { RemoteJwtAuthGuard } from '../acess_management/common/guard/remote.jwt-auth.guard';
-import { PermissionsGuard } from '../acess_management/common/secret/permissions.guard';
-import { RequiredPermissions } from '../acess_management/common/pipes/permissions.decorator';
-import { PermissionTypeDetails } from '../acess_management/common/enums/permission.type';
+import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('assessment')
 export class AssessmentController {

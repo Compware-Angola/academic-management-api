@@ -5,7 +5,7 @@ import {
     Injectable,
     UnauthorizedException,
 } from '@nestjs/common';
-import { DecodedUserPayload } from 'src/modules/shared/types/token-validation-response.interface';
+import { DecodedUserPayload } from 'src/modules/common/types/token-validation-response.interface';
 
 @Injectable()
 export class RemoteJwtAuthGuard implements CanActivate {

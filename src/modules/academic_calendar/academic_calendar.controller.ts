@@ -11,14 +11,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AcademicCalendarService } from './academic_calendar.service';
-import { CreateAcademicCalendarDto } from './dto/create-academic_calendar.dto';
-import { UpdateAcademicCalendarDto } from './dto/update-academic_calendar.dto';
+
 import { ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { ViewMonthsDto } from './dto/view-months.dto';
-import { RemoteJwtAuthGuard } from '../acess_management/common/guard/remote.jwt-auth.guard';
-import { PermissionsGuard } from '../acess_management/common/secret/permissions.guard';
-import { RequiredPermissions } from '../acess_management/common/pipes/permissions.decorator';
-import { PermissionTypeDetails } from '../acess_management/common/enums/permission.type';
+import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('academic-calendar')
 export class AcademicCalendarController {
