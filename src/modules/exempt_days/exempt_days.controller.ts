@@ -13,8 +13,9 @@ import {
 import { ExemptDaysService } from './exempt_days.service';
 import { CreateExemptDayDto } from './dto/create-exempt_day.dto';
 import { UpdateExemptDayDto } from './dto/update-exempt_day.dto';
-import { RemoteJwtAuthGuard } from '../acess_management/common/guard/remote.jwt-auth.guard';
-import { PermissionsGuard } from '../acess_management/common/secret/permissions.guard';
+import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('exempt-days')
 export class ExemptDaysController {
