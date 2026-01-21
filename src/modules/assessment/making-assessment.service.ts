@@ -17,7 +17,7 @@ export class MarkingAssessmentService {
       horarioId,
       anoCurricular,
       tipoAvaliacao,
-      tipoHorario, // 1 = com prova | 2 = sem prova
+      tipoHorario, 
       page = 1,
       limit = 25,
     } = filters;
@@ -41,7 +41,7 @@ export class MarkingAssessmentService {
 
     if (periodo !== undefined) {
       whereConditions.push(
-        "json_value(tt.ref_periodicidade, '$.pkPeriodo') = :periodo",
+        "tt.FK_PERIODO = :periodo",
       );
       baseParams.periodo = periodo;
     }
@@ -95,16 +95,16 @@ export class MarkingAssessmentService {
           NULL AS vigilantes,
           NULL AS epoca
         FROM fk2_mgh_tb_horario tt
-          INNER JOIN fk2_tb_grade_curricular tgc
+          LEFT JOIN fk2_tb_grade_curricular tgc
             ON tgc.Codigo = json_value(tt.ref_grade_curricular, '$.pk')
-          INNER JOIN fk2_tb_cursos tc ON tc.Codigo = tgc.Codigo_Curso
-          INNER JOIN fk2_tb_disciplinas td ON td.Codigo = tgc.Codigo_Disciplina
-          INNER JOIN fk2_tb_periodos tp
+          LEFT JOIN fk2_tb_cursos tc ON tc.Codigo = tgc.Codigo_Curso
+          LEFT JOIN fk2_tb_disciplinas td ON td.Codigo = tgc.Codigo_Disciplina
+          LEFT JOIN fk2_tb_periodos tp
             ON tp.Codigo = json_value(tt.ref_periodicidade, '$.pkPeriodo')
-          INNER JOIN fk2_tb_classes tc2 ON tc2.Codigo = tgc.Codigo_Classe
-          INNER JOIN fk2_tb_ano_lectivo tal
+          LEFT JOIN fk2_tb_classes tc2 ON tc2.Codigo = tgc.Codigo_Classe
+          LEFT JOIN fk2_tb_ano_lectivo tal
             ON tal.Codigo = json_value(tt.ref_ano_lectivo, '$.pk')
-          INNER JOIN fk2_tb_faculdade tf ON tf.Codigo = tc.faculdade_id
+          LEFT JOIN fk2_tb_faculdade tf ON tf.Codigo = tc.faculdade_id
         ${whereClause}
           AND tt.fk_estado_horario_wf = 3
           AND tt.active_state = 1

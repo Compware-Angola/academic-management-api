@@ -32,12 +32,17 @@ and ACTIVE_STATE = 1
 and TIPO_CANDIDATURA = ${dto.tipoCandidatura}
 fetch first 1 row only`;
     const prazo = await this.dataSource.query(sqlPrazo);
+    if(!prazo || prazo.length == 0){
+       throw new BadRequestException('Prazo Não Definido !')
+    }
+    console.log(prazo);
+    
 
     const ref_json_prazo = {
-      pk_prazo: prazo[0].PK_PRAZO,
+      pk_prazo: prazo[0]?.PK_PRAZO,
       semestre: `${dto.semestre}º Semestre`,
       tipoPrazo: ' ',
-      anoLectivo: this.extrairAnoLectivoDescDoPrazo(prazo[0].REF_ANO_LECTIVO),
+      anoLectivo: this.extrairAnoLectivoDescDoPrazo(prazo[0]?.REF_ANO_LECTIVO),
       activeState: 'true',
       pk_semestre: dto.semestre,
       pk_tipoPrazo: dto.tipoPrazo,
