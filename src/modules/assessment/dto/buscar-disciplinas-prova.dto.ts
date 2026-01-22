@@ -16,16 +16,7 @@ export enum FiltroNota {
 }
 
 export class BuscarDisciplinasProvaDto {
-  @ApiPropertyOptional({
-    description: 'Exibe o horário das disciplinas (usa grade ao invés de curso)',
-    type: Boolean,
-    default: false,
-    example: true,
-  })
-  @IsOptional()
-  @IsBoolean()
-  @Transform(({ value }) => value === 'true' || value === true || value === '1')
-  verHorario?: boolean = false;
+
 
   @ApiPropertyOptional({
     description: 'Filtrar disciplinas por situação da nota',

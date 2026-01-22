@@ -42,7 +42,7 @@ export class AssessmentService {
     params: BuscarDisciplinasProvaDto,
   ): Promise<LancamentoNotaPorCursoModel[]> {
     const {
-      verHorario = true,
+     
       filtro = FiltroNota.TODAS,
       gradeSelecionada,
       cursoSelecionado,
@@ -56,7 +56,7 @@ export class AssessmentService {
     const anoLectivoId = anoLectivoSelecionado!;
     const tipoAvaliacaoId = tipoAvaliacaoSelecionada!;
 
-    if (verHorario && gradeSelecionada) {
+    if ( gradeSelecionada) {
       // === MODO HORÁRIO ===
       switch (filtro) {
         case FiltroNota.TODAS:
@@ -73,7 +73,7 @@ export class AssessmentService {
         default:
           return [];
       }
-    } else if (cursoSelecionado) {
+    } else if (cursoSelecionado && !gradeSelecionada) {
       // === MODO CURSO/TURMA ===
       switch (filtro) {
         case FiltroNota.TODAS:
@@ -84,7 +84,7 @@ export class AssessmentService {
 
         case FiltroNota.SEM_NOTA:
 
-        console.log("AQUI");
+       
         
           return this.findBySemNota(cursoSelecionado, anoCurricularSelecionado!, semestre, anoLectivoId, tipoAvaliacaoId);
 
