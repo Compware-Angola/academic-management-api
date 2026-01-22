@@ -42,7 +42,7 @@ export class AssessmentService {
     params: BuscarDisciplinasProvaDto,
   ): Promise<LancamentoNotaPorCursoModel[]> {
     const {
-     
+
       filtro = FiltroNota.TODAS,
       gradeSelecionada,
       cursoSelecionado,
@@ -56,15 +56,15 @@ export class AssessmentService {
     const anoLectivoId = anoLectivoSelecionado!;
     const tipoAvaliacaoId = tipoAvaliacaoSelecionada!;
 
-    if ( gradeSelecionada) {
+    if (gradeSelecionada) {
       // === MODO HORÁRIO ===
       switch (filtro) {
         case FiltroNota.TODAS:
           return this.findByTodasHorario(gradeSelecionada, anoCurricularSelecionado!, semestre, anoLectivoId, tipoAvaliacaoId);
 
         case FiltroNota.COM_NOTA:
-  
-          
+
+
           return this.findByComNotaHorario(gradeSelecionada, semestre, anoLectivoId, tipoAvaliacaoId);
 
         case FiltroNota.SEM_NOTA:
@@ -84,8 +84,8 @@ export class AssessmentService {
 
         case FiltroNota.SEM_NOTA:
 
-       
-        
+
+
           return this.findBySemNota(cursoSelecionado, anoCurricularSelecionado!, semestre, anoLectivoId, tipoAvaliacaoId);
 
         default:
@@ -216,7 +216,7 @@ export class AssessmentService {
     ORDER BY td.Designacao
   `, [gradeId, semestre, classeId, anoLectivoId]);
 
-  
+
 
     return this.enriquecerHorario(rows, semestre, anoLectivoId, tipoAvaliacaoId);
   }
@@ -255,10 +255,10 @@ export class AssessmentService {
       semestre,
       anoLectivoId,
       tipoAvaliacaoId]);
-   
-      
- const transformer = await toUpperCaseKeys(rows)
-    console.log(rows,transformer);
+
+
+    const transformer = await toUpperCaseKeys(rows)
+    console.log(rows, transformer);
     return this.enriquecerHorario(transformer, semestre, anoLectivoId, tipoAvaliacaoId);
   }
 
@@ -298,9 +298,9 @@ export class AssessmentService {
     ORDER BY td.Designacao
   `, [gradeId, semestre, anoLectivoId, tipoAvaliacaoId]);
 
-  console.log(rows,"33333333333");
-   const transformer = await toUpperCaseKeys(rows)
-  
+    console.log(rows, "33333333333");
+    const transformer = await toUpperCaseKeys(rows)
+
     return transformer.map(row => ({
       disciplina: row.DISCIPLINA,
       turmaOuHorario: row.TURMAOUHORARIO,
@@ -460,9 +460,9 @@ export class AssessmentService {
         tipoAvaliacaoId,
       );
       const r = this.normalizeRow(row);
-    
 
-   
+
+
       const inscritos = await this.buscarNumeroDeIscritos(r, r.turmaouhorario, anoLectivoId);
       const numNotaPorLancar = inscritos >= totalLancadas
         ? inscritos - totalLancadas
@@ -686,16 +686,21 @@ export class AssessmentService {
   }
 
   private async getPkHorarioAtivo(designacao: string): Promise<number | null> {
-    const result = await this.dataSource.query(`
-      SELECT pk_horario AS "pk"
-      FROM FK2_MGH_TB_HORARIO
-      WHERE designacao = :designacao
-        AND active_state = 1
-        AND fk_estado_horario_wf != 4
-      ORDER BY pk_horario DESC
-    `, [designacao]);
+    const result = await this.dataSource.query(
+      `
+  SELECT DISTINCT m.*
+  FROM FK2_MGH_TB_HORARIO m
+  INNER JOIN FK2_MGH_TB_ESTADO_HORARIO_WF e
+    ON e.pk_estado_horario_wf = m.fk_estado_horario_wf
+  WHERE m.designacao = :designacao
+    AND m.active_state = TRUE
+    AND e.sigla != 'ab'
+  ORDER BY m.pk_horario DESC
+  `,
+      { designacao } as any
+    );
 
-    return result[0]?.pk ?? null;
+    return result[0] ?? null;
   }
 
   private async contarInscritosPorHorario(pkHorario: number, anoLectivo: number): Promise<number> {
