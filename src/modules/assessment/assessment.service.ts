@@ -665,7 +665,7 @@ export class AssessmentService {
 
     // Anos novos (> 17) → contagem por horário (JSON)
     const pkHorario = await this.getPkHorarioAtivo(turmaOuHorario);
-    console.log(pkHorario,"HORARIO");
+ 
     
     if (!pkHorario) return 0;
 

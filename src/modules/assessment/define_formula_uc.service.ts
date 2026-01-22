@@ -17,7 +17,7 @@ export class DefineFormulaUcService {
     const { cursoId, anoLectivoId, anoCurricular, semestre } = params;
 
 
-  // 1. BUSCA O PLANO — SEM NENHUM BIND (FUNCIONA 100%)
+
     const planoSql = `
       SELECT CODIGO
       FROM FK2_TB_PLANO_CURRICULAR_CURSO
@@ -36,7 +36,7 @@ export class DefineFormulaUcService {
 
     const planoCodigo = planos[0].CODIGO;
 
-    // 2. BUSCA AS DISCIPLINAS — TAMBÉM COM ? + ARRAY
+    // 2. BUSCA AS DISCIPLINAS — TAMBÉM COM ? + ARRAY  UTILIZADOR
  const disciplinasSql = `
       SELECT 
         PG.CODIGO AS "codigo",
@@ -46,10 +46,13 @@ export class DefineFormulaUcService {
         PG.NOTA_MIN_SEGUNDA_FREQ AS "notaMinSegundaFreq",
         PG.PESO_PRATICA AS "pesoPratica",
         PG.PESO_PRIMEIRA_FREQ AS "pesoPrimeiraFreq",
-        PG.PESO_SEGUNDA_FREQ AS "pesoSegundaFreq"
+        PG.PESO_SEGUNDA_FREQ AS "pesoSegundaFreq",
+        u.NOME AS "definido_por"
+
       FROM FK2_TB_PLANO_CURRICULAR_GRADE PG
-      JOIN FK2_TB_GRADE_CURRICULAR GC ON GC.CODIGO = PG.CODIGO_GRADE_CURRICULAR
-      JOIN FK2_TB_DISCIPLINAS D ON D.CODIGO = GC.CODIGO_DISCIPLINA
+     LEFT JOIN FK2_TB_GRADE_CURRICULAR GC ON GC.CODIGO = PG.CODIGO_GRADE_CURRICULAR
+     LEFT JOIN FK2_TB_DISCIPLINAS D ON D.CODIGO = GC.CODIGO_DISCIPLINA
+     LEFT JOIN FK2_MCA_TB_UTILIZADOR u ON u.PK_UTILIZADOR = PG.UTILIZADOR
       WHERE PG.CODIGO_PLANO_CURRICULAR_CURSO = ${planoCodigo}
         AND PG.CODIGO_GRADE_CURRICULAR IN (
           SELECT GC.CODIGO
@@ -65,7 +68,7 @@ export class DefineFormulaUcService {
 
     return result;
   }
-  async atualizarFormula(dto: AtualizarFormulaDto): Promise<UnidadeCurricularGradeDto> {
+  async atualizarFormula(dto: AtualizarFormulaDto,updatedBy:number): Promise<UnidadeCurricularGradeDto> {
   const { codigo, ...campos } = dto;
 
   await this.dataSource.query(`
@@ -77,7 +80,10 @@ export class DefineFormulaUcService {
       NOTA_MIN_PRIMEIRA_FREQ = ${campos.notaMinPrimeiraFreq ?? 'NOTA_MIN_PRIMEIRA_FREQ'},
       PESO_PRIMEIRA_FREQ = ${campos.pesoPrimeiraFreq ?? 'PESO_PRIMEIRA_FREQ'},
       NOTA_MIN_SEGUNDA_FREQ = ${campos.notaMinSegundaFreq ?? 'NOTA_MIN_SEGUNDA_FREQ'},
-      PESO_SEGUNDA_FREQ = ${campos.pesoSegundaFreq ?? 'PESO_SEGUNDA_FREQ'}
+      PESO_SEGUNDA_FREQ = ${campos.pesoSegundaFreq ?? 'PESO_SEGUNDA_FREQ'},
+     
+      UTILIZADOR = ${updatedBy ?? 'UTILIZADOR'},
+      CODIGO_UTILIZADOR = ${updatedBy ?? 'CODIGO_UTILIZADOR'}
     WHERE CODIGO = ${codigo}
   `);
 

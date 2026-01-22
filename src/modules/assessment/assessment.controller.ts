@@ -11,6 +11,7 @@ import {
   Put,
   ParseIntPipe,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import {
   AssessmentService,
@@ -335,8 +336,9 @@ export class AssessmentController {
   }
 
   @Put('unidades-curriculares')
-  async salvarFormula(@Body() body: AtualizarFormulaDto) {
-    return this.defineFormulaUcService.atualizarFormula(body);
+  async salvarFormula(@Body() body: AtualizarFormulaDto, @Req() req:any) {
+    const UpdatedById = req.user.sub
+    return this.defineFormulaUcService.atualizarFormula(body,UpdatedById);
   }
 
   @Get('definir/oral')
