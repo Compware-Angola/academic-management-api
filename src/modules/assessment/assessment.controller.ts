@@ -71,6 +71,11 @@ import { BookTestService } from './book_test.service';
 import { CreateCalendarioProvaDto } from './dto/CreateCalendarioProvaDto';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { AccessLogHelper } from '../common/helpers/access-log.helper';
+import { HttpService } from '@nestjs/axios';
+import { buildFormulaLog } from './util/buildFormulaLog';
+import { RequiredPermissions } from '../common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from '../common/enums/permission.type';
 
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('assessment')
@@ -90,9 +95,9 @@ export class AssessmentController {
     private readonly statisticService: StatisticAssessmentsService,
     private readonly markingAssessmentService: MarkingAssessmentService,
     private readonly viewNotesService: ViewNotesService,
-    // Serviço adicionado da branch develop
+  private httpService: HttpService,
     private readonly calendarioProvaService: BookTestService,
-  ) {}
+  ) { }
 
   @Post('upsert')
   @ApiOperation({
@@ -336,9 +341,22 @@ export class AssessmentController {
   }
 
   @Put('unidades-curriculares')
-  async salvarFormula(@Body() body: AtualizarFormulaDto, @Req() req:any) {
+  //@RequiredPermissions(PermissionTypeDetails)
+  async salvarFormula(@Body() body: AtualizarFormulaDto, @Req() req: any) {
     const UpdatedById = req.user.sub
-    return this.defineFormulaUcService.atualizarFormula(body,UpdatedById);
+    const uc = await this.defineFormulaUcService.atualizarFormula(body, UpdatedById);
+
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    await AccessLogHelper.logAccess(this.httpService, {
+      descricao: buildFormulaLog(req.user, body as any),
+       fkAcesso: 7,
+      fkFuncionalidade: 91,
+      fkUtilizadorResponsavel: UpdatedById,
+      fkOperacaoLog: 7,
+      ip: ip,
+    });
+    return uc
+
   }
 
   @Get('definir/oral')
