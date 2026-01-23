@@ -164,7 +164,7 @@ async attendanceList() {
   const view = await this.dataSource.query(viewql);
   return toLowerCaseKeys(view);
 }
-async updateAttendanceList(codigo: number, updateData: UpdateParametroAvaliacaoAttendanceListDto) {
+async updateAttendanceList(codigo: number, updateData: UpdateParametroAvaliacaoAttendanceListDto,user) {
   const {
     descricao,
     observacao,
@@ -193,9 +193,9 @@ async updateAttendanceList(codigo: number, updateData: UpdateParametroAvaliacaoA
     params.observacao = observacao;
   }
 
-  if (observacao2 !== undefined) {
+  if (user !== undefined) {
   
-     const jsonValue = `{"pk":${observacao2},"desc":"","corLetra":"black"}`;
+     const jsonValue = `{"pk":${user.sub},"desc":"${user.nome}","corLetra":"black"}`;
     updates.push(`"OBSERVACAO_2" = :observacao2`);
     params.observacao2 = jsonValue;
   }

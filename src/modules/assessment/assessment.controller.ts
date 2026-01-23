@@ -281,10 +281,13 @@ export class AssessmentController {
   async update(
     @Param('codigo', ParseIntPipe) codigo: number,
     @Body() updateData: UpdateParametroAvaliacaoAttendanceListDto,
+    @Req() req:any
   ) {
+    const user = req.user
     return this.generalParametersForEvaluationService.updateAttendanceList(
       codigo,
       updateData,
+      user
     );
   }
 
