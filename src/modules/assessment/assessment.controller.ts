@@ -11,6 +11,7 @@ import {
   Put,
   ParseIntPipe,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import {
   AssessmentService,
@@ -70,6 +71,11 @@ import { BookTestService } from './book_test.service';
 import { CreateCalendarioProvaDto } from './dto/CreateCalendarioProvaDto';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { AccessLogHelper } from '../common/helpers/access-log.helper';
+import { HttpService } from '@nestjs/axios';
+import { buildFormulaLog } from './util/buildFormulaLog';
+import { RequiredPermissions } from '../common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from '../common/enums/permission.type';
 
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('assessment')
@@ -89,9 +95,9 @@ export class AssessmentController {
     private readonly statisticService: StatisticAssessmentsService,
     private readonly markingAssessmentService: MarkingAssessmentService,
     private readonly viewNotesService: ViewNotesService,
-    // Serviço adicionado da branch develop
+  private httpService: HttpService,
     private readonly calendarioProvaService: BookTestService,
-  ) {}
+  ) { }
 
   @Post('upsert')
   @ApiOperation({
@@ -229,6 +235,12 @@ export class AssessmentController {
   findAll(@Query() filtro: FiltroLancamentoPautaDto) {
     return this.agendaLaunch.getAll(filtro);
   }
+   @Get('lancamento/uc-sem-pauta')
+  @ApiOperation({ summary: 'Filtrar pautas lançadas' })
+  @ApiResponse({ status: 200, description: 'Lista ....' })
+  getAllUcSemPauta(@Query() filtro: FiltroLancamentoPautaDto) {
+    return this.agendaLaunch.getAllUcSemPauta(filtro);
+  }
 
   @Get('estado-pauta')
   async estadoPauta() {
@@ -269,10 +281,13 @@ export class AssessmentController {
   async update(
     @Param('codigo', ParseIntPipe) codigo: number,
     @Body() updateData: UpdateParametroAvaliacaoAttendanceListDto,
+    @Req() req:any
   ) {
+    const user = req.user
     return this.generalParametersForEvaluationService.updateAttendanceList(
       codigo,
       updateData,
+      user
     );
   }
 
@@ -335,8 +350,22 @@ export class AssessmentController {
   }
 
   @Put('unidades-curriculares')
-  async salvarFormula(@Body() body: AtualizarFormulaDto) {
-    return this.defineFormulaUcService.atualizarFormula(body);
+  //@RequiredPermissions(PermissionTypeDetails)
+  async salvarFormula(@Body() body: AtualizarFormulaDto, @Req() req: any) {
+    const UpdatedById = req.user.sub
+    const uc = await this.defineFormulaUcService.atualizarFormula(body, UpdatedById);
+
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    await AccessLogHelper.logAccess(this.httpService, {
+      descricao: buildFormulaLog(req.user, body as any),
+       fkAcesso: 7,
+      fkFuncionalidade: 91,
+      fkUtilizadorResponsavel: UpdatedById,
+      fkOperacaoLog: 7,
+      ip: ip,
+    });
+    return uc
+
   }
 
   @Get('definir/oral')

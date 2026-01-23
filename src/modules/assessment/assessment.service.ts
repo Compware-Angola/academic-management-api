@@ -665,6 +665,8 @@ export class AssessmentService {
 
     // Anos novos (> 17) → contagem por horário (JSON)
     const pkHorario = await this.getPkHorarioAtivo(turmaOuHorario);
+ 
+    
     if (!pkHorario) return 0;
 
     return this.contarInscritosPorHorario(pkHorario, anoLectivoAtual);
@@ -686,21 +688,22 @@ export class AssessmentService {
   }
 
   private async getPkHorarioAtivo(designacao: string): Promise<number | null> {
-    const result = await this.dataSource.query(
-      `
-  SELECT DISTINCT m.*
+const result = await this.dataSource.query(
+  `
+  SELECT DISTINCT *
   FROM FK2_MGH_TB_HORARIO m
   INNER JOIN FK2_MGH_TB_ESTADO_HORARIO_WF e
-    ON e.pk_estado_horario_wf = m.fk_estado_horario_wf
+    ON e.PK_ESTADO_HORARIO_WF = m.fk_estado_horario_wf
   WHERE m.designacao = :designacao
-    AND m.active_state = TRUE
-    AND e.sigla != 'ab'
+    AND m.active_state = 1
+    AND CAST(DBMS_LOB.SUBSTR(e.sigla, 10, 1) AS VARCHAR2(10)) <> 'ab'
   ORDER BY m.pk_horario DESC
   `,
-      { designacao } as any
-    );
+  { designacao } as any
+);
 
-    return result[0] ?? null;
+
+    return result[0].PK_HORARIO ?? null;
   }
 
   private async contarInscritosPorHorario(pkHorario: number, anoLectivo: number): Promise<number> {

@@ -18,9 +18,13 @@ import { StatisticAssessmentsService } from './statistic-assessment.service';
 import { MarkingAssessmentService } from './making-assessment.service';
 import { ViewNotesService } from './view-notes.service';
 import { BookTestService } from './book_test.service';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AcademicYear])],
+  imports: [TypeOrmModule.forFeature([AcademicYear]),HttpModule.register({
+    timeout: 5000,
+    maxRedirects: 5
+  })],
   controllers: [AssessmentController],
   providers: [
     AttendanceListService,

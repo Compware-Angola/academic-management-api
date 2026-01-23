@@ -109,6 +109,7 @@ async findAllByUtilizadorAndDatas(
             UPPER(lga.DESCRICAO) LIKE :search
             OR UPPER(lga.IP) LIKE :search
             OR UPPER(u.NOME) LIKE :search
+            OR UPPER(u.USERNAME) LIKE :search
             OR UPPER(f.DESIGNACAO) LIKE :search
           )
     `;
