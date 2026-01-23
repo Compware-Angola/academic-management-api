@@ -295,6 +295,7 @@ export class PermissionAssessmentsService {
         ut.NOME                                      AS UTILIZADOR,
         d.DESIGNACAO                                 AS DISCIPLINA,
         ml.DATA_INICIO                               AS DATA_INICIO,
+        json_value(dc_doc.CODIGO_UTILIZADOR,'$.desc') AS NOME_DOCENTE,
         ml.DATA_FIM                                  AS DATA_FIM,
         ml.CREATED_AT                                AS CREATED_AT
     FROM FK2_MAV_PERMICAO_LANCAMENTO ml
