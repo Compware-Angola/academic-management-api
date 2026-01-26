@@ -39,14 +39,13 @@ import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 
 @ApiTags('schedule')
-
+ @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('schedule')
 export class ScheduleController {
   constructor(private readonly scheduleService: ScheduleService, private httpService: HttpService) { }
 
   // ================ PERMISSÃO DE EDIÇÃO ================
   @Post('permission')
-  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({ summary: 'Criar nova permissão para editar horário' })
   @ApiResponse({ status: 201, description: 'Permissão criada com sucesso.' })
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
@@ -61,7 +60,6 @@ export class ScheduleController {
 
   // ================ LISTAGENS ================
   @Get()
-  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @RequiredPermissions(PermissionTypeDetails.LISTAR_HORARIOS.sigla)
   @ApiOperation({
     summary: 'Listar horários com filtros avançados e paginação',
@@ -82,7 +80,6 @@ export class ScheduleController {
   }
 
   @Put('with-permission/:permissionId')
-  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({
     summary: 'Atualizar permissão de edição de horário pelo ID da permissão',
   })
@@ -166,7 +163,6 @@ export class ScheduleController {
 
   // ================ CRIAÇÃO (O QUE ESTAVA A DAR ERRO) ================
   @Post(':userId')
-  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @RequiredPermissions(PermissionTypeDetails.CRIAR_HORARIO.sigla)
   @ApiOperation({ summary: 'Criar novo horário de uma UC' })
   @ApiParam({ name: 'userId', type: Number, description: 'ID do usuário' })

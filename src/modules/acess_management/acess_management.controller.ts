@@ -1,4 +1,4 @@
-// src/users/users.controller.ts
+
 import {
   Controller,
   Get,
@@ -44,7 +44,11 @@ import { CreateAcessoDto } from './dto/create-acesso.dto';
 
 import { FilterUserLogadoDto } from './dto/filter-user-logado.dto';
 import { CreateLogsDTO } from './dto/create-logs.dto';
-
+import { RequiredPermissions } from '../common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from '../common/enums/permission.type';
+import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('acess_management')
 export class AcessManagementController {
   constructor(
@@ -54,15 +58,17 @@ export class AcessManagementController {
   ) {}
 
   @Post('create-person-user')
+   
   @ApiOperation({
     summary: 'Criar uma pessoa e utilizador do sistema com grupo unitário',
   })
   @ApiResponse({ status: 201, type: CreatePersonUserResponseDto })
   async criarPessoaEUtilizador(
     @Body(ValidationPipe) dto: CreatePersonUserDto,
+    @Req() req:any
  
   ): Promise<CreatePersonUserResponseDto> {
-    const usuarioLogadoId = 146;
+    const usuarioLogadoId = req.user.sub;
     return this.usersService.criarPessoaEUtilizador(dto, usuarioLogadoId);
   }
 
@@ -76,11 +82,11 @@ export class AcessManagementController {
   })
   @ApiResponse({ status: 401, description: 'Não autorizado' })
   async criar(@Body() createAcessoDto: CreateAcessoDto, @Req() req:any) {
-    const userId = 146;
+   const usuarioLogadoId = req.user.sub;
 
     const novoAcesso = await this.acessosService.criarAcesso(
       createAcessoDto,
-      userId.toString(),
+      usuarioLogadoId,
     );
 
     return {
@@ -96,6 +102,7 @@ async listAcessos(@Query() filter: FilterUserLogadoDto) {
 }
 
   @Put('teacher-password')
+    @RequiredPermissions(PermissionTypeDetails.ACTUALIZAR_SENHA_DOCENTE.sigla)
   @ApiOperation({ summary: 'Atualizar a senha de um utilizador' })
   @ApiResponse({ status: 200, description: 'Senha atualizada' })
   @ApiNotFoundResponse({ description: 'Utilizador não encontrado' })
