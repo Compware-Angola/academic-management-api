@@ -51,6 +51,18 @@ export class UsersService {
       contador++;
     }
   }
+  private async emailExiste(email: string): Promise<boolean> {
+    const result = await this.dataSource.query(
+      `SELECT 1 FROM FK2_MCA_TB_UTILIZADOR WHERE LOWER(EMAIL) = LOWER('${email}') AND ROWNUM = 1`,
+    );
+    return result.length > 0;
+  }
+  private async telefoneExiste(telefone: string): Promise<boolean> {
+    const result = await this.dataSource.query(
+      `SELECT 1 FROM FK2_TB_PESSOA WHERE TELEFONE1 = '${telefone}' OR TELEFONE2 = '${telefone}' AND ROWNUM = 1`,
+    );
+    return result.length > 0;
+  }
 
   private validarEmail(email: string): boolean {
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -265,6 +277,7 @@ export class UsersService {
     userId: number,
     groupId: number,
     usuarioLogadoId: number,
+    
   ): Promise<{ message: string }> {
     try {
       await this.dataSource.query(`
@@ -309,9 +322,26 @@ export class UsersService {
       if (!this.validarEmail(dto.email)) {
         throw new BadRequestException('Endereço de email inválido.');
       }
-      console.log(dto);
-
+      const emailExiste = await this.emailExiste(dto.email);
+      if (emailExiste) {
+        throw new ConflictException('Já existe um utilizador com este email.');
+      }
       // 3. Inserir Pessoa
+
+   
+
+      if (dto.telefone1) {
+        const telefone1Existe = await this.telefoneExiste(dto.telefone1);
+        if (telefone1Existe) {
+          throw new ConflictException('Já existe uma pessoa com este número de telefone.');
+        }
+      }
+      if (dto.telefone2) {
+        const telefone2Existe = await this.telefoneExiste(dto.telefone2);
+        if (telefone2Existe) {
+          throw new ConflictException('Já existe uma pessoa com este número de telefone.');
+        }
+      }
       await queryRunner.manager.query(`
   INSERT INTO FK2_TB_PESSOA (
     NOME_COMPLETO, 
@@ -375,9 +405,8 @@ export class UsersService {
       username = await this.gerarUsernameUnico(baseUsername);
 
       // 5. Hash da senha temporária
-      //const senhaTemp = Math.random().toString(36).slice(-8) + 'A1@';
-      const senhaHash = await gerarHashExterno("compware123")
-
+      const senhaTemp = 'compware@123';
+      const senhaHash = await gerarHashExterno(senhaTemp);
       // 6. Inserir Utilizador
 
       await queryRunner.manager.query(`
@@ -448,8 +477,9 @@ export class UsersService {
         message: 'Utilizador cadastrado com sucesso',
         username,
         senhaTemporariaGerada: true,
-        observacao: 'O usuário deve alterar a senha no primeiro login.',
-        // senhaTemp, // NUNCA retorne a senha em produção! Só para teste local.
+        observacao: 'O usuário deve alterar a senha no primeiro login.'
+       
+         
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -557,8 +587,8 @@ export class UsersService {
       return item;
     });
 
-    console.log("LLL");
-    
+ 
+
 
     return {
       data: await toLowerCaseKeys(data),
