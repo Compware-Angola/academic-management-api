@@ -16,8 +16,8 @@ export class MarkingAssessmentService {
       curso,
       horarioId,
       anoCurricular,
-      tipoAvaliacao,
-      tipoHorario, 
+      tipoHorario,
+      prazoId,
       page = 1,
       limit = 25,
     } = filters;
@@ -25,220 +25,235 @@ export class MarkingAssessmentService {
     if (!anoLectivo) {
       throw new BadRequestException('anoLectivo é obrigatório');
     }
-
+    // ==================================================
+    // 🔹 HORÁRIOS COM PROVA
+    // ==================================================
     const offset = (page - 1) * limit;
     const isComProva = tipoHorario === 1;
     const isSemProva = tipoHorario === 2;
 
-    const baseParams: any = { anoLectivo };
-
-    const whereConditions: string[] = ['tal.Codigo = :anoLectivo'];
-
-    if (semestre !== undefined) {
-      whereConditions.push('tgc.Codigo_Semestre = :semestre');
-      baseParams.semestre = semestre;
-    }
-
-    if (periodo !== undefined) {
-      whereConditions.push(
-        "tt.FK_PERIODO = :periodo",
-      );
-      baseParams.periodo = periodo;
-    }
-
-    if (curso !== undefined) {
-      whereConditions.push('tgc.Codigo_Curso = :curso');
-      baseParams.curso = curso;
-    }
-
-    if (horarioId !== undefined) {
-      whereConditions.push('tt.PK_HORARIO = :horarioId');
-      baseParams.horarioId = horarioId;
-    }
-    if (unidadeCurricular !== undefined) {
-      whereConditions.push('tt.FK_GRADE_CURRICULAR = :unidadeCurricular');
-      baseParams.unidadeCurricular = unidadeCurricular;
-    }
-
-    if (anoCurricular !== undefined) {
-      whereConditions.push('tgc.Codigo_Classe = :anoCurricular');
-      baseParams.anoCurricular = anoCurricular;
-    }
-
-    const whereClause = 'WHERE ' + whereConditions.join(' AND ');
-
-    let mainSql = '';
-    let countSql = '';
-
-    // ==================================================
-    // 🔹 HORÁRIOS SEM PROVA
-    // ==================================================
-    if (isSemProva) {
-      mainSql = `
-        SELECT
-          td.Designacao AS disciplina,
-          tt.PK_HORARIO AS codigo_horario,
-          tt.Designacao AS horario,
-          tc.Designacao AS curso,
-          tc2.Designacao AS classe,
-          tal.Designacao AS anoLectivo,
-          tf.Designacao AS faculdade,
-          tp.Designacao AS periodo,
-          NULL AS codigoProva,
-          NULL AS tcp_data_prova,
-          NULL AS tb_salas_designacao,
-          NULL AS duracaoProva,
-          NULL AS horaTermino,
-          NULL AS vigilante,
-          NULL AS usuarioDesc,
-          NULL AS tcp_hora_prova,
-          NULL AS vigilantes,
-          NULL AS epoca
-        FROM fk2_mgh_tb_horario tt
-          LEFT JOIN fk2_tb_grade_curricular tgc
-            ON tgc.Codigo = json_value(tt.ref_grade_curricular, '$.pk')
-          LEFT JOIN fk2_tb_cursos tc ON tc.Codigo = tgc.Codigo_Curso
-          LEFT JOIN fk2_tb_disciplinas td ON td.Codigo = tgc.Codigo_Disciplina
-          LEFT JOIN fk2_tb_periodos tp
-            ON tp.Codigo = json_value(tt.ref_periodicidade, '$.pkPeriodo')
-          LEFT JOIN fk2_tb_classes tc2 ON tc2.Codigo = tgc.Codigo_Classe
-          LEFT JOIN fk2_tb_ano_lectivo tal
-            ON tal.Codigo = json_value(tt.ref_ano_lectivo, '$.pk')
-          LEFT JOIN fk2_tb_faculdade tf ON tf.Codigo = tc.faculdade_id
-        ${whereClause}
-          AND tt.fk_estado_horario_wf = 3
-          AND tt.active_state = 1
-          AND NOT EXISTS (
-            SELECT 1
-            FROM fk2_tb_calendario_prova tcp
-              INNER JOIN fk2_mcal_tb_prazo pz
-                ON json_value(tcp.ref_prazo, '$.pk_prazo') = pz.pk_prazo
-            WHERE 1=1
-            and json_value(tcp.ref_horario, '$.pk') = tt.pk_horario
-            and pz.fk_tipo_avaliacao = ${tipoAvaliacao}
-          )
-        ORDER BY td.Designacao, tt.Designacao
-        OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
-      `;
-
-      countSql = `
-        SELECT COUNT(*) AS TOTAL
-        FROM fk2_mgh_tb_horario tt
-          INNER JOIN fk2_tb_grade_curricular tgc
-            ON tgc.Codigo = json_value(tt.ref_grade_curricular, '$.pk')
-          INNER JOIN fk2_tb_ano_lectivo tal
-            ON tal.Codigo = json_value(tt.ref_ano_lectivo, '$.pk')
-        ${whereClause}
-          AND tt.fk_estado_horario_wf = 3
-          AND tt.active_state = 1
-          AND NOT EXISTS (
-            SELECT 1
-            FROM fk2_tb_calendario_prova tcp
-              INNER JOIN fk2_mcal_tb_prazo pz
-                ON json_value(tcp.ref_prazo, '$.pk_prazo') = pz.pk_prazo
-            WHERE 1=1
-            and json_value(tcp.ref_horario, '$.pk') = tt.pk_horario
-            and pz.fk_tipo_avaliacao = ${tipoAvaliacao}
-          )
-      `;
-    }
-
-    // ==================================================
-    // 🔹 HORÁRIOS COM PROVA
-    // ==================================================
     if (isComProva) {
-      if (tipoAvaliacao !== undefined) {
-        whereConditions.push('mtta.pk_tipo_avaliacao = :tipoAvaliacao');
-        baseParams.tipoAvaliacao = tipoAvaliacao;
-      }
-
-      const whereComProva = 'WHERE ' + whereConditions.join(' AND ');
-
-      mainSql = `
+      const baseWhere = `
+        1=1
+        AND (:semestre                IS NULL OR tgc.Codigo_Semestre = :semestre)
+        AND (:curso                   IS NULL OR tc.Codigo = :curso)
+        AND (:anoCurricular           IS NULL OR tc2.Codigo = :anoCurricular)
+        AND (:anoLectivo              IS NULL OR tal.Codigo = :anoLectivo)
+        --AND (:tipoAvaliacao         IS NULL OR mtta.pk_tipo_avaliacao = :tipoAvaliacao)
+        AND (:prazoId                 IS NULL OR  prazo.pk_prazo = :prazoId)
+        AND (:periodo                 IS NULL OR tt.FK_PERIODO = :periodo)
+        AND (:horarioId               IS NULL OR tt.PK_HORARIO = :horarioId)
+        AND (:unidadeCurricular       IS NULL OR tt.FK_GRADE_CURRICULAR = :unidadeCurricular)
+      `;
+      const sqlHorarioComProvas = `
         SELECT
-          td.Designacao AS disciplina,
-          tt.Designacao AS horario,
-          tt.PK_HORARIO AS codigo_horario,
-          tc.Designacao AS curso,
-          tc2.Designacao AS classe,
-          tal.Designacao AS anoLectivo,
-          tf.Designacao AS faculdade,
-          tp.Designacao AS periodo,
-          tcp.Codigo AS codigoProva,
-          tcp.Data_Prova AS tcp_data_prova,
-          tb_salas.Designacao AS tb_salas_designacao,
-          tcp.Hora_Termino AS horaTermino,
-          tcp.Vigilante AS vigilante,
-          tcp.DuracaoProva AS duracaoProva,
-          json_value(tcp.ref_utilizador, '$.desc') AS usuarioDesc,
-          tcp.Hora_Prova AS tcp_hora_prova,
-          (
-            SELECT JSON_ARRAYAGG(
-              JSON_VALUE(v.REF_VIGILANTE, '$.desc')
-            )
-            FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE v
-            WHERE v.CALENDARIO_PROVA = tcp.Codigo
-          ) AS vigilantes,
-          mtta.Designacao AS epoca
+            td.Designacao   AS disciplina,
+            tt.PK_HORARIO   AS codigo_horario,
+            tt.Designacao   AS horario,
+            tc.Designacao   AS curso,
+            tc2.Designacao  AS classe,
+            tal.Designacao  AS anoLectivo,
+            tf.designacao   AS faculdade,
+            tp.Designacao   AS periodo,
+            tcp.codigo      AS codigoProva,
+            tcp.data_prova  AS tcp_data_prova,
+            ts.Designacao   AS tb_salas_Designacao,
+            tt.PK_HORARIO AS codigo_horario,
+            tcp.hora_prova  AS tcp_hora_prova,
+            tcp.DuracaoProva AS duracaoProva,
+            json_value(tcp.ref_utilizador, '$.desc') AS usuarioDesc,
+            (
+              SELECT JSON_ARRAYAGG(
+                JSON_VALUE(v.REF_VIGILANTE, '$.desc')
+              )
+              FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE v
+              WHERE v.CALENDARIO_PROVA = tcp.Codigo
+            ) AS vigilantes,
+            mtta.designacao AS Epoca
         FROM fk2_tb_disciplinas td
-          INNER JOIN fk2_tb_grade_curricular tgc
+        INNER JOIN fk2_tb_grade_curricular tgc
             ON td.Codigo = tgc.Codigo_Disciplina
-          INNER JOIN fk2_mgh_tb_horario tt
-            ON tgc.Codigo = json_value(tt.ref_grade_curricular, '$.pk')
-          INNER JOIN fk2_tb_cursos tc ON tgc.Codigo_Curso = tc.Codigo
-          INNER JOIN fk2_tb_classes tc2 ON tgc.Codigo_Classe = tc2.Codigo
-          INNER JOIN fk2_tb_ano_lectivo tal
-            ON json_value(tt.ref_ano_lectivo, '$.pk') = tal.Codigo
-          INNER JOIN fk2_tb_periodos tp
-            ON json_value(tt.ref_periodicidade, '$.pkPeriodo') = tp.Codigo
-          INNER JOIN fk2_tb_calendario_prova tcp
-            ON tt.pk_horario = json_value(tcp.ref_horario, '$.pk')
-          INNER JOIN fk2_tb_salas tb_salas
-            ON tb_salas.Codigo = tcp.codigo_sala
-          INNER JOIN fk2_mcal_tb_prazo prazo
-            ON json_value(tcp.ref_prazo, '$.pk_prazo') = prazo.pk_prazo
-          INNER JOIN fk2_mcal_tb_tipo_avaliacao mtta
+        INNER JOIN fk2_mgh_tb_horario tt
+            ON tgc.Codigo = JSON_VALUE(tt.ref_grade_curricular, '$.pk')
+        INNER JOIN fk2_tb_cursos tc
+            ON tgc.Codigo_Curso = tc.Codigo
+        INNER JOIN fk2_tb_classes tc2
+            ON tgc.Codigo_Classe = tc2.Codigo
+        INNER JOIN fk2_tb_ano_lectivo tal
+            ON JSON_VALUE(tt.ref_ano_lectivo, '$.pk') = tal.Codigo
+        INNER JOIN fk2_tb_periodos tp
+            ON JSON_VALUE(tt.ref_periodicidade, '$.pkPeriodo') = tp.Codigo
+        INNER JOIN fk2_tb_calendario_prova tcp
+            ON tt.pk_horario = JSON_VALUE(tcp.ref_horario, '$.pk')
+        LEFT JOIN fk2_tb_salas ts
+            ON ts.Codigo = tcp.codigo_sala
+        INNER JOIN fk2_mcal_tb_prazo prazo
+            ON JSON_VALUE(tcp.ref_prazo, '$.pk_prazo') = prazo.pk_prazo
+        INNER JOIN fk2_tb_faculdade tf
+            ON tc.faculdade_id = tf.codigo
+        INNER JOIN fk2_mcal_tb_tipo_avaliacao mtta
             ON mtta.pk_tipo_avaliacao = prazo.fk_tipo_avaliacao
-          INNER JOIN fk2_tb_faculdade tf ON tc.faculdade_id = tf.Codigo
-        ${whereComProva}
-        ORDER BY td.Designacao, tt.Designacao
-        OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+        WHERE ${baseWhere}
+        ORDER BY
+          td.Designacao ASC
+        OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+      `;
+      const sqlCountComProva = `
+      SELECT COUNT(*) AS TOTAL
+      FROM fk2_tb_disciplinas td
+      INNER JOIN fk2_tb_grade_curricular tgc
+          ON td.Codigo = tgc.Codigo_Disciplina
+      INNER JOIN fk2_mgh_tb_horario tt
+          ON tgc.Codigo = JSON_VALUE(tt.ref_grade_curricular, '$.pk')
+      INNER JOIN fk2_tb_cursos tc
+          ON tgc.Codigo_Curso = tc.Codigo
+      INNER JOIN fk2_tb_classes tc2
+          ON tgc.Codigo_Classe = tc2.Codigo
+      INNER JOIN fk2_tb_ano_lectivo tal
+          ON JSON_VALUE(tt.ref_ano_lectivo, '$.pk') = tal.Codigo
+      INNER JOIN fk2_tb_periodos tp
+          ON JSON_VALUE(tt.ref_periodicidade, '$.pkPeriodo') = tp.Codigo
+      INNER JOIN fk2_tb_calendario_prova tcp
+          ON tt.pk_horario = JSON_VALUE(tcp.ref_horario, '$.pk')
+      INNER JOIN fk2_mcal_tb_prazo prazo
+          ON JSON_VALUE(tcp.ref_prazo, '$.pk_prazo') = prazo.pk_prazo
+      INNER JOIN fk2_mcal_tb_tipo_avaliacao mtta
+          ON mtta.pk_tipo_avaliacao = prazo.fk_tipo_avaliacao
+      WHERE ${baseWhere}`;
+      // -------------------- EXECUÇÃO --------------------
+      const params = {
+        semestre: semestre ?? null,
+        curso: curso ?? null,
+        anoCurricular: anoCurricular ?? null,
+        anoLectivo: anoLectivo ?? null,
+        prazoId: prazoId ?? null,
+        periodo: periodo ?? null,
+        horarioId: horarioId ?? null,
+        unidadeCurricular: unidadeCurricular ?? null,
+      };
+
+      const [result, countResult] = await Promise.all([
+        this.dataSource.query(sqlHorarioComProvas, params as any),
+        this.dataSource.query(sqlCountComProva, params as any),
+      ]);
+      const total = Number(countResult?.[0]?.TOTAL ?? 0);
+      const totalPages = Math.ceil(total / limit);
+      return {
+        data: await toLowerCaseKeys(result),
+        total,
+        page,
+        limit,
+        totalPages,
+      };
+    } else if (isSemProva) {
+      const sqlHorariosSemProva = `
+        SELECT
+          td.Designacao        AS disciplina,
+          th.Designacao        AS horario,
+          gc.Codigo_Semestre   AS semestre,
+          tc.Designacao        AS curso,
+          th.PK_HORARIO        AS codigo_horario,
+          gc.Codigo_Classe     AS classe,
+          th.fk_periodo        AS periodo,
+          NULL                 As faculdade,
+          NULL                 AS codigoProva,
+          NULL                 AS tcp_data_prova,
+          NULL                 AS tb_salas_designacao,
+          NULL                 AS duracaoProva,
+          NULL                 AS horaTermino,
+          NULL                 AS vigilante,
+          NULL                 AS usuarioDesc,
+          NULL                 AS tcp_hora_prova,
+          NULL                 AS vigilantes,
+          NULL                 AS epoca
+        FROM fk2_tb_grade_curricular gc
+        INNER JOIN fk2_tb_disciplinas td
+            ON td.Codigo = gc.Codigo_Disciplina
+        INNER JOIN fk2_tb_cursos tc
+            ON tc.Codigo = gc.Codigo_Curso
+        INNER JOIN fk2_mgh_tb_horario th
+            ON gc.Codigo = JSON_VALUE(th.ref_grade_curricular, '$.pk')
+        WHERE 1=1
+          AND JSON_VALUE(th.ref_ano_lectivo, '$.pk') = :anoLectivo
+          AND (:curso                   is null or  gc.Codigo_Curso = :curso )
+          AND (:semestre                is null or  gc.Codigo_Semestre = :semestre)
+          AND (:anoCurricular           is null or  gc.Codigo_Classe   = :anoCurricular)
+          AND (:horarioId               is null or  th.PK_HORARIO = :horarioId)
+          AND (:unidadeCurricular       is null or  th.FK_GRADE_CURRICULAR = :unidadeCurricular)
+          AND (:periodo                 IS NULL OR  th.FK_PERIODO = :periodo)
+          AND th.active_state = 1
+          AND th.fk_estado_horario_wf = 3
+          AND th.pk_horario NOT IN (
+                SELECT JSON_VALUE(t.ref_horario, '$.pk')
+                FROM fk2_tb_calendario_prova t
+                INNER JOIN fk2_mcal_tb_prazo prazo
+                    ON JSON_VALUE(t.ref_prazo, '$.pk_prazo') = prazo.pk_prazo
+                WHERE 1=1
+                and prazo.pk_prazo = :prazoId
+          )
+        order by th.Designacao asc
+        OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
       `;
 
-      countSql = `
-        SELECT COUNT(DISTINCT tcp.Codigo) AS TOTAL
-        FROM fk2_mgh_tb_horario tt
-          INNER JOIN fk2_tb_grade_curricular tgc
-            ON tgc.Codigo = json_value(tt.ref_grade_curricular, '$.pk')
-          INNER JOIN fk2_tb_ano_lectivo tal
-            ON json_value(tt.ref_ano_lectivo, '$.pk') = tal.Codigo
-          INNER JOIN fk2_tb_calendario_prova tcp
-            ON tt.pk_horario = json_value(tcp.ref_horario, '$.pk')
-          INNER JOIN fk2_mcal_tb_prazo prazo
-            ON json_value(tcp.ref_prazo, '$.pk_prazo') = prazo.pk_prazo
-          INNER JOIN fk2_mcal_tb_tipo_avaliacao mtta
-            ON mtta.pk_tipo_avaliacao = prazo.fk_tipo_avaliacao
-        ${whereComProva}
+      const sqlCountHorariosSemProva = `
+      SELECT COUNT(*) AS TOTAL
+      FROM fk2_tb_grade_curricular gc
+      INNER JOIN fk2_tb_disciplinas td
+          ON td.Codigo = gc.Codigo_Disciplina
+      INNER JOIN fk2_tb_cursos tc
+          ON tc.Codigo = gc.Codigo_Curso
+      INNER JOIN fk2_mgh_tb_horario th
+          ON gc.Codigo = JSON_VALUE(th.ref_grade_curricular, '$.pk')
+      WHERE 1=1
+        AND JSON_VALUE(th.ref_ano_lectivo, '$.pk') = :anoLectivo
+        AND (:curso             IS NULL OR gc.Codigo_Curso   = :curso)
+        AND (:semestre          IS NULL OR gc.Codigo_Semestre = :semestre)
+        AND (:anoCurricular     IS NULL OR gc.Codigo_Classe   = :anoCurricular)
+        AND (:horarioId         IS NULL OR th.PK_HORARIO      = :horarioId)
+        AND (:unidadeCurricular IS NULL OR th.FK_GRADE_CURRICULAR = :unidadeCurricular)
+        AND (:periodo           IS NULL OR th.FK_PERIODO = :periodo)
+        AND th.active_state = 1
+        AND th.fk_estado_horario_wf = 3
+        AND th.pk_horario NOT IN (
+              SELECT JSON_VALUE(t.ref_horario, '$.pk')
+              FROM fk2_tb_calendario_prova t
+              INNER JOIN fk2_mcal_tb_prazo prazo
+                  ON JSON_VALUE(t.ref_prazo, '$.pk_prazo') = prazo.pk_prazo
+              WHERE prazo.pk_prazo = :prazoId
+        )
       `;
+      // -------------------- EXECUÇÃO --------------------
+      const params = {
+        semestre: semestre ?? null,
+        curso: curso ?? null,
+        anoCurricular: anoCurricular ?? null,
+        anoLectivo: anoLectivo ?? null,
+        prazoId: prazoId ?? null,
+        periodo: periodo ?? null,
+        horarioId: horarioId ?? null,
+        unidadeCurricular: unidadeCurricular ?? null,
+      };
+      const [result, countResult] = await Promise.all([
+        this.dataSource.query(sqlHorariosSemProva, params as any),
+        this.dataSource.query(sqlCountHorariosSemProva, params as any),
+      ]);
+      const total = Number(countResult?.[0]?.TOTAL ?? 0);
+      const totalPages = Math.ceil(total / limit);
+      return {
+        data: await toLowerCaseKeys(result),
+        total,
+        page,
+        limit,
+        totalPages,
+      };
     }
-
-    const mainParams = { ...baseParams, offset, limit };
-    const countParams = { ...baseParams };
-
-    const [data, countResult] = await Promise.all([
-      this.dataSource.query(mainSql, mainParams),
-      this.dataSource.query(countSql, countParams),
-    ]);
-
-    const total = Number(countResult?.[0]?.TOTAL ?? 0);
-    const totalPages = Math.ceil(total / limit);
 
     return {
-      data: await toLowerCaseKeys(data),
-      total,
+      data: [],
+      total: 0,
       page,
       limit,
-      totalPages,
+      totalPages: 0,
     };
   }
 }

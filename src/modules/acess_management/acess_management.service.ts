@@ -464,7 +464,7 @@ if (filter.designacao) {
         )
       `);
       }
- console.log(grupoUnitario,"GRUOO");
+
  
       const grupoId = grupoUnitario ? grupoUnitario.PK_GRUPO : grupoUnitarioId;
 
@@ -554,20 +554,7 @@ if (filter.designacao) {
       }
 
       // 4. Log
-      const logDescricao = `Adicionado acesso ${acessoId} ao utilizador ${utilizadorId} pelo usuário ${usuarioLogadoId}`;
-
-      await queryRunner.manager.query(
-        `
-        INSERT INTO FK2_TB_LOG_ACESSOS_FUNCIONALIDADE (
-          DESCRICAO,
-          FK_UTILIZADOR_RESPONSAVEL,
-          FK_ACESSO,
-          FK_OPERACAO_LOG,
-          CREATED_AT
-        ) VALUES (:logDescricao, :usuarioLogadoId, :acessoId, 1, SYSDATE)
-        `,
-        { logDescricao, usuarioLogadoId, acessoId } as any,
-      );
+    
 
       await queryRunner.commitTransaction();
 
@@ -648,22 +635,7 @@ if (filter.designacao) {
         );
       }
 
-      // Log
-      const logDescricao = `Removido acesso ${acessoId} do utilizador ${utilizadorId} por ${usuarioLogadoId}`;
-
-      await queryRunner.manager.query(
-        `
-        INSERT INTO FK2_TB_LOG_ACESSOS_FUNCIONALIDADE (
-          DESCRICAO,
-          FK_UTILIZADOR_RESPONSAVEL,
-          FK_ACESSO,
-          FK_OPERACAO_LOG,
-          CREATED_AT
-        ) VALUES (:logDescricao, :usuarioLogadoId, :acessoId, 2, SYSDATE)
-        `,
-        [logDescricao, usuarioLogadoId, acessoId],
-      );
-
+    
       await queryRunner.commitTransaction();
 
       return { message: 'Acesso removido/revogado com sucesso' };
@@ -791,22 +763,7 @@ if (filter.designacao) {
           );
         }
       }
-      // 4. Log
-      const logDescricao = `Adicionado acesso ${acessoId} ao grupo ${grupoId} pelo usuário ${usuarioLogadoId}`;
-
-      await queryRunner.manager.query(
-        `
-        INSERT INTO FK2_TB_LOG_ACESSOS_FUNCIONALIDADE (
-          DESCRICAO,
-          FK_UTILIZADOR_RESPONSAVEL,
-          FK_ACESSO,
-          FK_OPERACAO_LOG,
-          CREATED_AT
-        ) VALUES (:logDescricao, :usuarioLogadoId, :acessoId, 1, SYSDATE)
-        `,
-        { logDescricao, usuarioLogadoId, acessoId } as any,
-      );
-
+  
       await queryRunner.commitTransaction();
 
       return { message: 'Acesso adicionado/reativado com sucesso' };
@@ -883,21 +840,7 @@ if (filter.designacao) {
           [grupoId, acessoId, usuarioLogadoId, usuarioLogadoId],
         );
       }
-      // Log
-      const logDescricao = `Removido acesso ${acessoId} do grupo ${grupoId} por ${usuarioLogadoId}`;
-
-      await queryRunner.manager.query(
-        `
-        INSERT INTO FK2_TB_LOG_ACESSOS_FUNCIONALIDADE (
-          DESCRICAO,
-          FK_UTILIZADOR_RESPONSAVEL,
-          FK_ACESSO,
-          FK_OPERACAO_LOG,
-          CREATED_AT
-        ) VALUES (:logDescricao, :usuarioLogadoId, :acessoId, 2, SYSDATE)
-        `,
-        [logDescricao, usuarioLogadoId, acessoId],
-      );
+ 
 
       await queryRunner.commitTransaction();
 

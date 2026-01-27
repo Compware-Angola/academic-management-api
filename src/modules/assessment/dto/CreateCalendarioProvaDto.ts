@@ -64,13 +64,6 @@ export class CreateCalendarioProvaDto {
   codigoUtilizador: number;
 
   @ApiProperty({
-    description: 'Descrição do utilizador',
-    example: 'Joao Gomes',
-  })
-  @IsString()
-  descUtilizador: string;
-
-  @ApiProperty({
     description: 'Código do período letivo',
     example: 1,
   })
@@ -133,29 +126,15 @@ export class CreateCalendarioProvaDto {
   })
   @IsInt()
   Horario: number;
-  @ApiPropertyOptional({
-    description: 'Descrição Horário',
-    example: '',
-  })
-  @IsString()
-  descHorario: string;
-  @ApiPropertyOptional({
-    description: 'Id do tipo de prazo',
-    example: 4,
-  })
-  @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  tipoPrazo: number;
 
   @ApiPropertyOptional({
-    description: 'Id da avalaicao',
-    example: 2,
+    description: 'Id da Prazo',
+    example: 236,
   })
   @IsOptional()
   @IsInt()
   @Type(() => Number)
-  tipoAvaliacao: number;
+  prazoId: number;
 
   @ApiPropertyOptional({
     description: 'Ano Lectivo',

@@ -151,6 +151,7 @@ export class AcessManagementController {
   }
 
   @Put('add-group-to-user/:userId/:groupId')
+  @RequiredPermissions(PermissionTypeDetails.ADICIONAR_UTILIZADOR_A_UM_GRUPO.sigla)
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({ summary: 'Adicionar um grupo a um utilizador' })
   @ApiResponse({ status: 200, description: 'Grupo adicionado ao utilizador' })
@@ -164,6 +165,7 @@ export class AcessManagementController {
   }
 
   @Put('remove-group-from-user/:userId/:groupId')
+  @RequiredPermissions()
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({ summary: 'Remover um grupo de um utilizador' })
   @ApiResponse({ status: 200, description: 'Grupo removido do utilizador' })
@@ -221,6 +223,7 @@ export class AcessManagementController {
 
   // GET /acessos
   @Get('details/all')
+  @RequiredPermissions(PermissionTypeDetails.ACESSOS_TODOS.sigla)
   @ApiOperation({
     summary: 'Lista todos os acessos com filtros opcionais',
     description:
@@ -331,12 +334,23 @@ export class AcessManagementController {
     @Req() req: any,
   ) {
 
-    const usuarioLogadoId = req.user.sub;
-    return this.acessosService.adicionarAcesso(
+    const user = req.user;
+       const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const info = await this.acessosService.adicionarAcesso(
       utilizadorId,
       acessoId,
-      usuarioLogadoId,
+      user.sub,
     );
+ 
+    await AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} Adicionou Acesso ${acessoId} ao Utilizador ${utilizadorId}`,
+      fkAcesso: 6,
+      fkFuncionalidade: 91,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 7,
+      ip: ip,
+    });
+    return info;
   }
   //Adicionar Grupo no acesso
   @Post('grupo/:grupoId/acesso/:acessoId')
@@ -363,18 +377,31 @@ export class AcessManagementController {
   async adicionarGrupoAcesso(
     @Param('grupoId', ParseIntPipe) grupoId: number,
     @Param('acessoId', ParseIntPipe) acessoId: number,
+    @Req() req: any,
   ) {
-    // Você pode validar se o usuário logado tem permissão aqui
-    const usuarioLogadoId = 1;
-    return this.acessosService.adicionarGrupoAcesso(
+   const  ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+   const user = req.user;
+
+  const info=  await this.acessosService.adicionarGrupoAcesso(
       grupoId,
       acessoId,
-      usuarioLogadoId,
+      user.sub,
     );
+
+      await AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} Adicionou Acesso ${acessoId} ao Grupo ${grupoId}`,
+      fkAcesso: 6,
+      fkFuncionalidade: 91,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 7,
+      ip: ip,
+    });
+    return info;
   }
 
   // DELETE /acessos/utilizador/:utilizadorId/acesso/:acessoId
   @Delete('utilizador/:utilizadorId/acesso/:acessoId')
+  @RequiredPermissions(PermissionTypeDetails.BLOQUEAR_ACESSOS.sigla)
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -397,16 +424,24 @@ export class AcessManagementController {
     @Param('acessoId', ParseIntPipe) acessoId: number,
     @Req() req: any,
   ) {
-    const usuarioLogadoId = req.user.sub;
-
-    console.log(usuarioLogadoId);
-    
-    // Você pode validar se o usuário logado tem permissão aqui
-    return this.acessosService.removerAcesso(
+    const user = req.user;
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+   
+    const info = await this.acessosService.removerAcesso(
       utilizadorId,
       acessoId,
-      usuarioLogadoId,
+      user.sub,
     );
+  
+    await AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} Removeu Acesso ${acessoId} do Utilizador ${utilizadorId}`,
+      fkAcesso: 6,
+    
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 1,
+      ip: ip,
+    });
+    return info;
   }
   
   //Remover Acesso no grupo

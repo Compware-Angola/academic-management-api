@@ -7,6 +7,8 @@ import { RejectarEncaminhamentoSolicitacaoDTO } from './dto/rejectar-encaminhame
 import { AprovarEncaminhamentoSolicitacaoDTO } from './dto/aprovar-encaminhamento-solicitacao.dto';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
+import { RequiredPermissions } from '../common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from '../common/enums/permission.type';
 
 @ApiTags('solicitacao')
 @Controller('solicitacoa')
@@ -18,6 +20,7 @@ export class SolicitacaoController {
   ) {}
 
   @Get('solicitacoes')
+  @RequiredPermissions(PermissionTypeDetails.LISTAR_SOLICITACOES.sigla)
   @ApiOperation({ summary: 'Listar todas  as solicitacões encaminhadas' })
   @ApiResponse({ status: 200, type: [FetchEncaminhamentoSolicitacaoDTO] })
   async findAllEstadoCivil(@Query() query: FetchEncaminhamentoSolicitacaoDTO) {
