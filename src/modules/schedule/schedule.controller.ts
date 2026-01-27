@@ -205,6 +205,7 @@ export class ScheduleController {
 
   // ================ MOVIMENTAR ESTUDANTES ================
   @Post('move-students/:userId')
+  @RequiredPermissions(PermissionTypeDetails.MOVIMENTAR_ESTUDANTES_POR_HORARIO.sigla)
   @ApiOperation({ summary: 'Movimentar Estudante' })
   @ApiParam({ name: 'userId', type: Number, description: 'ID do usuário' })
   moveStudents(
@@ -216,6 +217,10 @@ export class ScheduleController {
 
   // ================ OUTRAS AÇÕES ================
   @Delete(':horarioId/excluir/:userId')
+
+  @ApiOperation({ summary: 'Excluir horário de uma UC' })
+  @ApiParam({ name: 'horarioId', type: Number })
+  @ApiParam({ name: 'userId', type: Number })
 
   delete(
     @Param('horarioId', ParseIntPipe) horarioId: number,
@@ -233,10 +238,22 @@ export class ScheduleController {
   }
 
   @Patch(':horarioId/validar/:userId')
+  @RequiredPermissions(PermissionTypeDetails.VALIDACAO_DOCENTE.sigla)
   validate(
     @Param('horarioId', ParseIntPipe) horarioId: number,
     @Param('userId', ParseIntPipe) userId: number,
+    @Req() req: any,
   ) {
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user
+    AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} Validou Horário ID ${horarioId}`,
+      fkAcesso: 6,
+      fkFuncionalidade: 91,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 8,
+      ip: ip,
+    });
     return this.scheduleService.validate(userId, horarioId);
   }
 
