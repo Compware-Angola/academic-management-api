@@ -375,6 +375,7 @@ export class AcessManagementController {
 
   // DELETE /acessos/utilizador/:utilizadorId/acesso/:acessoId
   @Delete('utilizador/:utilizadorId/acesso/:acessoId')
+  @RequiredPermissions(PermissionTypeDetails.BLOQUEAR_ACESSOS.sigla)
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
