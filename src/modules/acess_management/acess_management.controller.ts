@@ -45,7 +45,7 @@ import { CreateAcessoDto } from './dto/create-acesso.dto';
 import { FilterUserLogadoDto } from './dto/filter-user-logado.dto';
 import { CreateLogsDTO } from './dto/create-logs.dto';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
-import { PermissionTypeDetails } from '../common/enums/permission.type';
+import { PermissionType, PermissionTypeDetails } from '../common/enums/permission.type';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -149,6 +149,7 @@ async listAcessos(@Query() filter: FilterUserLogadoDto) {
   }
 
   @Get('logs-acessos-funcionalidade')
+  
   @ApiOperation({
     summary:
       'Listar logs de acesso a funcionalidades com filtro por utilizador e intervalo de datas',
