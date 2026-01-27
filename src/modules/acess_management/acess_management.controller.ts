@@ -151,6 +151,7 @@ export class AcessManagementController {
   }
 
   @Put('add-group-to-user/:userId/:groupId')
+  @RequiredPermissions(PermissionTypeDetails.ADICIONAR_UTILIZADOR_A_UM_GRUPO.sigla)
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({ summary: 'Adicionar um grupo a um utilizador' })
   @ApiResponse({ status: 200, description: 'Grupo adicionado ao utilizador' })
@@ -164,6 +165,7 @@ export class AcessManagementController {
   }
 
   @Put('remove-group-from-user/:userId/:groupId')
+  @RequiredPermissions()
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({ summary: 'Remover um grupo de um utilizador' })
   @ApiResponse({ status: 200, description: 'Grupo removido do utilizador' })
@@ -221,6 +223,7 @@ export class AcessManagementController {
 
   // GET /acessos
   @Get('details/all')
+  @RequiredPermissions(PermissionTypeDetails.ACESSOS_TODOS.sigla)
   @ApiOperation({
     summary: 'Lista todos os acessos com filtros opcionais',
     description:
@@ -375,6 +378,7 @@ export class AcessManagementController {
 
   // DELETE /acessos/utilizador/:utilizadorId/acesso/:acessoId
   @Delete('utilizador/:utilizadorId/acesso/:acessoId')
+  @RequiredPermissions(PermissionTypeDetails.BLOQUEAR_ACESSOS.sigla)
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
