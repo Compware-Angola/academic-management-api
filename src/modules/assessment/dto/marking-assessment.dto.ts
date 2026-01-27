@@ -67,6 +67,15 @@ export class MarkingAssessmentDTO {
   horarioId: number;
 
   @ApiPropertyOptional({
+    description: 'Filtrar por código do Prazo',
+    example: 236,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  prazoId: number;
+
+  @ApiPropertyOptional({
     description: 'Filtrar por unidade curricular',
     example: 171,
   })
@@ -74,14 +83,6 @@ export class MarkingAssessmentDTO {
   @IsInt()
   @Type(() => Number)
   unidadeCurricular: number;
-
-  @ApiPropertyOptional({
-    description: 'Filtrar por código da da avaliacao',
-    example: 2,
-  })
-  @IsInt()
-  @Type(() => Number)
-  tipoAvaliacao: number;
 
   @ApiPropertyOptional({
     description:
