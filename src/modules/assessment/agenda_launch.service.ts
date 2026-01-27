@@ -141,7 +141,123 @@ export class AgendaLaunchService {
       totalPages: Math.ceil(total / limit),
     };
   }
+async getAllUcSemPauta(filtros: FiltroLancamentoPautaDto) {
+  const {
+    anoLectivo,
+    tipoAvaliacao,
+    curso,
+    semestre,
+    anoCurricular,
+    page = 1,
+    limit = 20,
+  } = filtros;
 
+  if (!anoLectivo) {
+    throw new BadRequestException('O campo anoLectivo é obrigatório');
+  }
+
+  const offset = (page - 1) * limit;
+
+  const params: any = {
+    anoLectivo,
+    offset,
+    limitFinal: offset + limit,
+  };
+
+  let sql = `
+    SELECT 
+      codigo_grade,
+      codigo_disciplina,
+      unidade_curricular,
+      curso_nome          AS curso,
+      classe_nome         AS classe,
+      semestre_nome       AS semestre,
+      ano_lectivo_nome    AS ano_lectivo,
+      codigo_curso        AS codigo_curso,
+      codigo_classe       AS codigo_classe,
+      codigo_semestre     AS codigo_semestre,
+      codigo_disciplina_grade AS codigo_disciplina_grade,
+      rn,
+      total_registros
+    FROM (
+      SELECT
+        tgc.CODIGO                                          AS codigo_grade,
+        td.CODIGO                                           AS codigo_disciplina,
+        DBMS_LOB.SUBSTR(td.DESIGNACAO, 4000, 1)             AS unidade_curricular,
+        ftc2.DESIGNACAO                                     AS curso_nome,
+        ftc.DESIGNACAO                                      AS classe_nome,
+        fts.DESIGNACAO                                      AS semestre_nome,
+        al.DESIGNACAO                                       AS ano_lectivo_nome,
+        
+        tgc.CODIGO_CURSO                                    AS codigo_curso,
+        tgc.CODIGO_CLASSE                                   AS codigo_classe,
+        tgc.CODIGO_SEMESTRE                                 AS codigo_semestre,
+        tgc.CODIGO_DISCIPLINA                               AS codigo_disciplina_grade,
+
+        ROW_NUMBER() OVER (ORDER BY DBMS_LOB.SUBSTR(td.DESIGNACAO, 4000, 1) ASC) AS rn,
+        COUNT(*) OVER ()                                    AS total_registros
+
+      FROM FK2_TB_GRADE_CURRICULAR tgc
+
+      INNER JOIN FK2_TB_ANO_LECTIVO al
+        ON al.CODIGO = :anoLectivo
+
+      INNER JOIN FK2_TB_DISCIPLINAS td
+        ON td.CODIGO = tgc.CODIGO_DISCIPLINA
+
+      LEFT JOIN FK2_TB_CURSOS ftc2
+        ON ftc2.CODIGO = tgc.CODIGO_CURSO
+
+      LEFT JOIN FK2_TB_CLASSES ftc
+        ON ftc.CODIGO = tgc.CODIGO_CLASSE
+
+      LEFT JOIN FK2_TB_SEMESTRES fts
+        ON fts.CODIGO = tgc.CODIGO_SEMESTRE
+
+      LEFT JOIN FK2_MGD_TB_LANCAMENTO_PAUTA pt
+        ON pt.ACTIVE_STATE = 1
+        AND JSON_VALUE(pt.REF_GRADE_CURRICULAR, '$.pk') = tgc.CODIGO
+        AND JSON_VALUE(pt.REF_ANO_LECTIVO, '$.pk') = :anoLectivo
+
+      WHERE tgc.STATUS_ = 1
+        AND al.CODIGO = :anoLectivo
+
+        ${curso != null ? `AND tgc.CODIGO_CURSO = :curso` : ''}
+        ${semestre != null ? `AND tgc.CODIGO_SEMESTRE = :semestre` : ''}
+        ${anoCurricular != null ? `AND tgc.CODIGO_CLASSE = :anoCurricular` : ''}
+
+        AND pt.PK_LANCAMENTO_PAUTA IS NULL
+
+    ) sub
+    WHERE rn > :offset
+      AND rn <= :limitFinal
+    ORDER BY rn
+  `;
+
+  // Adicionar params condicionais
+  if (curso != null) params.curso = curso;
+  if (semestre != null) params.semestre = semestre;
+  if (anoCurricular != null) params.anoCurricular = anoCurricular;
+
+  const result = await this.dataSource.query(sql, params);
+  console.log(Number(result[0].TOTAL_REGISTROS));
+  
+
+  const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
+
+  const data = result.map((row: any) => {
+    const { rn, total_registros, ...item } = row;
+    return item;
+  });
+
+  return {
+    data: await toLowerCaseKeys(data),
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
+}
   async create(createDto: CreateLancamentoPautaDto) {
     const {
       anoLectivoId,

@@ -14,33 +14,74 @@ export class GenaralAgendaService {
     }
 
     async findAll(dto: GeneralAgendaDto) {
-        const { horario, anoLectivo, semestre, gradeCurricular, gradeCurricularTurma,turma } = dto;
+        const {
+            horario,
+            anoLectivo,
+            semestre,
+            gradeCurricular,
+            gradeCurricularTurma,
+            turma,
+            page = 1,
+            limit = 20,
+        } = dto;
+
         let listaPauta: any[] = [];
         let grade: any;
+        let total: any
 
         try {
             if (horario) {
                 grade = await this.findGradeCurricularByCodigo(gradeCurricular);
 
                 if (grade) {
-                    listaPauta = await this.carregarPautaHorario(grade, horario, anoLectivo);
-                 
+                    listaPauta = await this.carregarPautaHorario(
+                        grade,
+                        horario,
+                        anoLectivo,
+                        page,
+                        limit,
+                    );
+                    total =
+                        await this.countEstudantesByHorarioAndAnoLectivo(
+                            grade.CODIGO_CURSO,
+                            anoLectivo,
+                            horario,
+                        );
                 }
             } else {
                 grade = await this.findGradeCurricularByCodigo(gradeCurricularTurma);
 
                 if (grade) {
-                    listaPauta = await this.carregarPautaTurma(grade, turma, anoLectivo);
+                    listaPauta = await this.carregarPautaTurma(
+                        grade,
+                        turma,
+                        anoLectivo,
+                        page,
+                        limit,
+                    );
+                    total = await this.countEstudantesByTurmaAndAnoLectivo(
+                        grade.CODIGO_CURSO,
+                        anoLectivo,
+                        turma,
+                    );
+
                 }
             }
 
-            // Garante que sempre retorna um array (mesmo vazio)
-            return listaPauta || [];
+
+            return {
+                data: listaPauta,
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+            };
         } catch (error) {
             console.error('Erro em findAll:', error);
-            return []; // ou lançar exceção, dependendo da tua estratégia
+            return [];
         }
     }
+
 
     private async findGradeCurricularByCodigo(pk_grade: number) {
 
@@ -54,7 +95,8 @@ export class GenaralAgendaService {
 
     }
 
-    private async carregarPautaHorario(grade: any, scheduleId: number, anoCorrente: number): Promise<any[]> {
+    private async carregarPautaHorario(grade: any, scheduleId: number, anoCorrente: number, page: number,
+        limit: number,): Promise<any[]> {
         const pautaGeral: any[] = [];
 
         const schedule = await this.getSchedule(scheduleId);
@@ -63,11 +105,13 @@ export class GenaralAgendaService {
             console.warn('Horário não encontrado:', scheduleId);
             return pautaGeral;
         }
-
+        const offset = (page - 1) * limit;
         const listaDeEstudanteDoHorario = await this.findEstudantesByHorarioAndAnoLectivo(
             grade.CODIGO_CURSO,
             anoCorrente,
-            scheduleId
+            scheduleId,
+            offset,
+            limit
         );
 
         if (listaDeEstudanteDoHorario.length === 0) {
@@ -99,20 +143,23 @@ export class GenaralAgendaService {
         console.log(`Pauta gerada para ${pautaGeral.length} alunos no horário ${scheduleId}`);
         return pautaGeral;
     }
-    private async carregarPautaTurma(grade: any, turmaId: number, anoCorrente: number) {
+    private async carregarPautaTurma(grade: any, turmaId: number, anoCorrente: number, page: number,
+        limit: number) {
         const pautaGeral: any[] = [];
         const result = await this.findTurmasById(turmaId)
         if (!result) {
             console.warn('Turma não encontrada:', turmaId);
             return pautaGeral;
         }
-        const listaDeEstudanteDoHorario = await this.findEstudantesByTurmaAndAnoLectivo(grade.CODIGO_CURSO, turmaId,anoCorrente)
+        const offset = (page - 1) * limit;
+        const listaDeEstudanteDoHorario = await this.findEstudantesByTurmaAndAnoLectivo(grade.CODIGO_CURSO, turmaId, anoCorrente, offset,
+            limit)
         if (listaDeEstudanteDoHorario.length === 0) {
             console.log('Nenhum estudante encontrado na Turma:', turmaId);
             return pautaGeral;
         }
 
-          for (const estudante of listaDeEstudanteDoHorario) {
+        for (const estudante of listaDeEstudanteDoHorario) {
             const gradeDoEstudante = await this.retornarGradeAvaliadaByGrade(
                 grade.CODIGO,
                 anoCorrente,
@@ -154,83 +201,167 @@ export class GenaralAgendaService {
         const turma = await this.dataSource.query(`
            SELECT * FROM FK2_TB_TURMAS turma WHERE turma.codigo = :codigoTurma`, [codigoTurma]);
 
-           return turma;
+        return turma;
 
-           
+
     }
 
-    private async findEstudantesByHorarioAndAnoLectivo(curso: number, ano_lectivo: number, pk_horario: number): Promise<any> {
+    private async findEstudantesByHorarioAndAnoLectivo(
+        curso: number,
+        ano_lectivo: number,
+        pk_horario: number,
+        offset: number,
+        limit: number,
+    ): Promise<any[]> {
 
-        const students = await this.dataSource.query(`
-   
+        const students = await this.dataSource.query(
+            `
+    SELECT *
+    FROM (
       SELECT
-    tm.Codigo AS numero_matricula,
-    tp2.Nome_Completo AS nome,
-    tc.Designacao AS curso,
-    tp3.Designacao AS periudo
-FROM FK2_TB_MATRICULAS tm
-INNER JOIN FK2_TB_ADMISSAO ta2 ON ta2.codigo = tm.Codigo_Aluno
-INNER JOIN FK2_TB_PREINSCRICAO tp2 ON tp2.Codigo = ta2.pre_incricao
-INNER JOIN FK2_TB_CURSOS tc ON tc.Codigo = tm.Codigo_Curso
-INNER JOIN FK2_TB_PERIODOS tp3 ON tp3.Codigo = tp2.Codigo_Turno
-WHERE tc.codigo = :curso
-  AND tm.estado_matricula = 'activo'  
-  AND tm.Codigo IN (
-    SELECT DISTINCT tgca.codigo_matricula
-    FROM FK2_MGH_TB_HORARIO mth
-    INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca 
-        ON JSON_VALUE(tgca.ref_horario, '$.pk') = mth.pk_horario
-    WHERE mth.active_state = 1 
-      AND mth.fk_estado_horario_wf != 4
-      AND tgca.codigo_ano_lectivo = :ano_lectivo
-      AND tgca.Codigo_Status_Grade_Curricular IN (1,2,3)
-      AND mth.pk_horario = :pk_horario
-)
-ORDER BY tp2.Nome_Completo ASC
+        tm.Codigo AS numero_matricula,
+        tp2.Nome_Completo AS nome,
+        tc.Designacao AS curso,
+        tp3.Designacao AS periodo
+      FROM FK2_TB_MATRICULAS tm
+      INNER JOIN FK2_TB_ADMISSAO ta2 ON ta2.codigo = tm.Codigo_Aluno
+      INNER JOIN FK2_TB_PREINSCRICAO tp2 ON tp2.Codigo = ta2.pre_incricao
+      INNER JOIN FK2_TB_CURSOS tc ON tc.Codigo = tm.Codigo_Curso
+      INNER JOIN FK2_TB_PERIODOS tp3 ON tp3.Codigo = tp2.Codigo_Turno
+      WHERE tc.codigo = :curso
+        AND tm.estado_matricula = 'activo'  
+        AND tm.Codigo IN (
+          SELECT DISTINCT tgca.codigo_matricula
+          FROM FK2_MGH_TB_HORARIO mth
+          INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca 
+            ON JSON_VALUE(tgca.ref_horario, '$.pk') = mth.pk_horario
+          WHERE mth.active_state = 1 
+            AND mth.fk_estado_horario_wf != 4
+            AND tgca.codigo_ano_lectivo = :ano_lectivo
+            AND tgca.Codigo_Status_Grade_Curricular IN (1,2,3)
+            AND mth.pk_horario = :pk_horario
+        )
+      ORDER BY tp2.Nome_Completo ASC
+    )
+    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+    `,
+            {
+                curso,
+                ano_lectivo,
+                pk_horario,
+                offset,
+                limit,
+            } as any
+        );
 
-            `, [curso, ano_lectivo, pk_horario])
-        return students
+        return students;
+    }
+    private async countEstudantesByHorarioAndAnoLectivo(
+        curso: number,
+        ano_lectivo: number,
+        pk_horario: number,
+    ): Promise<number> {
+        const result = await this.dataSource.query(
+            `
+    SELECT COUNT(*) AS total
+    FROM FK2_TB_MATRICULAS tm
+    INNER JOIN FK2_TB_CURSOS tc ON tc.Codigo = tm.Codigo_Curso
+    WHERE tc.codigo = :curso
+      AND tm.estado_matricula = 'activo'  
+      AND tm.Codigo IN (
+        SELECT DISTINCT tgca.codigo_matricula
+        FROM FK2_MGH_TB_HORARIO mth
+        INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca 
+          ON JSON_VALUE(tgca.ref_horario, '$.pk') = mth.pk_horario
+        WHERE mth.active_state = 1 
+          AND mth.fk_estado_horario_wf != 4
+          AND tgca.codigo_ano_lectivo = :ano_lectivo
+          AND tgca.Codigo_Status_Grade_Curricular IN (1,2,3)
+          AND mth.pk_horario = :pk_horario
+      )
+    `,
+            { curso, ano_lectivo, pk_horario } as any
+        );
 
-
+        return Number(result[0]?.TOTAL || 0);
     }
 
-    private async findEstudantesByTurmaAndAnoLectivo(curso: number, turma: number, ano_lectivo: number): Promise<any> {
 
-        
-        const students = await this.dataSource.query(`
-             
-                    SELECT 
-                         tm.Codigo AS numero_matricula,
-                         tp2.Nome_Completo AS nome,
-                         tc.Designacao AS curso,
-                         tp3.Designacao AS periudo
-                    FROM FK2_TB_MATRICULAS tm 
-                    	INNER JOIN FK2_TB_ADMISSAO ta2 ON ta2.codigo = tm.Codigo_Aluno 
-                    	INNER JOIN FK2_TB_PREINSCRICAO tp2 ON tp2.Codigo = ta2.pre_incricao 
-                    	INNER JOIN FK2_TB_CURSOS tc ON tc.Codigo = tm.Codigo_Curso
-                    	INNER JOIN FK2_TB_PERIODOS tp3 ON tp3.Codigo = tp2.Codigo_Turno
-                    	WHERE tc.codigo = :curso
-                         AND (tm.estado_matricula='activo')  
-                         AND tm.Codigo IN (
-                    		SELECT DISTINCT 
-                    			tgca.codigo_matricula
-                    		FROM FK2_TB_TURMAS tt 
-                    			INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca ON tgca.turma = tt.Codigo 
-                    		WHERE 
-                    			tgca.codigo_ano_lectivo = :ano_lectivo
-                    			AND tgca.Codigo_Status_Grade_Curricular = 2
-                               
-                                  
-                    			AND tt.Codigo = :turma
-                  
-                    ) ORDER BY tp2.Nome_Completo ASC
-            `, [curso, ano_lectivo, turma])
+    private async findEstudantesByTurmaAndAnoLectivo(
+        curso: number,
+        ano_lectivo: number,
+        pk_turma: number,
+        offset: number,
+        limit: number,
+    ): Promise<any[]> {
 
-  
-            
-            return students;
+        const students = await this.dataSource.query(
+            `
+    SELECT *
+    FROM (
+      SELECT
+        tm.Codigo AS numero_matricula,
+        tp2.Nome_Completo AS nome,
+        tc.Designacao AS curso,
+        tp3.Designacao AS periodo
+      FROM FK2_TB_MATRICULAS tm
+      INNER JOIN FK2_TB_ADMISSAO ta2 ON ta2.codigo = tm.Codigo_Aluno
+      INNER JOIN FK2_TB_PREINSCRICAO tp2 ON tp2.Codigo = ta2.pre_incricao
+      INNER JOIN FK2_TB_CURSOS tc ON tc.Codigo = tm.Codigo_Curso
+      INNER JOIN FK2_TB_PERIODOS tp3 ON tp3.Codigo = tp2.Codigo_Turno
+      INNER JOIN FK2_TB_TURMAS tt ON tt.Codigo = tm.Codigo_Turma
+      WHERE tc.codigo = :curso
+        AND tm.estado_matricula = 'activo'  
+        AND tm.Codigo_Turma = :pk_turma
+        AND tm.Codigo IN (
+          SELECT DISTINCT tgca.codigo_matricula
+          FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+          WHERE tgca.codigo_ano_lectivo = :ano_lectivo
+            AND tgca.Codigo_Status_Grade_Curricular IN (1,2,3)
+        )
+      ORDER BY tp2.Nome_Completo ASC
+    )
+    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+    `,
+            {
+                curso,
+                ano_lectivo,
+                pk_turma,
+                offset,
+                limit,
+            } as any
+        );
 
+        return students;
     }
+    private async countEstudantesByTurmaAndAnoLectivo(
+        curso: number,
+        ano_lectivo: number,
+        pk_turma: number,
+    ): Promise<number> {
+
+        const result = await this.dataSource.query(
+            `
+    SELECT COUNT(*) AS total
+    FROM FK2_TB_MATRICULAS tm
+    INNER JOIN FK2_TB_CURSOS tc ON tc.Codigo = tm.Codigo_Curso
+    WHERE tc.codigo = :curso
+      AND tm.estado_matricula = 'activo'  
+      AND tm.Codigo_Turma = :pk_turma
+      AND tm.Codigo IN (
+        SELECT DISTINCT tgca.codigo_matricula
+        FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        WHERE tgca.codigo_ano_lectivo = :ano_lectivo
+          AND tgca.Codigo_Status_Grade_Curricular IN (1,2,3)
+      )
+    `,
+            { curso, ano_lectivo, pk_turma } as any
+        );
+
+        return Number(result[0]?.TOTAL || 0);
+    }
+
+
     private async retornarGradeAvaliadaByGrade(
         grade: number,
         anoLectivo: number,
@@ -816,7 +947,7 @@ ORDER BY tp2.Nome_Completo ASC
             throw error; // ou return null / objeto de erro
         }
     }
-  private async processarNotasTurma(codigoMatricula: number, gradeAluno: any): Promise<any> {
+    private async processarNotasTurma(codigoMatricula: number, gradeAluno: any): Promise<any> {
         let media = 0;
         let descricao = '';
         const anoCorrente = this.anoAtualPrincipal;
@@ -1275,7 +1406,7 @@ ORDER BY tp2.Nome_Completo ASC
      ORDER BY avaliacao.CREATED_AT ASC
     `, [codigoGradeAluno, codigoAvaliacao])
 
-  
+
 
 
         return avaliation[0];
@@ -1300,11 +1431,11 @@ ORDER BY tp2.Nome_Completo ASC
 
     }
 
-   private async temNotaLancadaNaTurma(gradeAluno: any, tipoavaliacao: number): Promise<boolean> {
-    const turma = gradeAluno.TURMA;
-    const gradeCurricular = gradeAluno.CODIGO_GRADE_CURRICULAR;
+    private async temNotaLancadaNaTurma(gradeAluno: any, tipoavaliacao: number): Promise<boolean> {
+        const turma = gradeAluno.TURMA;
+        const gradeCurricular = gradeAluno.CODIGO_GRADE_CURRICULAR;
 
-    const result = await this.dataSource.query(`
+        const result = await this.dataSource.query(`
         SELECT 1 
         FROM FK2_TB_GRADE_CURRICULAR_ALUNO grade
         INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES avaliacoes
@@ -1315,8 +1446,8 @@ ORDER BY tp2.Nome_Completo ASC
         FETCH FIRST 1 ROWS ONLY
     `, [tipoavaliacao, turma, gradeCurricular]);
 
-    return result.length > 0;
-}
+        return result.length > 0;
+    }
 
     async temNotaLancadaNoHorario(gradeAluno: any, tipoAvaliacao: number): Promise<boolean> {
         const pk = this.extrairPkDoRefHorario(gradeAluno.REF_HORARIO);

@@ -56,6 +56,7 @@ export class HistoryNoteReleaseService {
         td.DESIGNACAO AS grade,
         tgcaab.NOTA AS nota_lancada,
         tgcaab.CREATED_AT AS datalancada,
+        tgcaab.CODIGO AS Codigo,
         tp2.NOME_COMPLETO AS utilizador
       FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES tgcaab 
       INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca 
@@ -63,7 +64,7 @@ export class HistoryNoteReleaseService {
       INNER JOIN FK2_TB_GRADE_CURRICULAR tgc 
         ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR 
       LEFT JOIN FK2_MCA_TB_UTILIZADOR mtu 
-        ON mtu.CODIGO = JSON_VALUE(tgcaab.REF_UTILIZADOR, '$.pk')
+        ON mtu.PK_UTILIZADOR = JSON_VALUE(tgcaab.REF_UTILIZADOR, '$.pk')
       LEFT JOIN FK2_TB_PESSOA tp2 
         ON tp2.PK_PESSOA = JSON_VALUE(mtu.REF_PESSOA, '$.pk')
       INNER JOIN FK2_TB_DISCIPLINAS td 
@@ -111,7 +112,8 @@ async historyNoteRelease(params: HistoryNoteReleaseDto): Promise<any[]> {
       td.DESIGNACAO AS grade,
       tgcaab.NOTA AS nota_lancada,
       tgcaab.CREATED_AT AS datalancada,
-      tp2.NOME_COMPLETO AS utilizador
+      tgcaab.CODIGO AS Codigo,
+      mtu.NOME AS utilizador
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES tgcaab 
     INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca 
       ON tgca.CODIGO = tgcaab.GRADE_CURRICULAR_ALUNO 

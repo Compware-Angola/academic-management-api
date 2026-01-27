@@ -39,14 +39,13 @@ import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 
 @ApiTags('schedule')
-
+ @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('schedule')
 export class ScheduleController {
   constructor(private readonly scheduleService: ScheduleService, private httpService: HttpService) { }
 
   // ================ PERMISSÃO DE EDIÇÃO ================
   @Post('permission')
-  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({ summary: 'Criar nova permissão para editar horário' })
   @ApiResponse({ status: 201, description: 'Permissão criada com sucesso.' })
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
@@ -61,7 +60,6 @@ export class ScheduleController {
 
   // ================ LISTAGENS ================
   @Get()
-  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @RequiredPermissions(PermissionTypeDetails.LISTAR_HORARIOS.sigla)
   @ApiOperation({
     summary: 'Listar horários com filtros avançados e paginação',
@@ -82,7 +80,6 @@ export class ScheduleController {
   }
 
   @Put('with-permission/:permissionId')
-  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({
     summary: 'Atualizar permissão de edição de horário pelo ID da permissão',
   })
@@ -166,7 +163,6 @@ export class ScheduleController {
 
   // ================ CRIAÇÃO (O QUE ESTAVA A DAR ERRO) ================
   @Post(':userId')
-  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @RequiredPermissions(PermissionTypeDetails.CRIAR_HORARIO.sigla)
   @ApiOperation({ summary: 'Criar novo horário de uma UC' })
   @ApiParam({ name: 'userId', type: Number, description: 'ID do usuário' })
@@ -179,7 +175,7 @@ export class ScheduleController {
   ) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const user = req.user
-   const schedule= await this.scheduleService.create(userId, createScheduleDto);
+   const schedule= await this.scheduleService.create(user.sub, createScheduleDto);
     await AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${user?.nome} Criou Horário ${schedule.horarioId}`,
       fkAcesso: 6,
@@ -190,9 +186,7 @@ export class ScheduleController {
     });
 
 
-
-
-
+    return schedule;
 
   }
 
@@ -211,6 +205,7 @@ export class ScheduleController {
 
   // ================ MOVIMENTAR ESTUDANTES ================
   @Post('move-students/:userId')
+  @RequiredPermissions(PermissionTypeDetails.MOVIMENTAR_ESTUDANTES_POR_HORARIO.sigla)
   @ApiOperation({ summary: 'Movimentar Estudante' })
   @ApiParam({ name: 'userId', type: Number, description: 'ID do usuário' })
   moveStudents(
@@ -222,6 +217,10 @@ export class ScheduleController {
 
   // ================ OUTRAS AÇÕES ================
   @Delete(':horarioId/excluir/:userId')
+
+  @ApiOperation({ summary: 'Excluir horário de uma UC' })
+  @ApiParam({ name: 'horarioId', type: Number })
+  @ApiParam({ name: 'userId', type: Number })
 
   delete(
     @Param('horarioId', ParseIntPipe) horarioId: number,
@@ -239,10 +238,22 @@ export class ScheduleController {
   }
 
   @Patch(':horarioId/validar/:userId')
+  @RequiredPermissions(PermissionTypeDetails.VALIDACAO_DOCENTE.sigla)
   validate(
     @Param('horarioId', ParseIntPipe) horarioId: number,
     @Param('userId', ParseIntPipe) userId: number,
+    @Req() req: any,
   ) {
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user
+    AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} Validou Horário ID ${horarioId}`,
+      fkAcesso: 6,
+      fkFuncionalidade: 91,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 8,
+      ip: ip,
+    });
     return this.scheduleService.validate(userId, horarioId);
   }
 

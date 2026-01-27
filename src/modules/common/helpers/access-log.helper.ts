@@ -15,7 +15,7 @@ interface AccessLogPayload {
 
 export class AccessLogHelper {
   private static readonly logger = new Logger(AccessLogHelper.name);
-private static readonly BASE_URL = process.env.API_BASE_URL_ACESS_LOGS ?? 'http://localhost:3000/api';
+ private static readonly BASE_URL = process.env.API_BASE_URL_ACESS_LOGS ?? 'http://localhost:3000/api';
   private static readonly LOG_ENDPOINT = '/acess_management/create-logs';
   private static readonly LOG_URL = `${AccessLogHelper.BASE_URL}${AccessLogHelper.LOG_ENDPOINT}`;
 

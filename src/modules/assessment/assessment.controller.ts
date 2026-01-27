@@ -235,6 +235,12 @@ export class AssessmentController {
   findAll(@Query() filtro: FiltroLancamentoPautaDto) {
     return this.agendaLaunch.getAll(filtro);
   }
+   @Get('lancamento/uc-sem-pauta')
+  @ApiOperation({ summary: 'Filtrar pautas lançadas' })
+  @ApiResponse({ status: 200, description: 'Lista ....' })
+  getAllUcSemPauta(@Query() filtro: FiltroLancamentoPautaDto) {
+    return this.agendaLaunch.getAllUcSemPauta(filtro);
+  }
 
   @Get('estado-pauta')
   async estadoPauta() {
@@ -275,10 +281,13 @@ export class AssessmentController {
   async update(
     @Param('codigo', ParseIntPipe) codigo: number,
     @Body() updateData: UpdateParametroAvaliacaoAttendanceListDto,
+    @Req() req:any
   ) {
+    const user = req.user
     return this.generalParametersForEvaluationService.updateAttendanceList(
       codigo,
       updateData,
+      user
     );
   }
 
@@ -341,7 +350,7 @@ export class AssessmentController {
   }
 
   @Put('unidades-curriculares')
-  //@RequiredPermissions(PermissionTypeDetails)
+  @RequiredPermissions(PermissionTypeDetails.DEFINIR_FORMULA_UNIDADE_CURRICULAR.sigla)
   async salvarFormula(@Body() body: AtualizarFormulaDto, @Req() req: any) {
     const UpdatedById = req.user.sub;
     const uc = await this.defineFormulaUcService.atualizarFormula(
