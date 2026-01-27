@@ -165,6 +165,7 @@ export class AcessManagementController {
   }
 
   @Put('remove-group-from-user/:userId/:groupId')
+  @RequiredPermissions()
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({ summary: 'Remover um grupo de um utilizador' })
   @ApiResponse({ status: 200, description: 'Grupo removido do utilizador' })
@@ -222,6 +223,7 @@ export class AcessManagementController {
 
   // GET /acessos
   @Get('details/all')
+  @RequiredPermissions(PermissionTypeDetails.ACESSOS_TODOS.sigla)
   @ApiOperation({
     summary: 'Lista todos os acessos com filtros opcionais',
     description:
