@@ -350,7 +350,7 @@ export class AssessmentController {
   }
 
   @Put('unidades-curriculares')
-  //@RequiredPermissions(PermissionTypeDetails)
+  @RequiredPermissions(PermissionTypeDetails.DEFINIR_FORMULA_UNIDADE_CURRICULAR.sigla)
   async salvarFormula(@Body() body: AtualizarFormulaDto, @Req() req: any) {
     const UpdatedById = req.user.sub
     const uc = await this.defineFormulaUcService.atualizarFormula(body, UpdatedById);
