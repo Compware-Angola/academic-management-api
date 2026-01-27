@@ -151,6 +151,7 @@ export class AcessManagementController {
   }
 
   @Put('add-group-to-user/:userId/:groupId')
+  @RequiredPermissions(PermissionTypeDetails.ADICIONAR_UTILIZADOR_A_UM_GRUPO.sigla)
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({ summary: 'Adicionar um grupo a um utilizador' })
   @ApiResponse({ status: 200, description: 'Grupo adicionado ao utilizador' })
