@@ -96,6 +96,7 @@ export class AcessManagementController {
     };
   }
    @Get('users/users-logado')
+   @RequiredPermissions(PermissionTypeDetails.LISTAR_UTILIZADORES_LOGADOS.sigla)
   @ApiOperation({ summary: 'Lista acessos de utilizadores (logados ou não)' })
 async listAcessos(@Query() filter: FilterUserLogadoDto) {
   return this.usersService.listUsersAcesso(filter);
@@ -149,7 +150,7 @@ async listAcessos(@Query() filter: FilterUserLogadoDto) {
   }
 
   @Get('logs-acessos-funcionalidade')
-  
+  @RequiredPermissions(PermissionTypeDetails.LISTAR_LOGS_ACESSO.sigla)
   @ApiOperation({
     summary:
       'Listar logs de acesso a funcionalidades com filtro por utilizador e intervalo de datas',
