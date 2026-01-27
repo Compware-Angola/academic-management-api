@@ -1,9 +1,19 @@
 // filter-acesso.dto.ts
-import { IsOptional, IsInt, IsBooleanString, Min, Max } from 'class-validator';
+import { IsOptional, IsInt, IsBooleanString, Min, Max, IsString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 export class FilterAcessoDto {
+
+  @ApiPropertyOptional({ description: 'Sigla' })
+  @IsOptional()
+  @IsString()
+  sigla?: string;
+
+   @ApiPropertyOptional({ description: 'Designação' })
+  @IsOptional()
+  @IsString()
+  designacao?: string;
   @ApiPropertyOptional({ description: 'Filtrar por utilizador' })
   @IsOptional()
   @IsInt()
@@ -26,12 +36,13 @@ export class FilterAcessoDto {
     minimum: 1,
     default: 1,
   })
+
   @IsOptional()
   @IsInt()
   @Min(1)
   @Type(() => Number)
   page?: number = 1;
-
+ 
   @ApiPropertyOptional({
     description: 'Quantidade de registros por página (máximo 100)',
     example: 25,
