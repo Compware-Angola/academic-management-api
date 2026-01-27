@@ -142,7 +142,8 @@ export class AssessmentService {
       a.CODIGO     AS "numeroAluno",
       tgcaa.nota         AS "nota",
       tgcaa.observacao   AS "observacao",
-      tgcaa.CREATED_AT AS "dataLancamento"
+      tgcaa.CREATED_AT AS "dataLancamento",
+      m.CODIGO AS       "matriculaId"
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES tgcaa
     JOIN FK2_TB_GRADE_CURRICULAR_ALUNO gca 
       ON gca.codigo = tgcaa.grade_curricular_aluno
@@ -179,6 +180,7 @@ export class AssessmentService {
     return result.map(row => ({
       alunoId: Number(row.alunoId),
       alunoNome: row.alunoNome,
+      matricula: row.matriculaId ? Number(row.matriculaId) : undefined,
       numeroAluno: row.numeroAluno ?? undefined,
       nota: Number(row.nota),
       observacao: row.observacao ?? undefined,
