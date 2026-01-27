@@ -215,6 +215,12 @@ export enum PermissionType {
   DEFINIR_ESPECIALIDADE_LICENCIATURA = "DEFINIR_ESPECIALIDADE_LICENCIATURA",
   CONSULTAR_NUMERO_OPERACAO = "CONSULTAR_NUMERO_OPERACAO",
   ESTUDANTES_PROPINAS_PAGAS = "ESTUDANTES_PROPINAS_PAGAS",
+
+ 
+  LISTA_DE_UTILIZADORES = "LISTA_DE_UTILIZADORES",
+  CRIAR_UTILIZADOR = "CRIAR_UTILIZADOR",
+  ADICIONAR_UTILIZADOR_A_UM_GRUPO = "ADICIONAR_UTILIZADOR_A_UM_GRUPO",
+  LISTAR_UTILIZADORES_POR_GRUPOS = "LISTAR_UTILIZADORES_POR_GRUPOS",
  
 
 }
@@ -435,6 +441,32 @@ export const PermissionTypeDetails = {
   DEFINIR_ESPECIALIDADE_LICENCIATURA: { designacao: "Definir Especialidade Licenciatura", sigla: "mga_a_dfe" },
   CONSULTAR_NUMERO_OPERACAO: { designacao: "Consultar Nº de Operação", sigla: "maf_c" },
   ESTUDANTES_PROPINAS_PAGAS: { designacao: "Estudantes com Propinas Paga", sigla: "maf_cpp_sfr" },
+  
+
+  LISTA_DE_UTILIZADORES: {
+    designacao: "Lista De Utilizadores",
+    sigla: "mgu_ls",
+  },
+
+    LISTA_DE_UTILIZADORES2: {
+    designacao: "Lista De Utilizadores",
+    sigla: "mgu_a_lu",
+  },
+
+  CRIAR_UTILIZADOR: {
+    designacao: "Criar Utilizador",
+    sigla: "mgu_a_cru",
+  },
+
+  ADICIONAR_UTILIZADOR_A_UM_GRUPO: {
+    designacao: "Adicionar Utilizador a um grupo",
+    sigla: "mgu_a_aug",
+  },
+
+  LISTAR_UTILIZADORES_POR_GRUPOS: {
+    designacao: "Listar Utilizadores Por Grupos",
+    sigla: "mgu_a_lupg",
+  },
   
 } as const;
 

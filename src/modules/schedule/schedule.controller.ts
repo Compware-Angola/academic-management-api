@@ -175,7 +175,7 @@ export class ScheduleController {
   ) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const user = req.user
-   const schedule= await this.scheduleService.create(userId, createScheduleDto);
+   const schedule= await this.scheduleService.create(user.sub, createScheduleDto);
     await AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${user?.nome} Criou Horário ${schedule.horarioId}`,
       fkAcesso: 6,
@@ -186,9 +186,7 @@ export class ScheduleController {
     });
 
 
-
-
-
+    return schedule;
 
   }
 

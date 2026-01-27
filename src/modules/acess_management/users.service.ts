@@ -405,7 +405,7 @@ export class UsersService {
       username = await this.gerarUsernameUnico(baseUsername);
 
       // 5. Hash da senha temporária
-      const senhaTemp = 'compware@123';
+      const senhaTemp = dto.senha || 'Compware@123';
       const senhaHash = await gerarHashExterno(senhaTemp);
       // 6. Inserir Utilizador
 

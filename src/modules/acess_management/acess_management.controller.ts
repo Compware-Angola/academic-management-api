@@ -48,31 +48,47 @@ import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+import { AccessLogHelper } from '../common/helpers/access-log.helper';
+import { HttpService } from '@nestjs/axios';
+
 @Controller('acess_management')
 export class AcessManagementController {
   constructor(
     private readonly usersService: UsersService,
     private readonly logsService: LogsService,
     private readonly acessosService: AcessosService,
-  ) {}
+    private httpService: HttpService,
+  ) { }
 
   @Post('create-person-user')
-   
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+  @RequiredPermissions(PermissionTypeDetails.CRIAR_UTILIZADOR.sigla)
   @ApiOperation({
     summary: 'Criar uma pessoa e utilizador do sistema com grupo unitário',
   })
   @ApiResponse({ status: 201, type: CreatePersonUserResponseDto })
   async criarPessoaEUtilizador(
     @Body(ValidationPipe) dto: CreatePersonUserDto,
-    @Req() req:any
- 
+    @Req() req: any
+
   ): Promise<CreatePersonUserResponseDto> {
-    const usuarioLogadoId = req.user.sub;
-    return this.usersService.criarPessoaEUtilizador(dto, usuarioLogadoId);
+    const usuarioLogado = req.user;
+    const userDateResponse = await this.usersService.criarPessoaEUtilizador(dto, usuarioLogado.sub);
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+
+    await AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${usuarioLogado?.nome} Criou O Utilizador ${userDateResponse.username}`,
+      fkAcesso: 155,
+      fkFuncionalidade: 232,
+      fkUtilizadorResponsavel: usuarioLogado.sub,
+      fkOperacaoLog: 7,
+      ip: ip,
+    });
+    return userDateResponse;
   }
 
   @Post('novo-acesso')
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Cria um novo acesso no sistema' })
   @ApiResponse({ status: 201, description: 'Acesso criado com sucesso' })
@@ -81,13 +97,23 @@ export class AcessManagementController {
     description: 'Dados inválidos ou sigla duplicada',
   })
   @ApiResponse({ status: 401, description: 'Não autorizado' })
-  async criar(@Body() createAcessoDto: CreateAcessoDto, @Req() req:any) {
-   const usuarioLogadoId = req.user.sub;
+  async criar(@Body() createAcessoDto: CreateAcessoDto, @Req() req: any) {
+  
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const usuarioLogado = req.user;
 
     const novoAcesso = await this.acessosService.criarAcesso(
       createAcessoDto,
-      usuarioLogadoId,
+      usuarioLogado.sub,
     );
+     await AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${usuarioLogado?.nome} Criou novo acesso ao sistema ${createAcessoDto.sigla}`,
+      fkAcesso: 155,
+      fkFuncionalidade: 232,
+      fkUtilizadorResponsavel: usuarioLogado.sub,
+      fkOperacaoLog: 7,
+      ip: ip,
+    });
 
     return {
       statusCode: HttpStatus.CREATED,
@@ -95,23 +121,37 @@ export class AcessManagementController {
       data: novoAcesso,
     };
   }
-   @Get('users/users-logado')
+  @Get('users/users-logado')
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+  @RequiredPermissions(PermissionTypeDetails.LISTAR_UTILIZADORES_LOGADOS.sigla)
   @ApiOperation({ summary: 'Lista acessos de utilizadores (logados ou não)' })
-async listAcessos(@Query() filter: FilterUserLogadoDto) {
-  return this.usersService.listUsersAcesso(filter);
-}
+  async listAcessos(@Query() filter: FilterUserLogadoDto) {
+    return this.usersService.listUsersAcesso(filter);
+  }
 
   @Put('teacher-password')
-    @RequiredPermissions(PermissionTypeDetails.ACTUALIZAR_SENHA_DOCENTE.sigla)
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+  @RequiredPermissions(PermissionTypeDetails.ACTUALIZAR_SENHA_DOCENTE.sigla)
   @ApiOperation({ summary: 'Atualizar a senha de um utilizador' })
   @ApiResponse({ status: 200, description: 'Senha atualizada' })
   @ApiNotFoundResponse({ description: 'Utilizador não encontrado' })
-  async updatePassword(@Body(ValidationPipe) dto: UpdatePasswordDto) {
-    const usuarioLogadoId = 1;
-    return this.usersService.updatePassword(dto, usuarioLogadoId);
+  async updatePassword(@Body(ValidationPipe) dto: UpdatePasswordDto, @Req() req: any) {
+    const usuarioLogado = req.user;
+    const userDateResponse = await this.usersService.updatePassword(dto, usuarioLogado.sub);
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    await AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${usuarioLogado?.nome} Atualizou a senha do Utilizador ${dto.utilizadorId}`,
+      fkAcesso: 155,
+      fkFuncionalidade: 232,
+      fkUtilizadorResponsavel: usuarioLogado.sub,
+      fkOperacaoLog: 7,
+      ip: ip,
+    });
+    return userDateResponse;
   }
 
   @Put('add-group-to-user/:userId/:groupId')
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({ summary: 'Adicionar um grupo a um utilizador' })
   @ApiResponse({ status: 200, description: 'Grupo adicionado ao utilizador' })
   @ApiNotFoundResponse({ description: 'Utilizador ou grupo não encontrado' })
@@ -124,6 +164,7 @@ async listAcessos(@Query() filter: FilterUserLogadoDto) {
   }
 
   @Put('remove-group-from-user/:userId/:groupId')
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({ summary: 'Remover um grupo de um utilizador' })
   @ApiResponse({ status: 200, description: 'Grupo removido do utilizador' })
   @ApiNotFoundResponse({ description: 'Utilizador ou grupo não encontrado' })
@@ -140,6 +181,10 @@ async listAcessos(@Query() filter: FilterUserLogadoDto) {
   }
 
   @Get('users')
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+  @RequiredPermissions(PermissionTypeDetails.LISTA_DE_UTILIZADORES.sigla,
+    PermissionTypeDetails.LISTA_DE_UTILIZADORES2.sigla
+  )
   @ApiOperation({
     summary: 'Listar utilizadores (com filtro por ativo/inativo)',
   })
@@ -149,6 +194,7 @@ async listAcessos(@Query() filter: FilterUserLogadoDto) {
   }
 
   @Get('logs-acessos-funcionalidade')
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({
     summary:
       'Listar logs de acesso a funcionalidades com filtro por utilizador e intervalo de datas',
@@ -159,16 +205,16 @@ async listAcessos(@Query() filter: FilterUserLogadoDto) {
   ) {
     return this.logsService.findAllByUtilizadorAndDatas(dto);
   }
-@Post('create-logs')
+  @Post('create-logs')
   @ApiOperation({
     summary:
       'Criar Logs ',
   })
-@ApiCreatedResponse({
+  @ApiCreatedResponse({
     description: 'Log de acesso criado com sucesso',
     type: CreateLogsDTO,
   })
-  async createLogs(@Body() dto : CreateLogsDTO){
+  async createLogs(@Body() dto: CreateLogsDTO) {
     return this.logsService.create(dto)
   }
 
@@ -218,6 +264,7 @@ async listAcessos(@Query() filter: FilterUserLogadoDto) {
 
   // GET /acessos/utilizador/:id
   @Get('utilizador/:id')
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({
     summary: 'Lista todos os acessos de um utilizador específico',
     description:
@@ -256,8 +303,9 @@ async listAcessos(@Query() filter: FilterUserLogadoDto) {
     return this.acessosService.listarPorGrupo(id);
   }
 
-  // POST /acessos/utilizador/:utilizadorId/acesso/:acessoId
+
   @Post('utilizador/:utilizadorId/acesso/:acessoId')
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Adiciona ou reativa acesso para um utilizador',
@@ -281,16 +329,17 @@ async listAcessos(@Query() filter: FilterUserLogadoDto) {
     @Param('utilizadorId', ParseIntPipe) utilizadorId: number,
     @Param('acessoId', ParseIntPipe) acessoId: number,
   ) {
-    // Você pode validar se o usuário logado tem permissão aqui
+
     const usuarioLogadoId = 1;
     return this.acessosService.adicionarAcesso(
       utilizadorId,
       acessoId,
-      usuarioLogadoId, // ou usuarioLogado.pkUtilizador dependendo do payload
+      usuarioLogadoId,
     );
   }
   //Adicionar Grupo no acesso
   @Post('grupo/:grupoId/acesso/:acessoId')
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Adiciona ou reativa acesso para um grupo',
@@ -319,12 +368,13 @@ async listAcessos(@Query() filter: FilterUserLogadoDto) {
     return this.acessosService.adicionarGrupoAcesso(
       grupoId,
       acessoId,
-      usuarioLogadoId, 
+      usuarioLogadoId,
     );
   }
 
   // DELETE /acessos/utilizador/:utilizadorId/acesso/:acessoId
   @Delete('utilizador/:utilizadorId/acesso/:acessoId')
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Remove ou revoga acesso de um utilizador',
@@ -354,6 +404,7 @@ async listAcessos(@Query() filter: FilterUserLogadoDto) {
   }
   //Remover Acesso no grupo
   @Delete('grupo/:grupoId/acesso/:acessoId')
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Remove ou revoga acesso de um grupo',
