@@ -44,9 +44,10 @@ export class PermissionsGuard implements CanActivate {
     );
 
     if (!hasAtLeastOne) {
-      throw new ForbiddenException(
-        `Acesso negado. Você precisa ter pelo menos uma das seguintes permissões: ${requiredPermissions.join(', ')}`,
-      );
+    throw new ForbiddenException(
+  `Acesso negado. O seu perfil de utilizador não está autorizado a executar esta operação.
+  Por favor, contacte o administrador do sistema para obter as permissões necessárias.`,
+);
     }
 
     return true;

@@ -1754,63 +1754,65 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       totalPages,
     };
   }
-  async findScheduleByDayOfTheweek({
-    unidadeCurricular,
-    anoCurricular,
-    diaSemana,
-    anoLectivo,
-    semestre,
-    periodo,
-    curso,
-    limit = 10,
-    page = 1,
-  }: ListScheduleDayOfWeekto) {
-    const offset = (page - 1) * limit;
+async findScheduleByDayOfTheweek({
+  unidadeCurricular,
+  anoCurricular,
+  diaSemana,
+  anoLectivo,
+  semestre,
+  periodo,
+  curso,
+  limit = 10,
+  page = 1,
+}: ListScheduleDayOfWeekto) {
+  const offset = (page - 1) * limit;
 
-    const whereConditions: string[] = [
-      `c.CODIGO_CURSO  = ${curso}`,
-      `ds.PK_DIA_DA_SEMANA = ${diaSemana}`,
-      `h.FK_ANO_LECTIVO = ${anoLectivo}`,
-      `h.ACTIVE_STATE = 1`,
-      `al.ACTIVE_STATE = 1`,
-      `h.DIPONIVEL = 1`,
-      `h.FK_ESTADO_HORARIO_WF != 4`,
-    ];
-    // Adiciona semestre apenas se fornecido
-    if (semestre !== undefined && semestre !== null) {
-      whereConditions.push(`h.FK_SEMESTRE = ${semestre}`);
-    }
+  const whereConditions: string[] = [
+    `c.CODIGO_CURSO = ${curso}`,
+    `ds.PK_DIA_DA_SEMANA = ${diaSemana}`,
+    `h.FK_ANO_LECTIVO = ${anoLectivo}`,
+    `h.ACTIVE_STATE = 1`,
+    `al.ACTIVE_STATE = 1`,           // corrigido: al em vez de h (se for o caso)
+    `h.DIPONIVEL = 1`,
+    `h.FK_ESTADO_HORARIO_WF != 4`,
+  ];
 
-    // Adiciona período apenas se fornecido
-    if (periodo !== undefined && periodo !== null) {
-      whereConditions.push(`h.FK_PERIODO = ${periodo}`);
-    }
+  // Adiciona semestre apenas se fornecido
+  if (semestre !== undefined && semestre !== null) {
+    whereConditions.push(`h.FK_SEMESTRE = ${semestre}`);
+  }
 
-    if (unidadeCurricular !== undefined && unidadeCurricular !== null) {
-      whereConditions.push(` c.CODIGO = ${unidadeCurricular}`);
-    }
-    if (anoCurricular !== undefined && anoCurricular !== null) {
-      whereConditions.push(`c.CODIGO_CLASSE =${anoCurricular}`);
-    }
+  // Adiciona período apenas se fornecido
+  if (periodo !== undefined && periodo !== null) {
+    whereConditions.push(`h.FK_PERIODO = ${periodo}`);
+  }
 
-    const baseWhere = whereConditions.join('\n      AND ');
+  if (unidadeCurricular !== undefined && unidadeCurricular !== null) {
+    whereConditions.push(`c.CODIGO = ${unidadeCurricular}`);
+  }
 
-    // -------------------- QUERY PRINCIPAL (SEM DISTINCT) --------------------
-    const sql = `
-    SELECT
+  if (anoCurricular !== undefined && anoCurricular !== null) {
+    whereConditions.push(`c.CODIGO_CLASSE = ${anoCurricular}`);
+  }
+
+  const baseWhere = whereConditions.join('\n      AND ');
+
+  // -------------------- QUERY PRINCIPAL COM DISTINCT --------------------
+  const sql = `
+    SELECT DISTINCT
       h.PK_HORARIO                                       AS CODIGO,
       DBMS_LOB.SUBSTR(h.DESIGNACAO, 4000, 1)             AS HORARIO_NOME,
       json_value(al.REF_DOCENTE, '$.nome')               AS DOCENTE_NOME,
       json_value(al.REF_DOCENTE, '$.pkDocente')          AS CODIGO_DOCENTE,
-      TO_CHAR(al."HORA_INICIO",  'HH24:MI') AS HORA_INICIO,
-      TO_CHAR(al."HORA_TERMINO", 'HH24:MI') AS HORA_TERMINO,
+      TO_CHAR(al."HORA_INICIO",  'HH24:MI')              AS HORA_INICIO,
+      TO_CHAR(al."HORA_TERMINO", 'HH24:MI')              AS HORA_TERMINO,
       TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, ''))       AS CODIGO_GRADE,
       DBMS_LOB.SUBSTR(d.DESIGNACAO, 4000, 1)             AS DISCIPLINA,
       DBMS_LOB.SUBSTR(m.DESIGNACAO, 4000, 1)             AS MODALIDADE,
       DBMS_LOB.SUBSTR(at.DESIGNACAO, 4000, 1)            AS TIPO_AULA,
       DBMS_LOB.SUBSTR(ds.DESIGNACAO, 4000, 1)            AS DIA_SEMANA,
       ds.ORDEM                                           AS ORDEM_DIA_SEMANA,
-     au.DESIGNACAO                                        AS SALA,
+      au.DESIGNACAO                                      AS SALA,
       c.CODIGO_CURSO                                     AS CODIGO_CURSO,
       c2.SIGLA                                           AS CURSO,
       DBMS_LOB.SUBSTR(cl.DESIGNACAO, 4000, 1)            AS ANO,
@@ -1826,70 +1828,68 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       TO_CHAR(h.UPDATED_AT, 'DD/MM/YYYY HH24:MI')        AS DATAULTIMAATUALIZACAO,
       TO_CHAR(h.CREATED_AT, 'DD/MM/YYYY HH24:MI')        AS DATACRIACAO
     FROM FK2_MGH_TB_HORARIO h
-        INNER JOIN FK2_MGH_TB_AULA al
-                ON al.FK_HORARIO = h.PK_HORARIO
-                  INNER JOIN FK2_MGH_TB_AULA al
-                ON al.FK_HORARIO = h.PK_HORARIO
-               INNER JOIN     FK2_TB_SALAS        au
-                ON  json_value(al.REF_SALA, '$.pk') =au. CODIGO
-        INNER JOIN FK2_MGH_TB_TIPO_AULA at
-                ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
-        INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
-                ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
-        INNER JOIN FK2_MGH_TB_MODALIDADE m
-                ON m.PK_MODALIDADE = al.FK_MODALIDADE
-        INNER JOIN FK2_TB_GRADE_CURRICULAR c
-                ON TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, '')) = c.CODIGO
-        LEFT JOIN FK2_TB_DISCIPLINAS d
-                ON c.CODIGO_DISCIPLINA = d.CODIGO
-        LEFT JOIN FK2_TB_CURSOS c2
-                ON c.CODIGO_CURSO = c2.CODIGO
-        LEFT JOIN FK2_TB_CLASSES cl
-                ON c.CODIGO_CLASSE = cl.CODIGO
-        LEFT JOIN FK2_MGH_TB_ESTADO_HORARIO_WF ew
-                ON h.FK_ESTADO_HORARIO_WF = ew.PK_ESTADO_HORARIO_WF
-        LEFT JOIN FK2_MCA_TB_UTILIZADOR ut_criador
-                ON h.CREATED_BY = ut_criador.PK_UTILIZADOR
-        LEFT JOIN FK2_MCA_TB_UTILIZADOR ut_atualizador
-                ON h.LAST_UPDATED_BY = ut_atualizador.PK_UTILIZADOR
+      INNER JOIN FK2_MGH_TB_AULA al
+        ON al.FK_HORARIO = h.PK_HORARIO
+      INNER JOIN FK2_TB_SALAS au
+        ON json_value(al.REF_SALA, '$.pk') = au.CODIGO
+      INNER JOIN FK2_MGH_TB_TIPO_AULA at
+        ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
+      INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
+        ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+      INNER JOIN FK2_MGH_TB_MODALIDADE m
+        ON m.PK_MODALIDADE = al.FK_MODALIDADE
+      INNER JOIN FK2_TB_GRADE_CURRICULAR c
+        ON TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, '')) = c.CODIGO
+      LEFT JOIN FK2_TB_DISCIPLINAS d
+        ON c.CODIGO_DISCIPLINA = d.CODIGO
+      LEFT JOIN FK2_TB_CURSOS c2
+        ON c.CODIGO_CURSO = c2.CODIGO
+      LEFT JOIN FK2_TB_CLASSES cl
+        ON c.CODIGO_CLASSE = cl.CODIGO
+      LEFT JOIN FK2_MGH_TB_ESTADO_HORARIO_WF ew
+        ON h.FK_ESTADO_HORARIO_WF = ew.PK_ESTADO_HORARIO_WF
+      LEFT JOIN FK2_MCA_TB_UTILIZADOR ut_criador
+        ON h.CREATED_BY = ut_criador.PK_UTILIZADOR
+      LEFT JOIN FK2_MCA_TB_UTILIZADOR ut_atualizador
+        ON h.LAST_UPDATED_BY = ut_atualizador.PK_UTILIZADOR
     WHERE ${baseWhere}
-
+    ORDER BY h.PK_HORARIO
     OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
   `;
 
-    // -------------------- QUERY DE CONTAGEM --------------------
-    const sqlCount = `
-    SELECT COUNT(*) AS TOTAL
+  // -------------------- QUERY DE CONTAGEM --------------------
+  const sqlCount = `
+    SELECT COUNT(DISTINCT h.PK_HORARIO) AS TOTAL
     FROM FK2_MGH_TB_HORARIO h
       INNER JOIN FK2_MGH_TB_AULA al
-              ON al.FK_HORARIO = h.PK_HORARIO
+        ON al.FK_HORARIO = h.PK_HORARIO
       INNER JOIN FK2_MGH_TB_TIPO_AULA at
-              ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
+        ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
       INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
-              ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+        ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
       INNER JOIN FK2_MGH_TB_MODALIDADE m
-              ON m.PK_MODALIDADE = al.FK_MODALIDADE
+        ON m.PK_MODALIDADE = al.FK_MODALIDADE
       INNER JOIN FK2_TB_GRADE_CURRICULAR c
-              ON TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, '')) = c.CODIGO
+        ON TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, '')) = c.CODIGO
     WHERE ${baseWhere}
   `;
 
-    const [result, countResult] = await Promise.all([
-      this.dataSource.query(sql),
-      this.dataSource.query(sqlCount),
-    ]);
+  const [result, countResult] = await Promise.all([
+    this.dataSource.query(sql),
+    this.dataSource.query(sqlCount),
+  ]);
 
-    const total = Number(countResult[0].TOTAL);
-    const totalPages = Math.ceil(total / limit);
+  const total = Number(countResult[0].TOTAL);
+  const totalPages = Math.ceil(total / limit);
 
-    return {
-      data: await toLowerCaseKeys(result),
-      total,
-      page,
-      limit,
-      totalPages,
-    };
-  }
+  return {
+    data: await toLowerCaseKeys(result),
+    total,
+    page,
+    limit,
+    totalPages,
+  };
+}
   async findScheduleByClassRoom({
     unidadeCurricular,
     anoCurricular,
