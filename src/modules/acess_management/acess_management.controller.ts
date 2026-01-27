@@ -328,9 +328,10 @@ export class AcessManagementController {
   async adicionarAcesso(
     @Param('utilizadorId', ParseIntPipe) utilizadorId: number,
     @Param('acessoId', ParseIntPipe) acessoId: number,
+    @Req() req: any,
   ) {
 
-    const usuarioLogadoId = 1;
+    const usuarioLogadoId = req.user.sub;
     return this.acessosService.adicionarAcesso(
       utilizadorId,
       acessoId,
@@ -394,14 +395,20 @@ export class AcessManagementController {
   async removerAcesso(
     @Param('utilizadorId', ParseIntPipe) utilizadorId: number,
     @Param('acessoId', ParseIntPipe) acessoId: number,
-    @Headers('x-user-logado-id') usuarioLogadoId: number,
+    @Req() req: any,
   ) {
+    const usuarioLogadoId = req.user.sub;
+
+    console.log(usuarioLogadoId);
+    
+    // Você pode validar se o usuário logado tem permissão aqui
     return this.acessosService.removerAcesso(
       utilizadorId,
       acessoId,
       usuarioLogadoId,
     );
   }
+  
   //Remover Acesso no grupo
   @Delete('grupo/:grupoId/acesso/:acessoId')
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
