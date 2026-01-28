@@ -1111,7 +1111,7 @@ ORDER BY
     }
 
     // Afetação docente
-    if (afetacaoDocente === 1) {
+    if (afetacaoDocente == 1) {
       sql += `
       AND EXISTS (
         SELECT 1 FROM "FK2_MGH_TB_AULA" a
@@ -1121,7 +1121,7 @@ ORDER BY
           AND JSON_VALUE(a."REF_DOCENTE", '$.pkDocente' RETURNING NUMBER) != 0
       )
     `;
-    } else if (afetacaoDocente === 2) {
+    } else if (afetacaoDocente == 2) {
       sql += `
       AND NOT EXISTS (
         SELECT 1 FROM "FK2_MGH_TB_AULA" a
