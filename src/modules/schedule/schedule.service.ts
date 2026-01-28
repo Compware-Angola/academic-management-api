@@ -136,6 +136,84 @@ export class ScheduleService {
       dataExclusao: new Date().toISOString(),
     };
   }
+  
+  async getAulasOcupadasParaDropdown(
+    salaCodigo: number,
+    anoLectivo: number,
+    periodo: number,
+  ): Promise<{
+    aulas: Array<{
+      value: number;          // PK_AULA ou outro identificador único
+      label: string;          // Texto amigável para o dropdown
+      // campos extras opcionais
+      diaSemana?: string;
+      horaInicio?: string;
+      horaTermino?: string;
+      tipoAula?: string;
+    }>;
+  }> {
+    // 1. Verifica se a sala existe (lança exceção se não)
+    const salaResult = await this.dataSource.query(
+      `
+      SELECT CODIGO, DESIGNACAO AS SALA_NOME
+      FROM FK2_TB_SALAS
+      WHERE CODIGO = :salaCodigo
+        AND DELETED_AT IS NULL
+    `,
+      { salaCodigo } as any,
+    );
+
+    if (!salaResult?.length) {
+      throw new NotFoundException(`Sala com código ${salaCodigo} não encontrada ou inativa`);
+    }
+
+    // 2. Busca as aulas ocupadas
+    const aulasResult = await this.dataSource.query(
+      `
+      SELECT
+        al.PK_AULA,
+        ta.DESCRICAO AS TIPO_AULA,
+        ds.DESIGNACAO AS DIA_SEMANA,
+        al.HORA_INICIO,
+        al.HORA_TERMINO,
+        al.FK_DIA_DA_SEMANA,
+        h.FK_PERIODO
+      FROM FK2_TB_SALAS au
+      INNER JOIN FK2_MGH_TB_AULA al
+        ON json_value(al.REF_SALA, '$.pk') = au.CODIGO
+      INNER JOIN FK2_MGH_TB_HORARIO h
+        ON h.PK_HORARIO = al.FK_HORARIO
+      LEFT JOIN FK2_TB_TIPO_AULA ta 
+        ON ta.CODIGO = al.FK_TIPO_AULA
+      LEFT JOIN FK2_MGH_TB_DIA_DA_SEMANA ds 
+        ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+      WHERE au.DELETED_AT IS NULL
+        AND al.ACTIVE_STATE = 1
+        AND h.FK_PERIODO = :periodo
+        AND h.FK_ANO_LECTIVO = :anoLectivo
+        AND au.CODIGO = :salaCodigo
+      ORDER BY 
+        al.FK_DIA_DA_SEMANA,
+        TO_DATE(REGEXP_SUBSTR(al.HORA_INICIO, '[0-2][0-9]:[0-5][0-9]'), 'HH24:MI')
+    `,
+      { salaCodigo, anoLectivo, periodo } as any,
+    );
+
+    const aulasFormatadas = aulasResult.map((aula: any) => ({
+      value: aula.PK_AULA,
+      label: `${aula.DIA_SEMANA || `Dia ${aula.FK_DIA_DA_SEMANA}`} - ${aula.HORA_INICIO} às ${aula.HORA_TERMINO} (${aula.TIPO_AULA || 'Aula'})`,
+      // campos extras se precisar no frontend
+      diaSemana: aula.DIA_SEMANA,
+      horaInicio: aula.HORA_INICIO,
+      horaTermino: aula.HORA_TERMINO,
+      tipoAula: aula.TIPO_AULA,
+      periodo: aula.FK_PERIODO,
+    }));
+
+    return {
+      aulas: aulasFormatadas,  
+    };
+  }
 
   async createPermissionToEditSchedule(query: CreatePermissionEditScheduleDto) {
     const json_user = `{"pk": ${query.userId}, "desc": " ", "corLetra": "black", "disponivel": true}`;
