@@ -208,6 +208,70 @@ export class UsersService {
       totalPages: Math.ceil(total / limit),
     };
   }
+  async listUsersNoPagination(filter: UserFilterDto): Promise<{
+  data: UserListItemDto[];
+  total: number;
+}> {
+  const { ativo, search } = filter;
+
+  const params: any = {};
+
+  let sql = `
+    SELECT DISTINCT
+      u.PK_UTILIZADOR                          AS codigo,
+      u.NOME                                   AS nome,
+      u.USERNAME                               AS username,
+      u.EMAIL                                  AS email,
+      u.ACTIVE_STATE                           AS activeState,
+      u.OBS                                    AS obs,
+      TO_CHAR(u.CREATED_AT, 'DD/MM/YYYY HH24:MI')   AS createdAt,
+      TO_CHAR(u.UPDATED_AT, 'DD/MM/YYYY HH24:MI')   AS updatedAt,
+      pe.NUM_DOC_IDENTIFICACAO                 AS numeroDocumento,
+      TO_CHAR(pe.DATA_DE_NASCIMENTO, 'DD/MM/YYYY') AS dataDeNascimento,
+      pe.TELEFONE1                             AS telefone1,
+      pe.TELEFONE2                             AS telefone2
+    FROM FK2_MCA_TB_UTILIZADOR u
+    LEFT JOIN FK2_TB_PESSOA pe 
+      ON pe.pk_pessoa = JSON_VALUE(u.REF_PESSOA, '$.pk')
+    WHERE 1 = 1
+  `;
+
+  // Filtro ativo/inativo
+  if (ativo === 'true') {
+    sql += ` AND u.ACTIVE_STATE = 1`;
+  } else if (ativo === 'false') {
+    sql += ` AND u.ACTIVE_STATE = 0`;
+  }
+
+  // Filtro de pesquisa livre (nome, username ou email)
+  if (search && search.trim()) {
+    const searchTerm = `%${search.trim().toUpperCase()}%`;
+    sql += `
+      AND (
+        UPPER(u.NOME) LIKE :search
+        OR UPPER(u.USERNAME) LIKE :search
+        OR UPPER(u.EMAIL) LIKE :search
+      )
+    `;
+    params.search = searchTerm;
+  }
+
+  // Ordenação
+  sql += ` ORDER BY u.CREATED_AT DESC, u.NOME ASC`;
+
+  const result = await this.dataSource.query(sql, params);
+
+  const total = result.length;
+
+  // Converter chaves para lower case (mesmo que antes)
+  const data = result.map((row: any) => row);
+
+  return {
+    data: await toLowerCaseKeys(data),
+    total,
+  };
+}
+
   async addgroupToUser(
     userId: number,
     groupId: number,

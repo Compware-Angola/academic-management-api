@@ -194,6 +194,20 @@ export class AcessManagementController {
   async list(@Query(ValidationPipe) filter: UserFilterDto) {
     return this.usersService.listUsers(filter);
   }
+  @Get('users-no-pagination')
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+@RequiredPermissions(
+  PermissionTypeDetails.LISTA_DE_UTILIZADORES.sigla,
+  PermissionTypeDetails.LISTA_DE_UTILIZADORES2.sigla
+)
+@ApiOperation({
+  summary: 'Listar todos os utilizadores (sem paginação, filtro por ativo/inativo)',
+})
+@ApiResponse({ status: 200, type: [UserListItemDto] })
+async listNoPagination(@Query(ValidationPipe) filter: UserFilterDto) {
+  return this.usersService.listUsersNoPagination(filter);
+}
+
 
   @Get('logs-acessos-funcionalidade')
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -467,11 +481,22 @@ export class AcessManagementController {
     @Param('acessoId', ParseIntPipe) acessoId: number,
     @Req() req: any,
   ) {
-    const usuarioLogadoId = req.user.sub;
-    return this.acessosService.removerGrupoAcesso(
+    const user = req.user;
+    const info = await this.acessosService.removerGrupoAcesso(
       grupoId,
       acessoId,
-      usuarioLogadoId,
+      user.sub
     );
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+   
+    await AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} Removeu Acesso ${acessoId} do Grupo ${grupoId}`,
+      fkAcesso: 6,
+    
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 1,
+      ip: ip,
+    });
+    return info;
   }
 }
