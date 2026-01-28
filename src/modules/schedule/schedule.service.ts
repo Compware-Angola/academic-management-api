@@ -19,6 +19,7 @@ import { ListScheduleClassRoomDto } from './dto/list-schedule-class-room.dto';
 import { FindScheduleByDesignationDto } from './dto/find-schedule-by-designation.dto';
 import { ListScheduleWithPermissionDto } from './dto/list-schedule-with-permission.dto';
 import { UpdatePermissionEditScheduleDto } from './dto/update-permission-edit-schedule.dto';
+import { formatHora } from '../util/formate-date';
 
 
 @Injectable()
@@ -137,85 +138,101 @@ export class ScheduleService {
     };
   }
   
-  async getAulasOcupadasParaDropdown(
-    salaCodigo: number,
-    anoLectivo: number,
-    periodo: number,
-  ): Promise<{
-    aulas: Array<{
-      codigoAula: number;          // PK_AULA ou outro identificador único
-      label: string;          // Texto amigável para o dropdown
-      // campos extras opcionais
-      diaSemanaCodigo?: number;
-      diaSemana?: string;
-      horaInicio?: string;
-      horaTermino?: string;
-      tipoAula?: string;
-    }>;
-  }> {
-    // 1. Verifica se a sala existe (lança exceção se não)
-    const salaResult = await this.dataSource.query(
-      `
-      SELECT CODIGO, DESIGNACAO AS SALA_NOME
-      FROM FK2_TB_SALAS
-      WHERE CODIGO = :salaCodigo
-        AND DELETED_AT IS NULL
-    `,
-      { salaCodigo } as any,
-    );
+async getAulasOcupadasParaDropdown(
+  salaCodigo: number,
+  anoLectivo: number,
+  periodo: number,
+): Promise<{ aulas: any[] }> {
 
-    if (!salaResult?.length) {
-      throw new NotFoundException(`Sala com código ${salaCodigo} não encontrada ou inativa`);
+  // 1. Verifica se a sala existe
+  const salaResult = await this.dataSource.query(
+    `
+    SELECT CODIGO
+    FROM FK2_TB_SALAS
+    WHERE CODIGO = :salaCodigo
+      AND DELETED_AT IS NULL
+    `,
+    { salaCodigo } as any,
+  );
+
+  if (!salaResult?.length) {
+    throw new NotFoundException(
+      `Sala com código ${salaCodigo} não encontrada ou inativa`,
+    );
+  }
+
+  // 2. Busca as aulas ocupadas
+  const aulasResult = await this.dataSource.query(
+    `
+    SELECT
+      al.PK_AULA,
+      ta.DESCRICAO AS TIPO_AULA,
+      ds.PK_DIA_DA_SEMANA,
+      ds.DESIGNACAO AS DIA_SEMANA,
+      ds.ORDEM AS ORDEM_DIA_SEMANA,
+      al.HORA_INICIO,
+      al.HORA_TERMINO,
+      h.FK_PERIODO
+    FROM FK2_TB_SALAS au
+    INNER JOIN FK2_MGH_TB_AULA al
+      ON json_value(al.REF_SALA, '$.pk') = au.CODIGO
+    INNER JOIN FK2_MGH_TB_HORARIO h
+      ON h.PK_HORARIO = al.FK_HORARIO
+    LEFT JOIN FK2_TB_TIPO_AULA ta 
+      ON ta.CODIGO = al.FK_TIPO_AULA
+    LEFT JOIN FK2_MGH_TB_DIA_DA_SEMANA ds 
+      ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+    WHERE au.DELETED_AT IS NULL
+      AND al.ACTIVE_STATE = 1
+      AND h.FK_PERIODO = :periodo
+      AND h.FK_ANO_LECTIVO = :anoLectivo
+      AND au.CODIGO = :salaCodigo
+    ORDER BY 
+      ds.ORDEM,
+      TO_DATE(
+        REGEXP_SUBSTR(al.HORA_INICIO, '[0-2][0-9]:[0-5][0-9]'),
+        'HH24:MI'
+      )
+    `,
+    { salaCodigo, anoLectivo, periodo } as any,
+  );
+
+  // 3. Agrupa por dia da semana
+  const mapaDias = new Map<number, any>();
+
+  aulasResult.forEach((aula: any, index: number) => {
+    if (!mapaDias.has(aula.PK_DIA_DA_SEMANA)) {
+      mapaDias.set(aula.PK_DIA_DA_SEMANA, {
+        diaSemana: {
+          pkDiaDaSemana: aula.PK_DIA_DA_SEMANA,
+          designacao: aula.DIA_SEMANA,
+          ordem: aula.ORDEM_DIA_SEMANA,
+        },
+        tempos: [],
+      });
     }
 
-    // 2. Busca as aulas ocupadas
-    const aulasResult = await this.dataSource.query(
-      `
-      SELECT
-        al.PK_AULA,
-        ta.DESCRICAO AS TIPO_AULA,
-        ds.DESIGNACAO AS DIA_SEMANA,
-        al.HORA_INICIO,
-        al.HORA_TERMINO,
-        al.FK_DIA_DA_SEMANA,
-        h.FK_PERIODO
-      FROM FK2_TB_SALAS au
-      INNER JOIN FK2_MGH_TB_AULA al
-        ON json_value(al.REF_SALA, '$.pk') = au.CODIGO
-      INNER JOIN FK2_MGH_TB_HORARIO h
-        ON h.PK_HORARIO = al.FK_HORARIO
-      LEFT JOIN FK2_TB_TIPO_AULA ta 
-        ON ta.CODIGO = al.FK_TIPO_AULA
-      LEFT JOIN FK2_MGH_TB_DIA_DA_SEMANA ds 
-        ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
-      WHERE au.DELETED_AT IS NULL
-        AND al.ACTIVE_STATE = 1
-        AND h.FK_PERIODO = :periodo
-        AND h.FK_ANO_LECTIVO = :anoLectivo
-        AND au.CODIGO = :salaCodigo
-      ORDER BY 
-        al.FK_DIA_DA_SEMANA,
-        TO_DATE(REGEXP_SUBSTR(al.HORA_INICIO, '[0-2][0-9]:[0-5][0-9]'), 'HH24:MI')
-    `,
-      { salaCodigo, anoLectivo, periodo } as any,
-    );
-
-    const aulasFormatadas = aulasResult.map((aula: any) => ({
+    mapaDias.get(aula.PK_DIA_DA_SEMANA).tempos.push({
+    
+       horaInicio: formatHora(aula.HORA_INICIO),
+  horaFim: formatHora(aula.HORA_TERMINO),
+      disponivel: false, // 🔴 SEMPRE FALSE
       codigoAula: aula.PK_AULA,
-      label: `${aula.DIA_SEMANA || `Dia ${aula.FK_DIA_DA_SEMANA}`} - ${aula.HORA_INICIO} às ${aula.HORA_TERMINO} (${aula.TIPO_AULA || 'Aula'})`,
-      // campos extras se precisar no frontend
-      diaSemana: aula.DIA_SEMANA,
-      diaSemanaCodigo: aula.FK_DIA_DA_SEMANA,
-      horaInicio: aula.HORA_INICIO,
-      horaTermino: aula.HORA_TERMINO,
       tipoAula: aula.TIPO_AULA,
       periodo: aula.FK_PERIODO,
-    }));
+    });
+  });
 
-    return {
-      aulas: aulasFormatadas,  
-    };
-  }
+  // 4. Monta retorno final
+  const items = Array.from(mapaDias.values());
+
+  return {
+    aulas: [
+      ...items
+    ],
+  };
+}
+
 
   async createPermissionToEditSchedule(query: CreatePermissionEditScheduleDto) {
     const json_user = `{"pk": ${query.userId}, "desc": " ", "corLetra": "black", "disponivel": true}`;
