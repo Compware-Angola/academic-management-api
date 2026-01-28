@@ -143,9 +143,10 @@ export class ScheduleService {
     periodo: number,
   ): Promise<{
     aulas: Array<{
-      codigo: number;          // PK_AULA ou outro identificador único
+      codigoAula: number;          // PK_AULA ou outro identificador único
       label: string;          // Texto amigável para o dropdown
       // campos extras opcionais
+      diaSemanaCodigo?: number;
       diaSemana?: string;
       horaInicio?: string;
       horaTermino?: string;
@@ -200,10 +201,11 @@ export class ScheduleService {
     );
 
     const aulasFormatadas = aulasResult.map((aula: any) => ({
-      codigo: aula.PK_AULA,
+      codigoAula: aula.PK_AULA,
       label: `${aula.DIA_SEMANA || `Dia ${aula.FK_DIA_DA_SEMANA}`} - ${aula.HORA_INICIO} às ${aula.HORA_TERMINO} (${aula.TIPO_AULA || 'Aula'})`,
       // campos extras se precisar no frontend
       diaSemana: aula.DIA_SEMANA,
+      diaSemanaCodigo: aula.FK_DIA_DA_SEMANA,
       horaInicio: aula.HORA_INICIO,
       horaTermino: aula.HORA_TERMINO,
       tipoAula: aula.TIPO_AULA,

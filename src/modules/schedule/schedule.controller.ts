@@ -39,7 +39,7 @@ import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 
 @ApiTags('schedule')
- @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+ //@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('schedule')
 export class ScheduleController {
   constructor(private readonly scheduleService: ScheduleService, private httpService: HttpService) { }
