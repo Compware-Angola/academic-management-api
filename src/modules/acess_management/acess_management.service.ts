@@ -249,6 +249,8 @@ export class AcessosService {
 }
 
 if (filter.designacao) {
+ 
+  
   whereClause += ` AND A.DESIGNACAO LIKE :${params.length + 1}`;
   params.push(`%${filter.designacao}%`);
 }
