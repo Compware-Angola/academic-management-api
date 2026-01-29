@@ -39,7 +39,7 @@ import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 
 @ApiTags('schedule')
- @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('schedule')
 export class ScheduleController {
   constructor(private readonly scheduleService: ScheduleService, private httpService: HttpService) { }
@@ -49,15 +49,50 @@ export class ScheduleController {
   @ApiOperation({ summary: 'Criar nova permissão para editar horário' })
   @ApiResponse({ status: 201, description: 'Permissão criada com sucesso.' })
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
-  createPermission(
+   async createPermission(
     @Body(ValidationPipe)
     createPermissionEditScheduleDto: CreatePermissionEditScheduleDto,
+    @Req() req: any,
   ) {
-    return this.scheduleService.createPermissionToEditSchedule(
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user;
+       const result = await this.scheduleService.createPermissionToEditSchedule(
       createPermissionEditScheduleDto,
     );
+   await AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} Criou Permissão de Edição de Horário  ${createPermissionEditScheduleDto.fkHorario}`,
+      fkAcesso: 6,
+      fkFuncionalidade: 91,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 14,
+      ip: ip,
+    });
+    return result;
+ 
   }
-
+  @Get('aulas-ocupadas/:salaCodigo')
+  @ApiOperation({
+    summary: 'Obter aulas ocupadas em uma sala para um ano lectivo',
+    description:
+      'Retorna as aulas que estão ocupadas em uma sala específica para o ano lectivo informado. Sempre retorna um array (vazio ou com itens), ideal para popular dropdowns.',
+  })
+  @ApiParam({
+    name: 'salaCodigo',
+    type: Number,
+    description: 'Código da sala',
+    example: 161,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de aulas ocupadas na sala para o ano lectivo informado.',
+  })
+   async getAulasOcupadas(
+    @Param('salaCodigo', ParseIntPipe) salaCodigo: number,
+    @Query('anoLectivo', ParseIntPipe) anoLectivo: number,
+    @Query('periodo', ParseIntPipe) periodo: number,
+  ) {
+    return this.scheduleService.getAulasOcupadasParaDropdown(salaCodigo, anoLectivo, periodo);
+  }
   // ================ LISTAGENS ================
   @Get()
   @RequiredPermissions(PermissionTypeDetails.LISTAR_HORARIOS.sigla)
@@ -195,12 +230,24 @@ export class ScheduleController {
   @ApiOperation({ summary: 'Atualizar horário de uma UC' })
   @ApiParam({ name: 'userId', type: Number })
   @ApiParam({ name: 'id', type: Number })
-  update(
+  async update(
     @Param('userId', ParseIntPipe) userId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body(ValidationPipe) updateScheduleDto: UpdateScheduleDto,
+    @Req() req: any
   ) {
-    return this.scheduleService.update(userId, id, updateScheduleDto);
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user;
+    const result = await this.scheduleService.update(user.sub, id, updateScheduleDto);
+    await AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} Atualizou Horário ID ${id}`,
+      fkAcesso: 6,
+      fkFuncionalidade: 91,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 9,
+      ip: ip,
+    });
+    return result;
   }
 
   // ================ MOVIMENTAR ESTUDANTES ================
@@ -208,11 +255,23 @@ export class ScheduleController {
   @RequiredPermissions(PermissionTypeDetails.MOVIMENTAR_ESTUDANTES_POR_HORARIO.sigla)
   @ApiOperation({ summary: 'Movimentar Estudante' })
   @ApiParam({ name: 'userId', type: Number, description: 'ID do usuário' })
-  moveStudents(
+  async moveStudents(
     @Param('userId', ParseIntPipe) userId: number,
     @Body(ValidationPipe) dto: MoveStudentsToScheduleDto,
+    @Req() req: any
   ) {
-    return this.scheduleService.moveStudents(dto, userId);
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user;
+    const result = await this.scheduleService.moveStudents(dto, userId);
+    await AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} Movimentou Estudantes do Horário ID ${dto.fromScheduleId} para o Horário ID ${dto.toScheduleId}`,
+      fkAcesso: 6,
+  
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 10,
+      ip: ip,
+    });
+    return result;
   }
 
   // ================ OUTRAS AÇÕES ================
@@ -222,30 +281,55 @@ export class ScheduleController {
   @ApiParam({ name: 'horarioId', type: Number })
   @ApiParam({ name: 'userId', type: Number })
 
-  delete(
+  async delete(
     @Param('horarioId', ParseIntPipe) horarioId: number,
     @Param('userId', ParseIntPipe) userId: number,
+    @Req() req: any
   ) {
-    return this.scheduleService.delete(userId, horarioId);
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user;
+    const result = await this.scheduleService.delete(userId, horarioId);
+    await AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} Excluiu Horário ID ${horarioId}`,
+      fkAcesso: 6,
+      fkFuncionalidade: 91,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 11,
+      ip: ip,
+    });
+    return result;
+    
   }
 
   @Patch(':horarioId/disponibilidade/:userId')
-  toggleAvailability(
+  async toggleAvailability(
     @Param('horarioId', ParseIntPipe) horarioId: number,
     @Param('userId', ParseIntPipe) userId: number,
+    @Req() req: any
   ) {
-    return this.scheduleService.toggleAvailability(userId, horarioId);
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user;
+    await AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} Alterou Disponibilidade do Horário ID ${horarioId}`,
+      fkAcesso: 6,
+      fkFuncionalidade: 91,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 12,
+      ip: ip,
+    });
+    return this.scheduleService.toggleAvailability(user.sub, horarioId);
   }
 
   @Patch(':horarioId/validar/:userId')
   @RequiredPermissions(PermissionTypeDetails.VALIDACAO_DOCENTE.sigla)
-  validate(
+  async validate(
     @Param('horarioId', ParseIntPipe) horarioId: number,
     @Param('userId', ParseIntPipe) userId: number,
     @Req() req: any,
   ) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-    const user = req.user
+    const user = req.user;
+    const result = await this.scheduleService.validate(userId, horarioId);
     AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${user?.nome} Validou Horário ID ${horarioId}`,
       fkAcesso: 6,
@@ -254,14 +338,28 @@ export class ScheduleController {
       fkOperacaoLog: 8,
       ip: ip,
     });
-    return this.scheduleService.validate(userId, horarioId);
+    return result;
+   
   }
 
   @Patch(':horarioId/restaurar/:userId')
-  restore(
+  async restore(
     @Param('horarioId', ParseIntPipe) horarioId: number,
     @Param('userId', ParseIntPipe) userId: number,
+    @Req() req: any,
   ) {
-    return this.scheduleService.restore(userId, horarioId);
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user;
+    const result = await this.scheduleService.restore(userId, horarioId);
+    await AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} Restaurou Horário ID ${horarioId}`,
+      fkAcesso: 6,
+      fkFuncionalidade: 91,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 13,
+      ip: ip,
+    });
+    return result;
+   
   }
 }

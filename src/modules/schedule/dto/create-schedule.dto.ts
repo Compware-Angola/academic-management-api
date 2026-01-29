@@ -35,6 +35,7 @@ export class AulaDto {
     example: 3,
   })
   @IsEnum(DiaSemana)
+   @Type(() => Number)
   diaSemana: DiaSemana;
   @ApiProperty({
     description: 'Observação',
@@ -51,6 +52,8 @@ export class AulaDto {
   })
   @IsInt()
   @Min(1)
+   @Type(() => Number)
+   
  
   ordemTempo: number;
 

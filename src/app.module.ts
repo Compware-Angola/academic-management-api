@@ -15,6 +15,7 @@ import { AcademicCalendarModule } from './modules/academic_calendar/academic_cal
 import { TeamOldRulesModule } from './modules/team_old_rules/team_old_rules.module';
 import { HttpModule } from '@nestjs/axios';
 import { StudentsModule } from './modules/students/students.module';
+import { DisciplineModule } from './modules/discipline/discipline.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { StudentsModule } from './modules/students/students.module';
     AcademicCalendarModule,
     TeamOldRulesModule,
     StudentsModule,
+    DisciplineModule
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService],

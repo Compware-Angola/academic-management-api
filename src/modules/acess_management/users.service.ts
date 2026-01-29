@@ -208,6 +208,70 @@ export class UsersService {
       totalPages: Math.ceil(total / limit),
     };
   }
+  async listUsersNoPagination(filter: UserFilterDto): Promise<{
+    data: UserListItemDto[];
+    total: number;
+  }> {
+    const { ativo, search } = filter;
+
+    const params: any = {};
+
+    let sql = `
+    SELECT 
+      u.PK_UTILIZADOR                          AS codigo,
+      u.NOME                                   AS nome,
+      u.USERNAME                               AS username,
+      u.EMAIL                                  AS email,
+      u.ACTIVE_STATE                           AS activeState,
+      u.OBS                                    AS obs,
+      TO_CHAR(u.CREATED_AT, 'DD/MM/YYYY HH24:MI')   AS createdAt,
+      TO_CHAR(u.UPDATED_AT, 'DD/MM/YYYY HH24:MI')   AS updatedAt,
+      pe.NUM_DOC_IDENTIFICACAO                 AS numeroDocumento,
+      TO_CHAR(pe.DATA_DE_NASCIMENTO, 'DD/MM/YYYY') AS dataDeNascimento,
+      pe.TELEFONE1                             AS telefone1,
+      pe.TELEFONE2                             AS telefone2
+    FROM FK2_MCA_TB_UTILIZADOR u
+    LEFT JOIN FK2_TB_PESSOA pe 
+      ON pe.pk_pessoa = JSON_VALUE(u.REF_PESSOA, '$.pk')
+    WHERE 1 = 1
+  `;
+
+    // Filtro ativo/inativo
+    if (ativo === 'true') {
+      sql += ` AND u.ACTIVE_STATE = 1`;
+    } else if (ativo === 'false') {
+      sql += ` AND u.ACTIVE_STATE = 0`;
+    }
+
+    // Filtro de pesquisa livre (nome, username ou email)
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim().toUpperCase()}%`;
+      sql += `
+      AND (
+        UPPER(u.NOME) LIKE :search
+        OR UPPER(u.USERNAME) LIKE :search
+        OR UPPER(u.EMAIL) LIKE :search
+      )
+    `;
+      params.search = searchTerm;
+    }
+
+    // Ordenação
+    sql += ` ORDER BY u.CREATED_AT DESC, u.NOME ASC`;
+
+    const result = await this.dataSource.query(sql, params);
+
+    const total = result.length;
+
+    // Converter chaves para lower case (mesmo que antes)
+    const data = result.map((row: any) => row);
+
+    return {
+      data: await toLowerCaseKeys(data),
+      total,
+    };
+  }
+
   async addgroupToUser(
     userId: number,
     groupId: number,
@@ -277,7 +341,7 @@ export class UsersService {
     userId: number,
     groupId: number,
     usuarioLogadoId: number,
-    
+
   ): Promise<{ message: string }> {
     try {
       await this.dataSource.query(`
@@ -295,6 +359,20 @@ export class UsersService {
       this.logger.error('Erro ao remover grupo do utilizador', error.stack);
       throw new InternalServerErrorException('Erro interno ao remover grupo do utilizador. Verifique os dados e tente novamente.');
     }
+  }
+  async getLastGroupId(): Promise<number> {
+    const sql = `
+    SELECT MAX(PK_GRUPO) AS ultimo_id
+    FROM FK2_MCA_TB_GRUPO
+  `;
+
+    const result = await this.dataSource.query(sql);
+
+    // Se não houver registo → MAX retorna NULL → result[0].ULTIMO_ID é undefined/null
+    const ultimoId = result?.[0]?.ULTIMO_ID;
+
+    // Retorna próximo ID: se não existir nenhum → começa em 1
+    return ultimoId != null ? Number(ultimoId) + 1 : 1;
   }
   async criarPessoaEUtilizador(
     dto: CreatePersonUserDto,
@@ -328,7 +406,7 @@ export class UsersService {
       }
       // 3. Inserir Pessoa
 
-   
+
 
       if (dto.telefone1) {
         const telefone1Existe = await this.telefoneExiste(dto.telefone1);
@@ -396,7 +474,7 @@ export class UsersService {
       if (!pessoaResult || pessoaResult.length === 0) {
         throw new InternalServerErrorException('Falha ao recuperar a pessoa recém-criada.');
       }
-      console.log(pessoaResult);
+
 
       pessoaId = Number(pessoaResult[0].ID);
 
@@ -435,13 +513,13 @@ export class UsersService {
         throw new InternalServerErrorException('Falha ao recuperar o utilizador recém-criado.');
       }
       utilizadorId = Number(utilizadorResult[0].ID);
-
+      grupoId = await this.getLastGroupId();
       // 7. Criar Grupo Unitário
       await queryRunner.manager.query(`
         INSERT INTO FK2_MCA_TB_GRUPO (
-          DESIGNACAO, SIGLA, DESCRICAO, FK_TIPO_DE_GRUPO, ORDEM, ACTIVE_STATE, CREATED_AT, UPDATED_AT
+          DESIGNACAO, SIGLA, DESCRICAO, FK_TIPO_DE_GRUPO, ORDEM, ACTIVE_STATE, CREATED_AT, UPDATED_AT,PK_GRUPO
         ) VALUES (
-          '${username}', '${username}', 'Grupo unitário', 2, 1, 1, SYSDATE, SYSDATE
+          '${username}', '${username}', 'Grupo unitário', 2, 1, 1, SYSDATE, SYSDATE, ${grupoId}
         )
       `);
 
@@ -455,7 +533,7 @@ export class UsersService {
       if (!grupoResult || grupoResult.length === 0) {
         throw new InternalServerErrorException('Falha ao recuperar o grupo recém-criado.');
       }
-      grupoId = Number(grupoResult[0].ID);
+
 
       // 8. Associar utilizador ao grupo
       await queryRunner.manager.query(`
@@ -478,8 +556,8 @@ export class UsersService {
         username,
         senhaTemporariaGerada: true,
         observacao: 'O usuário deve alterar a senha no primeiro login.'
-       
-         
+
+
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -587,7 +665,7 @@ export class UsersService {
       return item;
     });
 
- 
+
 
 
     return {

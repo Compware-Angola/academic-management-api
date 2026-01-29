@@ -19,6 +19,7 @@ import { ListScheduleClassRoomDto } from './dto/list-schedule-class-room.dto';
 import { FindScheduleByDesignationDto } from './dto/find-schedule-by-designation.dto';
 import { ListScheduleWithPermissionDto } from './dto/list-schedule-with-permission.dto';
 import { UpdatePermissionEditScheduleDto } from './dto/update-permission-edit-schedule.dto';
+import { formatHora } from '../util/formate-date';
 
 
 @Injectable()
@@ -136,6 +137,102 @@ export class ScheduleService {
       dataExclusao: new Date().toISOString(),
     };
   }
+  
+async getAulasOcupadasParaDropdown(
+  salaCodigo: number,
+  anoLectivo: number,
+  periodo: number,
+): Promise<{ aulas: any[] }> {
+
+  // 1. Verifica se a sala existe
+  const salaResult = await this.dataSource.query(
+    `
+    SELECT CODIGO
+    FROM FK2_TB_SALAS
+    WHERE CODIGO = :salaCodigo
+      AND DELETED_AT IS NULL
+    `,
+    { salaCodigo } as any,
+  );
+
+  if (!salaResult?.length) {
+    throw new NotFoundException(
+      `Sala com código ${salaCodigo} não encontrada ou inativa`,
+    );
+  }
+
+  // 2. Busca as aulas ocupadas
+  const aulasResult = await this.dataSource.query(
+    `
+    SELECT
+      al.PK_AULA,
+      ta.DESCRICAO AS TIPO_AULA,
+      ds.PK_DIA_DA_SEMANA,
+      ds.DESIGNACAO AS DIA_SEMANA,
+      ds.ORDEM AS ORDEM_DIA_SEMANA,
+      al.HORA_INICIO,
+      al.HORA_TERMINO,
+      h.FK_PERIODO
+    FROM FK2_TB_SALAS au
+    INNER JOIN FK2_MGH_TB_AULA al
+      ON json_value(al.REF_SALA, '$.pk') = au.CODIGO
+    INNER JOIN FK2_MGH_TB_HORARIO h
+      ON h.PK_HORARIO = al.FK_HORARIO
+    LEFT JOIN FK2_TB_TIPO_AULA ta 
+      ON ta.CODIGO = al.FK_TIPO_AULA
+    LEFT JOIN FK2_MGH_TB_DIA_DA_SEMANA ds 
+      ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+    WHERE au.DELETED_AT IS NULL
+      AND al.ACTIVE_STATE = 1
+      AND h.FK_PERIODO = :periodo
+      AND h.FK_ANO_LECTIVO = :anoLectivo
+      AND au.CODIGO = :salaCodigo
+    ORDER BY 
+      ds.ORDEM,
+      TO_DATE(
+        REGEXP_SUBSTR(al.HORA_INICIO, '[0-2][0-9]:[0-5][0-9]'),
+        'HH24:MI'
+      )
+    `,
+    { salaCodigo, anoLectivo, periodo } as any,
+  );
+
+  // 3. Agrupa por dia da semana
+  const mapaDias = new Map<number, any>();
+
+  aulasResult.forEach((aula: any, index: number) => {
+    if (!mapaDias.has(aula.PK_DIA_DA_SEMANA)) {
+      mapaDias.set(aula.PK_DIA_DA_SEMANA, {
+        diaSemana: {
+          pkDiaDaSemana: aula.PK_DIA_DA_SEMANA,
+          designacao: aula.DIA_SEMANA,
+          ordem: aula.ORDEM_DIA_SEMANA,
+        },
+        tempos: [],
+      });
+    }
+
+    mapaDias.get(aula.PK_DIA_DA_SEMANA).tempos.push({
+    
+       horaInicio: formatHora(aula.HORA_INICIO),
+  horaFim: formatHora(aula.HORA_TERMINO),
+      disponivel: false, // 🔴 SEMPRE FALSE
+      codigoAula: aula.PK_AULA,
+      tipoAula: aula.TIPO_AULA,
+      periodo: aula.FK_PERIODO,
+    });
+  });
+
+  // 4. Monta retorno final
+  const items = Array.from(mapaDias.values());
+
+  return {
+    aulas: [
+      ...items
+    ],
+  };
+}
+
 
   async createPermissionToEditSchedule(query: CreatePermissionEditScheduleDto) {
     const json_user = `{"pk": ${query.userId}, "desc": " ", "corLetra": "black", "disponivel": true}`;
@@ -1026,7 +1123,7 @@ ORDER BY
   FROM (
     SELECT
       dados.*,
-      ROW_NUMBER() OVER (ORDER BY dados."CRIADOPOR" DESC, dados."CODIGO" DESC) AS rn,
+      ROW_NUMBER() OVER (ORDER BY  dados."DATACRIACAO" DESC) AS rn,
       COUNT(*) OVER () AS total_registros
     FROM (
       SELECT DISTINCT
@@ -1111,7 +1208,7 @@ ORDER BY
     }
 
     // Afetação docente
-    if (afetacaoDocente === 1) {
+    if (afetacaoDocente == 1) {
       sql += `
       AND EXISTS (
         SELECT 1 FROM "FK2_MGH_TB_AULA" a
@@ -1121,7 +1218,7 @@ ORDER BY
           AND JSON_VALUE(a."REF_DOCENTE", '$.pkDocente' RETURNING NUMBER) != 0
       )
     `;
-    } else if (afetacaoDocente === 2) {
+    } else if (afetacaoDocente == 2) {
       sql += `
       AND NOT EXISTS (
         SELECT 1 FROM "FK2_MGH_TB_AULA" a
@@ -2215,6 +2312,8 @@ async findScheduleByDayOfTheweek({
     } else {
       // ==================== UPDATE ====================
       horarioId = horarioIdParam;
+      console.log(dto);
+      
 
       await this.dataSource.query(
         `
@@ -2481,9 +2580,11 @@ async findScheduleByDayOfTheweek({
       [sala],
     );
 
+    console.log(result,sala);
+    
   
 
-    return result[0].DESIGNACAO as string;
+    return result[0]?.DESIGNACAO as string;
   }
   private async getschedule(cheduleId: number): Promise<any> {
     return await this.dataSource.query(

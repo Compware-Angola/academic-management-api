@@ -249,6 +249,8 @@ export class AcessosService {
 }
 
 if (filter.designacao) {
+ 
+  
   whereClause += ` AND A.DESIGNACAO LIKE :${params.length + 1}`;
   params.push(`%${filter.designacao}%`);
 }
@@ -807,6 +809,9 @@ if (filter.designacao) {
         `,
         [grupoId],
       );
+
+      console.log(grupo,"GRUPO");
+      
       if (!grupo) {
         throw new Error(`Erro ao adicionar acesso, grupo não encontrado`);
       }
@@ -818,6 +823,8 @@ if (filter.designacao) {
         `,
         [grupoId, acessoId],
       );
+      console.log(jaRemovido,"JA REMOVIDO");
+      
 
       if (jaRemovido) {
         await queryRunner.manager.query(
@@ -828,7 +835,7 @@ if (filter.designacao) {
               LAST_UPDATED_BY = :usuarioLogadoId
           WHERE FK_GRUPO = :grupoId
           `,
-          { usuarioLogadoId, grupoId: jaRemovido.PK_GRUPO } as any,
+          { usuarioLogadoId, grupoId: jaRemovido.PK_GRUPO_ACESSO_REMOVIDO } as any,
         );
       } else {
         await queryRunner.manager.query(
