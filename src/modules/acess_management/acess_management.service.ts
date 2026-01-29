@@ -243,10 +243,16 @@ export class AcessosService {
     if (filter.apenasAtivos === 'true') {
       whereClause += ' AND A.ACTIVE_STATE = 1';
     }
-  if (filter.sigla) {
-  whereClause += ` AND A.SIGLA LIKE :${params.length + 1}`;
-  params.push(`%${filter.sigla}%`);
-}
+
+    
+    if (filter.apenasAtivos === 'false') {
+      whereClause += ' AND A.ACTIVE_STATE = 0';
+    }
+        
+      if (filter.sigla) {
+      whereClause += ` AND A.SIGLA LIKE :${params.length + 1}`;
+      params.push(`%${filter.sigla}%`);
+    }
 
 if (filter.designacao) {
   whereClause += ` AND A.DESIGNACAO LIKE :${params.length + 1}`;
