@@ -49,13 +49,26 @@ export class ScheduleController {
   @ApiOperation({ summary: 'Criar nova permissão para editar horário' })
   @ApiResponse({ status: 201, description: 'Permissão criada com sucesso.' })
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
-  createPermission(
+   async createPermission(
     @Body(ValidationPipe)
     createPermissionEditScheduleDto: CreatePermissionEditScheduleDto,
+    @Req() req: any,
   ) {
-    return this.scheduleService.createPermissionToEditSchedule(
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user;
+       const result = await this.scheduleService.createPermissionToEditSchedule(
       createPermissionEditScheduleDto,
     );
+   await AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} Criou Permissão de Edição de Horário  ${createPermissionEditScheduleDto.fkHorario}`,
+      fkAcesso: 6,
+      fkFuncionalidade: 91,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 14,
+      ip: ip,
+    });
+    return result;
+ 
   }
   @Get('aulas-ocupadas/:salaCodigo')
   @ApiOperation({

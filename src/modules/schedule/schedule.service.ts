@@ -1123,7 +1123,7 @@ ORDER BY
   FROM (
     SELECT
       dados.*,
-      ROW_NUMBER() OVER (ORDER BY dados."CRIADOPOR" DESC, dados."CODIGO" DESC) AS rn,
+      ROW_NUMBER() OVER (ORDER BY  dados."DATACRIACAO" DESC) AS rn,
       COUNT(*) OVER () AS total_registros
     FROM (
       SELECT DISTINCT
@@ -2312,6 +2312,8 @@ async findScheduleByDayOfTheweek({
     } else {
       // ==================== UPDATE ====================
       horarioId = horarioIdParam;
+      console.log(dto);
+      
 
       await this.dataSource.query(
         `
@@ -2578,9 +2580,11 @@ async findScheduleByDayOfTheweek({
       [sala],
     );
 
+    console.log(result,sala);
+    
   
 
-    return result[0].DESIGNACAO as string;
+    return result[0]?.DESIGNACAO as string;
   }
   private async getschedule(cheduleId: number): Promise<any> {
     return await this.dataSource.query(
