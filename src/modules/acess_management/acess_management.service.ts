@@ -866,4 +866,47 @@ if (filter.designacao) {
       await queryRunner.release();
     }
   }
+
+
+
+async atualizarEstadoAcesso(
+  acessoId: number,
+  userId: number,
+) {
+  try {
+    const result = await this.dataSource.query(
+      `
+      SELECT ACTIVE_STATE
+      FROM FK2_MCA_TB_ACESSO
+      WHERE PK_ACESSO = :1
+      `,
+      [acessoId],
+    );
+
+    if (!result.length) {
+      throw new NotFoundException('Acesso não encontrado');
+    }
+
+    await this.dataSource.query(
+      `
+      UPDATE FK2_MCA_TB_ACESSO
+      SET ACTIVE_STATE = CASE
+        WHEN ACTIVE_STATE = 1 THEN 0
+        ELSE 1
+      END
+      WHERE PK_ACESSO = :1
+      `,
+      [acessoId],
+    );
+
+    return { success: true };
+  } catch (error) {
+    this.logger.error('Erro ao atualizar estado do acesso', error);
+    throw new InternalServerErrorException(
+      'Falha ao atualizar estado do acesso',
+    );
+  }
+}
+
+
 }
