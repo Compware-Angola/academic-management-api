@@ -186,27 +186,31 @@ export class AcessosService {
       ordem: ordem || null,
       createdBy: userId,
       lastUpdatedBy: userId,
-      activeDate: activeDate || null,
+      activeDate:  activeDate ? new Date(activeDate) : null,
       activeState: activeState ? 1 : 0,
 
-      // Bindings para RETURNING (TypeORM com Oracle usa objetos de saída)
-      pkAcesso: { dir: 3003, type: 2 }, // 3003 = DB_TYPE_NUMBER
-      designacaoOut: { dir: 3003, type: 2001 }, // 2001 = DB_TYPE_VARCHAR
-      descricaoOut: { dir: 3003, type: 2001 },
-      siglaOut: { dir: 3003, type: 2001 },
-      iconeOut: { dir: 3003, type: 2001 },
-      fkModuloOut: { dir: 3003, type: 2 },
-      fkSubmenuOut: { dir: 3003, type: 2 },
-      fkPaginaOut: { dir: 3003, type: 2 },
-      fkTipoAcessoOut: { dir: 3003, type: 2 },
-      obsOut: { dir: 3003, type: 2001 },
-      ordemOut: { dir: 3003, type: 2 },
-      createdByOut: { dir: 3003, type: 2001 },
-      lastUpdatedByOut: { dir: 3003, type: 2001 },
-      createdAtOut: { dir: 3003, type: 2019 }, // DATE
-      updatedAtOut: { dir: 3003, type: 2019 },
-      activeDateOut: { dir: 3003, type: 2019 },
-      activeStateOut: { dir: 3003, type: 2 },
+      pkAcesso:       { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+      designacaoOut:  { dir: oracledb.BIND_OUT, type: oracledb.STRING },
+      descricaoOut:   { dir: oracledb.BIND_OUT, type: oracledb.STRING },
+      siglaOut:       { dir: oracledb.BIND_OUT, type: oracledb.STRING },
+      iconeOut:       { dir: oracledb.BIND_OUT, type: oracledb.STRING },
+
+      fkModuloOut:    { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+      fkSubmenuOut:   { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+      fkPaginaOut:    { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+      fkTipoAcessoOut:{ dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+
+      obsOut:         { dir: oracledb.BIND_OUT, type: oracledb.STRING },
+      ordemOut:       { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+
+      createdByOut:   { dir: oracledb.BIND_OUT, type: oracledb.STRING },
+      lastUpdatedByOut:{ dir: oracledb.BIND_OUT, type: oracledb.STRING },
+
+      createdAtOut:   { dir: oracledb.BIND_OUT, type: oracledb.DATE },
+      updatedAtOut:   { dir: oracledb.BIND_OUT, type: oracledb.DATE },
+      activeDateOut:  { dir: oracledb.BIND_OUT, type: oracledb.DATE },
+      activeStateOut: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+
     };
 
     try {
@@ -243,7 +247,10 @@ export class AcessosService {
     if (filter.apenasAtivos === 'true') {
       whereClause += ' AND A.ACTIVE_STATE = 1';
     }
+<<<<<<< HEAD
 
+=======
+>>>>>>> ccbafa8 (chore: ajustes em acess_management.service para continuação)
     
     if (filter.apenasAtivos === 'false') {
       whereClause += ' AND A.ACTIVE_STATE = 0';
