@@ -2216,7 +2216,7 @@ async findScheduleByDayOfTheweek({
       turma,
       modalidade,
 
-      apenasPrimeiroAno = 0,
+      apenasPrimeiroAno,
       estadoHorario = 2,
       aulas,
       obs = null,
