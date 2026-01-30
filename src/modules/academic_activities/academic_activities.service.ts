@@ -46,7 +46,7 @@ export class AcademicActivitiesService {
       `SELECT * FROM FK2_TB_CALENDARIO_ACTIVIDADE_LECTIVAS WHERE CODIGO = :codigoNum`,
       [codigoNum],
     );
-    console.log(activities);
+  
 
     if (activities.length === 0) {
       throw new NotFoundException(
