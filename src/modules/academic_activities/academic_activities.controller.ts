@@ -54,18 +54,17 @@ export class AcademicActivitiesController {
   })
   @ApiQuery({
     name: 'typeAvaliation',
-    type: String,
+    type: Number,
     required: false,
-    enum: [TypeAvaliation.PRIMEIRA_FREQUENCIA, TypeAvaliation.SEGUNDA_FREQUENCIA, TypeAvaliation.PRATICA, TypeAvaliation.NOTA_AVALIACAO_CONTINUA, TypeAvaliation.EXAME, TypeAvaliation.RECURSO, TypeAvaliation.PROVA_ORAL, TypeAvaliation.EPOCA_ESPECIAL, TypeAvaliation.NOTA_FINAL_CALCULADA, TypeAvaliation.NOTA_FINAL_LANCADA, TypeAvaliation.LANCAR_PRIMEIRA_FREQUENCIA, TypeAvaliation.PROVA_ORAL_RECURSO, TypeAvaliation.MELHORIA_NOTAS, TypeAvaliation.SEGUNDA_FREQUENCIA_EXAME],
     description: 'Sigla do tipo de avaliação (ex: 1F, E, R), opcional',
 
   })
   promptToCreateAnExam(
     @Query('anoLectivo') anoLectivo: number,
     @Query('semestre') semestre?: number,
-    @Query('typeAvaliation') typeAvaliation?: string
+    @Query('typeAvaliation') typeAvaliation?: number
   ) {
-    return this.promptToCreateAndEditService.promptToCreateAnExam(anoLectivo, semestre, typeAvaliation as TypeAvaliation);
+    return this.promptToCreateAndEditService.promptToCreateAnExam(anoLectivo, semestre, typeAvaliation);
   }
   @Get('prompt-to-create-and-edit/pauta')
   @ApiQuery({
@@ -82,18 +81,17 @@ export class AcademicActivitiesController {
   })
   @ApiQuery({
     name: 'typeAvaliation',
-    type: String,
+    type: Number,
     required: false,
-    enum: [TypeAvaliation.PRIMEIRA_FREQUENCIA, TypeAvaliation.SEGUNDA_FREQUENCIA, TypeAvaliation.PRATICA, TypeAvaliation.NOTA_AVALIACAO_CONTINUA, TypeAvaliation.EXAME, TypeAvaliation.RECURSO, TypeAvaliation.PROVA_ORAL, TypeAvaliation.EPOCA_ESPECIAL, TypeAvaliation.NOTA_FINAL_CALCULADA, TypeAvaliation.NOTA_FINAL_LANCADA, TypeAvaliation.LANCAR_PRIMEIRA_FREQUENCIA, TypeAvaliation.PROVA_ORAL_RECURSO, TypeAvaliation.MELHORIA_NOTAS, TypeAvaliation.SEGUNDA_FREQUENCIA_EXAME],
-    description: 'Sigla do tipo de avaliação (ex: 1F, E, R), opcional',
+   description: 'Sigla do tipo de avaliação (ex: 1F, E, R), opcional',
 
   })
   async promptToCreateAndEditPauta(
     @Query('anoLectivo') anoLectivo: number,
     @Query('semestre') semestre?: number,
-    @Query('typeAvaliation') typeAvaliation?: string
+    @Query('typeAvaliation') typeAvaliation?: number
   ) {
-    return this.promptToCreateAndEditService.promptToCreateAndEditPauta(anoLectivo, semestre, typeAvaliation as TypeAvaliation);
+    return this.promptToCreateAndEditService.promptToCreateAndEditPauta(anoLectivo, semestre, typeAvaliation);
   }
   @Get('prompt-to-create-and-edit/grades')
     @ApiQuery({
@@ -110,18 +108,17 @@ export class AcademicActivitiesController {
   })
   @ApiQuery({
     name: 'typeAvaliation',
-    type: String,
+    type: Number,
     required: false,
-    enum: [TypeAvaliation.PRIMEIRA_FREQUENCIA, TypeAvaliation.SEGUNDA_FREQUENCIA, TypeAvaliation.PRATICA, TypeAvaliation.NOTA_AVALIACAO_CONTINUA, TypeAvaliation.EXAME, TypeAvaliation.RECURSO, TypeAvaliation.PROVA_ORAL, TypeAvaliation.EPOCA_ESPECIAL, TypeAvaliation.NOTA_FINAL_CALCULADA, TypeAvaliation.NOTA_FINAL_LANCADA, TypeAvaliation.LANCAR_PRIMEIRA_FREQUENCIA, TypeAvaliation.PROVA_ORAL_RECURSO, TypeAvaliation.MELHORIA_NOTAS, TypeAvaliation.SEGUNDA_FREQUENCIA_EXAME],
-    description: 'Sigla do tipo de avaliação (ex: 1F, E, R), opcional',
+  description: 'Sigla do tipo de avaliação (ex: 1F, E, R), opcional',
 
   })
   promptToCreateAndEditGrades(
     @Query('anoLectivo') anoLectivo: number,
     @Query('semestre') semestre?: number,
-    @Query('typeAvaliation') typeAvaliation?: string
+    @Query('typeAvaliation') typeAvaliation?: number
   ) {
-    return this.promptToCreateAndEditService.promptToCreateAndEditGrades(anoLectivo, semestre, typeAvaliation as TypeAvaliation);
+    return this.promptToCreateAndEditService.promptToCreateAndEditGrades(anoLectivo, semestre, typeAvaliation);
   }
 
 

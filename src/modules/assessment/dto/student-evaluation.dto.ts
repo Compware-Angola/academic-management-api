@@ -2,23 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsNumber, IsString, IsObject } from 'class-validator';
 
-export class RefUtilizador {
-  @ApiProperty()
-  @Type(() => Number)
-  @IsInt()
-  pk: number;
 
-  @ApiProperty()
-  @IsString()
-  desc: string;
-
-  @ApiProperty()
-  @IsString()
-  corLetra: string;
-
-  @ApiProperty()
-  disponivel: boolean;
-}
 
 export class StudentEvaluationDto {
   @ApiProperty()
@@ -69,9 +53,7 @@ export class StudentEvaluationDto {
   @IsNumber()
   notaAnterior?: number;
 
-  @ApiProperty({ type: () => RefUtilizador })
-  @IsObject()
-  refUtilizador: RefUtilizador;
+
 
   @ApiProperty({ required: false })
   @IsOptional()

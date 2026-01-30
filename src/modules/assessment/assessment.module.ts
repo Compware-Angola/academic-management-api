@@ -19,6 +19,7 @@ import { MarkingAssessmentService } from './making-assessment.service';
 import { ViewNotesService } from './view-notes.service';
 import { BookTestService } from './book_test.service';
 import { HttpModule } from '@nestjs/axios';
+import { promptToCreateAndEditService } from '../academic_activities/prompt-to-create-and-edit.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([AcademicYear]),HttpModule.register({
@@ -42,7 +43,7 @@ import { HttpModule } from '@nestjs/axios';
     StatisticAssessmentsService,
     MarkingAssessmentService,
     ViewNotesService,
-    // Adicionado da branch develop
+  promptToCreateAndEditService,
     BookTestService,
   ],
 })
