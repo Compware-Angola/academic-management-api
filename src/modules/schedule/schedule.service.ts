@@ -2216,11 +2216,13 @@ async findScheduleByDayOfTheweek({
       turma,
       modalidade,
 
-      apenasPrimeiroAno = false,
+      apenasPrimeiroAno = 0,
       estadoHorario = 2,
       aulas,
       obs = null,
     } = dto;
+    console.log(dto);
+    
 
     // === 1. Buscar dados descritivos ===
     const v_grade_curricular = await this.getGradeCurricular(unidadeCurricular);
