@@ -3,14 +3,19 @@ import { DataSource } from 'typeorm';
 import { Injectable } from '@nestjs/common';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { TypeAvaliation, TypePromptEnum } from './util/enum/prompt';
+import { AnoLectivoUtil } from '../util/current-academic-year';
 @Injectable()
 export class promptToCreateAndEditService {
-  constructor(private readonly dataSource: DataSource) { }
+    private anoAtualPrincipal: number;
+  constructor(private readonly dataSource: DataSource ,private readonly anoLectivoUtil: AnoLectivoUtil) { this.initAnoAtual(); }
+    private async initAnoAtual() {
+    this.anoAtualPrincipal = await this.anoLectivoUtil.getAnoAtualId();
+  }
   
 
 // Prazo para criacao e edicao de Horarios
  async promptToCreateAndEditSchedule(
-  ano_lectivo: number,
+  ano_lectivo?: number,
 ): Promise<any> {
   const promptToCreateAndEdit = await this.promptToCreateAndEdit(TypePromptEnum.CRIACAO_HORARIO, ano_lectivo);
  return  toLowerCaseKeys(promptToCreateAndEdit);
@@ -61,7 +66,7 @@ private async promptToCreateAndEdit(
       AND p.FK_ANO_LECTIVO = :ano_lectivo
   `;
 
-  const params: any = { sigla_prazo, ano_lectivo };
+  const params: any = { sigla_prazo, ano_lectivo: ano_lectivo || this.anoAtualPrincipal };
 
   if (semestre !== undefined) {
     query += ` AND p.FK_SEMESTRE = :semestre`;

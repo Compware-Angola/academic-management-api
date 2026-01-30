@@ -43,7 +43,7 @@ import { promptToCreateAndEditService } from '../academic_activities/prompt-to-c
     StatisticAssessmentsService,
     MarkingAssessmentService,
     ViewNotesService,
-  promptToCreateAndEditService,
+    promptToCreateAndEditService,
     BookTestService,
   ],
 })
