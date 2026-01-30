@@ -16,20 +16,20 @@ export class promptToCreateAndEditService {
  return  toLowerCaseKeys(promptToCreateAndEdit);
 }
  // Prazo para criacao de Provas
-async promptToCreateAnExam(ano_lectivo: number, semestre?: number, type_avaliation?: TypeAvaliation): Promise<any> {
+async promptToCreateAnExam(ano_lectivo?: number, semestre?: number, type_avaliation?: number): Promise<any> {
   const promptToCreateAnExam = await this.promptToCreateAndEdit(TypePromptEnum.MARCACAO_PROVAS, ano_lectivo, semestre, type_avaliation);
   return toLowerCaseKeys(promptToCreateAnExam);
 
  
 } 
  // Prazo para criacao e edicao de Pautas
- async promptToCreateAndEditPauta(ano_lectivo: number, semestre?: number,type_avaliation?: TypeAvaliation): Promise<any> {
+ async promptToCreateAndEditPauta(ano_lectivo?: number, semestre?: number,type_avaliation?: number): Promise<any> {
   const promptToCreateAndEditPauta = await this.promptToCreateAndEdit(TypePromptEnum.LANCAMENTO_NOTAS, ano_lectivo, semestre, type_avaliation);
   return toLowerCaseKeys(promptToCreateAndEditPauta);
  
 } 
  // Prazo para criacao e edicao de Notas
- async promptToCreateAndEditGrades(ano_lectivo: number, semestre?: number, type_avaliation?: TypeAvaliation) {
+ async promptToCreateAndEditGrades(ano_lectivo?: number, semestre?: number, type_avaliation?: number) {
   const promptToCreateAndEditGrades = await this.promptToCreateAndEdit(TypePromptEnum.LANCAMENTO_NOTAS, ano_lectivo, semestre, type_avaliation);
   return toLowerCaseKeys(promptToCreateAndEditGrades);
  
@@ -45,9 +45,9 @@ async promptToCreateAndEditDeadline() {
 
 private async promptToCreateAndEdit(
   sigla_prazo: string,
-  ano_lectivo: number,
+  ano_lectivo?: number,
   semestre?: number,  
-  type_avaliation?: TypeAvaliation,         
+  type_avaliation?: number,         
 ): Promise<any> {
   let query = `
     SELECT p.DATA_INICIO, p.DATA_FIM, p.PK_PRAZO, p.OBSERVACAO, 
@@ -69,7 +69,7 @@ private async promptToCreateAndEdit(
   }
 
   if (type_avaliation !== undefined) {
-    query += ` AND av.SIGLA = :type_avaliation`;
+    query += ` AND av.PK_TIPO_AVALIACAO = :type_avaliation`;
     params.type_avaliation = type_avaliation;
   }
 

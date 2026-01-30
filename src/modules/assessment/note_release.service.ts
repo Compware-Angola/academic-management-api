@@ -3,10 +3,12 @@ import { DataSource } from "typeorm";
 import { StudentFiltersDto } from "./dto/studenty-filter.dto";
 import { toLowerCaseKeys } from "../util/toLowerCaseKeys";
 import { StudentEvaluationDto } from "./dto/student-evaluation.dto";
+import { DecodedUserPayload } from "../common/types/token-validation-response.interface";
+import { promptToCreateAndEditService } from "../academic_activities/prompt-to-create-and-edit.service";
 
 @Injectable()
 export class NoteReleaseService {
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly dataSource: DataSource, private readonly promptToCreateAndEditService: promptToCreateAndEditService) { }
 
 
   async findstudents(filters: StudentFiltersDto) {
@@ -36,7 +38,7 @@ export class NoteReleaseService {
   }
 
 
-  async upsertStudentEvaluation(dto: StudentEvaluationDto) {
+  async upsertStudentEvaluation(dto: StudentEvaluationDto,user:DecodedUserPayload) {
     const {
       gradeCurricularAluno,
       tipoDeProva,
@@ -47,11 +49,20 @@ export class NoteReleaseService {
       observacao,
       status,
       notaAnterior,
-      refUtilizador,
+    
       codigo_grade_avaliacao_aluno
     } = dto;
 
-    console.log(codigo_grade_avaliacao_aluno, tipoAvaliacao, tipoDeProva);
+
+
+    const proza = await this.promptToCreateAndEditService.promptToCreateAndEditGrades()
+
+    const refUtilizador= {
+      pk: user.sub,
+      desc: user.name,
+      corLetra: "black",
+      disponivel: true,
+    };
 
     const existing = await this.dataSource.query(
       `
