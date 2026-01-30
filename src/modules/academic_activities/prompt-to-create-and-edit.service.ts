@@ -64,7 +64,7 @@ private async promptToCreateAndEdit(
   const params: any = { sigla_prazo, ano_lectivo };
 
   if (semestre !== undefined) {
-    query += ` AND p.SEMESTRE = :semestre`;
+    query += ` AND p.FK_SEMESTRE = :semestre`;
     params.semestre = semestre;
   }
 
