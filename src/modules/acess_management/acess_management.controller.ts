@@ -499,4 +499,22 @@ async listNoPagination(@Query(ValidationPipe) filter: UserFilterDto) {
     });
     return info;
   }
+
+    //Ativar ou inativar acesso
+    @Put(':acessoId/estado/:userId')
+    @ApiOperation({
+      summary: 'Ativar ou inativar acesso',
+    })
+    @ApiParam({ name: 'acessoId', type: Number })
+    @ApiParam({ name: 'userId', type: Number })
+    async atualizarEstado(
+      @Param('acessoId', ParseIntPipe) acessoId: number,
+      @Param('userId', ParseIntPipe) userId: number,
+    ) {
+      return this.acessosService.atualizarEstadoAcesso(
+        acessoId,
+        userId,
+      );
+    }
+
 }
