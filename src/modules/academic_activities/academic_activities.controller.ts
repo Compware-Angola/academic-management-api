@@ -8,22 +8,49 @@ import {
   Delete,
   UseGuards,
   Query,
+  Req,
 } from '@nestjs/common';
 import { AcademicActivitiesService } from './academic_activities.service';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { FindMarcacaoPrazoDTO } from './dto/find-marcacao-prova-prazo.dto';
 import { promptToCreateAndEditService } from './prompt-to-create-and-edit.service';
-import { TypeAvaliation } from './util/enum/prompt';
 import { ApiQuery } from '@nestjs/swagger/dist/decorators/api-query.decorator';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { CreateAcademicActivitiesTermsDto } from './dto/create-academic-activities-terms.dto';
+import { AccessLogHelper } from '../common/helpers/access-log.helper';
+import { HttpService } from '@nestjs/axios/dist/http.service';
 
-//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('academic-activities')
 export class AcademicActivitiesController {
   constructor(
     private readonly academicActivitiesService: AcademicActivitiesService,
     private readonly promptToCreateAndEditService: promptToCreateAndEditService,
+    private readonly httpService: HttpService,
   ) { }
+@Post('terms')
+@ApiOperation({ summary: 'Criar prazo académico' })
+@ApiResponse({ status: 201, description: 'Prazo criado com sucesso' })
+   @ApiResponse({ status: 400, description: 'Erro de validação' })
+  async create(
+  @Body() dto: CreateAcademicActivitiesTermsDto,
+  @Req() req: any,
+) {
+  const user = req.user
+  const ip = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+
+
+   this.academicActivitiesService.createAcademicActivitiesTerms(dto,user);
+     await AccessLogHelper.logAccess(this.httpService, {
+        descricao: `Utilizador ${user?.nome} Criou Prazo Académico`,
+        fkAcesso: 6,
+        fkFuncionalidade: 91,
+        fkUtilizadorResponsavel: user.sub,
+        fkOperacaoLog: 1,
+        ip: ip,
+      });
+}
 
   @Delete(':id')
   remove(@Param('id') id: string) {
