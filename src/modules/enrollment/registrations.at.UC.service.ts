@@ -174,6 +174,7 @@ export class EnrollmentRegistrationsUCService {
           `SELECT COUNT(*) as cnt
            FROM FK2_TB_CONFIRMACOES
            WHERE Codigo_Matricula = :codMatricula
+           AND Estado = '1'
              AND Codigo_Ano_lectivo = :codAnoActual`,
           { codMatricula, codAnoActual } as any,
         );
@@ -182,6 +183,8 @@ export class EnrollmentRegistrationsUCService {
 
         if ( Number(countConfAno[0].CNT) != 0) {
             iSSameYear = true;
+            console.log("ENTREI");
+            
 
         }
 
@@ -192,7 +195,12 @@ export class EnrollmentRegistrationsUCService {
       // 11 . Buscar última classe confirmada (para incrementar) --- MOVED ABOVE ---
 
         classe = iSSameYear ? classe : classe + 1;
-        semestre  = iSSameYear ? semestre : semestre + 1;
+        semestre  = iSSameYear ? semestre + 1: semestre;
+
+
+        if(semestre > 2){
+            semestre = 1;
+        }
 
         console.log(codConfirmacao, codMatricula, codAnoActual, classe, codCanal, semestre );
         
