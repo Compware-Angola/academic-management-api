@@ -163,7 +163,7 @@ export class CreateScheduleDto {
   })
   @IsOptional()
   @IsInt()
-  apenasPrimeiroAno?: number = 0;
+  apenasPrimeiroAno?: number;
 
 
   @ApiProperty({
