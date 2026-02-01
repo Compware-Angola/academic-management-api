@@ -6,6 +6,7 @@ import { AnoLectivoUtil } from '../util/current-academic-year';
 import { HttpModule } from '@nestjs/axios/dist/http.module';
 import { AcademicYear } from '../shared/entities/academic.year.entity';
 import { TypeOrmModule } from '@nestjs/typeorm/dist/typeorm.module';
+import { IsEndDateAfterStartDate } from './util/validator/is-end-date-after-start-date.validator';
 
 @Module({
     imports: [TypeOrmModule.forFeature([AcademicYear]),HttpModule.register({
@@ -13,6 +14,6 @@ import { TypeOrmModule } from '@nestjs/typeorm/dist/typeorm.module';
       maxRedirects: 5
     })],
   controllers: [AcademicActivitiesController],
-  providers: [AcademicActivitiesService,promptToCreateAndEditService,AnoLectivoUtil],
+  providers: [AcademicActivitiesService,promptToCreateAndEditService,AnoLectivoUtil,IsEndDateAfterStartDate],
 })
 export class AcademicActivitiesModule {}
