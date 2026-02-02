@@ -20,13 +20,14 @@ import { FindScheduleByDesignationDto } from './dto/find-schedule-by-designation
 import { ListScheduleWithPermissionDto } from './dto/list-schedule-with-permission.dto';
 import { UpdatePermissionEditScheduleDto } from './dto/update-permission-edit-schedule.dto';
 import { formatHora } from '../util/formate-date';
+import { promptToCreateAndEditService } from '../academic_activities/prompt-to-create-and-edit.service';
 
 
 @Injectable()
 export class ScheduleService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource, private readonly promptToCreateAndEditService: promptToCreateAndEditService) {}
   async create(userId: number, dto: CreateScheduleDto) {
-    const terms = await this.promptToCreateAndEditSchedule(5, dto.anoLectivo);
+    const terms = await this.promptToCreateAndEditService.promptToCreateAndEditSchedule(dto.anoLectivo);
     if (!terms) {
       throw new BadRequestException(
         'O prazo de criação Ainda Não foi  definido.',
@@ -34,8 +35,8 @@ export class ScheduleService {
     }
 
     const agora = new Date();
-    const dataInicio = new Date(terms.DATA_INICIO);
-    const dataFim = new Date(terms.DATA_FIM);
+    const dataInicio = new Date(terms.data_inicio);
+    const dataFim = new Date(terms.data_fim);
 
     const estaNoPrazo =
       agora.getTime() >= dataInicio.getTime() &&
@@ -62,19 +63,26 @@ export class ScheduleService {
     let loopholeToEdit;
     const agora = new Date();
 
-    const terms = await this.promptToCreateAndEditSchedule(5, dto.anoLectivo);
+    const terms = await this.promptToCreateAndEditService.promptToCreateAndEditSchedule(dto.anoLectivo);
+
+    console.log(terms);
+    
+
     if (!terms) {
       throw new BadRequestException(
         'O prazo de criação Ainda Não foi  definido.',
       );
     }
     if (terms) {
-      dataInicio = new Date(terms.DATA_INICIO);
-      dataFim = new Date(terms.DATA_FIM);
+      dataInicio = new Date(terms.data_inicio);
+      dataFim = new Date(terms.data_fim);
       estaNoPrazo =
         agora.getTime() >= dataInicio.getTime() &&
         agora.getTime() <= dataFim.getTime();
     }
+
+    console.log(estaNoPrazo,"22");
+    
 
     // Brecha
     const loopholeToEditSchedule =
@@ -2208,11 +2216,13 @@ async findScheduleByDayOfTheweek({
       turma,
       modalidade,
 
-      apenasPrimeiroAno = false,
+      apenasPrimeiroAno,
       estadoHorario = 2,
       aulas,
       obs = null,
     } = dto;
+    console.log(dto);
+    
 
     // === 1. Buscar dados descritivos ===
     const v_grade_curricular = await this.getGradeCurricular(unidadeCurricular);
@@ -2615,21 +2625,6 @@ async findScheduleByDayOfTheweek({
       [cheduleId],
     );
   }
-private async promptToCreateAndEditSchedule(
-  tipo_prazo: number,
-  ano_lectivo: number,
-): Promise<any> {
-  const result = await this.dataSource.query(
-    `SELECT DATA_INICIO, DATA_FIM, PK_PRAZO, OBSERVACAO, FK_TIPO_PRAZO
-     FROM FK2_MCAL_TB_PRAZO
-     WHERE FK_TIPO_PRAZO = :tipo_prazo
-       AND FK_ANO_LECTIVO = :ano_lectivo
-     ORDER BY PK_PRAZO DESC
-     FETCH FIRST 1 ROWS ONLY`,
-    { tipo_prazo, ano_lectivo } as any,
-  );
-  return result[0];
-}
 
 private async loopholeToEditSchedule(scheduleId: number): Promise<any> {
   const result = await this.dataSource.query(

@@ -77,7 +77,7 @@ import { buildFormulaLog } from './util/buildFormulaLog';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../common/enums/permission.type';
 
-//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('assessment')
 export class AssessmentController {
   constructor(
@@ -113,8 +113,17 @@ export class AssessmentController {
     status: 400,
     description: 'Dados inválidos enviados.',
   })
-  async upsertEvaluation(@Body() dto: StudentEvaluationDto) {
-    return await this.noteReleaseService.upsertStudentEvaluation(dto);
+  async upsertEvaluation(@Body() dto: StudentEvaluationDto, @Req() req: any) {
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user;
+    const result= await this.noteReleaseService.upsertStudentEvaluation(dto,user);
+    await AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Lançamento/Atualização de avaliação do aluno - Código da grade Curricular do Aluno: ${dto.gradeCurricularAluno}, Tipo de Avaliação: ${dto.tipoAvaliacao}, Época: ${dto.epoca}`,
+      fkAcesso: 7,
+      fkUtilizadorResponsavel: req.user.sub,
+      ip: ip,
+    });
+    return result;
   }
 
   @Post('parametros-avaliacoes')

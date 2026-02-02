@@ -25,11 +25,11 @@ export class FilterAcessoDto {
   grupoId?: number;
 
   @ApiPropertyOptional({
-    description: 'Apenas acessos ativos (true por padrão)',
+     description: 'Filtrar acessos: true = ativos, false = inativos. Omitir para listar todos',
   })
   @IsOptional()
   @IsBooleanString()
-  apenasAtivos?: string = 'true';
+  apenasAtivos?: string;
   @ApiPropertyOptional({
     description: 'Número da página',
     example: 1,

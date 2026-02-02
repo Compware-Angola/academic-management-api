@@ -1,4 +1,3 @@
-
 import {
   Controller,
   Get,
@@ -45,7 +44,10 @@ import { CreateAcessoDto } from './dto/create-acesso.dto';
 import { FilterUserLogadoDto } from './dto/filter-user-logado.dto';
 import { CreateLogsDTO } from './dto/create-logs.dto';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
-import { PermissionType, PermissionTypeDetails } from '../common/enums/permission.type';
+import {
+  PermissionType,
+  PermissionTypeDetails,
+} from '../common/enums/permission.type';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { AccessLogHelper } from '../common/helpers/access-log.helper';
@@ -58,7 +60,7 @@ export class AcessManagementController {
     private readonly logsService: LogsService,
     private readonly acessosService: AcessosService,
     private httpService: HttpService,
-  ) { }
+  ) {}
 
   @Post('create-person-user')
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -69,11 +71,13 @@ export class AcessManagementController {
   @ApiResponse({ status: 201, type: CreatePersonUserResponseDto })
   async criarPessoaEUtilizador(
     @Body(ValidationPipe) dto: CreatePersonUserDto,
-    @Req() req: any
-
+    @Req() req: any,
   ): Promise<CreatePersonUserResponseDto> {
     const usuarioLogado = req.user;
-    const userDateResponse = await this.usersService.criarPessoaEUtilizador(dto, usuarioLogado.sub);
+    const userDateResponse = await this.usersService.criarPessoaEUtilizador(
+      dto,
+      usuarioLogado.sub,
+    );
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
 
     await AccessLogHelper.logAccess(this.httpService, {
@@ -98,7 +102,6 @@ export class AcessManagementController {
   })
   @ApiResponse({ status: 401, description: 'Não autorizado' })
   async criar(@Body() createAcessoDto: CreateAcessoDto, @Req() req: any) {
-  
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const usuarioLogado = req.user;
 
@@ -106,7 +109,7 @@ export class AcessManagementController {
       createAcessoDto,
       usuarioLogado.sub,
     );
-     await AccessLogHelper.logAccess(this.httpService, {
+    await AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${usuarioLogado?.nome} Criou novo acesso ao sistema ${createAcessoDto.sigla}`,
       fkAcesso: 155,
       fkFuncionalidade: 232,
@@ -135,9 +138,15 @@ export class AcessManagementController {
   @ApiOperation({ summary: 'Atualizar a senha de um utilizador' })
   @ApiResponse({ status: 200, description: 'Senha atualizada' })
   @ApiNotFoundResponse({ description: 'Utilizador não encontrado' })
-  async updatePassword(@Body(ValidationPipe) dto: UpdatePasswordDto, @Req() req: any) {
+  async updatePassword(
+    @Body(ValidationPipe) dto: UpdatePasswordDto,
+    @Req() req: any,
+  ) {
     const usuarioLogado = req.user;
-    const userDateResponse = await this.usersService.updatePassword(dto, usuarioLogado.sub);
+    const userDateResponse = await this.usersService.updatePassword(
+      dto,
+      usuarioLogado.sub,
+    );
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     await AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${usuarioLogado?.nome} Atualizou a senha do Utilizador ${dto.utilizadorId}`,
@@ -151,7 +160,9 @@ export class AcessManagementController {
   }
 
   @Put('add-group-to-user/:userId/:groupId')
-  @RequiredPermissions(PermissionTypeDetails.ADICIONAR_UTILIZADOR_A_UM_GRUPO.sigla)
+  @RequiredPermissions(
+    PermissionTypeDetails.ADICIONAR_UTILIZADOR_A_UM_GRUPO.sigla,
+  )
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @ApiOperation({ summary: 'Adicionar um grupo a um utilizador' })
   @ApiResponse({ status: 200, description: 'Grupo adicionado ao utilizador' })
@@ -184,8 +195,9 @@ export class AcessManagementController {
 
   @Get('users')
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
-  @RequiredPermissions(PermissionTypeDetails.LISTA_DE_UTILIZADORES.sigla,
-    PermissionTypeDetails.LISTA_DE_UTILIZADORES2.sigla
+  @RequiredPermissions(
+    PermissionTypeDetails.LISTA_DE_UTILIZADORES.sigla,
+    PermissionTypeDetails.LISTA_DE_UTILIZADORES2.sigla,
   )
   @ApiOperation({
     summary: 'Listar utilizadores (com filtro por ativo/inativo)',
@@ -195,19 +207,19 @@ export class AcessManagementController {
     return this.usersService.listUsers(filter);
   }
   @Get('users-no-pagination')
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
-@RequiredPermissions(
-  PermissionTypeDetails.LISTA_DE_UTILIZADORES.sigla,
-  PermissionTypeDetails.LISTA_DE_UTILIZADORES2.sigla
-)
-@ApiOperation({
-  summary: 'Listar todos os utilizadores (sem paginação, filtro por ativo/inativo)',
-})
-@ApiResponse({ status: 200, type: [UserListItemDto] })
-async listNoPagination(@Query(ValidationPipe) filter: UserFilterDto) {
-  return this.usersService.listUsersNoPagination(filter);
-}
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+  @RequiredPermissions(
+    PermissionTypeDetails.LISTA_DE_UTILIZADORES.sigla,
+    PermissionTypeDetails.LISTA_DE_UTILIZADORES2.sigla,
+  )
+  @ApiOperation({
+    summary:
+      'Listar todos os utilizadores (sem paginação, filtro por ativo/inativo)',
+  })
+  @ApiResponse({ status: 200, type: [UserListItemDto] })
+  async listNoPagination(@Query(ValidationPipe) filter: UserFilterDto) {
+    return this.usersService.listUsersNoPagination(filter);
+  }
 
   @Get('logs-acessos-funcionalidade')
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -223,17 +235,15 @@ async listNoPagination(@Query(ValidationPipe) filter: UserFilterDto) {
   }
   @Post('create-logs')
   @ApiOperation({
-    summary:
-      'Criar Logs ',
+    summary: 'Criar Logs ',
   })
   @ApiCreatedResponse({
     description: 'Log de acesso criado com sucesso',
     type: CreateLogsDTO,
   })
   async createLogs(@Body() dto: CreateLogsDTO) {
-    return this.logsService.create(dto)
+    return this.logsService.create(dto);
   }
-
 
   // GET /acessos
   @Get('details/all')
@@ -320,7 +330,6 @@ async listNoPagination(@Query(ValidationPipe) filter: UserFilterDto) {
     return this.acessosService.listarPorGrupo(id);
   }
 
-
   @Post('utilizador/:utilizadorId/acesso/:acessoId')
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @HttpCode(HttpStatus.CREATED)
@@ -347,15 +356,14 @@ async listNoPagination(@Query(ValidationPipe) filter: UserFilterDto) {
     @Param('acessoId', ParseIntPipe) acessoId: number,
     @Req() req: any,
   ) {
-
     const user = req.user;
-       const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const info = await this.acessosService.adicionarAcesso(
       utilizadorId,
       acessoId,
       user.sub,
     );
- 
+
     await AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${user?.nome} Adicionou Acesso ${acessoId} ao Utilizador ${utilizadorId}`,
       fkAcesso: 6,
@@ -393,16 +401,16 @@ async listNoPagination(@Query(ValidationPipe) filter: UserFilterDto) {
     @Param('acessoId', ParseIntPipe) acessoId: number,
     @Req() req: any,
   ) {
-   const  ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-   const user = req.user;
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user;
 
-  const info=  await this.acessosService.adicionarGrupoAcesso(
+    const info = await this.acessosService.adicionarGrupoAcesso(
       grupoId,
       acessoId,
       user.sub,
     );
 
-      await AccessLogHelper.logAccess(this.httpService, {
+    await AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${user?.nome} Adicionou Acesso ${acessoId} ao Grupo ${grupoId}`,
       fkAcesso: 6,
       fkFuncionalidade: 91,
@@ -440,24 +448,24 @@ async listNoPagination(@Query(ValidationPipe) filter: UserFilterDto) {
   ) {
     const user = req.user;
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-   
+
     const info = await this.acessosService.removerAcesso(
       utilizadorId,
       acessoId,
       user.sub,
     );
-  
+
     await AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${user?.nome} Removeu Acesso ${acessoId} do Utilizador ${utilizadorId}`,
       fkAcesso: 6,
-    
+
       fkUtilizadorResponsavel: user.sub,
       fkOperacaoLog: 1,
       ip: ip,
     });
     return info;
   }
-  
+
   //Remover Acesso no grupo
   @Delete('grupo/:grupoId/acesso/:acessoId')
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -485,18 +493,32 @@ async listNoPagination(@Query(ValidationPipe) filter: UserFilterDto) {
     const info = await this.acessosService.removerGrupoAcesso(
       grupoId,
       acessoId,
-      user.sub
+      user.sub,
     );
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-   
+
     await AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${user?.nome} Removeu Acesso ${acessoId} do Grupo ${grupoId}`,
       fkAcesso: 6,
-    
+
       fkUtilizadorResponsavel: user.sub,
       fkOperacaoLog: 1,
       ip: ip,
     });
     return info;
+  }
+
+  //Ativar ou inativar acesso
+  @Put(':acessoId/estado/:userId')
+  @ApiOperation({
+    summary: 'Ativar ou inativar acesso',
+  })
+  @ApiParam({ name: 'acessoId', type: Number })
+  @ApiParam({ name: 'userId', type: Number })
+  async atualizarEstado(
+    @Param('acessoId', ParseIntPipe) acessoId: number,
+    @Param('userId', ParseIntPipe) userId: number,
+  ) {
+    return this.acessosService.atualizarEstadoAcesso(acessoId, userId);
   }
 }

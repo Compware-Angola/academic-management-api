@@ -32,6 +32,8 @@ export class DisciplineService {
       c.designacao        AS classe,
       ano.designacao      AS ano_lectivo,
       hr.designacao       AS horario,
+      hr.pk_horario       AS codigo_horario,
+      gcs.designacao      AS estado,
       sl.designacao       AS sala
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
       INNER JOIN FK2_TB_GRADE_CURRICULAR g
@@ -54,6 +56,8 @@ export class DisciplineService {
               ON hr.pk_horario = json_value(al.ref_horario, '$.pk')
       LEFT JOIN FK2_MGH_TB_AULA au
               ON au.fk_horario = hr.pk_horario
+      LEFT JOIN FK2_TB_STATUS_GRADE_CURRICULAR gcs
+              ON gcs.codigo   = al.codigo_status_grade_curricular
       LEFT JOIN FK2_TB_SALAS sl
               ON sl.codigo = json_value(au.ref_sala, '$.pk')
     WHERE ${baseWhere}
