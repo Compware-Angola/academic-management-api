@@ -183,7 +183,7 @@ export class EnrollmentRegistrationsUCService {
 
         if ( Number(countConfAno[0].CNT) != 0) {
             iSSameYear = true;
-            console.log("ENTREI");
+          
             
 
         }
