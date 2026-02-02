@@ -25,6 +25,8 @@ export interface DecodedUserPayload {
    */
   username: string;
 
+  nome : string;
+
   /**
    * ID do utilizador (subject)
    */
