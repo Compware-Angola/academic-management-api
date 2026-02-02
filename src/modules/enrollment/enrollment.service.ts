@@ -129,8 +129,14 @@ export class EnrollmentService {
 
       // 🔹 9. Remover grades duplicadas
       const uniqueGrades = [...new Set(grades)];
-
+      const [maxConfgrade] = await queryRunner.query(
+        `SELECT MAX(CODIGO) as maxConf FROM FK2_TB_GRADE_CURRICULAR_ALUNO`,
+      );
+      console.log(maxConfgrade);
+      let gradealunoincre = maxConfgrade?.MAXCONF;
       for (const codigoGrade of uniqueGrades) {
+        gradealunoincre = gradealunoincre + 1;
+
         // 🔍 Verificar se já existe
         const [exists] = await queryRunner.query(
           `SELECT 1 FROM FK2_TB_GRADE_CURRICULAR_ALUNO
@@ -163,18 +169,19 @@ export class EnrollmentService {
           const { PK_HORARIO, DESIGNACAO } = horarioResult[0];
           refHorario = JSON.stringify({ pk: PK_HORARIO, desc: DESIGNACAO });
         }
+        // ultimo id da grade curricular do aluno
 
         await queryRunner.query(
           `INSERT INTO FK2_TB_GRADE_CURRICULAR_ALUNO (
            "CODIGO_GRADE_CURRICULAR", "CODIGO_CONFIRMACAO", "CODIGO_MATRICULA",
            "ESTADO", "NOTA", "CREATED_AT", "CANAL",
            "CODIGO_STATUS_GRADE_CURRICULAR", "CODIGO_ANO_LECTIVO",
-           "USER_ID", "EPOCA", "UPDATED_AT", "EQUIVALENCIA", "REF_HORARIO"
+           "USER_ID", "EPOCA", "UPDATED_AT", "EQUIVALENCIA", "REF_HORARIO","CODIGO"
          ) VALUES (
            :codigoGrade, :codConfirmacao, :codMatricula,
            0, 0, SYSDATE, :canal,
            4, :codAnoActual,
-           :userId, 1, SYSDATE, 0, :refHorario
+           :userId, 1, SYSDATE, 0, :refHorario,:gradealunoincre
          )`,
           [
             codigoGrade,
@@ -184,6 +191,7 @@ export class EnrollmentService {
             codAnoActual,
             userId,
             refHorario,
+            gradealunoincre,
           ],
         );
       }
