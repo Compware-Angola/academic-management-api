@@ -247,14 +247,7 @@ export class AcessosService {
     if (filter.apenasAtivos === 'true') {
       whereClause += ' AND A.ACTIVE_STATE = 1';
     }
-<<<<<<< HEAD
-<<<<<<< HEAD
 
-=======
->>>>>>> ccbafa8 (chore: ajustes em acess_management.service para continuação)
-=======
-    
->>>>>>> d31414d2a4c9da7058ac13d7b07fc9c58e42f0cb
     
     if (filter.apenasAtivos === 'false') {
       whereClause += ' AND A.ACTIVE_STATE = 0';
