@@ -1,28 +1,57 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   ArrayMinSize,
-  ArrayNotEmpty,
   IsArray,
+  IsInt,
   IsString,
+  Max,
+  Min,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class GradeItemDto {
+  @ApiProperty({
+    description: 'Código da grade/disciplina',
+    example: 44,
+  })
+  @IsInt()
+  @Type(() => Number)
+  codigo: number;
+
+  @ApiProperty({
+    description: 'Duração da disciplina (Semestral ou Anual)',
+    example: 'Semestral',
+  })
+  @IsString()
+  duracaoDisciplina: string;
+
+  @ApiProperty({
+    example: 1,
+    description: 'Semestre da disciplina (1 = Primeiro, 2 = Segundo)',
+  })
+  @IsInt()
+  @Min(1)
+  @Max(2)
+  @Type(() => Number)
+  semestre: number;
+}
 
 export class EnrollmentDto {
   @ApiProperty({
     description: 'Código único da pré-inscrição do aluno',
-    example: 'PRE-2025-000145',
+    example: '97283',
   })
   @IsString()
   codPreInscricao: string;
 
   @ApiProperty({
-    description: 'Lista de códigos das grades curriculares',
-    example: ['GRD-101', 'GRD-102', 'GRD-201'],
-    isArray: true,
-    type: String,
-    minItems: 1,
+    description: 'Lista de grades/disciplina com semestre e duração',
+    type: [GradeItemDto],
   })
   @IsArray()
-  @ArrayNotEmpty()
   @ArrayMinSize(1)
-  grades: string[];
+  @ValidateNested({ each: true })
+  @Type(() => GradeItemDto)
+  grades: GradeItemDto[];
 }
