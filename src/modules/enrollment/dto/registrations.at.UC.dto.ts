@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsArray, ValidateNested, ArrayMinSize, IsNumber } from 'class-validator';
+import { IsNotEmpty, IsString, IsArray, ValidateNested, ArrayMinSize, IsNumber, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -39,7 +39,7 @@ export class EnrollmentRegistrationsUCDto {
   codPreInscricao: number;
 
   @ApiProperty({
-    type: [GradeItemDto],  // <-- importante para array de objetos nested
+    type: [GradeItemDto],
     description: 'Lista de grades curriculares (unidades curriculares + horários) a serem confirmadas/inscritas',
     minItems: 1,
   })
@@ -48,4 +48,15 @@ export class EnrollmentRegistrationsUCDto {
   @ValidateNested({ each: true })
   @Type(() => GradeItemDto)
   grades: GradeItemDto[];
+
+  @ApiProperty({
+    example: 1,
+    description: 'Semestre da inscrição das unidades curriculares ',
+  })
+  @IsNotEmpty({ message: 'semestre é obrigatório' })
+  @IsNumber({}, { message: 'semestre deve ser um número' })
+  @IsEnum([1, 2], {
+    message: 'semestre deve ser 1 ou 2',
+  })
+  semestre: number;
 }
