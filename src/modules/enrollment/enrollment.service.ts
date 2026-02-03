@@ -177,31 +177,6 @@ export class EnrollmentService {
             refHorario = JSON.stringify({ pk: PK_HORARIO, desc: DESIGNACAO });
           }
 
-          // Inserir na Grade Curricular do Aluno (EPOCA fixa em 1 conforme solicitado)
-          // await queryRunner.query(
-          //   `INSERT INTO FK2_TB_GRADE_CURRICULAR_ALUNO (
-          //     "CODIGO_GRADE_CURRICULAR", "CODIGO_CONFIRMACAO", "CODIGO_MATRICULA",
-          //     "ESTADO", "NOTA", "CREATED_AT", "CANAL",
-          //     "CODIGO_STATUS_GRADE_CURRICULAR", "CODIGO_ANO_LECTIVO",
-          //     "USER_ID", "EPOCA", "UPDATED_AT", "EQUIVALENCIA", "REF_HORARIO", "CODIGO"
-          //   ) VALUES (
-          //     :codigoGrade, :codConfirmacao, :codMatricula,
-          //     0, 0, SYSDATE, :canal,
-          //     4, :codAnoActual,
-          //     :userId, 1, SYSDATE, 0, :refHorario, :gradealunoincre
-          //   )`,
-          //   [
-          //     codigoGrade,
-          //     codConfirmacaoAtual,
-          //     codMatricula,
-          //     canal,
-          //     codAnoActual,
-          //     userId,
-          //     refHorario,
-          //     incrementadorGrade,
-          //   ],
-          // );
-
           await queryRunner.query(
             `INSERT INTO FK2_TB_GRADE_CURRICULAR_ALUNO (
            "CODIGO_GRADE_CURRICULAR", "CODIGO_CONFIRMACAO", "CODIGO_MATRICULA",
