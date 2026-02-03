@@ -12,7 +12,7 @@ export class EnrollmentRegistrationsUCService {
   async  registerGradesUc(
     body: EnrollmentRegistrationsUCDto
   ) {
-    const { codPreInscricao, grades } = body;
+    const { codPreInscricao, grades ,semestre} = body;
 
     if (!codPreInscricao) {
       throw new BadRequestException('codPreInscricao é obrigatório');
@@ -145,7 +145,7 @@ export class EnrollmentRegistrationsUCService {
       // 9. Buscar última classe confirmada (para incrementar)
        let classe = 1;
        let iSSameYear = false;
-       let semestre = 1;
+      
       try {
         const ultClasse = await queryRunner.query(
           `SELECT Classe
@@ -192,17 +192,31 @@ export class EnrollmentRegistrationsUCService {
     
       // 10. Inserir confirmação
 
-      // 11 . Buscar última classe confirmada (para incrementar) --- MOVED ABOVE ---
+  
 
         classe = iSSameYear ? classe : classe + 1;
-        semestre  = iSSameYear ? semestre + 1: semestre;
 
+        //Verificar  o semestre
+        try {
+            const countConfSemestre = await queryRunner.query(
+              `SELECT COUNT(*) as cnt
+               FROM FK2_TB_CONFIRMACOES
+               WHERE Codigo_Matricula = :codMatricula
+              -- AND Estado = '1'
+                 AND Semestre = :semestre`,
+              { codMatricula, semestre } as any,
+            );
+            console.log(countConfSemestre);
+            
 
-        if(semestre > 2){
-            semestre = 1;
-        }
+            if ( Number(countConfSemestre[0].CNT) != 0) {
+                throw new BadRequestException('Já existe uma confirmação para esta matrícula neste semestre');
+            }
 
-        console.log(codConfirmacao, codMatricula, codAnoActual, classe, codCanal, semestre );
+          } catch (error) {
+            throw new BadRequestException('Erro ao verificar confirmação existente para o semestre: ' + error.message);
+          }
+      
         
       await queryRunner.query(
         `INSERT INTO FK2_TB_CONFIRMACOES (
