@@ -1,25 +1,26 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { EnrollmentDto } from './dto/create-enrollment.dto';
 
 import { DataSource } from 'typeorm';
+import { EnrollmentDto, GradeItemDto } from './dto/create-enrollment.dto';
 
 @Injectable()
 export class EnrollmentService {
   private logger = new Logger(EnrollmentService.name);
   constructor(private readonly dataSource: DataSource) {}
+
   async enrollment(enrollmentDto: EnrollmentDto) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     const { codPreInscricao, grades } = enrollmentDto;
+    const { primeiroSemestre, segundoSemestre } =
+      this.separarGradesPorSemestre(grades);
 
     try {
       // 🔹 1. Buscar admissão
       const admissaoResult = await queryRunner.query(
-        `SELECT "CODIGO"
-       FROM FK2_TB_ADMISSAO
-       WHERE "PRE_INCRICAO" = :codPreInscricao`,
+        `SELECT "CODIGO" FROM FK2_TB_ADMISSAO WHERE "PRE_INCRICAO" = :codPreInscricao`,
         [codPreInscricao],
       );
 
@@ -44,9 +45,7 @@ export class EnrollmentService {
 
       // 🔹 3. Buscar dados da pré-inscrição
       const preResult = await queryRunner.query(
-        `SELECT "USER_ID", "CURSO_CANDIDATURA", "CODIGO_TURNO"
-       FROM FK2_TB_PREINSCRICAO
-       WHERE "CODIGO" = :codPreInscricao`,
+        `SELECT "USER_ID", "CURSO_CANDIDATURA", "CODIGO_TURNO" FROM FK2_TB_PREINSCRICAO WHERE "CODIGO" = :codPreInscricao`,
         [codPreInscricao],
       );
 
@@ -68,14 +67,12 @@ export class EnrollmentService {
         `SELECT "CANAL" FROM FK2_USERS WHERE "ID" = :userId`,
         [userId],
       );
-
       const canal = userResult?.CANAL ?? 0;
 
-      // 🔹 5. Gerar códigos (⚠️ TROCAR POR SEQUENCE NO FUTURO)
+      // 🔹 5. Gerar códigos de Matrícula (⚠️ Trocar por Sequence no futuro)
       const [maxMat] = await queryRunner.query(
         `SELECT NVL(MAX(TO_NUMBER("CODIGO")), 0) as maxCod FROM FK2_TB_MATRICULAS`,
       );
-
       const [maxAluno] = await queryRunner.query(
         `SELECT NVL(MAX(TO_NUMBER("NUMEROALUNO")), 0) as maxAluno FROM FK2_TB_MATRICULAS`,
       );
@@ -83,19 +80,19 @@ export class EnrollmentService {
       const codMatricula = Number(maxMat.MAXCOD) + 1;
       const nAluno = Number(maxAluno.MAXALUNO) + 1;
 
-      // 🔹 6. Criar matrícula
+      // 🔹 6. Criar matrícula base
       await queryRunner.query(
         `INSERT INTO FK2_TB_MATRICULAS (
-         "CODIGO", "CODIGO_ALUNO", "DATA_MATRICULA", "CODIGO_CURSO",
-         "CODIGOPAGAMENTO", "NUMEROALUNO", "ESTADO_MATRICULA", "CANAL", "UPDATED_AT"
-       ) VALUES (
-         :codMatricula, :codAmissao, SYSDATE, :codCurso,
-         0, :nAluno, 'inactivo', :canal, SYSDATE
-       )`,
+          "CODIGO", "CODIGO_ALUNO", "DATA_MATRICULA", "CODIGO_CURSO",
+          "CODIGOPAGAMENTO", "NUMEROALUNO", "ESTADO_MATRICULA", "CANAL", "UPDATED_AT"
+        ) VALUES (
+          :codMatricula, :codAmissao, SYSDATE, :codCurso,
+          0, :nAluno, 'inactivo', :canal, SYSDATE
+        )`,
         [codMatricula, codAmissao, codCurso, nAluno, canal],
       );
 
-      // 🔹 7. Ano lectivo ativo
+      // 🔹 7. Buscar Ano lectivo activo
       const anoResult = await queryRunner.query(
         `SELECT "CODIGO" FROM FK2_TB_ANO_LECTIVO WHERE "ESTADO" = 'Activo' FETCH FIRST 1 ROWS ONLY`,
       );
@@ -109,70 +106,79 @@ export class EnrollmentService {
 
       const codAnoActual = anoResult[0].CODIGO;
 
-      // 🔹 8. Criar confirmação
-      const [maxConf] = await queryRunner.query(
+      // 🔹 8. Preparar contadores para Confirmações e Grades
+      const [maxConfResult] = await queryRunner.query(
         `SELECT NVL(MAX(TO_NUMBER("CODIGO")), 0) as maxConf FROM FK2_TB_CONFIRMACOES`,
       );
+      let incrementadorConfirmacao = Number(maxConfResult.MAXCONF);
 
-      const codConfirmacao = Number(maxConf.MAXCONF) + 1;
-
-      await queryRunner.query(
-        `INSERT INTO FK2_TB_CONFIRMACOES (
-         "CODIGO", "CODIGO_MATRICULA", "DATA_CONFIRMACAO", "CODIGO_ANO_LECTIVO",
-         "ESTADO", "CLASSE", "CADEIRANTE", "CANAL"
-       ) VALUES (
-         :codConfirmacao, :codMatricula, SYSDATE, :codAnoActual,
-         0, 1, 'NAO', :canal
-       )`,
-        [codConfirmacao, codMatricula, codAnoActual, canal],
+      const [maxGradeResult] = await queryRunner.query(
+        `SELECT NVL(MAX(CODIGO), 0) as maxGrade FROM FK2_TB_GRADE_CURRICULAR_ALUNO`,
       );
+      let incrementadorGrade = Number(maxGradeResult.MAXGRADE);
 
-      // 🔹 9. Remover grades duplicadas
-      const uniqueGrades = [...new Set(grades)];
-      const [maxConfgrade] = await queryRunner.query(
-        `SELECT MAX(CODIGO) as maxConf FROM FK2_TB_GRADE_CURRICULAR_ALUNO`,
-      );
-      console.log(maxConfgrade);
-      let gradealunoincre = maxConfgrade?.MAXCONF;
-      for (const codigoGrade of uniqueGrades) {
-        gradealunoincre = gradealunoincre + 1;
+      // Estrutura para iterar os dois semestres
+      const semestres = [
+        { id: 1, disciplinas: primeiroSemestre },
+        { id: 2, disciplinas: segundoSemestre },
+      ];
 
-        // 🔍 Verificar se já existe
-        const [exists] = await queryRunner.query(
-          `SELECT 1 FROM FK2_TB_GRADE_CURRICULAR_ALUNO
-         WHERE "CODIGO_GRADE_CURRICULAR" = :codigoGrade
-           AND "CODIGO_MATRICULA" = :codMatricula`,
-          [codigoGrade, codMatricula],
+      for (const item of semestres) {
+        // Só processa se houver disciplinas para o semestre
+        if (item.disciplinas.length === 0) continue;
+
+        // 🔹 9. Criar Confirmação para o Semestre Atual (1 ou 2)
+        incrementadorConfirmacao++;
+        const codConfirmacaoAtual = incrementadorConfirmacao;
+
+        await queryRunner.query(
+          `INSERT INTO FK2_TB_CONFIRMACOES (
+            "CODIGO", "CODIGO_MATRICULA", "DATA_CONFIRMACAO", "CODIGO_ANO_LECTIVO",
+            "ESTADO", "CLASSE", "CADEIRANTE", "CANAL", "SEMESTRE"
+          ) VALUES (
+            :codConfirmacao, :codMatricula, SYSDATE, :codAnoActual,
+            0, 1, 'NAO', :canal, :numSemestre
+          )`,
+          [codConfirmacaoAtual, codMatricula, codAnoActual, canal, item.id],
         );
 
-        if (exists) {
-          this.logger.warn(
-            `Grade ${codigoGrade} já existe para matrícula ${codMatricula}`,
+        // 🔹 10. Inserir disciplinas da grade deste semestre
+        for (const codigoGrade of item.disciplinas) {
+          incrementadorGrade++;
+
+          // Verificar se a grade já existe para evitar erros de duplicidade
+          const [exists] = await queryRunner.query(
+            `SELECT 1 FROM FK2_TB_GRADE_CURRICULAR_ALUNO WHERE "CODIGO_GRADE_CURRICULAR" = :codigoGrade AND "CODIGO_MATRICULA" = :codMatricula`,
+            [codigoGrade, codMatricula],
           );
-          continue;
-        }
 
-        let refHorario = '';
+          if (exists) {
+            this.logger.warn(
+              `Grade ${codigoGrade} já existe para matrícula ${codMatricula}`,
+            );
+            continue;
+          }
 
-        const horarioResult = await queryRunner.query(
-          `SELECT "PK_HORARIO", "DESIGNACAO"
+          // Buscar Horário
+          let refHorario = '';
+          const horarioResult = await queryRunner.query(
+            `SELECT "PK_HORARIO", "DESIGNACAO"
          FROM FK2_MGH_TB_HORARIO
          WHERE "ACTIVE_STATE" = '1'
            AND JSON_VALUE("REF_GRADE_CURRICULAR", '$.pk' RETURNING VARCHAR2) = :codigoGrade
            AND "FK_ANO_LECTIVO" = :codAnoActual
            AND "FK_PERIODO" = :codPeriodo
          FETCH FIRST 1 ROWS ONLY`,
-          [codigoGrade, codAnoActual, codPeriodo],
-        );
+            [codigoGrade, codAnoActual, codPeriodo],
+          );
 
-        if (horarioResult.length > 0) {
-          const { PK_HORARIO, DESIGNACAO } = horarioResult[0];
-          refHorario = JSON.stringify({ pk: PK_HORARIO, desc: DESIGNACAO });
-        }
-        // ultimo id da grade curricular do aluno
+          if (horarioResult.length > 0) {
+            const { PK_HORARIO, DESIGNACAO } = horarioResult[0];
+            refHorario = JSON.stringify({ pk: PK_HORARIO, desc: DESIGNACAO });
+          }
 
-        await queryRunner.query(
-          `INSERT INTO FK2_TB_GRADE_CURRICULAR_ALUNO (
+          await queryRunner.query(
+            `INSERT INTO FK2_TB_GRADE_CURRICULAR_ALUNO (
            "CODIGO_GRADE_CURRICULAR", "CODIGO_CONFIRMACAO", "CODIGO_MATRICULA",
            "ESTADO", "NOTA", "CREATED_AT", "CANAL",
            "CODIGO_STATUS_GRADE_CURRICULAR", "CODIGO_ANO_LECTIVO",
@@ -183,24 +189,25 @@ export class EnrollmentService {
            4, :codAnoActual,
            :userId, 1, SYSDATE, 0, :refHorario,:gradealunoincre
          )`,
-          [
-            codigoGrade,
-            codConfirmacao,
-            codMatricula,
-            canal,
-            codAnoActual,
-            userId,
-            refHorario,
-            gradealunoincre,
-          ],
-        );
+            [
+              codigoGrade,
+              codConfirmacaoAtual,
+              codMatricula,
+              canal,
+              codAnoActual,
+              userId,
+              refHorario,
+              incrementadorGrade,
+            ],
+          );
+        }
       }
 
       await queryRunner.commitTransaction();
 
       return {
-        message: 'Matrícula criada com sucesso',
-        data: { codMatricula, nAluno },
+        message: 'Matrícula e confirmações dos dois semestres concluídas',
+        data: { codMatricula },
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -209,11 +216,46 @@ export class EnrollmentService {
       if (error instanceof HttpException) throw error;
 
       throw new HttpException(
-        'Erro inesperado',
+        'Erro inesperado ao processar matrícula',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     } finally {
       await queryRunner.release();
     }
+  }
+
+  private separarGradesPorSemestre(grades: GradeItemDto[]) {
+    const resultado = grades.reduce(
+      (acc, grade) => {
+        const semestre = grade.semestre;
+        const duracao = grade.duracaoDisciplina.toUpperCase();
+
+        // Disciplina anual vai para os dois
+        if (duracao === 'ANUAL') {
+          acc.primeiroSemestre.push(grade.codigo);
+          acc.segundoSemestre.push(grade.codigo);
+          return acc;
+        }
+
+        if (semestre === 1) {
+          acc.primeiroSemestre.push(grade.codigo);
+        }
+
+        if (semestre === 2) {
+          acc.segundoSemestre.push(grade.codigo);
+        }
+
+        return acc;
+      },
+      {
+        primeiroSemestre: [] as number[],
+        segundoSemestre: [] as number[],
+      },
+    );
+
+    return {
+      primeiroSemestre: [...new Set(resultado.primeiroSemestre)],
+      segundoSemestre: [...new Set(resultado.segundoSemestre)],
+    };
   }
 }
