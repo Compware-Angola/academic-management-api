@@ -97,6 +97,7 @@ export class AcademicActivitiesService {
         anoLectivo,
       } as any,
     );
+
     const semestre = definirSemestre({
       DATAINICIOPRIMEIROSEMESTRE: rowAnoLectivo?.DATAINICIOPRIMEIROSEMESTRE,
       DATAFIMPRIMEIROSEMESTRE: rowAnoLectivo?.DATAFIMPRIMEIROSEMESTRE,

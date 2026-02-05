@@ -22,7 +22,7 @@ import { AccessLogHelper } from '../common/helpers/access-log.helper';
 import { HttpService } from '@nestjs/axios/dist/http.service';
 import { FindPrazosMatricula } from './dto/find-prazos-matricula.dto';
 
-//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('academic-activities')
 export class AcademicActivitiesController {
   constructor(
