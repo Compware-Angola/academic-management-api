@@ -10,7 +10,7 @@ export class ReferenciasService {
   async findAllEstadoCivil(): Promise<ReferenciaDto[]> {
     const result = await this.dataSource.query(`
       SELECT CODIGO, DESIGNACAO
-      FROM CMPDEV.FK2_TB_ESTADO_CIVIL
+      FROM FK2_TB_ESTADO_CIVIL
       ORDER BY DESIGNACAO
     `);
 
@@ -20,7 +20,7 @@ export class ReferenciasService {
   async findAllNacionalidades(): Promise<ReferenciaDto[]> {
     const result = await this.dataSource.query(`
       SELECT CODIGO, DESIGNACAO
-      FROM CMPDEV.FK2_TB_NACIONALIDADES
+      FROM FK2_TB_NACIONALIDADES
       ORDER BY DESIGNACAO
     `);
 
@@ -30,7 +30,7 @@ export class ReferenciasService {
   async findAllTipoDocumentos(): Promise<ReferenciaDto[]> {
     const result = await this.dataSource.query(`
       SELECT CODIGO, DESIGNACAO
-      FROM CMPDEV.FK2_TB_TIPO_DOCUMENTOS
+      FROM FK2_TB_TIPO_DOCUMENTOS
       ORDER BY DESIGNACAO
     `);
 
@@ -40,7 +40,7 @@ export class ReferenciasService {
   async findAllSexo(): Promise<ReferenciaDto[]> {
     const result = await this.dataSource.query(`
       SELECT CODIGO, DESIGNACAO
-      FROM CMPDEV.FK2_TB_SEXO
+      FROM FK2_TB_SEXO
       ORDER BY DESIGNACAO
     `);
 
