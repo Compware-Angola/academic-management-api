@@ -483,13 +483,13 @@ export class UsersService {
       username = await this.gerarUsernameUnico(baseUsername);
 
       // 5. Hash da senha temporária
-      const senhaTemp = dto.senha || 'Compware@123';
+      const senhaTemp = dto.numDocIdentificacao ;
       const senhaHash = await gerarHashExterno(senhaTemp);
       // 6. Inserir Utilizador
 
       await queryRunner.manager.query(`
         INSERT INTO FK2_MCA_TB_UTILIZADOR (
-          USERNAME, NOME, PASSWORD, EMAIL,REF_PESSOA, ACTIVE_STATE, CREATED_AT, UPDATED_AT
+          USERNAME, NOME, PASSWORD, EMAIL,REF_PESSOA, ACTIVE_STATE, CREATED_AT, UPDATED_AT,PRIMEIRO_LOG
         ) VALUES (
           '${username}',
           '${dto.nomeCompleto.replace(/'/g, "''")}',
@@ -498,7 +498,8 @@ export class UsersService {
           '${JSON.stringify({ pk: pessoaId, desc: dto.nomeCompleto })}',
           1,
           SYSDATE,
-          SYSDATE
+          SYSDATE,
+          1
         )
       `);
 
