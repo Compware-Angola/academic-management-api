@@ -76,8 +76,9 @@ import { HttpService } from '@nestjs/axios';
 import { buildFormulaLog } from './util/buildFormulaLog';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../common/enums/permission.type';
+import { PromptGetPermissionLaunchDTO } from './dto/prompt-get-permission-launch.dto';
 
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('assessment')
 export class AssessmentController {
   constructor(
@@ -308,6 +309,13 @@ export class AssessmentController {
     @Query(ValidationPipe) params: PermissionAssessmentDTO,
   ) {
     return this.permissionService.findPermissionLaunch(params);
+  }
+
+  @Get('prompt-get-permission-launch')
+  async getPromptPermissionLaunch(
+    @Query(ValidationPipe) params: PromptGetPermissionLaunchDTO,
+  ) {
+    return this.permissionService.promptGetPermissionLaunch(params);
   }
 
   @Post('permissoes')

@@ -1,4 +1,4 @@
-import { IsInt, Min, IsOptional, Max, IsIn } from 'class-validator';
+import { IsInt, Min, IsOptional, Max, IsIn, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -6,7 +6,7 @@ export class getAttendanceListDto {
   @ApiProperty({
     description:
       'Ano letivo no formato de dois dígitos (ex: 25 para 2025/2026)',
-    example: 21,
+    example: 22,
     minimum: 0,
     type: Number,
   })
@@ -17,7 +17,7 @@ export class getAttendanceListDto {
 
   @ApiProperty({
     description: 'Código do horário associado à turma/disciplina',
-    example: 20505,
+    example: 25903,
     type: Number,
     required: false,
   })
@@ -58,6 +58,26 @@ export class getAttendanceListDto {
   @Type(() => Number)
   semestre: number;
 
+  @ApiProperty({
+    description: 'Código do Matricula associado ao aluno',
+    example: 25903,
+    type: Number,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  codigoMatricula?: number;
+
+  @ApiProperty({
+    description: 'Nome do Aluno',
+    example: 'Abigail',
+    required: false,
+    type: String,
+  })
+  @IsOptional()
+  nome?: string;
+
   @ApiPropertyOptional({
     description: 'Quantidade de registros por página (máximo 100)',
     example: 25,
@@ -71,25 +91,4 @@ export class getAttendanceListDto {
   @Max(100)
   @Type(() => Number)
   limit?: number = 25;
-
-  // @ApiProperty({
-  //     description: 'Tipo  de prova',
-  //     example: 2,
-  //     type: Number,
-  // })
-  // @IsInt()
-  // @IsOptional()
-  // @IsIn([1, 2])
-  // @Type(() => Number)
-  // situacao_financeira: number;
-  // @ApiProperty({
-  //     description: 'Tipo de avaliação',
-  //     example: 2,
-  //     type: Number,
-  // })
-  // @IsInt()
-  // @IsOptional()
-  // @IsIn([1, 2])
-  // @Type(() => Number)
-  // tipo_avaliacao: number;
 }
