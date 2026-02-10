@@ -16,6 +16,8 @@ export class AttendanceListService {
       page = 1,
       limit = 25,
       situacao_financeira,
+      codigoMatricula,
+      nome,
     } = dto;
 
     if (
@@ -38,14 +40,15 @@ export class AttendanceListService {
     FROM (
       SELECT
         m.codigo AS numero_matricula,
-        pre.nome_completo AS nome,
+        pre.nome_completo as nome,
         cc.designacao     as curso,
         pp.designacao     as periodo,
+        cl.designacao     as classe,
+        al.CODIGO_STATUS_GRADE_CURRICULAR,
         CASE
           WHEN b.codigo_matricula IS NOT NULL THEN 1
           ELSE 0
         END AS is_bolseiro,
-
         COALESCE(p.mes_pago, 0) AS mes_pago
       FROM fk2_tb_grade_curricular_aluno al
       INNER JOIN fk2_tb_matriculas m
@@ -55,6 +58,8 @@ export class AttendanceListService {
       INNER JOIN fk2_tb_preinscricao pre
         ON pre.codigo = ad.pre_incricao
       INNER JOIN fk2_tb_cursos cc on cc.codigo = m.codigo_curso
+      INNER JOIN FK2_TB_GRADE_CURRICULAR gg on gg.codigo = al.CODIGO_GRADE_CURRICULAR
+      INNER JOIN FK2_TB_CLASSES          cl on cl.codigo = gg.CODIGO_CLASSE
       LEFT  JOIN FK2_MGH_TB_HORARIO hr on hr.PK_HORARIO = JSON_VALUE(al.REF_HORARIO, '$.pk')
       LEFT  JOIN FK2_TB_PERIODOS pp on pp.codigo = hr.FK_PERIODO
       -- bolseiros sem duplicar
@@ -87,6 +92,9 @@ export class AttendanceListService {
       WHERE
         JSON_VALUE(al.REF_HORARIO, '$.pk') = ${horarioPk}
         AND al.CODIGO_ANO_LECTIVO = ${anoLectivo}
+        AND al.CODIGO_STATUS_GRADE_CURRICULAR <> 4
+        AND (:nome IS NULL OR fn_remove_acentos(UPPER(pre.nome_completo)) LIKE '%' || fn_remove_acentos(UPPER(:nome)) || '%')
+        AND (:codigoMatricula IS NULL or m.codigo = :codigoMatricula)
     )
     WHERE
       ${
@@ -99,7 +107,10 @@ export class AttendanceListService {
     OFFSET ${offset} ROWS FETCH NEXT ${realLimit} ROWS ONLY
   `;
 
-    const rows = await this.dataSource.query(sql);
+    const rows = await this.dataSource.query(sql, {
+      nome: nome ?? null,
+      codigoMatricula: codigoMatricula ?? null,
+    } as any);
 
     const hasNextPage = rows.length > limit;
 
