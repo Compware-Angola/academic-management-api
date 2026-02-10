@@ -39,8 +39,8 @@ async function bootstrap() {
   );
 
   // Porta
-  const port = process.env.PORT ?? 3000;
-  await app.listen(port);
+  const port = process.env.PORT;
+  await app.listen(port as any);
 
   console.log(`🚀 API Listening on port ${port}.`);
   console.log(`📖 Swagger Docs available at ${await app.getUrl()}/api/docs`);
