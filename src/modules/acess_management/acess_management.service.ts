@@ -480,6 +480,9 @@ export class AcessosService {
             `Erro ao criar grupo unitario para o utilizador ${username}`,
           );
         }
+        console.log(result.outId[0]);
+        grupoUnitarioId =result.outId[0]
+        
 
 
         // 8. Associar utilizador ao grupo
@@ -487,7 +490,7 @@ export class AcessosService {
         INSERT INTO FK2_MCA_TB_GRUPO_UTILIZADOR (
           FK_GRUPO, FK_UTILIZADOR, ORDEM, ACTIVE_STATE, CREATED_AT, UPDATED_AT
         ) VALUES (
-          ${result?.outId[0]?.PK_GRUPO}, ${utilizadorId}, 1, 1, SYSDATE, SYSDATE
+          ${grupoUnitarioId}, ${utilizadorId}, 1, 1, SYSDATE, SYSDATE
         )
       `);
       }
