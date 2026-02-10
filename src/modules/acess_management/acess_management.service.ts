@@ -466,9 +466,9 @@ export class AcessosService {
         const result = await queryRunner.manager.query(
           `
           INSERT INTO FK2_MCA_TB_GRUPO (
-            DESIGNACAO, SIGLA, DESCRICAO, FK_TIPO_DE_GRUPO, ORDEM, ACTIVE_STATE, CREATED_AT, UPDATED_AT,PK_GRUPO
+            DESIGNACAO, SIGLA, DESCRICAO, FK_TIPO_DE_GRUPO, ORDEM, ACTIVE_STATE, CREATED_AT, UPDATED_AT
         ) VALUES (
-          '${username}', '${username}', 'Grupo unitário', 2, 1, 1, SYSDATE, SYSDATE, '${grupoUnitarioId}'
+          '${username}', '${username}', 'Grupo unitário', 2, 1, 1, SYSDATE, SYSDATE
         )RETURNING PK_GRUPO INTO :outId
       `,
           {
@@ -555,7 +555,7 @@ export class AcessosService {
                 t.UPDATED_AT = SYSDATE
             WHEN NOT MATCHED THEN
               INSERT (
-                PK_GRUPO_ACESSO,
+              
                 FK_GRUPO,
                 FK_ACESSO,
                 ACTIVE_STATE,
@@ -565,7 +565,7 @@ export class AcessosService {
                 LAST_UPDATED_BY
               )
               VALUES (
-                :pkGrupoAcesso,
+               
                 :grupoId,
                 :acessoId,
                 1,
@@ -575,7 +575,7 @@ export class AcessosService {
                 :usuarioLogadoId
               )
             `,
-            { pkGrupoAcesso, grupoId, acessoId, usuarioLogadoId } as any,
+            { grupoId, acessoId, usuarioLogadoId } as any,
           );
         }
       }
