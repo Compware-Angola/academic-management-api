@@ -487,7 +487,7 @@ export class AcessosService {
         INSERT INTO FK2_MCA_TB_GRUPO_UTILIZADOR (
           FK_GRUPO, FK_UTILIZADOR, ORDEM, ACTIVE_STATE, CREATED_AT, UPDATED_AT
         ) VALUES (
-          ${grupoUnitarioId}, ${utilizadorId}, 1, 1, SYSDATE, SYSDATE
+          ${result?.outId[0]?.PK_GRUPO}, ${utilizadorId}, 1, 1, SYSDATE, SYSDATE
         )
       `);
       }
