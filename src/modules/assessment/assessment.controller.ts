@@ -116,7 +116,10 @@ export class AssessmentController {
   async upsertEvaluation(@Body() dto: StudentEvaluationDto, @Req() req: any) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const user = req.user;
-    const result= await this.noteReleaseService.upsertStudentEvaluation(dto,user);
+    const result = await this.noteReleaseService.upsertStudentEvaluation(
+      dto,
+      user,
+    );
     await AccessLogHelper.logAccess(this.httpService, {
       descricao: `Lançamento/Atualização de avaliação do aluno - Código da grade Curricular do Aluno: ${dto.gradeCurricularAluno}, Tipo de Avaliação: ${dto.tipoAvaliacao}, Época: ${dto.epoca}`,
       fkAcesso: 7,
@@ -244,7 +247,7 @@ export class AssessmentController {
   findAll(@Query() filtro: FiltroLancamentoPautaDto) {
     return this.agendaLaunch.getAll(filtro);
   }
-   @Get('lancamento/uc-sem-pauta')
+  @Get('lancamento/uc-sem-pauta')
   @ApiOperation({ summary: 'Filtrar pautas lançadas' })
   @ApiResponse({ status: 200, description: 'Lista ....' })
   getAllUcSemPauta(@Query() filtro: FiltroLancamentoPautaDto) {
@@ -290,13 +293,13 @@ export class AssessmentController {
   async update(
     @Param('codigo', ParseIntPipe) codigo: number,
     @Body() updateData: UpdateParametroAvaliacaoAttendanceListDto,
-    @Req() req:any
+    @Req() req: any,
   ) {
-    const user = req.user
+    const user = req.user;
     return this.generalParametersForEvaluationService.updateAttendanceList(
       codigo,
       updateData,
-      user
+      user,
     );
   }
 
@@ -359,7 +362,9 @@ export class AssessmentController {
   }
 
   @Put('unidades-curriculares')
-  @RequiredPermissions(PermissionTypeDetails.DEFINIR_FORMULA_UNIDADE_CURRICULAR.sigla)
+  @RequiredPermissions(
+    PermissionTypeDetails.DEFINIR_FORMULA_UNIDADE_CURRICULAR.sigla,
+  )
   async salvarFormula(@Body() body: AtualizarFormulaDto, @Req() req: any) {
     const UpdatedById = req.user.sub;
     const uc = await this.defineFormulaUcService.atualizarFormula(
