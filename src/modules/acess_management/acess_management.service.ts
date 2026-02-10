@@ -540,7 +540,7 @@ if (filter.designacao) {
                 t.UPDATED_AT = SYSDATE
             WHEN NOT MATCHED THEN
               INSERT (
-                PK_GRUPO_ACESSO,
+              
                 FK_GRUPO,
                 FK_ACESSO,
                 ACTIVE_STATE,
@@ -550,7 +550,7 @@ if (filter.designacao) {
                 LAST_UPDATED_BY
               )
               VALUES (
-                :pkGrupoAcesso,
+               
                 :grupoId,
                 :acessoId,
                 1,
@@ -560,7 +560,7 @@ if (filter.designacao) {
                 :usuarioLogadoId
               )
             `,
-            { pkGrupoAcesso, grupoId, acessoId, usuarioLogadoId } as any,
+            { grupoId, acessoId, usuarioLogadoId } as any,
           );
         }
       }

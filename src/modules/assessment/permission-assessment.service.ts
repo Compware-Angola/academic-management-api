@@ -6,6 +6,7 @@ import * as oracledb from 'oracledb';
 import { CreatePermissionAssessmentDTO } from './dto/create-permission-assessment.dto';
 import { escapeQuotes } from '../util/escape-quotes';
 import { UpdatePermissionAssessmentDTO } from './dto/update-permission-assessment.dto';
+import { PromptGetPermissionLaunchDTO } from './dto/prompt-get-permission-launch.dto';
 
 interface IcheckDateIntervalConflict {
   dataInicio: string;
@@ -272,6 +273,42 @@ export class PermissionAssessmentsService {
       permissionId,
     };
   }
+
+  async promptGetPermissionLaunch({
+    anoLectivo,
+    grade,
+    tipoAvaliacao,
+    docente,
+  }: PromptGetPermissionLaunchDTO) {
+    const sql = `
+      SELECT
+        json_value(REF_DOCENTE,'$.desc')            as docente,
+        json_value(REF_ANO_LECTIVO, '$.desc')       as anoLectivo,
+        json_value(REF_GRADE, '$.desc')             as grade,
+        DATA_INICIO                                 as dataInicial,
+        DATA_FIM                                    as dataFim,
+        ACTIVE_STATE                                as active_state,
+        TIPOAVALIAÇÃO                               as tipoAvaliacao
+      FROM FK2_MAV_PERMICAO_LANCAMENTO p
+      WHERE json_value(p.REF_DOCENTE, '$.pk') = :docente
+      AND json_value(p.REF_ANO_LECTIVO, '$.pk') = :anoLectivo
+      AND json_value(p.REF_GRADE, '$.pk') = :grade
+      AND p.TIPOAVALIAÇÃO = :tipoAvaliacao
+      AND p.ACTIVE_STATE = 1
+      AND TRUNC(SYSDATE) BETWEEN TRUNC(p.DATA_INICIO) AND TRUNC(p.DATA_FIM)
+      FETCH FIRST 1 ROW ONLY
+    `;
+
+    const result = await this.dataSource.query(sql, {
+      docente,
+      anoLectivo,
+      grade,
+      tipoAvaliacao,
+    } as any);
+    return {
+      data: result,
+    };
+  }
   async findPermissionLaunch(
     filters: PermissionAssessmentDTO,
     { anoLectivo, page = 1, limit = 25 } = filters,
@@ -308,8 +345,8 @@ export class PermissionAssessmentsService {
         INNER JOIN FK2_TB_DISCIPLINAS d
                 ON d.CODIGO = gc.CODIGO_DISCIPLINA
         INNER JOIN FK2_TB_CURSOS cs on cs.codigo = gc.CODIGO_CURSO
-        INNER JOIN FK2_MCAL_TB_TIPO_AVALIACAO av
-                ON av.PK_TIPO_AVALIACAO = ml.TIPOAVALIAÇÃO
+        INNER JOIN FK2_TB_TIPO_AVALIACAO av
+                ON av.codigo = ml.TIPOAVALIAÇÃO
         INNER JOIN FK2_MCA_TB_UTILIZADOR ut
                 ON ut.PK_UTILIZADOR = json_value(ml.REF_UTILIZADOR,'$.pk')
     WHERE ${baseWhere}
