@@ -1,6 +1,6 @@
-import { IsInt, Min, IsIn, IsOptional } from 'class-validator';
+import { IsInt, Min, IsOptional, Max, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class getAttendanceListDto {
   @ApiProperty({
@@ -25,6 +25,52 @@ export class getAttendanceListDto {
   @IsInt()
   @Type(() => Number)
   horarioPk?: number;
+
+  @ApiPropertyOptional({
+    description: 'Número da página',
+    example: 1,
+    minimum: 1,
+    default: 1,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  page?: number = 1;
+
+  @ApiProperty({
+    description: 'Situação Financeira',
+    example: 2,
+    type: Number,
+  })
+  @IsInt()
+  @IsIn([1, 2])
+  @Type(() => Number)
+  situacao_financeira: number;
+
+  @ApiProperty({
+    description: 'Semestre',
+    example: 1,
+    type: Number,
+  })
+  @IsInt()
+  @IsIn([1, 2])
+  @Type(() => Number)
+  semestre: number;
+
+  @ApiPropertyOptional({
+    description: 'Quantidade de registros por página (máximo 100)',
+    example: 25,
+    minimum: 1,
+    maximum: 100,
+    default: 25,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
+  limit?: number = 25;
 
   // @ApiProperty({
   //     description: 'Tipo  de prova',

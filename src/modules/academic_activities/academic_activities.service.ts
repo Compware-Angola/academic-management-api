@@ -114,7 +114,8 @@ export class AcademicActivitiesService {
     const sqlMarcacaoPrazo = `
       select
           pz.PK_PRAZO   as prazoId,
-          av.DESIGNACAO as designacao
+          av.DESIGNACAO as designacao,
+          av.PK_TIPO_AVALIACAO as tipoAvaliacao
       from FK2_MCAL_TB_PRAZO pz
       inner join FK2_MCAL_TB_TIPO_AVALIACAO av on av.PK_TIPO_AVALIACAO = pz.FK_TIPO_AVALIACAO
       where 1=1
