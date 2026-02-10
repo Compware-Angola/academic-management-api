@@ -11,7 +11,7 @@ import {
 import { DataSource } from 'typeorm';
 import { CreatePersonUserDto } from './dto/create-person-user.dto';
 import { CreatePersonUserResponseDto } from './dto/create-person-user-response.dto';
-
+import oracledb from 'oracledb';
 import { UserFilterDto } from './dto/user-filter.dto';
 import { UserListItemDto } from './dto/user-list-item.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
@@ -514,16 +514,39 @@ export class UsersService {
         throw new InternalServerErrorException('Falha ao recuperar o utilizador recém-criado.');
       }
       utilizadorId = Number(utilizadorResult[0].ID);
-      grupoId = await this.getLastGroupId();
-      // 7. Criar Grupo Unitário
-      await queryRunner.manager.query(`
-        INSERT INTO FK2_MCA_TB_GRUPO (
-          DESIGNACAO, SIGLA, DESCRICAO, FK_TIPO_DE_GRUPO, ORDEM, ACTIVE_STATE, CREATED_AT, UPDATED_AT,PK_GRUPO
-        ) VALUES (
-          '${username}', '${username}', 'Grupo unitário', 2, 1, 1, SYSDATE, SYSDATE, ${grupoId}
-        )
-      `);
 
+const result = await queryRunner.manager.query(
+  `
+  INSERT INTO FK2_MCA_TB_GRUPO (
+    DESIGNACAO,
+    SIGLA,
+    DESCRICAO,
+    FK_TIPO_DE_GRUPO,
+    ORDEM,
+    ACTIVE_STATE,
+    CREATED_AT,
+    UPDATED_AT
+  ) VALUES (
+    :username,
+    :username,
+    'Grupo unitário',
+    2,
+    1,
+    1,
+    SYSDATE,
+    SYSDATE
+  )
+  RETURNING PK_GRUPO INTO :outId
+  `,
+  {
+    username,
+     outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+  } as any
+);
+
+    const grupoIdGerado = result.outId[0];
+    console.log(result);
+    
       const grupoResult = await queryRunner.manager.query(`
         SELECT PK_GRUPO AS id 
         FROM FK2_MCA_TB_GRUPO 
@@ -541,7 +564,7 @@ export class UsersService {
         INSERT INTO FK2_MCA_TB_GRUPO_UTILIZADOR (
           FK_GRUPO, FK_UTILIZADOR, ORDEM, ACTIVE_STATE, CREATED_AT, UPDATED_AT
         ) VALUES (
-          ${grupoId}, ${utilizadorId}, 1, 1, SYSDATE, SYSDATE
+          ${grupoIdGerado}, ${utilizadorId}, 1, 1, SYSDATE, SYSDATE
         )
       `);
 
