@@ -465,14 +465,7 @@ if (filter.designacao) {
             `Erro ao criar grupo unitario para o utilizador ${username}`,
           );
         }
-<<<<<<< HEAD
         grupoUnitarioId = result?.outId[0];
-=======
-        console.log(result.outId[0]);
-        grupoUnitarioId =result.outId[0]
-        
-
->>>>>>> e7392527fa19492252f34e5770d08b3e035673d0
 
         // 8. Associar utilizador ao grupo
         await queryRunner.manager.query(`

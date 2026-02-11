@@ -251,7 +251,7 @@ export class PermissionAssessmentsService {
         :tipoAvaliacao,
         SYSDATE,
         SYSDATE
-      ) RETURNING PK_PERMICAO INTO :outId
+      )
       `,
       {
         refDocente: jsonDocente,
@@ -260,17 +260,12 @@ export class PermissionAssessmentsService {
         refUser: jsonUser,
         dataInicio: query.dataInicio,
         dataFim: query.dataFim,
-        tipoAvaliacao: query.tipoAvalacaoId,
-        outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+        tipoAvaliacao: query.tipoAvalacaoId
       } as any,
     );
 
-    // Pegar o ID gerado
-    const permissionId = result.outId[0];
-
     return {
-      message: 'Permissão de Avaliação criada com sucesso',
-      permissionId,
+      message: 'Permissão de Avaliação criada com sucesso'
     };
   }
 
