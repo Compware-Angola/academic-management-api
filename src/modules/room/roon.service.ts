@@ -44,14 +44,14 @@ await this.dataSource.query(
       COMPRIMENTO, LARGURA, AREA,
       NUM_AC, NUM_LAMPADAS, NUM_JANELAS,
       AREA_ALUNO, UTILIZAVEL, CAPACIDADEEXAMEACESSOPROVA,
-      CODIGO, UPDATED_AT, DELETED_AT
+      UPDATED_AT, DELETED_AT
     ) VALUES (
       :designacao, :tipo_sala, :numero, :estado, :capacidade,
       :polo_id, :piso_id, :edificio_id,
       :comprimento, :largura, :area,
       :num_ac, :num_lampadas, :num_janelas,
       :area_aluno, :utilizavel, :capacidade_exame,
-      :codigo, SYSDATE, NULL
+       SYSDATE, NULL
     )
   `,
   {
@@ -72,7 +72,7 @@ await this.dataSource.query(
     area_aluno: area_aluno || null,
     utilizavel,
     capacidade_exame: capacidade_exame_acesso_prova || null,
-    codigo: Number(proximoCodigo),
+  
   } as any  // ← Esta linha resolve o erro do TypeScript
 );
   // 4. Retorna
