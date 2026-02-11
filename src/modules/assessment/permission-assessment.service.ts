@@ -278,19 +278,21 @@ export class PermissionAssessmentsService {
     anoLectivo,
     grade,
     tipoAvaliacao,
-    docente,
+    utilizadorId,
   }: PromptGetPermissionLaunchDTO) {
     const sql = `
       SELECT
-        json_value(REF_DOCENTE,'$.desc')            as docente,
-        json_value(REF_ANO_LECTIVO, '$.desc')       as anoLectivo,
-        json_value(REF_GRADE, '$.desc')             as grade,
-        DATA_INICIO                                 as dataInicial,
-        DATA_FIM                                    as dataFim,
-        ACTIVE_STATE                                as active_state,
-        TIPOAVALIAÇÃO                               as tipoAvaliacao
+        json_value(p.REF_DOCENTE,'$.desc')            as docente,
+        json_value(p.REF_ANO_LECTIVO, '$.desc')       as anoLectivo,
+        json_value(p.REF_GRADE, '$.desc')             as grade,
+        p.DATA_INICIO                                 as dataInicial,
+        p.DATA_FIM                                    as dataFim,
+        p.ACTIVE_STATE                                as active_state,
+        p.TIPOAVALIAÇÃO                               as tipoAvaliacao
       FROM FK2_MAV_PERMICAO_LANCAMENTO p
-      WHERE json_value(p.REF_DOCENTE, '$.pk') = :docente
+      inner join FK2_MGD_TB_DOCENTE doc on doc.codigo = json_value(p.REF_DOCENTE, '$.pk')
+      inner join FK2_MCA_TB_UTILIZADOR ut on ut.PK_UTILIZADOR   = json_value(doc.CODIGO_UTILIZADOR,'$.pk')
+      WHERE ut.PK_UTILIZADOR = :utilizadorId
       AND json_value(p.REF_ANO_LECTIVO, '$.pk') = :anoLectivo
       AND json_value(p.REF_GRADE, '$.pk') = :grade
       AND p.TIPOAVALIAÇÃO = :tipoAvaliacao
@@ -300,7 +302,7 @@ export class PermissionAssessmentsService {
     `;
 
     const result = await this.dataSource.query(sql, {
-      docente,
+      utilizadorId,
       anoLectivo,
       grade,
       tipoAvaliacao,
