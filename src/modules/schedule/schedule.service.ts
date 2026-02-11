@@ -2413,7 +2413,7 @@ async findScheduleByDayOfTheweek({
         await this.dataSource.query(
           `
       INSERT INTO FK2_MGH_TB_AULA (
-        PK_AULA,                 
+                        
         FK_HORARIO,
         FK_DIA_DA_SEMANA,
         FK_TIPO_AULA,
@@ -2432,7 +2432,6 @@ async findScheduleByDayOfTheweek({
         UPDATED_AT,
         ACTIVE_STATE
       ) VALUES (
-        :pkAula,                  -- ← Valor manual
         :horarioId,
         :diaSemana,
         :fkTipoAula,
@@ -2453,7 +2452,7 @@ async findScheduleByDayOfTheweek({
       )
       `,
           {
-            pkAula: proximoPkAula, // ← Valor incremental
+           
             horarioId,
             diaSemana: aula.diaSemana,
             fkTipoAula: dto.tipoAula,
@@ -2470,12 +2469,7 @@ async findScheduleByDayOfTheweek({
           } as any,
         );
 
-        console.log(
-          `[DEV] Aula inserida com PK_AULA = ${proximoPkAula} (Horário: ${horarioId}, Dia: ${aula.diaSemana}, Início: ${aula.hora_inicio})`,
-        );
-
-        // Incrementa para a próxima aula
-        proximoPkAula++;
+    
       } catch (error: any) {
         console.error(
           `[DEV] Erro ao inserir aula com PK_AULA = ${proximoPkAula}`,
