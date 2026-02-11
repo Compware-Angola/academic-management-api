@@ -1,12 +1,12 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-
+import * as oracledb from 'oracledb';
 import { DataSource } from 'typeorm';
 import { EnrollmentDto, GradeItemDto } from './dto/create-enrollment.dto';
 
 @Injectable()
 export class EnrollmentService {
   private logger = new Logger(EnrollmentService.name);
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   async enrollment(enrollmentDto: EnrollmentDto) {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -128,19 +128,44 @@ export class EnrollmentService {
         if (item.disciplinas.length === 0) continue;
 
         // 🔹 9. Criar Confirmação para o Semestre Atual (1 ou 2)
-        incrementadorConfirmacao++;
-        const codConfirmacaoAtual = incrementadorConfirmacao;
+        //  incrementadorConfirmacao++;
+        // const codConfirmacaoAtual = incrementadorConfirmacao;
 
-        await queryRunner.query(
-          `INSERT INTO FK2_TB_CONFIRMACOES (
-            "CODIGO", "CODIGO_MATRICULA", "DATA_CONFIRMACAO", "CODIGO_ANO_LECTIVO",
-            "ESTADO", "CLASSE", "CADEIRANTE", "CANAL", "SEMESTRE"
-          ) VALUES (
-            :codConfirmacao, :codMatricula, SYSDATE, :codAnoActual,
-            0, 1, 'NAO', :canal, :numSemestre
-          )`,
-          [codConfirmacaoAtual, codMatricula, codAnoActual, canal, item.id],
-        );
+        const sql = `
+  INSERT INTO FK2_TB_CONFIRMACOES (
+    CODIGO_MATRICULA,
+    DATA_CONFIRMACAO,
+    CODIGO_ANO_LECTIVO,
+    ESTADO,
+    CLASSE,
+    CADEIRANTE,
+    CANAL,
+    SEMESTRE
+  ) VALUES (
+    :codMatricula,
+    SYSDATE,
+    :codAnoLectivo,
+    0,
+    1,
+    'NAO',
+    :canal,
+    :semestre
+  )
+  RETURNING CODIGO INTO :outId
+`;
+
+        const binds = {
+          codMatricula,
+          codAnoLectivo: codAnoActual,
+          canal,
+          semestre: item.id,
+          outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }
+        };
+
+        const result = await queryRunner.query(sql, binds as any);
+
+        const codConfirmacaoAtual = result.outId[0];
+
 
         // 🔹 10. Inserir disciplinas da grade deste semestre
         for (const codigoGrade of item.disciplinas) {
@@ -177,29 +202,52 @@ export class EnrollmentService {
             refHorario = JSON.stringify({ pk: PK_HORARIO, desc: DESIGNACAO });
           }
 
-          await queryRunner.query(
-            `INSERT INTO FK2_TB_GRADE_CURRICULAR_ALUNO (
-           "CODIGO_GRADE_CURRICULAR", "CODIGO_CONFIRMACAO", "CODIGO_MATRICULA",
-           "ESTADO", "NOTA", "CREATED_AT", "CANAL",
-           "CODIGO_STATUS_GRADE_CURRICULAR", "CODIGO_ANO_LECTIVO",
-           "USER_ID", "EPOCA", "UPDATED_AT", "EQUIVALENCIA", "REF_HORARIO","CODIGO"
-         ) VALUES (
-           :codigoGrade, :codConfirmacao, :codMatricula,
-           0, 0, SYSDATE, :canal,
-           4, :codAnoActual,
-           :userId, 1, SYSDATE, 0, :refHorario,:gradealunoincre
-         )`,
-            [
-              codigoGrade,
-              codConfirmacaoAtual,
-              codMatricula,
-              canal,
-              codAnoActual,
-              userId,
-              refHorario,
-              incrementadorGrade,
-            ],
-          );
+          const sql = `
+  INSERT INTO FK2_TB_GRADE_CURRICULAR_ALUNO (
+    CODIGO_GRADE_CURRICULAR,
+    CODIGO_CONFIRMACAO,
+    CODIGO_MATRICULA,
+    ESTADO,
+    NOTA,
+    CREATED_AT,
+    CANAL,
+    CODIGO_STATUS_GRADE_CURRICULAR,
+    CODIGO_ANO_LECTIVO,
+    USER_ID,
+    EPOCA,
+    UPDATED_AT,
+    EQUIVALENCIA,
+    REF_HORARIO
+  ) VALUES (
+    :codigoGrade,
+    :codConfirmacao,
+    :codMatricula,
+    0,
+    0,
+    SYSDATE,
+    :canal,
+    4,
+    :codAnoLectivo,
+    :userId,
+    1,
+    SYSDATE,
+    0,
+    :refHorario
+  )
+`;
+
+          const binds = {
+            codigoGrade,
+            codConfirmacao: codConfirmacaoAtual,
+            codMatricula,
+            canal,
+            codAnoLectivo: codAnoActual,
+            userId,
+            refHorario
+          };
+
+          await queryRunner.query(sql, binds as any);
+
         }
       }
 
