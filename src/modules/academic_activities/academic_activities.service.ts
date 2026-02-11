@@ -161,16 +161,7 @@ export class AcademicActivitiesService {
       throw new BadRequestException('Campo "fk_ano_lectivo" é obrigatório');
     }
 
-    /* =========================
-     * Gerar PK_PRAZO
-     * ========================= */
-    const [pkResult] = await this.dataSource.query(`
-    SELECT MAX(pk_prazo) + 1 AS pk_prazo
-    FROM FK2_MCAL_TB_PRAZO
-    WHERE REGEXP_LIKE(pk_prazo, '^[0-9]+$')
-  `);
-
-    const pkPrazo = pkResult.PK_PRAZO ?? pkResult.pk_prazo;
+ 
 
     /* =========================
      * Criar ref_ano_lectivo (JSON)
@@ -214,7 +205,7 @@ export class AcademicActivitiesService {
       await this.dataSource.query(
         `
       INSERT INTO FK2_MCAL_TB_PRAZO (
-        pk_prazo,
+       
         fk_tipo_avaliacao,
         fk_semestre,
         fk_tipo_prazo,
@@ -229,7 +220,7 @@ export class AcademicActivitiesService {
         fk_ano_lectivo,
         fk_created_by
       ) VALUES (
-        :pkPrazo,
+       
         :fkTipoAvaliacao,
         :fkSemestre,
         :fkTipoPrazo,
@@ -246,7 +237,7 @@ export class AcademicActivitiesService {
       )
       `,
         {
-          pkPrazo,
+         
           fkTipoAvaliacao: fk_tipo_avaliacao,
           fkSemestre: fk_semestre,
           fkTipoPrazo: fk_tipo_prazo,
@@ -264,9 +255,7 @@ export class AcademicActivitiesService {
       return {
         success: true,
         message: 'Prazo criado com sucesso',
-        data: {
-          pk_prazo: pkPrazo,
-        },
+       
       };
     } catch (error) {
       throw new BadRequestException('Erro ao inserir prazo: ' + error.message);
