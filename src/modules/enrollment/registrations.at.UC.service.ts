@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { DecodedUserPayload } from '../common/types/token-validation-response.interface';
+import * as oracledb from 'oracledb';
 import { EnrollmentRegistrationsUCDto } from './dto/registrations.at.UC.dto';
 
 
@@ -72,8 +72,7 @@ export class EnrollmentRegistrationsUCService {
 
       const userId    = preInscr[0].user_id || preInscr[0].USER_ID;
       const codCurso  = preInscr[0].Curso_Candidatura || preInscr[0].CURSO_CANDIDATURA;
-      const codPeriodo = preInscr[0].Codigo_Turno || preInscr[0].CODIGO_TURNO;
-
+    
       const usuario = await queryRunner.query(
         `SELECT canal FROM FK2_USERS WHERE id = :userId`,
         { userId } as any,
@@ -130,7 +129,7 @@ export class EnrollmentRegistrationsUCService {
       console.log(maxConf);
       
 
-      const codConfirmacao = Number(maxConf.MAXCOD) + 1;
+     // const codConfirmacao = Number(maxConf.MAXCOD) + 1;
 
       // 8. Buscar duração do curso (fallback 5)
       let duracao = 5;
@@ -218,18 +217,19 @@ export class EnrollmentRegistrationsUCService {
           }
       
         
-      await queryRunner.query(
+    const result =  await queryRunner.query(
         `INSERT INTO FK2_TB_CONFIRMACOES (
-           Codigo, Codigo_Matricula, Data_Confirmacao,
+            Codigo_Matricula, Data_Confirmacao,
            Codigo_Ano_lectivo, Estado, Classe,
            Cadeirante, canal, Semestre
          ) VALUES (
-           :codConfirmacao, :codMatricula, SYSDATE,
+           :codMatricula, SYSDATE,
            :codAnoActual, 0, :classe,
            'NAO', :codCanal, :semestre
-         )`,
-        { codConfirmacao, codMatricula, codAnoActual, classe, codCanal, semestre } as any,
+         ) RETURNING Codigo INTO :outId`,
+        { codMatricula, codAnoActual, classe, codCanal, semestre ,  outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }} as any,
       );
+        const codConfirmacao = result.outId[0];
 
       // 11. Inserir grades curriculares do aluno
       for (const grade of grades) {
@@ -248,24 +248,24 @@ export class EnrollmentRegistrationsUCService {
            WHERE REGEXP_LIKE(Codigo, '^[0-9]+$')`,
         );
 
-        const codGradeCurricularAluno = Number(maxGradeAl.MAXCOD) + 1;
+       // const codGradeCurricularAluno = Number(maxGradeAl.MAXCOD) + 1;
 
         await queryRunner.query(
           `INSERT INTO FK2_TB_GRADE_CURRICULAR_ALUNO (
-             codigo, codigo_grade_curricular, codigo_confirmacao,
+            codigo_grade_curricular, codigo_confirmacao,
              codigo_matricula, estado, Nota,
              created_at, canal, Codigo_Status_Grade_Curricular,
              codigo_ano_lectivo, user_id, epoca,
              updated_at, equivalencia, ref_horario
            ) VALUES (
-             :codGradeAl, :codigoGrade, :codConfirmacao,
+            :codigoGrade, :codConfirmacao,
              :codMatricula, 0, 0,
              SYSDATE, :codCanal, 2,
              :codAnoActual, :userId, 1,
              SYSDATE, 0, :refHorario
            )`,
           {
-            codGradeAl: codGradeCurricularAluno,
+          
             codigoGrade,
             codConfirmacao,
             codMatricula,

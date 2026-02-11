@@ -28,7 +28,6 @@ export class GradeItemDto {
   descHorario: string;
 }
 
-// DTO principal para o endpoint
 export class EnrollmentRegistrationsUCDto {
   @ApiProperty({
     example: 114525,
@@ -41,7 +40,6 @@ export class EnrollmentRegistrationsUCDto {
   @ApiProperty({
     type: [GradeItemDto],
     description: 'Lista de grades curriculares (unidades curriculares + horários) a serem confirmadas/inscritas',
-    minItems: 1,
   })
   @IsArray({ message: 'grades deve ser um array' })
   @ArrayMinSize(1, { message: 'É necessário enviar pelo menos uma grade curricular' })
@@ -51,7 +49,8 @@ export class EnrollmentRegistrationsUCDto {
 
   @ApiProperty({
     example: 1,
-    description: 'Semestre da inscrição das unidades curriculares ',
+    description: 'Semestre da inscrição das unidades curriculares',
+    enum: [1, 2],
   })
   @IsNotEmpty({ message: 'semestre é obrigatório' })
   @IsNumber({}, { message: 'semestre deve ser um número' })
