@@ -34,11 +34,11 @@ export class PromptGetPermissionLaunchDTO {
   tipoAvaliacao: number;
 
   @ApiProperty({
-    description: 'Docente',
-    example: 445,
+    description: 'utilizadorId',
+    example: 163,
     type: Number,
   })
   @IsInt()
   @Type(() => Number)
-  docente: number;
+  utilizadorId: number;
 }
