@@ -119,7 +119,7 @@ export class NoteReleaseService {
       await this.dataSource.query(
         `
       INSERT INTO FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES (
-        CODIGO,
+      
         GRADE_CURRICULAR_ALUNO,
         UTILIZADOR,
         NOTA,
@@ -133,7 +133,7 @@ export class NoteReleaseService {
         NOTA_ANTERIOR,
         REF_UTILIZADOR
       ) VALUES (
-        :codigo,
+        
         :gradeCurricularAluno,
         :utilizador,
         :nota,
@@ -149,7 +149,7 @@ export class NoteReleaseService {
       )
       `,
         {
-          codigo: nextCodigo,
+          
           gradeCurricularAluno,
           tipoDeProva,
           tipoAvaliacao,
