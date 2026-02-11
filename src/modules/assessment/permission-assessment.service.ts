@@ -265,7 +265,7 @@ export class PermissionAssessmentsService {
       } as any,
     );
 
-
+    // Pegar o ID gerado
     const permissionId = result.outId[0];
 
     return {

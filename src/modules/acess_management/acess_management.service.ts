@@ -17,7 +17,7 @@ import oracledb from 'oracledb';
 export class AcessosService {
   private readonly logger = new Logger(AcessosService.name);
 
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly dataSource: DataSource) {}
   async listarAcessosDropDown(
     filter: FilterAcessoDto,
   ): Promise<AcessoResponseDto[]> {
@@ -258,12 +258,12 @@ export class AcessosService {
       params.push(`%${filter.sigla}%`);
     }
 
-    if (filter.designacao) {
-
-
-      whereClause += ` AND A.DESIGNACAO LIKE :${params.length + 1}`;
-      params.push(`%${filter.designacao}%`);
-    }
+if (filter.designacao) {
+ 
+  
+  whereClause += ` AND A.DESIGNACAO LIKE :${params.length + 1}`;
+  params.push(`%${filter.designacao}%`);
+}
 
     if (filter.utilizadorId) {
       whereClause += `
@@ -412,20 +412,6 @@ export class AcessosService {
     }
     return result[0].PK_GRUPO_ACESSO;
   }
-  async getNextPkGrupo(
-    manager: any,
-  ): Promise<number> {
-    const result = await manager.query(`
-    SELECT MAX(PK_GRUPO) + 1 AS PK_GRUPO
-    FROM FK2_MCA_TB_GRUPO
-  `);
-
-    if (!result || result.length === 0) {
-      throw new Error("Erro ao gerar PK_GRUPO_ACESSO");
-    }
-
-    return result[0].PK_GRUPO;
-  }
 
   async adicionarAcesso(
     utilizadorId: number,
@@ -462,7 +448,6 @@ export class AcessosService {
 
       if (!grupoUnitario) {
         const username = await this.getUsername(utilizadorId);
-        grupoUnitarioId = await this.getNextPkGrupo(queryRunner.manager);
         const result = await queryRunner.manager.query(
           `
           INSERT INTO FK2_MCA_TB_GRUPO (
@@ -480,10 +465,7 @@ export class AcessosService {
             `Erro ao criar grupo unitario para o utilizador ${username}`,
           );
         }
-        console.log(result.outId[0]);
-        grupoUnitarioId =result.outId[0]
-        
-
+        grupoUnitarioId = result?.outId[0];
 
         // 8. Associar utilizador ao grupo
         await queryRunner.manager.query(`
@@ -495,7 +477,7 @@ export class AcessosService {
       `);
       }
 
-
+ 
       const grupoId = grupoUnitario ? grupoUnitario.PK_GRUPO : grupoUnitarioId;
 
       // 3. Verifica se já existe entrada removida
@@ -523,7 +505,7 @@ export class AcessosService {
           `,
           {
             usuarioLogadoId,
-            pkGrupoAcessoRemovido: removido.PK_GRUPO_ACESSO_REMOVIDO,
+           pkGrupoAcessoRemovido: removido.PK_GRUPO_ACESSO_REMOVIDO,
           } as any,
         );
       } else {
@@ -539,7 +521,7 @@ export class AcessosService {
           { grupoId, acessoId } as any,
         );
         console.log(jaExiste);
-
+        
 
         if (!jaExiste) {
           await queryRunner.manager.query(
@@ -584,7 +566,7 @@ export class AcessosService {
       }
 
       // 4. Log
-
+    
 
       await queryRunner.commitTransaction();
 
@@ -624,8 +606,8 @@ export class AcessosService {
       if (!grupoUnitario) {
         throw new NotFoundException('Grupo unitário não encontrado');
       }
-      console.log("Grupo ", grupoUnitario);
-
+      console.log("Grupo ",grupoUnitario);
+      
 
       const grupoId = grupoUnitario.PK_GRUPO;
 
@@ -638,10 +620,10 @@ export class AcessosService {
         `,
         [grupoId, acessoId],
       );
-      console.log("JA removido", jaRemovido);
+      console.log("JA removido",jaRemovido);
+      
 
-
-
+   
 
       if (jaRemovido) {
         await queryRunner.manager.query(
@@ -665,7 +647,7 @@ export class AcessosService {
         );
       }
 
-
+    
       await queryRunner.commitTransaction();
 
       return { message: 'Acesso removido/revogado com sucesso' };
@@ -793,7 +775,7 @@ export class AcessosService {
           );
         }
       }
-
+  
       await queryRunner.commitTransaction();
 
       return { message: 'Acesso adicionado/reativado com sucesso' };
@@ -838,8 +820,8 @@ export class AcessosService {
         [grupoId],
       );
 
-      console.log(grupo, "GRUPO");
-
+      console.log(grupo,"GRUPO");
+      
       if (!grupo) {
         throw new Error(`Erro ao adicionar acesso, grupo não encontrado`);
       }
@@ -851,8 +833,8 @@ export class AcessosService {
         `,
         [grupoId, acessoId],
       );
-      console.log(jaRemovido, "JA REMOVIDO");
-
+      console.log(jaRemovido,"JA REMOVIDO");
+      
 
       if (jaRemovido) {
         await queryRunner.manager.query(
@@ -875,7 +857,7 @@ export class AcessosService {
           [grupoId, acessoId, usuarioLogadoId, usuarioLogadoId],
         );
       }
-
+ 
 
       await queryRunner.commitTransaction();
 
