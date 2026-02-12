@@ -20,18 +20,9 @@ import { EnrollmentModule } from './modules/enrollment/enrollment.module';
 
 @Module({
   imports: [
-      ConfigModule.forRoot({
+   ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: (() => {
-        switch (process.env.NODE_ENV) {
-          case 'production':
-            return '.env.prod';       
-          case 'preprod':
-            return '.env.preprod';    
-          default:
-            return '.env.dev';        
-        }
-      })(),
+       envFilePath: process.env.ENV_FILE || '.env.dev',
     }),
     HttpModule,
     TypeOrmModule.forRootAsync({
