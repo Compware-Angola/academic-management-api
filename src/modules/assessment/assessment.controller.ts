@@ -257,6 +257,9 @@ export class AssessmentController {
   @Get('lancamento/pauta')
   @ApiOperation({ summary: 'Filtrar pautas lançadas' })
   @ApiResponse({ status: 200, description: 'Lista ....' })
+  @RequiredPermissions(
+    PermissionTypeDetails.LANCAMENTO_PAUTA.sigla,
+  )
   findAll(@Query() filtro: FiltroLancamentoPautaDto) {
     return this.agendaLaunch.getAll(filtro);
   }
