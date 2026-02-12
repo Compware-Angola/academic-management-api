@@ -20,7 +20,7 @@ import { EnrollmentModule } from './modules/enrollment/enrollment.module';
 
 @Module({
   imports: [
-      ConfigModule.forRoot({
+       ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: (() => {
         switch (process.env.NODE_ENV) {
