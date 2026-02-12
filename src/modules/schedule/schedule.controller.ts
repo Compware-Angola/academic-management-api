@@ -49,6 +49,7 @@ export class ScheduleController {
   @ApiOperation({ summary: 'Criar nova permissão para editar horário' })
   @ApiResponse({ status: 201, description: 'Permissão criada com sucesso.' })
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
+  @RequiredPermissions(PermissionTypeDetails.PERMISSAO_PARA_EDITAR_HORARIO.sigla)
    async createPermission(
     @Body(ValidationPipe)
     createPermissionEditScheduleDto: CreatePermissionEditScheduleDto,
@@ -136,12 +137,14 @@ export class ScheduleController {
 
   @Get('by-docente')
   @ApiOperation({ summary: 'Listar horário por docente' })
+  @RequiredPermissions(PermissionTypeDetails.VISUALIZAR_HORARIO_POR_DOCENTE.sigla)
   findScheduleByDocente(@Query(ValidationPipe) query: ListScheduleDocenteDto) {
     return this.scheduleService.findScheduleByDocente(query);
   }
 
   @Get('by-day-of-week')
   @ApiOperation({ summary: 'Listar horário por dia da semana' })
+  @RequiredPermissions(PermissionTypeDetails.LISTAR_HORARIOS.sigla)
   findScheduleByDayOfTheweek(
     @Query(ValidationPipe) query: ListScheduleDayOfWeekto,
   ) {
