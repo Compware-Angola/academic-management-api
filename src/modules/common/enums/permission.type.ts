@@ -224,6 +224,7 @@ export enum PermissionType {
  
 
 }
+//mgh_vh_pd
 
 export const PermissionTypeDetails = {
   FULL_ACCESS: { designacao: 'Todos os acesso', sigla: 'full.access' },
