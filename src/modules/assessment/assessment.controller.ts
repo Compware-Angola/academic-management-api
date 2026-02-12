@@ -141,6 +141,9 @@ export class AssessmentController {
   }
 
   @Get('pautas-geral')
+  @RequiredPermissions(
+    PermissionTypeDetails.PAUTA_GERAL_POR_UC.sigla,
+  )
   async getAllPauta(@Query() query: GeneralAgendaDto) {
     return this.genaralAgendaService.findAll(query);
   }
@@ -185,6 +188,9 @@ export class AssessmentController {
     status: 400,
     description: 'Parâmetros inválidos ou combinação incorreta',
   })
+  @RequiredPermissions(
+    PermissionTypeDetails.HISTORICO_LANCAMENTO_NOTAS.sigla,
+  )
   async historyNoteRelease(@Query() params: HistoryNoteReleaseDto) {
     return this.historyNoteReleaseService.historyNoteRelease(params);
   }
@@ -193,6 +199,9 @@ export class AssessmentController {
   @ApiOperation({ summary: 'Obter lista de presenças/faltas com filtros' })
   @ApiResponse({ status: 200, description: 'Lista retornada com sucesso.' })
   @ApiResponse({ status: 400, description: 'Parâmetros inválidos.' })
+  @RequiredPermissions(
+    PermissionTypeDetails.LISTA_PRESENCA.sigla,
+  )
   async getAttendanceList(@Query(ValidationPipe) dto: getAttendanceListDto) {
     return this.attendanceService.getAttendanceList(dto);
   }
@@ -233,6 +242,9 @@ export class AssessmentController {
       'Pesquisa parcial (ignorando maiúsculas/minúsculas) na descrição ou observação',
     example: 'pontual',
   })
+  @RequiredPermissions(
+    PermissionTypeDetails.PARAMETROS_GERAIS_AVALIACAO.sigla,
+  )
   async viewNote(@Query('search') search?: string) {
     return this.generalParametersForEvaluationService.viewNote(search);
   }
@@ -251,6 +263,9 @@ export class AssessmentController {
   @Get('lancamento/uc-sem-pauta')
   @ApiOperation({ summary: 'Filtrar pautas lançadas' })
   @ApiResponse({ status: 200, description: 'Lista ....' })
+  @RequiredPermissions(
+    PermissionTypeDetails.LANCAMENTO_PAUTA.sigla,
+  )
   getAllUcSemPauta(@Query() filtro: FiltroLancamentoPautaDto) {
     return this.agendaLaunch.getAllUcSemPauta(filtro);
   }
@@ -261,6 +276,9 @@ export class AssessmentController {
   }
 
   @Post('lancamento/pauta/create')
+  @RequiredPermissions(
+    PermissionTypeDetails.LANCAMENTO_PAUTA.sigla,
+  )
   async create(@Body() createDto: CreateLancamentoPautaDto) {
     return this.agendaLaunch.create(createDto);
   }
@@ -276,6 +294,9 @@ export class AssessmentController {
   @Get('filtrar')
   @ApiOperation({ summary: 'Filtrar alunos por critérios específicos' })
   @ApiResponse({ status: 200, description: 'Lista de alunos filtrados' })
+  @RequiredPermissions(
+    PermissionTypeDetails.LANCAMENTO_NOTAS_ANO_CORRENTE.sigla,
+  )
   filtrarAlunos(@Query() filtro: StudentFiltersDto) {
     return this.noteReleaseService.findstudents(filtro);
   }
@@ -305,6 +326,9 @@ export class AssessmentController {
   }
 
   @Get('permissoes')
+  @RequiredPermissions(
+    PermissionTypeDetails.PERMISSAO_LANC_NOTA_FORA_PRAZO.sigla,
+  )
   async findPermissionLaunch(
     @Query(ValidationPipe) params: PermissionAssessmentDTO,
   ) {
@@ -332,6 +356,9 @@ export class AssessmentController {
     status: 400,
     description: 'Dados inválidos enviados.',
   })
+  @RequiredPermissions(
+    PermissionTypeDetails.PERMISSAO_LANC_NOTA_FORA_PRAZO.sigla,
+  )
   async createPermissionAssessment(@Body() dto: CreatePermissionAssessmentDTO) {
     return await this.permissionService.createPermissionAssessment(dto);
   }
@@ -344,6 +371,9 @@ export class AssessmentController {
   }
 
   @Get('notas')
+  @RequiredPermissions(
+    PermissionTypeDetails.LANCAMENTO_NOTAS_AVALIACOES.sigla,
+  )
   async buscarNotas(
     @Query(ValidationPipe) params: BuscarNotasDto,
   ): Promise<NotaLancadaResponseDto[]> {
@@ -351,6 +381,9 @@ export class AssessmentController {
   }
 
   @Get('estudantes-inscritos')
+  @RequiredPermissions(
+    PermissionTypeDetails.ESTUDANTES_INSCRITOS_POR_AVALIACAO.sigla,
+  )
   async findAllStudentEnrolledAvaluation(
     @Query(ValidationPipe) params: StudentEnrolledByAssessmentDTO,
   ) {
@@ -363,6 +396,9 @@ export class AssessmentController {
   @ApiOperation({
     summary: 'Listar fórmulas de avaliação por curso, ano e semestre',
   })
+  @RequiredPermissions(
+    PermissionTypeDetails.DEFINIR_FORMULA_UNIDADE_CURRICULAR.sigla,
+  )
   async listarUnidadesCurriculares(
     @Query(ValidationPipe) params: ListarUnidadesCurricularesDto,
   ) {
@@ -395,6 +431,9 @@ export class AssessmentController {
   @Get('definir/oral')
   @ApiOperation({ summary: 'Listar disciplinas com status de oral habilitado' })
   @ApiResponse({ status: 200, type: [DefinirOralGradeDto] })
+  @RequiredPermissions(
+    PermissionTypeDetails.DEFINIR_FORMULA_UNIDADE_CURRICULAR.sigla,
+  )
   async buscar(
     @Query(ValidationPipe) params: ListarDefinirOralDto,
   ): Promise<DefinirOralGradeDto[]> {
@@ -425,6 +464,9 @@ export class AssessmentController {
     description: 'Estatisticas trazidas com sucesso',
   })
   @ApiResponse({ status: 400, description: 'Dados inválidos' })
+  @RequiredPermissions(
+    PermissionTypeDetails.ESTATISTICA_NOTAS_LANCADAS.sigla
+  )
   async buscarEstatisticaAvaliacao(
     @Body(ValidationPipe) dto: StatisticAssessmentDTO,
   ) {
