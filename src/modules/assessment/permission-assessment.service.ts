@@ -180,6 +180,7 @@ export class PermissionAssessmentsService {
 
     return result[0].DESIGNACAO as string;
   }
+  
   async createPermissionAssessment(query: CreatePermissionAssessmentDTO) {
     const nomeDocente = await this.getNomeDocente(query.docenteId);
     const nomeGrade = await this.getDescricaoGradeCurricular(
