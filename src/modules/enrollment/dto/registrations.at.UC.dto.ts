@@ -2,7 +2,7 @@ import { IsNotEmpty, IsString, IsArray, ValidateNested, ArrayMinSize, IsNumber, 
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class GradeItemDto {
+export class GradeItemUCDto {
   @ApiProperty({
     example: 173,
     description: 'Código único da grade curricular (ex: código da UC + ano + semestre)',
@@ -38,14 +38,14 @@ export class EnrollmentRegistrationsUCDto {
   codPreInscricao: number;
 
   @ApiProperty({
-    type: [GradeItemDto],
+    type: [GradeItemUCDto],
     description: 'Lista de grades curriculares (unidades curriculares + horários) a serem confirmadas/inscritas',
   })
   @IsArray({ message: 'grades deve ser um array' })
   @ArrayMinSize(1, { message: 'É necessário enviar pelo menos uma grade curricular' })
   @ValidateNested({ each: true })
-  @Type(() => GradeItemDto)
-  grades: GradeItemDto[];
+  @Type(() => GradeItemUCDto)
+  grades: GradeItemUCDto[];
 
   @ApiProperty({
     example: 1,

@@ -1,12 +1,12 @@
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBody, ApiExtraModels } from '@nestjs/swagger';  // ← adiciona ApiExtraModels
+import { ApiTags, ApiOperation, ApiBody, ApiExtraModels } from '@nestjs/swagger';  
 
 import { EnrollmentRegistrationsUCService } from './registrations.at.UC.service';
 import { EnrollmentRegistrationsUCDto } from './dto/registrations.at.UC.dto';
-import { GradeItemDto } from './dto/registrations.at.UC.dto';  // ← importa o GradeItemDto também!
+import { GradeItemUCDto } from './dto/registrations.at.UC.dto';  
 
 @ApiTags('Confirmação')
-@ApiExtraModels(EnrollmentRegistrationsUCDto, GradeItemDto)   // ← ISSO aqui é crucial!
+@ApiExtraModels(EnrollmentRegistrationsUCDto, GradeItemUCDto)   
 @Controller('enrollment')
 export class registrationsAtUcController {
   constructor(private readonly registrationService: EnrollmentRegistrationsUCService) {}
