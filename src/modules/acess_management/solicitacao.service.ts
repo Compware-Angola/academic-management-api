@@ -237,7 +237,7 @@ export class SolicitacaoService {
       const financeApi = configService.get<string>('FINANCE_API');
       console.log('payload', payload);
       const response = await firstValueFrom(
-        httpService.post(`${financeApi}/invoices`, payload),
+        httpService.post(`${financeApi}/invoices/no-job`, payload),
       );
       console.log('Response: ', response.data);
       return response.data;
@@ -282,7 +282,7 @@ export class SolicitacaoService {
         { solicitacaoId } as any,
       );
       if (
-        solicitacao.ESTADO?.toUpperCase() !=
+        solicitacao?.ESTADO?.toUpperCase() !=
         'solicitacao encaminhada'.toUpperCase()
       ) {
         throw new Error(
