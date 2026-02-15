@@ -437,4 +437,26 @@ export class SolicitacaoService {
       await queryRunner.release();
     }
   }
+
+  async listarServicosSolicao(
+  estado_solicitacao: number = 1,
+  codigo_ano_lectivo: number,
+) {
+  const result = await this.dataSource.query(
+    `
+    SELECT 
+      codigo,
+      descricao
+    FROM FK2_TB_TIPO_SERVICOS 
+    WHERE ESTADO_SOLICITACAO = $1
+      AND codigo_ano_lectivo = $2
+    ORDER BY descricao
+    `,
+    [estado_solicitacao, codigo_ano_lectivo]
+  );
+
+  return result;
+}
+
+
 }
