@@ -22,10 +22,10 @@ export class CreatePersonUserDto {
   @IsNotEmpty()
   @IsString()
   @Matches(
-    /^\d{8}[A-Z]{2}\d{3}$/,
+    /^\d{9}[A-Z]{2}\d{3}$/,
     {
       message:
-        'O número de Bilhete de Identidade (BI) deve seguir o formato angolano: 8 dígitos + 2 letras maiúsculas + 3 dígitos (ex: 001234567LA047)',
+        'O número de Bilhete de Identidade (BI) deve seguir o formato angolano: 9 dígitos + 2 letras maiúsculas + 3 dígitos (ex: 001234567LA047)',
     },
   )
   numDocIdentificacao: string;
