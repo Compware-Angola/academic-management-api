@@ -16,12 +16,18 @@ import { ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { ViewMonthsDto } from './dto/view-months.dto';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+import { GenerateMesTempDTO } from './dto/generate-mes-temp.dto';
+import { CreateMesTempDTO } from './dto/create-mes-temp.dto';
+//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('academic-calendar')
 export class AcademicCalendarController {
   constructor(
     private readonly academicCalendarService: AcademicCalendarService,
   ) {}
+  @Get('generate-mes-temp')
+  async searchCurricularByStudenty(@Query() params: GenerateMesTempDTO) {
+    return this.academicCalendarService.generateMesTemp(params);
+  }
   @Get('meses-prestacoes')
   @ApiOperation({
     summary: 'Lista os meses/prestações configurados',
@@ -44,5 +50,13 @@ export class AcademicCalendarController {
   @ApiResponse({ status: 500, description: 'Erro interno' })
   async viewMonths(@Query(ValidationPipe) params: ViewMonthsDto) {
     return this.academicCalendarService.viewMonths(params);
+  }
+
+  @Post('create-mes-temp')
+  @ApiOperation({ summary: 'Cria um novo novo mes temp' })
+  @ApiResponse({ status: 201, description: 'Parâmetro criado com sucesso' })
+  @ApiResponse({ status: 400, description: 'Dados inválidos' })
+  async createParametro(@Body(ValidationPipe) dto: CreateMesTempDTO) {
+    return this.academicCalendarService.createMesTemp(dto);
   }
 }
