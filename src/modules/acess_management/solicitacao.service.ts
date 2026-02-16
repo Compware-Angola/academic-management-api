@@ -442,14 +442,19 @@ export class SolicitacaoService {
   estado_solicitacao: number = 1,
   codigo_ano_lectivo: number,
 ) {
+
+   if (!codigo_ano_lectivo || isNaN(codigo_ano_lectivo)) {
+    throw new Error('codigo_ano_lectivo inválido');
+  }
+
   const result = await this.dataSource.query(
     `
     SELECT 
       codigo,
-      descricao
+      DBMS_LOB.SUBSTR(descricao, 4000, 1) AS descricao
     FROM FK2_TB_TIPO_SERVICOS 
-    WHERE ESTADO_SOLICITACAO = $1
-      AND codigo_ano_lectivo = $2
+    WHERE ESTADO_SOLICITACAO = :estado_solicitacao
+      AND codigo_ano_lectivo = :codigo_ano_lectivo
     ORDER BY descricao
     `,
     [estado_solicitacao, codigo_ano_lectivo]
