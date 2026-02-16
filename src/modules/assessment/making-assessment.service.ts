@@ -57,11 +57,11 @@ export class MarkingAssessmentService {
             tp.Designacao   AS periodo,
             tcp.codigo      AS codigoProva,
             tcp.data_prova  AS tcp_data_prova,
-            tcp.HORA_TERMINO as horatermino,
+            to_char(tcp.HORA_TERMINO,'hh24:mi:ss') as horatermino,
             ts.Designacao   AS tb_salas_Designacao,
             tt.PK_HORARIO AS codigo_horario,
-            tcp.hora_prova  AS tcp_hora_prova,
-            tcp.DuracaoProva AS duracaoProva,
+            to_char(tcp.hora_prova,'hh24:mi:ss')  AS tcp_hora_prova,
+            to_char(tcp.DuracaoProva,'hh24:mi:ss') AS duracaoProva,
             json_value(tcp.ref_utilizador, '$.desc') AS usuarioDesc,
             (
               SELECT JSON_ARRAYAGG(
