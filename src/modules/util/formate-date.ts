@@ -1,4 +1,4 @@
- export const formatHora = (hora: any): string => {
+export const formatHora = (hora: any): string => {
   if (!hora) return '';
 
   // Se vier como Date (muito comum no Oracle)
@@ -29,4 +29,8 @@
   }
 
   return '';
+};
+
+export const formatDisplay = (data: Date): string => {
+  return data.toLocaleDateString('en-CA');
 };
