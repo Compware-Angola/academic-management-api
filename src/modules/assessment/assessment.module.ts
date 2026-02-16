@@ -22,7 +22,10 @@ import { HttpModule } from '@nestjs/axios';
 import { promptToCreateAndEditService } from '../academic_activities/prompt-to-create-and-edit.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AcademicYear]),HttpModule.register({
+  imports: [TypeOrmModule.forFeature([AcademicYear])
+  
+  
+  ,HttpModule.register({
     timeout: 5000,
     maxRedirects: 5
   })],
