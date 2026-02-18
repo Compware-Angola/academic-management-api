@@ -18,7 +18,7 @@ export class EnrollmentService {
       this.separarGradesPorSemestre(grades);
 
     try {
-      // 🔹 1. Buscar admissão
+     
       const admissaoResult = await queryRunner.query(
         `SELECT "CODIGO" FROM FK2_TB_ADMISSAO WHERE "PRE_INCRICAO" = :codPreInscricao`,
         [codPreInscricao],
@@ -30,7 +30,7 @@ export class EnrollmentService {
 
       const codAmissao = admissaoResult[0].CODIGO;
 
-      // 🔹 2. Verificar se já está matriculado
+     
       const [matriculaExistente] = await queryRunner.query(
         `SELECT 1 FROM FK2_TB_MATRICULAS WHERE "CODIGO_ALUNO" = :codAmissao`,
         [codAmissao],
@@ -43,7 +43,7 @@ export class EnrollmentService {
         );
       }
 
-      // 🔹 3. Buscar dados da pré-inscrição
+     
       const preResult = await queryRunner.query(
         `SELECT "USER_ID", "CURSO_CANDIDATURA", "CODIGO_TURNO" FROM FK2_TB_PREINSCRICAO WHERE "CODIGO" = :codPreInscricao`,
         [codPreInscricao],
@@ -62,14 +62,14 @@ export class EnrollmentService {
         CODIGO_TURNO: codPeriodo,
       } = preResult[0];
 
-      // 🔹 4. Canal do usuário
+    
       const [userResult] = await queryRunner.query(
         `SELECT "CANAL" FROM FK2_USERS WHERE "ID" = :userId`,
         [userId],
       );
       const canal = userResult?.CANAL ?? 0;
 
-      // 🔹 5. Gerar códigos de Matrícula (⚠️ Trocar por Sequence no futuro)
+     
       const [maxMat] = await queryRunner.query(
         `SELECT NVL(MAX(TO_NUMBER("CODIGO")), 0) as maxCod FROM FK2_TB_MATRICULAS`,
       );
@@ -77,22 +77,25 @@ export class EnrollmentService {
         `SELECT NVL(MAX(TO_NUMBER("NUMEROALUNO")), 0) as maxAluno FROM FK2_TB_MATRICULAS`,
       );
 
-      const codMatricula = Number(maxMat.MAXCOD) + 1;
+    
       const nAluno = Number(maxAluno.MAXALUNO) + 1;
 
-      // 🔹 6. Criar matrícula base
-      await queryRunner.query(
+   
+   const matriculaResult=   await queryRunner.query(
         `INSERT INTO FK2_TB_MATRICULAS (
-          "CODIGO", "CODIGO_ALUNO", "DATA_MATRICULA", "CODIGO_CURSO",
+          "CODIGO_ALUNO", "DATA_MATRICULA", "CODIGO_CURSO",
           "CODIGOPAGAMENTO", "NUMEROALUNO", "ESTADO_MATRICULA", "CANAL", "UPDATED_AT"
         ) VALUES (
-          :codMatricula, :codAmissao, SYSDATE, :codCurso,
+          :codAmissao, SYSDATE, :codCurso,
           0, :nAluno, 'inactivo', :canal, SYSDATE
-        )`,
-        [codMatricula, codAmissao, codCurso, nAluno, canal],
+        ) RETURNING CODIGO INTO :outId`,
+
+        {codAmissao, codCurso, nAluno, canal, outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }} as any,
       );
 
-      // 🔹 7. Buscar Ano lectivo activo
+      const codMatricula = matriculaResult.outId[0];
+
+   
       const anoResult = await queryRunner.query(
         `SELECT "CODIGO" FROM FK2_TB_ANO_LECTIVO WHERE "ESTADO" = 'Activo' FETCH FIRST 1 ROWS ONLY`,
       );
@@ -106,7 +109,7 @@ export class EnrollmentService {
 
       const codAnoActual = anoResult[0].CODIGO;
 
-      // 🔹 8. Preparar contadores para Confirmações e Grades
+     
       const [maxConfResult] = await queryRunner.query(
         `SELECT NVL(MAX(TO_NUMBER("CODIGO")), 0) as maxConf FROM FK2_TB_CONFIRMACOES`,
       );
@@ -117,19 +120,14 @@ export class EnrollmentService {
       );
       let incrementadorGrade = Number(maxGradeResult.MAXGRADE);
 
-      // Estrutura para iterar os dois semestres
+     
       const semestres = [
         { id: 1, disciplinas: primeiroSemestre },
         { id: 2, disciplinas: segundoSemestre },
       ];
 
       for (const item of semestres) {
-        // Só processa se houver disciplinas para o semestre
         if (item.disciplinas.length === 0) continue;
-
-        // 🔹 9. Criar Confirmação para o Semestre Atual (1 ou 2)
-        //  incrementadorConfirmacao++;
-        // const codConfirmacaoAtual = incrementadorConfirmacao;
 
         const sql = `
   INSERT INTO FK2_TB_CONFIRMACOES (
@@ -167,11 +165,10 @@ export class EnrollmentService {
         const codConfirmacaoAtual = result.outId[0];
 
 
-        // 🔹 10. Inserir disciplinas da grade deste semestre
+        
         for (const codigoGrade of item.disciplinas) {
           incrementadorGrade++;
 
-          // Verificar se a grade já existe para evitar erros de duplicidade
           const [exists] = await queryRunner.query(
             `SELECT 1 FROM FK2_TB_GRADE_CURRICULAR_ALUNO WHERE "CODIGO_GRADE_CURRICULAR" = :codigoGrade AND "CODIGO_MATRICULA" = :codMatricula`,
             [codigoGrade, codMatricula],
@@ -184,7 +181,7 @@ export class EnrollmentService {
             continue;
           }
 
-          // Buscar Horário
+         
           let refHorario = '';
           const horarioResult = await queryRunner.query(
             `SELECT "PK_HORARIO", "DESIGNACAO"
@@ -254,7 +251,7 @@ export class EnrollmentService {
       await queryRunner.commitTransaction();
 
       return {
-        message: 'Matrícula e confirmações dos dois semestres concluídas',
+        message: 'Matrícula efetuada com sucesso',
         data: { codMatricula },
       };
     } catch (error) {
