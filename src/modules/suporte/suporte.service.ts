@@ -1,0 +1,431 @@
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { DataSource } from 'typeorm'; 
+import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
+import { FilterSuporteDto } from './dto/filter-suporte.dto';
+import { FilterTipoSuporteDto } from './dto/filter-tipo-suporte.dto';
+import { UpdateTipoSuporteDto } from './dto/update-tipo-suporte.dto';
+import { CreateTipoSuporteDto } from './dto/create-tipo-suporte.dto';
+import { CreateRespostaSuporteDto } from './dto/create-resposta-suporte.dto';
+
+
+@Injectable()
+export class SuporteService {
+  constructor(private readonly dataSource: DataSource) {} 
+  async list(filter: FilterSuporteDto): Promise<{
+    data: any[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const {
+      page = 1,
+      limit = 25,
+      search,
+      tipo_suporte,
+      status,
+    } = filter;
+
+    const offset = (page - 1) * limit;
+
+    // Parâmetros comuns (usados na query principal)
+    const params: Record<string, any> = {
+      offset,
+      limit_plus_offset: offset + limit,
+    };
+
+    // Parâmetros só para o count (evitar binds desnecessários)
+    const countParams: Record<string, any> = {};
+
+    let whereClause = `WHERE 1 = 1`;
+
+    // Filtro por tipo de suporte
+    if (tipo_suporte !== undefined && tipo_suporte !== null) {
+      whereClause += ` AND c.TIPO_SUPORTE = :tipo_suporte`;
+      params.tipo_suporte = Number(tipo_suporte);
+      countParams.tipo_suporte = Number(tipo_suporte);
+    }
+
+    // Filtro por estado/status
+    if (status !== undefined && status !== null) {
+    
+      whereClause += ` AND c.STATUS_ = :status`;
+      params.status = status; 
+      countParams.status = status;
+    }
+
+    // Pesquisa livre (search)
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim().toUpperCase()}%`;
+      whereClause += `
+        AND (
+          UPPER(pr.NOME_COMPLETO)     LIKE :search
+          OR UPPER(c.ASSUNTO)         LIKE :search
+          OR UPPER(c.DESCRICAO)       LIKE :search
+          OR UPPER(ts.DESCRICAO)      LIKE :search
+          OR UPPER(u.NAME)            LIKE :search
+        )`;
+      params.search = searchTerm;
+      countParams.search = searchTerm;
+    }
+
+    // Query de contagem (sem paginação)
+    const countSql = `
+      SELECT COUNT(DISTINCT c.ID) AS total
+      FROM fk2_contactos c
+      INNER JOIN fk2_users u ON u.ID = c.USER_ID 
+      INNER JOIN fk2_tb_preinscricao pr ON pr.USER_ID = u.ID
+      LEFT JOIN fk2_contactos_respostas cr ON cr.CONTACTOS_ID = c.ID
+      LEFT JOIN fk2_tipo_suporte ts ON c.TIPO_SUPORTE = ts.ID
+      LEFT JOIN FK2_MCA_TB_UTILIZADOR ut ON ut.PK_UTILIZADOR = cr.USER_ID
+      ${whereClause}
+    `;
+
+    const countResult = await this.dataSource.query(countSql, countParams as any);
+    const total = Number(countResult[0]?.TOTAL ?? 0);
+
+
+    const dataSql = `
+      SELECT *
+      FROM (
+        SELECT
+          pr.NOME_COMPLETO          AS estudante,
+          c.DESCRICAO               AS mensagem,
+          c.ASSUNTO                 AS assunto,
+          ts.DESCRICAO              AS descricao_tipo_suporte,
+          u.NAME                    AS utilizador,
+          TO_CHAR(c.DATA_SOLICITACAO, 'DD/MM/YYYY HH24:MI:SS') AS data_mensagem,
+          c.STATUS_                 AS status_mensagem,
+          c.ID                      AS contactos_id,
+          cr.DESCRICAO              AS mensagem_resposta,
+          TO_CHAR(cr.CREATED_AT, 'DD/MM/YYYY HH24:MI:SS')      AS data_resposta,
+          cr.FILE_NAME1             AS file_name1,
+          cr.FILE_NAME2             AS file_name2,
+          cr.FILE_NAME3             AS file_name3,
+          ut.NOME                   AS nome_usuario_resposta,
+          ROW_NUMBER() OVER (ORDER BY c.DATA_SOLICITACAO DESC, cr.CREATED_AT DESC) AS rn
+        FROM fk2_contactos c
+        INNER JOIN fk2_users u ON u.ID = c.USER_ID 
+        INNER JOIN fk2_tb_preinscricao pr ON pr.USER_ID = u.ID
+        LEFT JOIN fk2_contactos_respostas cr ON cr.CONTACTOS_ID = c.ID
+        LEFT JOIN fk2_tipo_suporte ts ON c.TIPO_SUPORTE = ts.ID
+        LEFT JOIN FK2_MCA_TB_UTILIZADOR ut ON ut.PK_UTILIZADOR = cr.USER_ID
+        ${whereClause}
+      ) t
+      WHERE rn BETWEEN (:offset + 1) AND :limit_plus_offset
+      ORDER BY rn
+    `;
+
+    const result = await this.dataSource.query(dataSql, params as any);
+
+    const data = result.map((row: any) => {
+      const { RN, ...item } = row;
+      return item;
+    });
+
+    return {
+      data: await toLowerCaseKeys(data),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
+
+
+async findOne(id: number): Promise<any> {
+  const result = await this.dataSource.query(
+    `
+    SELECT
+      pr.NOME_COMPLETO       AS estudante,
+      c.DESCRICAO            AS mensagem,
+      c.ASSUNTO              AS assunto,
+      ts.DESCRICAO           AS descricao_tipo_suporte,
+      u.NAME                 AS utilizador,
+      TO_CHAR(c.DATA_SOLICITACAO, 'DD/MM/YYYY HH24:MI:SS') AS data_mensagem,
+      c.STATUS_              AS status_mensagem,
+      c.ID                   AS contactos_id,
+      cr.DESCRICAO           AS mensagem_resposta,
+      TO_CHAR(cr.CREATED_AT, 'DD/MM/YYYY HH24:MI:SS')      AS data_resposta,
+      cr.FILE_NAME1          AS file_name1,
+      cr.FILE_NAME2          AS file_name2,
+      cr.FILE_NAME3          AS file_name3,
+      ut.NOME                AS nome_usuario_resposta,
+      cr.ID                  AS resposta_id,              -- ID da resposta (se existir)
+      cr.USER_ID             AS resposta_user_id
+    FROM fk2_contactos c
+    INNER JOIN fk2_users u
+        ON u.ID = c.USER_ID 
+    INNER JOIN fk2_tb_preinscricao pr
+        ON pr.USER_ID = u.ID
+    LEFT JOIN fk2_contactos_respostas cr 
+        ON cr.CONTACTOS_ID = c.ID
+    LEFT JOIN fk2_tipo_suporte ts
+        ON c.TIPO_SUPORTE = ts.ID
+    LEFT JOIN FK2_MCA_TB_UTILIZADOR ut
+        ON ut.PK_UTILIZADOR = cr.USER_ID 
+    WHERE c.ID = :id
+    ORDER BY cr.CREATED_AT DESC  -- caso haja múltiplas respostas, a mais recente primeiro
+    `,
+    { id } as any,
+  );
+
+
+
+  // Como pode haver múltiplas respostas, mas normalmente mostramos a última ou todas
+  // Aqui retorno a solicitação + a resposta mais recente (ou array se quiseres todas)
+  const solicitacao = result[0]; // a primeira linha já tem os dados principais
+
+  // Se quiseres retornar TODAS as respostas (thread completo), podes agrupar:
+  const respostas = result
+    .filter(row => row.MENSAGEM_RESPOSTA !== null)
+    .map(row => ({
+      resposta_id: row.RESPOSTA_ID,
+      mensagem_resposta: row.MENSAGEM_RESPOSTA,
+      data_resposta: row.DATA_RESPOSTA,
+      file_name1: row.FILE_NAME1,
+      file_name2: row.FILE_NAME2,
+      file_name3: row.FILE_NAME3,
+      nome_usuario_resposta: row.NOME_USUARIO_RESPOSTA,
+      resposta_user_id: row.RESPOSTA_USER_ID,
+    }));
+
+  const response = {
+    ...solicitacao,
+    respostas, // array de respostas (pode ser vazio)
+  };
+
+  // Remove campos duplicados / internos que não interessam no frontend
+  const { RESPOSTA_ID, RESPOSTA_USER_ID, ...cleanResponse } = response;
+
+  return await toLowerCaseKeys(cleanResponse);
+}
+ async listTiposSuporte(
+  filter: FilterTipoSuporteDto,
+): Promise<{
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}> {
+  const {
+    page = 1,
+    limit = 25,
+    search,
+  } = filter;
+
+  const offset = (page - 1) * limit;
+
+  const params: Record<string, any> = {
+    offset,
+    limit_plus_offset: offset + limit,
+  };
+
+  let countParams: Record<string, any> = {};
+
+  let whereClause = `WHERE 1 = 1`;
+
+  if (search && search.trim()) {
+    const searchTerm = `%${search.trim().toUpperCase()}%`;
+    whereClause += ` AND UPPER(DESCRICAO) LIKE :search`;
+    params.search = searchTerm;
+    countParams.search = searchTerm;
+  }
+
+  // Contagem total
+  const countSql = `
+    SELECT COUNT(*) AS total
+    FROM FK2_TIPO_SUPORTE
+    ${whereClause}
+  `;
+
+  const countResult = await this.dataSource.query(countSql, countParams as any);
+  const total = Number(countResult[0]?.TOTAL ?? 0);
+
+  // Query paginada
+  const dataSql = `
+    SELECT *
+    FROM (
+      SELECT
+        ID,
+        DESCRICAO,
+        ROW_NUMBER() OVER (ORDER BY DESCRICAO ASC) AS rn
+      FROM FK2_TIPO_SUPORTE
+      ${whereClause}
+    ) t
+    WHERE rn BETWEEN (:offset + 1) AND :limit_plus_offset
+    ORDER BY rn
+  `;
+
+  const result = await this.dataSource.query(dataSql, params as any);
+
+  const data = result.map((row: any) => {
+    const { RN, ...item } = row;
+    return item;
+  });
+
+  return {
+    data: await toLowerCaseKeys(data), 
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit) || 1,
+  };
+}
+
+  async createTipoSuporte(dto: CreateTipoSuporteDto): Promise<{ id: number; descricao: string }> {
+    const result = await this.dataSource.query(
+      `INSERT INTO FK2_TIPO_SUPORTE (DESCRICAO) 
+       VALUES (:descricao)
+       `,
+      { descricao: dto.descricao.trim() } as any,
+    );
+
+    return result[0];
+  }
+
+  async findAllTiposSuporte(): Promise<any[]> {
+    const result = await this.dataSource.query(`
+      SELECT 
+        ID,
+        DESCRICAO
+      FROM FK2_TIPO_SUPORTE
+      ORDER BY DESCRICAO ASC
+    `);
+
+    return await toLowerCaseKeys(result); 
+  }
+
+  async findOneTipoSuporte(id: number): Promise<any> {
+    const result = await this.dataSource.query(
+      `
+      SELECT 
+        ID,
+        DESCRICAO
+      FROM FK2_TIPO_SUPORTE
+      WHERE ID = :id
+      `,
+      { id } as any,
+    );
+
+    if (!result.length) {
+      throw new NotFoundException(`Tipo de suporte com ID ${id} não encontrado`);
+    }
+
+    return await toLowerCaseKeys(result[0]);
+  }
+
+  async updateTipoSuporte(id: number, dto: UpdateTipoSuporteDto): Promise<any> {
+    if (!dto.descricao) {
+      throw new BadRequestException('Nenhum campo para atualizar');
+    }
+
+    const result = await this.dataSource.query(
+      `
+      UPDATE FK2_TIPO_SUPORTE
+      SET DESCRICAO = :descricao
+      WHERE ID = :id
+      
+      `,
+      {
+        descricao: dto.descricao.trim(),
+        id,
+      } as any,
+    );
+
+
+
+    return await toLowerCaseKeys(result[0]);
+  }
+
+  async removeTipoSuporte(id: number): Promise<{ message: string }> {
+    // Verifica se existe
+    const exists = await this.dataSource.query(
+      `SELECT 1 FROM FK2_TIPO_SUPORTE WHERE ID = :id`,
+      { id } as any,
+    );
+
+    if (!exists.length) {
+      throw new NotFoundException(`Tipo de suporte com ID ${id} não encontrado`);
+    }
+
+    // Verifica se está em uso (opcional mas recomendado)
+    const inUse = await this.dataSource.query(
+      `SELECT 1 FROM fk2_contactos WHERE TIPO_SUPORTE = :id  FETCH FIRST 1 ROWS ONLY`,
+      { id } as any,
+    );
+
+    if (inUse.length) {
+      throw new BadRequestException(
+        'Não é possível eliminar: este tipo de suporte está associado a pedidos existentes',
+      );
+    }
+
+    await this.dataSource.query(
+      `DELETE FROM FK2_TIPO_SUPORTE WHERE ID = :id`,
+      { id } as any,
+    );
+
+    return { message: `Tipo de suporte com ID ${id} eliminado com sucesso` };
+  }
+  async responderSolicitacao(
+  dto: CreateRespostaSuporteDto,
+  userId: number,         
+): Promise<any> {
+  return this.dataSource.transaction(async (manager) => {
+    // 1. Criar a resposta
+    const insertResposta = await manager.query(
+      `
+      INSERT INTO FK2_CONTACTOS_RESPOSTAS (
+        DESCRICAO,
+        USER_ID,
+        CONTACTOS_ID,
+        STATUS_,
+        CREATED_AT,
+        UPDATED_AT,
+        FILE_NAME1,
+        FILE_NAME2,
+        FILE_NAME3
+      ) VALUES (
+        :descricao,
+        :userId,
+        :contactos_id,
+        1,                    -- assumindo 1 = respondido (ajusta se for diferente)
+        SYSDATE,
+        SYSDATE,
+        :file_name1,
+        :file_name2,
+        :file_name3
+      )
+    
+      `,
+      {
+        descricao: dto.descricao.trim(),
+        userId,
+        contactos_id: dto.contactos_id,
+        file_name1: dto.file_name1 || null,
+        file_name2: dto.file_name2 || null,
+        file_name3: dto.file_name3 || null,
+      } as any,
+    );
+
+
+
+await manager.query(
+  `
+  UPDATE fk2_contactos
+  SET STATUS_ = :novoStatus
+  WHERE ID = :contactos_id
+  `,
+  { novoStatus: 'respondido', contactos_id: dto.contactos_id } as any
+);
+
+    return {
+      mensagem: 'Resposta registada com sucesso e solicitação marcada como respondida',
+   
+    };
+  });
+}
+
+}
