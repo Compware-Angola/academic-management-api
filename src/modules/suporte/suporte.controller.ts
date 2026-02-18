@@ -43,13 +43,7 @@ export class SuporteController {
   async findAllTipos() {
     return this.suporteService.findAllTiposSuporte();
   }
-  @Get(':id')
-  @ApiOperation({ summary: 'Obter detalhes de uma solicitação de suporte específica' })
-  @ApiResponse({ status: 200, description: 'Detalhes da solicitação e respostas' })
-  @ApiResponse({ status: 404, description: 'Solicitação não encontrada' })
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.suporteService.findOne(id);
-  }
+
 
   // ─── Tipos de Suporte ──────────────────────────────────────────────────────
 
@@ -67,7 +61,13 @@ export class SuporteController {
   async listTiposPaginado(@Query() filter: FilterTipoSuporteDto) {
     return this.suporteService.listTiposSuporte(filter);
   }
-
+  @Get(':id')
+  @ApiOperation({ summary: 'Obter detalhes de uma solicitação de suporte específica' })
+  @ApiResponse({ status: 200, description: 'Detalhes da solicitação e respostas' })
+  @ApiResponse({ status: 404, description: 'Solicitação não encontrada' })
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.suporteService.findOne(id);
+  }
   @Get('tipos/:id')
   @ApiOperation({ summary: 'Obter um tipo de suporte específico' })
   async findOneTipo(@Param('id', ParseIntPipe) id: number) {
