@@ -127,9 +127,9 @@ export class BookTestService {
         :codigoPeriodo,
         :codigoDisciplina,
         TO_DATE(:dataProva, 'YYYY-MM-DD'),
-        :duracaoProva,
-        :horaTermino,
-        :horaProva,
+        TO_DATE('1900-01-01','YYYY-MM-DD') + (:duracaoProva * 60) / 86400,
+        TO_DATE(:horaTermino,'HH24:MI'),
+        TO_DATE(:horaProva,'HH24:MI'),
         :vigilante,
         :url,
         :estado,
@@ -178,8 +178,7 @@ export class BookTestService {
           REF_VIGILANTE,
           REF_UTILIZADOR_REGISTOU,
           REF_SUMARISTA,
-          ESTADO_AGENDAMENTO,
-          CODIGO
+          ESTADO_AGENDAMENTO
         ) VALUES (
           :calendarioProva,
           :vigilante,
@@ -189,8 +188,7 @@ export class BookTestService {
           :refVigilante,
           :refUtilizadorRegisto,
           NULL,
-          :estadoAgendamento,
-          :codigo
+          :estadoAgendamento
         )
       `;
       // Dentro do seu método, antes do loop
@@ -209,8 +207,7 @@ export class BookTestService {
             disponivel: true,
           }),
           refUtilizadorRegisto: ref_json_utilizador,
-          estadoAgendamento: 1,
-          codigo: proximoCodigo,
+          estadoAgendamento: 1
         } as any);
 
         proximoCodigo++;
