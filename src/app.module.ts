@@ -17,6 +17,7 @@ import { HttpModule } from '@nestjs/axios';
 import { StudentsModule } from './modules/students/students.module';
 import { DisciplineModule } from './modules/discipline/discipline.module';
 import { EnrollmentModule } from './modules/enrollment/enrollment.module';
+import { SuporteModule } from './modules/suporte/suporte.module';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { EnrollmentModule } from './modules/enrollment/enrollment.module';
     DisciplineModule,
     EnrollmentModule,
     EnrollmentModule,
+    SuporteModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService],
