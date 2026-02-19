@@ -463,5 +463,35 @@ export class SolicitacaoService {
   return result;
 }
 
+  async listarOnlySolicitacoes(){
+    const result = await this.dataSource.query(
+
+      ` 
+        SELECT 
+          NAME, 
+          SER.DESCRICAO               AS DESCRICAO_SERVICO, 
+          CODIGO_MATRICULA 		 	AS MATRICULA, 
+          DATA_SOLICITACAO 		 	AS DATA_DE_SOLICITAÇÃO,
+          C.DESIGNACAO                AS CURSO
+
+        FROM FK2_TB_SOLICITACAO_UMA FK_TB_S
+
+        INNER JOIN FK2_USERS USRS
+          ON FK_TB_S.USER_ID = USRS.ID
+
+        LEFT JOIN FK2_TB_MATRICULAS M
+            ON M.CODIGO_ALUNO = USRS.ID
+
+        LEFT JOIN FK2_TB_CURSOS C
+            ON C.CODIGO = M.CODIGO_CURSO
+          LEFT JOIN FK2_TB_TIPO_SERVICOS SER
+            ON SER.CODIGO = FK_TB_S.CODIGOTIPOSERVICO
+          ORDER BY FK_TB_S.DATA_SOLICITACAO DESC
+          OFFSET 20 ROWS FETCH NEXT 10 ROWS ONLY
+      ` 
+    );
+    
+    return result;
+  }
 
 }
