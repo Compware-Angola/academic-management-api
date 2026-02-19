@@ -1,11 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { DataSource } from 'typeorm'; 
+import { DataSource, DeepPartial } from 'typeorm'; 
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FilterSuporteDto } from './dto/filter-suporte.dto';
 import { FilterTipoSuporteDto } from './dto/filter-tipo-suporte.dto';
 import { UpdateTipoSuporteDto } from './dto/update-tipo-suporte.dto';
 import { CreateTipoSuporteDto } from './dto/create-tipo-suporte.dto';
 import { CreateRespostaSuporteDto } from './dto/create-resposta-suporte.dto';
+import { Suporte } from './entities/suporte.entity';
 
 
 @Injectable()
@@ -374,42 +375,17 @@ async findOne(id: number): Promise<any> {
   userId: number,         
 ): Promise<any> {
   return this.dataSource.transaction(async (manager) => {
-    // 1. Criar a resposta
-    const insertResposta = await manager.query(
-      `
-      INSERT INTO FK2_CONTACTOS_RESPOSTAS (
-        DESCRICAO,
-        USER_ID,
-        CONTACTOS_ID,
-        STATUS_,
-        CREATED_AT,
-        UPDATED_AT,
-        FILE_NAME1,
-        FILE_NAME2,
-        FILE_NAME3
-      ) VALUES (
-        :descricao,
-        :userId,
-        :contactos_id,
-        1,                    -- assumindo 1 = respondido (ajusta se for diferente)
-        SYSDATE,
-        SYSDATE,
-        :file_name1,
-        :file_name2,
-        :file_name3
-      )
-    
-      `,
-      {
-        descricao: dto.descricao.trim(),
-        userId,
-        contactos_id: dto.contactos_id,
-        file_name1: dto.file_name1 || null,
-        file_name2: dto.file_name2 || null,
-        file_name3: dto.file_name3 || null,
-      } as any,
-    );
+   const resposta = manager.create(Suporte, {
+  descricao: dto.descricao.trim(),
+  userId,
+  contactosId: dto.contactos_id,
+  status: 1,
+  fileName1: dto.file_name1 ?? null,
+  fileName2: dto.file_name2 ?? null,
+  fileName3: dto.file_name3 ?? null,
+}as DeepPartial<Suporte>);
 
+await manager.save(resposta);
 
 
 await manager.query(
