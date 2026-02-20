@@ -7,6 +7,11 @@ import {
 } from 'typeorm';
 
 @Entity({ name: 'FK2_MCA_TB_GRUPO' })
+/**
+ * Entidade que representa a tabela `FK2_MCA_TB_GRUPO` no banco de dados Oracle.
+ * Esta tabela é responsável por armazenar os grupos de usuários ou categorias do sistema.
+ * * @category Database Entities
+ */
 export class Grupo {
   @PrimaryGeneratedColumn({ type: 'number', name: 'PK_GRUPO' })
   pkGrupo: number;
