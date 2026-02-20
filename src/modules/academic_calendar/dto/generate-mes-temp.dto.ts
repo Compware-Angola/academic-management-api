@@ -4,12 +4,22 @@ import { Type } from 'class-transformer';
 
 export class GenerateMesTempDTO {
   @ApiProperty({
-    description: 'ID do ano letivo',
-    example: 22,
+    description: 'Data Inicial',
+    example: 2027,
   })
   @IsNotEmpty()
   @Type(() => Number)
   @IsInt()
   @IsPositive()
-  anoLectivoId: number;
+  anoInicial: number;
+
+  @ApiProperty({
+    description: 'Data Inicial',
+    example: 2028,
+  })
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  anoFinal: number;
 }

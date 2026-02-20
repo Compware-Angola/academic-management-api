@@ -64,7 +64,7 @@ export class SuporteService {
           OR UPPER(c.ASSUNTO)         LIKE :search
           OR UPPER(c.DESCRICAO)       LIKE :search
           OR UPPER(ts.DESCRICAO)      LIKE :search
-          OR UPPER(u.NAME)            LIKE :search
+      
         )`;
       params.search = searchTerm;
       countParams.search = searchTerm;
@@ -76,9 +76,9 @@ export class SuporteService {
       FROM fk2_contactos c
       INNER JOIN fk2_users u ON u.ID = c.USER_ID 
       INNER JOIN fk2_tb_preinscricao pr ON pr.USER_ID = u.ID
-      LEFT JOIN fk2_contactos_respostas cr ON cr.CONTACTOS_ID = c.ID
+     
       LEFT JOIN fk2_tipo_suporte ts ON c.TIPO_SUPORTE = ts.ID
-      LEFT JOIN FK2_MCA_TB_UTILIZADOR ut ON ut.PK_UTILIZADOR = cr.USER_ID
+     
       ${whereClause}
     `;
 
@@ -98,19 +98,19 @@ export class SuporteService {
           TO_CHAR(c.DATA_SOLICITACAO, 'DD/MM/YYYY HH24:MI:SS') AS data_mensagem,
           c.STATUS_                 AS status_mensagem,
           c.ID                      AS contactos_id,
-          cr.DESCRICAO              AS mensagem_resposta,
-          TO_CHAR(cr.CREATED_AT, 'DD/MM/YYYY HH24:MI:SS')      AS data_resposta,
-          cr.FILE_NAME1             AS file_name1,
-          cr.FILE_NAME2             AS file_name2,
-          cr.FILE_NAME3             AS file_name3,
-          ut.NOME                   AS nome_usuario_resposta,
-          ROW_NUMBER() OVER (ORDER BY c.DATA_SOLICITACAO DESC, cr.CREATED_AT DESC) AS rn
+       
+     
+          c.FILE_NAME1             AS file_name1,
+          c.FILE_NAME2             AS file_name2,
+          c.FILE_NAME3             AS file_name3,
+       
+          ROW_NUMBER() OVER (ORDER BY c.DATA_SOLICITACAO DESC) AS rn
         FROM fk2_contactos c
         INNER JOIN fk2_users u ON u.ID = c.USER_ID 
         INNER JOIN fk2_tb_preinscricao pr ON pr.USER_ID = u.ID
-        LEFT JOIN fk2_contactos_respostas cr ON cr.CONTACTOS_ID = c.ID
+      
         LEFT JOIN fk2_tipo_suporte ts ON c.TIPO_SUPORTE = ts.ID
-        LEFT JOIN FK2_MCA_TB_UTILIZADOR ut ON ut.PK_UTILIZADOR = cr.USER_ID
+     
         ${whereClause}
       ) t
       WHERE rn BETWEEN (:offset + 1) AND :limit_plus_offset
