@@ -151,15 +151,8 @@ export class AcademicCalendarService {
     return toLowerCaseKeys(row);
   }
 
-  async generateMesTemp({ anoLectivoId }: GenerateMesTempDTO) {
+  async generateMesTemp({ anoFinal, anoInicial }: GenerateMesTempDTO) {
     const result: MESTEMP[] = [];
-    const anoLectivo = await this.obterAnoLectivo(anoLectivoId);
-    const anoInicial = new Date(
-      anoLectivo.datainicioprimeirosemestre,
-    ).getFullYear();
-    const anoFinal = new Date(
-      anoLectivo.datainiciosegundosemestre,
-    ).getFullYear();
 
     mesTempConfig.forEach((mesTemp) => {
       const isPastYear = mesTemp.ordem_mes >= 10 && mesTemp.ordem_mes <= 12;
@@ -178,7 +171,7 @@ export class AcademicCalendarService {
         designacao: mesTemp.designacao + anoCorrente,
         isencao: mesTemp.isencao,
         ordem_mes: mesTemp.ordem_mes,
-        ano_lectivo: anoLectivoId,
+        ano_lectivo: mesTemp.ano_lectivo,
         prestacao: mesTemp.prestacao,
         activo: mesTemp.activo,
         activo_posgraduacao: mesTemp.activo_posgraduacao,
