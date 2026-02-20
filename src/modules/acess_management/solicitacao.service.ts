@@ -463,35 +463,102 @@ export class SolicitacaoService {
   return result;
 }
 
-  async listarOnlySolicitacoes(){
-    const result = await this.dataSource.query(
+  async listarOnlySolicitacoes(params?: { limit?: number; page?: number },) {
+    const { limit = 10, page = 1 } = params || {};
+  const offset = (page - 1) * limit;
 
-      ` 
-        SELECT 
-          NAME, 
-          SER.DESCRICAO               AS DESCRICAO_SERVICO, 
-          CODIGO_MATRICULA 		 	AS MATRICULA, 
-          DATA_SOLICITACAO 		 	AS DATA_DE_SOLICITAÇÃO,
-          C.DESIGNACAO                AS CURSO
+  const sql = `
+    SELECT 
+      NAME, 
+      SER.DESCRICAO               AS DESCRICAO_SERVICO, 
+      FK_TB_S.CODIGO_MATRICULA    AS MATRICULA, 
+      FK_TB_S.DATA_SOLICITACAO    AS DATA_DE_SOLICITACAO,
+      C.DESIGNACAO                AS CURSO
+    FROM FK2_TB_SOLICITACAO_UMA FK_TB_S
 
-        FROM FK2_TB_SOLICITACAO_UMA FK_TB_S
+      INNER JOIN FK2_USERS USRS
+        ON FK_TB_S.USER_ID = USRS.ID
 
-        INNER JOIN FK2_USERS USRS
-          ON FK_TB_S.USER_ID = USRS.ID
+      LEFT JOIN FK2_TB_MATRICULAS M
+        ON M.CODIGO_ALUNO = USRS.ID
 
-        LEFT JOIN FK2_TB_MATRICULAS M
-            ON M.CODIGO_ALUNO = USRS.ID
+      LEFT JOIN FK2_TB_CURSOS C
+        ON C.CODIGO = M.CODIGO_CURSO
 
-        LEFT JOIN FK2_TB_CURSOS C
-            ON C.CODIGO = M.CODIGO_CURSO
-          LEFT JOIN FK2_TB_TIPO_SERVICOS SER
-            ON SER.CODIGO = FK_TB_S.CODIGOTIPOSERVICO
-          ORDER BY FK_TB_S.DATA_SOLICITACAO DESC
-          OFFSET 20 ROWS FETCH NEXT 10 ROWS ONLY
-      ` 
-    );
-    
-    return result;
-  }
+      LEFT JOIN FK2_TB_TIPO_SERVICOS SER
+        ON SER.CODIGO = FK_TB_S.CODIGOTIPOSERVICO
+
+    ORDER BY FK_TB_S.DATA_SOLICITACAO DESC
+    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+  `;
+
+  const sqlCount = `
+    SELECT COUNT(*) AS TOTAL
+    FROM FK2_TB_SOLICITACAO_UMA
+  `;
+
+  const [result, countResult] = await Promise.all([
+    this.dataSource.query(sql),
+    this.dataSource.query(sqlCount),
+  ]);
+
+  const total = Number(countResult[0].TOTAL);
+  const totalPages = Math.ceil(total / limit);
+
+  return {
+    data: result,
+    total,
+    page,
+    limit,
+    totalPages,
+  };
+}
+
+async listarAvisos(
+  params?: { limit?: number; page?: number },
+) {
+  const { limit = 10, page = 1 } = params || {};
+  const offset = (page - 1) * limit;
+
+  const sql = `
+    SELECT 
+      AVS.ASSUNTO,
+      AVS.DESCRICAO,
+      USRS.NAME,
+      C.DESIGNACAO AS CURSO
+    FROM FK2_TB_AVISO_UMA AVS
+
+      LEFT JOIN FK2_USERS USRS
+        ON AVS.USER_ID = USRS.ID
+
+      LEFT JOIN FK2_TB_CURSOS C
+        ON AVS.CURSO = C.CODIGO
+
+    ORDER BY AVS.ID DESC
+    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+  `;
+
+  const sqlCount = `
+    SELECT COUNT(*) AS TOTAL
+    FROM FK2_TB_AVISO_UMA
+  `;
+
+  const [result, countResult] = await Promise.all([
+    this.dataSource.query(sql),
+    this.dataSource.query(sqlCount),
+  ]);
+
+  const total = Number(countResult[0].TOTAL);
+  const totalPages = Math.ceil(total / limit);
+
+  return {
+    data: result,
+    total,
+    page,
+    limit,
+    totalPages,
+  };
+}
+
 
 }

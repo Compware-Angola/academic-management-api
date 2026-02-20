@@ -66,4 +66,32 @@ export class SolicitacaoController {
       query.codigo_ano_lectivo,
     );
   }
+
+  @Get('all-solicitacoes')
+  @RequiredPermissions(PermissionTypeDetails.LISTAR_SOLICITACOES.sigla)
+  @ApiOperation({ summary: 'Listar todas as solicitações' })
+  @ApiResponse({ status: 200 })
+  async findAllSolicitacoes(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    return this.solicitacaoService.listarOnlySolicitacoes({
+      page: Number(page),
+      limit: Number(limit),
+    });
+  }
+
+  @Get('avisos')
+  @ApiOperation({ summary: 'Listar avisos com paginação' })
+  @ApiResponse({ status: 200 })
+  async listarAvisos(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    return this.solicitacaoService.listarAvisos({
+      page: Number(page),
+      limit: Number(limit),
+    });
+  }
+
 }
