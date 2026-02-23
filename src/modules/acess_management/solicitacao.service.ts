@@ -633,4 +633,19 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
     return await toLowerCaseKeys(result);
   }
 
+    async updateAvisoImagem(fileName: string): Promise<{ message: string }> {
+    const result = await this.dataSource.query(
+      `
+      UPDATE FK2_TB_AVISO_UMA
+      SET 
+        FILE_NAME = :fileName,
+        UPDATED_AT = SYSDATE
+      WHERE ID = 50
+      `,
+      [fileName],
+    );
+
+    return { message: 'Imagem do aviso atualizada com sucesso' };
+  }
+
 }
