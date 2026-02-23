@@ -18,6 +18,7 @@ import { StudentsModule } from './modules/students/students.module';
 import { DisciplineModule } from './modules/discipline/discipline.module';
 import { EnrollmentModule } from './modules/enrollment/enrollment.module';
 import { SuporteModule } from './modules/suporte/suporte.module';
+import { DefenseManagementTfcModule } from './modules/defense-management-tfc/defense-management-tfc.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { SuporteModule } from './modules/suporte/suporte.module';
     EnrollmentModule,
     EnrollmentModule,
     SuporteModule,
+    DefenseManagementTfcModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService],
