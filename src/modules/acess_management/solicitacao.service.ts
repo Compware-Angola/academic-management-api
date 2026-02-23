@@ -10,6 +10,7 @@ import oracledb from 'oracledb';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
+import { CreateAvisoUmaDto } from './dto/create.aviso.dto';
 
 @Injectable()
 export class SolicitacaoService {
@@ -560,5 +561,76 @@ async listarAvisos(
   };
 }
 
+async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
+  await this.dataSource.query(
+    `
+    INSERT INTO FK2_TB_AVISO_UMA (
+      ASSUNTO,
+      DATE_EXPIRACAO,
+      USER_ID,
+      DESCRICAO,
+      SIGLA,
+      FILE_NAME,
+      DESTINO,
+      CURSO,
+      PERIODO,
+      CREATED_AT,
+      UPDATED_AT,
+      CANAL,
+      STATUS_,
+      ORIGEM
+    )
+    VALUES (
+      :assunto,
+      :dateExpiracao,
+      :userId,
+      :descricao,
+      :sigla,
+      :fileName,
+      :destino,
+      :curso,
+      :periodo,
+      SYSDATE,
+      SYSDATE,
+      :canal,
+      :status,
+      :origem
+    )
+    `,
+    {
+      assunto: dto.assunto.trim(),
+      dateExpiracao: dto.date_expiracao
+      ? new Date(dto.date_expiracao)
+      : null,
+      userId: dto.userId ?? null,
+      descricao: dto.descricao.trim(),
+      sigla: dto.sigla ?? null,
+      fileName: dto.fileName ?? null,
+      destino: dto.destino ?? null,
+      curso: dto.curso ?? null,
+      periodo: dto.periodo ?? null,
+      canal: dto.canal ?? null,
+      status: dto.status ?? 1,
+      origem: dto.origem ?? null,
+    } as any,
+  );
+
+  return { message: 'Aviso criado com sucesso' };
+}
+
+
+    async listarRoles(): Promise<any[]> {
+    const sql = `
+      SELECT
+        ID, 
+        NAME
+      FROM FK2_ROLES
+      ORDER BY NAME ASC
+    `;
+
+    const result = await this.dataSource.query(sql);
+
+    return await toLowerCaseKeys(result);
+  }
 
 }
