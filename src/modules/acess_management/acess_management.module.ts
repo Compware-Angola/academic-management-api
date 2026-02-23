@@ -14,9 +14,14 @@ import { GroupsService } from './groups/groups.service';
 import { SolicitacaoService } from './solicitacao.service';
 import { SolicitacaoController } from './solicitacao.controller';
 import { HttpModule } from '@nestjs/axios';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Grupo } from './entities/grupo.entity';
+import { GrupoUtilizador } from './entities/grupo_utilizador.entity';
+import { Acesso } from './entities/acesso.entity';
+import { Pessoa } from './entities/pessoa.entity';
 
 @Module({
-  imports: [HttpModule],
+  imports: [HttpModule, TypeOrmModule.forFeature([Grupo, GrupoUtilizador, Acesso, Pessoa])],
   controllers: [
     AcessManagementController,
     ReferenciasController,
