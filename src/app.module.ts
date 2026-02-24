@@ -18,6 +18,8 @@ import { StudentsModule } from './modules/students/students.module';
 import { DisciplineModule } from './modules/discipline/discipline.module';
 import { EnrollmentModule } from './modules/enrollment/enrollment.module';
 import { SuporteModule } from './modules/suporte/suporte.module';
+import { AssiduidadeModule } from './modules/assiduidade/assiduidade.module';
+import { DocentesModule } from './modules/docentes/docentes.module';
 
 @Module({
   imports: [
@@ -75,6 +77,8 @@ import { SuporteModule } from './modules/suporte/suporte.module';
     EnrollmentModule,
     EnrollmentModule,
     SuporteModule,
+    AssiduidadeModule,
+    DocentesModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService],
