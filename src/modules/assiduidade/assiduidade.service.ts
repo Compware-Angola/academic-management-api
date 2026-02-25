@@ -120,7 +120,7 @@ export class AssiduidadeService {
 
     const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
-   const sql = `
+    const sql = `
    SELECT DISTINCT
    aa.PK_AGENDAMENTO_AULA AS codigo,
    c2.DESIGNACAO AS curso,
@@ -132,6 +132,8 @@ export class AssiduidadeService {
    aa.DATA_AULA AS data_aula,
    aa.FK_ESTADO_AGENDAMENTO AS estado_agendamento_aula,
    est.DESIGNACAO AS estado_agendamento_aula_designacao,
+   ds.DESIGNACAO AS dia_semana,
+
 
   JSON_VALUE(al.REF_DOCENTE, '$.nome') AS Docente
 FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
@@ -266,47 +268,69 @@ FETCH NEXT :limit ROWS ONLY
 
     const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
-    const sql = `
-    SELECT DISTINCT
-     aa.PK_AGENDAMENTO_AULA AS codigo,
-     JSON_VALUE(al.REF_DOCENTE, '$.nome') AS Docente,
-     
 
-    FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
-    INNER JOIN FK2_MGH_TB_AULA al
-      ON JSON_VALUE(aa.REF_AULA, '$.pkAula') = al.PK_AULA
-      INNER JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO est
-      ON aa.FK_ESTADO_AGENDAMENTO =est.PK_ESTADO_AGENDAMENTO
-      INNER JOIN FK2_MGH_TB_HORARIO h
-      ON al.FK_HORARIO = h.PK_HORARIO
-      INNER JOIN FK2_TB_GRADE_CURRICULAR gc
-      ON aa.FK_GRADE_CURRICULAR=gc.CODIGO
-       ON  json_value(al.REF_SALA, '$.pk') =au. CODIGO
-        INNER JOIN FK2_MGH_TB_TIPO_AULA at
-                ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
-        INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
-                ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
-        INNER JOIN FK2_MGH_TB_MODALIDADE m
-                ON m.PK_MODALIDADE = al.FK_MODALIDADE
-        INNER JOIN FK2_TB_GRADE_CURRICULAR c
-                ON TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, '')) = c.CODIGO
-        LEFT JOIN FK2_TB_DISCIPLINAS d
-                ON c.CODIGO_DISCIPLINA = d.CODIGO
-        LEFT JOIN FK2_TB_CURSOS c2
-                ON c.CODIGO_CURSO = c2.CODIGO
-        LEFT JOIN FK2_TB_CLASSES cl
-                ON c.CODIGO_CLASSE = cl.CODIGO
-    ${whereClause}
-    ORDER BY aa.DATA_AULA ASC
-    OFFSET :offset ROWS
-    FETCH NEXT :limit ROWS ONLY
+    const sql = `
+   SELECT DISTINCT
+   aa.PK_AGENDAMENTO_AULA AS codigo,
+   c2.DESIGNACAO AS curso,
+   d.DESIGNACAO AS unidade_curricular,
+   at.DESIGNACAO  AS tipo_aula,
+   al.ORDEM AS ordem_tempo,
+   al.HORA_INICIO AS hora_inicio,
+   al.HORA_TERMINO AS hora_fim,
+   aa.DATA_AULA AS data_aula,
+   aa.FK_ESTADO_AGENDAMENTO AS estado_agendamento_aula,
+   est.DESIGNACAO AS estado_agendamento_aula_designacao,
+   ds.DESIGNACAO AS dia_semana,
+
+
+  JSON_VALUE(al.REF_DOCENTE, '$.nome') AS Docente
+FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
+
+INNER JOIN FK2_MGH_TB_AULA al
+  ON JSON_VALUE(aa.REF_AULA, '$.pkAula') = al.PK_AULA
+
+INNER JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO est
+  ON aa.FK_ESTADO_AGENDAMENTO = est.PK_ESTADO_AGENDAMENTO
+
+INNER JOIN FK2_MGH_TB_HORARIO h
+  ON al.FK_HORARIO = h.PK_HORARIO
+
+INNER JOIN FK2_TB_GRADE_CURRICULAR gc
+  ON aa.FK_GRADE_CURRICULAR = gc.CODIGO
+
+INNER JOIN FK2_TB_SALAS au
+  ON JSON_VALUE(al.REF_SALA, '$.pk') = au.CODIGO
+
+INNER JOIN FK2_MGH_TB_TIPO_AULA at
+  ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
+
+INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
+  ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+
+INNER JOIN FK2_MGH_TB_MODALIDADE m
+  ON m.PK_MODALIDADE = al.FK_MODALIDADE
+LEFT JOIN FK2_TB_DISCIPLINAS d
+  ON gc.CODIGO_DISCIPLINA = d.CODIGO
+
+LEFT JOIN FK2_TB_CURSOS c2
+  ON gc.CODIGO_CURSO = c2.CODIGO
+
+LEFT JOIN FK2_TB_CLASSES cl
+  ON gc.CODIGO_CLASSE = cl.CODIGO
+
+${whereClause}
+
+ORDER BY aa.DATA_AULA ASC
+OFFSET :offset ROWS
+FETCH NEXT :limit ROWS ONLY
   `;
 
     const sqlParams = { ...whereParams, offset, limit };
 
 
     const countSql = `
-    SELECT COUNT(DISTINCT aa.PK_AGENDAMENTO_AULA) as total
+     SELECT COUNT(DISTINCT aa.PK_AGENDAMENTO_AULA) as total
     FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
     INNER JOIN FK2_MGH_TB_AULA al
       ON JSON_VALUE(aa.REF_AULA, '$.pkAula') = al.PK_AULA
@@ -395,26 +419,68 @@ FETCH NEXT :limit ROWS ONLY
 
     const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
+
     const sql = `
-    SELECT *
-    FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
-    INNER JOIN FK2_MGH_TB_AULA al
-      ON JSON_VALUE(aa.REF_AULA, '$.pkAula') = al.PK_AULA
-      INNER JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO est
-      ON aa.FK_ESTADO_AGENDAMENTO =est.PK_ESTADO_AGENDAMENTO
-      INNER JOIN FK2_MGH_TB_HORARIO h
-      ON al.FK_HORARIO = h.PK_HORARIO
-    ${whereClause}
-    ORDER BY aa.DATA_AULA ASC
-    OFFSET :offset ROWS
-    FETCH NEXT :limit ROWS ONLY
+   SELECT DISTINCT
+   aa.PK_AGENDAMENTO_AULA AS codigo,
+   c2.DESIGNACAO AS curso,
+   d.DESIGNACAO AS unidade_curricular,
+   at.DESIGNACAO  AS tipo_aula,
+   al.ORDEM AS ordem_tempo,
+   al.HORA_INICIO AS hora_inicio,
+   al.HORA_TERMINO AS hora_fim,
+   aa.DATA_AULA AS data_aula,
+   aa.FK_ESTADO_AGENDAMENTO AS estado_agendamento_aula,
+   est.DESIGNACAO AS estado_agendamento_aula_designacao,
+   ds.DESIGNACAO AS dia_semana,
+
+  JSON_VALUE(al.REF_DOCENTE, '$.nome') AS Docente
+FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
+
+INNER JOIN FK2_MGH_TB_AULA al
+  ON JSON_VALUE(aa.REF_AULA, '$.pkAula') = al.PK_AULA
+
+INNER JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO est
+  ON aa.FK_ESTADO_AGENDAMENTO = est.PK_ESTADO_AGENDAMENTO
+
+INNER JOIN FK2_MGH_TB_HORARIO h
+  ON al.FK_HORARIO = h.PK_HORARIO
+
+INNER JOIN FK2_TB_GRADE_CURRICULAR gc
+  ON aa.FK_GRADE_CURRICULAR = gc.CODIGO
+
+INNER JOIN FK2_TB_SALAS au
+  ON JSON_VALUE(al.REF_SALA, '$.pk') = au.CODIGO
+
+INNER JOIN FK2_MGH_TB_TIPO_AULA at
+  ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
+
+INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
+  ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+
+INNER JOIN FK2_MGH_TB_MODALIDADE m
+  ON m.PK_MODALIDADE = al.FK_MODALIDADE
+LEFT JOIN FK2_TB_DISCIPLINAS d
+  ON gc.CODIGO_DISCIPLINA = d.CODIGO
+
+LEFT JOIN FK2_TB_CURSOS c2
+  ON gc.CODIGO_CURSO = c2.CODIGO
+
+LEFT JOIN FK2_TB_CLASSES cl
+  ON gc.CODIGO_CLASSE = cl.CODIGO
+
+${whereClause}
+
+ORDER BY aa.DATA_AULA ASC
+OFFSET :offset ROWS
+FETCH NEXT :limit ROWS ONLY
   `;
 
     const sqlParams = { ...whereParams, offset, limit };
 
 
     const countSql = `
-    SELECT COUNT( aa.PK_AGENDAMENTO_AULA) as total
+     SELECT COUNT(DISTINCT aa.PK_AGENDAMENTO_AULA) as total
     FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
     INNER JOIN FK2_MGH_TB_AULA al
       ON JSON_VALUE(aa.REF_AULA, '$.pkAula') = al.PK_AULA
