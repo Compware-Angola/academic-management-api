@@ -1,34 +1,29 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { DefenseManagementTfcService } from './defense-management-tfc.service';
-import { CreateDefenseManagementTfcDto } from './dto/create-defense-management-tfc.dto';
-import { UpdateDefenseManagementTfcDto } from './dto/update-defense-management-tfc.dto';
+import { ApiTags, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
+import {  ListFinalistStudentsQueryDto, ListFinalistStudentsResponseDto } from './dto';
+import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { RequiredPermissions } from '../common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from '../common/enums/permission.type';
 
+
+@ApiTags('defense-management-tfc')
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('defense-management-tfc')
+
 export class DefenseManagementTfcController {
   constructor(private readonly defenseManagementTfcService: DefenseManagementTfcService) {}
+  @RequiredPermissions(
+    PermissionTypeDetails.DEFESA.sigla,
+  )
+  @Get('students')
+  @ApiOkResponse({ type:ListFinalistStudentsResponseDto, description: 'Lista de estudantes finalistas' })
+  async listFinalistStudents(@Query() query: ListFinalistStudentsQueryDto) {
+   
 
-  @Post()
-  create(@Body() createDefenseManagementTfcDto: CreateDefenseManagementTfcDto) {
-    return this.defenseManagementTfcService.create(createDefenseManagementTfcDto);
-  }
-
-  @Get()
-  findAll() {
-    return this.defenseManagementTfcService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.defenseManagementTfcService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateDefenseManagementTfcDto: UpdateDefenseManagementTfcDto) {
-    return this.defenseManagementTfcService.update(+id, updateDefenseManagementTfcDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.defenseManagementTfcService.remove(+id);
+    return this.defenseManagementTfcService.listFinalistStudents(query
+     
+    );
   }
 }

@@ -1,26 +1,122 @@
 import { Injectable } from '@nestjs/common';
-import { CreateDefenseManagementTfcDto } from './dto/create-defense-management-tfc.dto';
-import { UpdateDefenseManagementTfcDto } from './dto/update-defense-management-tfc.dto';
+import { DataSource } from 'typeorm';
+import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 
 @Injectable()
 export class DefenseManagementTfcService {
-  create(createDefenseManagementTfcDto: CreateDefenseManagementTfcDto) {
-    return 'This action adds a new defenseManagementTfc';
-  }
+  constructor(private readonly dataSource: DataSource) {}
 
-  findAll() {
-    return `This action returns all defenseManagementTfc`;
-  }
+  async listFinalistStudents(query: any) {
+    const { 
+      anoLectivo, 
+      tipoCandidatura = 0, // No Java, 0 ignora o filtro
+      curso = 0,           // No Java, 0 ignora o filtro    
+      page = 1, 
+      limit = 10 
+    } = query;
+    const  qtdCadeiras = 1
 
-  findOne(id: number) {
-    return `This action returns a #${id} defenseManagementTfc`;
-  }
+    const offset = (page - 1) * limit;
 
-  update(id: number, updateDefenseManagementTfcDto: UpdateDefenseManagementTfcDto) {
-    return `This action updates a #${id} defenseManagementTfc`;
-  }
+    
+    const commonCTEs = `
+      WITH total_cadeiras AS (
+          SELECT tpcc.codigo_curso, COUNT(tpcg.codigo_grade_curricular) AS total
+          FROM FK2_TB_PLANO_CURRICULAR_GRADE tpcg
+          INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO tpcc ON tpcg.codigo_plano_curricular_curso = tpcc.codigo
+          WHERE tpcc.codigo_ano_lectivo = :1
+          GROUP BY tpcc.codigo_curso
+      ),
+      total_cadeiras_candidatura AS (
+          SELECT tp2.Curso_Candidatura AS codigo_curso, COUNT(tpcg.codigo_grade_curricular) AS total
+          FROM FK2_TB_PREINSCRICAO tp2
+          INNER JOIN FK2_TB_ADMISSAO ta ON ta.pre_incricao = tp2.Codigo
+          INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO tpcc ON tpcc.codigo_curso = tp2.Curso_Candidatura
+          INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE tpcg ON tpcg.codigo_plano_curricular_curso = tpcc.codigo
+          WHERE tpcc.codigo_ano_lectivo = :2
+          GROUP BY tp2.Curso_Candidatura
+      ),
+      cadeiras_concluidas AS (
+          SELECT 
+              tgca.codigo_matricula, 
+              tgc.Codigo_Curso, -- Importante para o filtro de curso cruzado do Java
+              COUNT(tgca.codigo_grade_curricular) AS concluidas
+          FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+          INNER JOIN FK2_TB_GRADE_CURRICULAR tgc ON tgc.Codigo = tgca.codigo_grade_curricular
+          WHERE tgca.Codigo_Status_Grade_Curricular = 3
+            AND tgc.status_ NOT IN (0,3)
+          GROUP BY tgca.codigo_matricula, tgc.Codigo_Curso
+      )
+    `;
 
-  remove(id: number) {
-    return `This action removes a #${id} defenseManagementTfc`;
+    
+    const whereClause = `
+      WHERE (:3 = 0 OR tc.tipo_candidatura = :4)
+        AND (:5 = 0 OR tc.Codigo = :6)
+        AND (NVL(tc1.total, 0) + NVL(tc2.total, 0) - NVL(cc.concluidas, 0)) = :7
+    `;
+
+    const sqlData = `
+      ${commonCTEs}
+      SELECT
+          tp.Nome_Completo AS nome,
+          tp.Bilhete_Identidade AS bilhete,
+          tp.Sexo AS genero,
+          tm.Codigo AS matricula,
+          tc.Designacao AS curso
+      FROM FK2_TB_MATRICULAS tm
+      INNER JOIN FK2_TB_ADMISSAO ta ON ta.codigo = tm.Codigo_Aluno
+      INNER JOIN FK2_TB_PREINSCRICAO tp ON tp.Codigo = ta.pre_incricao
+      INNER JOIN FK2_TB_CURSOS tc ON tc.Codigo = tm.Codigo_Curso
+      LEFT JOIN total_cadeiras tc1 ON tc1.codigo_curso = tm.Codigo_Curso
+      LEFT JOIN total_cadeiras_candidatura tc2 ON tc2.codigo_curso = tp.Curso_Candidatura AND tp.Curso_Candidatura != tm.Codigo_Curso
+      LEFT JOIN cadeiras_concluidas cc ON (cc.codigo_matricula = tm.Codigo AND cc.Codigo_Curso = tm.Codigo_Curso)
+      ${whereClause}
+      ORDER BY tp.Nome_Completo
+      OFFSET :8 ROWS FETCH NEXT :9 ROWS ONLY
+    `;
+
+    const sqlCount = `
+      ${commonCTEs}
+      SELECT COUNT(*) AS total
+      FROM FK2_TB_MATRICULAS tm
+      INNER JOIN FK2_TB_ADMISSAO ta ON ta.codigo = tm.Codigo_Aluno
+      INNER JOIN FK2_TB_PREINSCRICAO tp ON tp.Codigo = ta.pre_incricao
+      INNER JOIN FK2_TB_CURSOS tc ON tc.Codigo = tm.Codigo_Curso
+      LEFT JOIN total_cadeiras tc1 ON tc1.codigo_curso = tm.Codigo_Curso
+      LEFT JOIN total_cadeiras_candidatura tc2 ON tc2.codigo_curso = tp.Curso_Candidatura AND tp.Curso_Candidatura != tm.Codigo_Curso
+      LEFT JOIN cadeiras_concluidas cc ON (cc.codigo_matricula = tm.Codigo AND cc.Codigo_Curso = tm.Codigo_Curso)
+      ${whereClause}
+    `;
+
+    const commonParams = [
+      anoLectivo,        // :1
+      anoLectivo,        // :2
+      tipoCandidatura,   // :3 (para o "OR ? = 0")
+      tipoCandidatura,   // :4 (para o "tc.tipo_candidatura = ?")
+      curso,             // :5 (para o "OR ? = 0")
+      curso,             // :6 (para o "tc.Codigo = ?")
+      qtdCadeiras        // :7 (o 'qutCadeiras' que define finalista)
+    ];
+
+    try {
+      const [data, countResult] = await Promise.all([
+        this.dataSource.query(sqlData, [...commonParams, offset, limit]),
+        this.dataSource.query(sqlCount, commonParams)
+      ]);
+
+      const total = Number(countResult[0]?.TOTAL || 0);
+
+      return {
+        data: toLowerCaseKeys(data),
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
+    } catch (error) {
+      console.error('Erro na query Oracle:', error);
+      throw error;
+    }
   }
 }
