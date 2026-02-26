@@ -1,10 +1,3 @@
-// src/users/referencias.controller.ts
-
-import { UploadedFile, UseInterceptors } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SolicitacaoService } from './solicitacao.service';
@@ -127,30 +120,30 @@ export class SolicitacaoController {
   }
 
 
-@Post('aviso/upload')
-@UseInterceptors(
-  FileInterceptor('file', {
-    storage: diskStorage({
-      destination: './uploads',
-      filename: (req, file, cb) => {
-        const uniqueSuffix =
-          Date.now() + '-' + Math.round(Math.random() * 1e9);
-        const ext = extname(file.originalname);
-        cb(null, `aviso-${uniqueSuffix}${ext}`);
-      },
-    }),
-    limits: { fileSize: 10 * 1024 * 1024 },
-  }),
-)
-async uploadAvisoImagem(
-  @UploadedFile() file: Express.Multer.File,
-) {
-  await this.solicitacaoService.updateAvisoImagem(file.filename);
+// @Post('aviso/upload')
+// @UseInterceptors(
+//   FileInterceptor('file', {
+//     storage: diskStorage({
+//       destination: './uploads',
+//       filename: (req, file, cb) => {
+//         const uniqueSuffix =
+//           Date.now() + '-' + Math.round(Math.random() * 1e9);
+//         const ext = extname(file.originalname);
+//         cb(null, `aviso-${uniqueSuffix}${ext}`);
+//       },
+//     }),
+//     limits: { fileSize: 10 * 1024 * 1024 },
+//   }),
+// )
+// async uploadAvisoImagem(
+//   @UploadedFile() file: Express.Multer.File,
+// ) {
+//   await this.solicitacaoService.updateAvisoImagem(file.filename);
 
-  return {
-    message: 'Imagem do aviso atualizada com sucesso',
-    file: file.filename,
-  };
-}
+//   return {
+//     message: 'Imagem do aviso atualizada com sucesso',
+//     file: file.filename,
+//   };
+// }
 
 }
