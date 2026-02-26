@@ -636,16 +636,36 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
     async updateAvisoImagem(fileName: string): Promise<{ message: string }> {
     const result = await this.dataSource.query(
       `
-      UPDATE FK2_TB_AVISO_UMA
-      SET 
-        FILE_NAME = :fileName,
-        UPDATED_AT = SYSDATE
-      WHERE ID = 50
+          INSERT INTO FK2_TB_AVISO_UMA (
+          FILE_NAME,
+          UPDATED_AT
+        )
+        VALUES (
+          :1,
+          SYSDATE
+        )
       `,
       [fileName],
     );
 
     return { message: 'Imagem do aviso atualizada com sucesso' };
+  }
+
+  async getAvisoImagem(): Promise<string | null> {
+    const result = await this.dataSource.query(
+      `
+      SELECT FILE_NAME
+      FROM FK2_TB_AVISO_UMA
+      ORDER BY UPDATED_AT DESC
+      FETCH FIRST 1 ROWS ONLY
+      `
+    );
+
+    if (!result.length) {
+      return null;
+    }
+
+    return result[0].FILE_NAME;
   }
 
 }
