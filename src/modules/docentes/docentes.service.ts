@@ -139,4 +139,46 @@ export class DocentesService {
       totalPages,
     };
   }
+
+  async findCursos(docenteId:string) {
+    const sql = `
+           SELECT DISTINCT
+       c.codigo,
+       c.designacao
+FROM fk2_mgd_tb_docente_afectacao mtda
+INNER JOIN FK2_TB_GRADE_CURRICULAR g 
+        ON g.codigo = JSON_VALUE(mtda.REF_CADEIRA, '$.pk')
+INNER JOIN FK2_TB_CURSOS c 
+        ON c.codigo = g.CODIGO_CURSO
+WHERE JSON_VALUE(mtda.REF_DOCENTE, '$.pk') = :docenteId
+  `;
+
+    const result = await this.dataSource.query(sql, [docenteId]);
+
+    return {
+      data: toLowerCaseKeys(result),
+    };
+   }
+
+   async findCadeiras(filters: { docenteId: string; cursoId: string }) {
+    const { docenteId, cursoId } = filters;
+
+    const sql = `
+    SELECT DISTINCT
+       g.codigo,
+       JSON_VALUE(mtda.REF_CADEIRA, '$.desc') AS nome_cadeira,
+       g.CODIGO_CLASSE
+FROM fk2_mgd_tb_docente_afectacao mtda
+INNER JOIN FK2_TB_GRADE_CURRICULAR g 
+        ON g.codigo = JSON_VALUE(mtda.REF_CADEIRA, '$.pk')
+WHERE JSON_VALUE(mtda.REF_DOCENTE, '$.pk') = :docenteId
+  AND g.CODIGO_CURSO = :cursoId
+  `;
+
+    const result = await this.dataSource.query(sql, [docenteId, cursoId]);
+
+    return {
+      data: toLowerCaseKeys(result),
+    };
+  }
 }
