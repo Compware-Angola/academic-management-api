@@ -2,6 +2,7 @@ import { Controller, Get, Query, ValidationPipe } from '@nestjs/common';
 import { AssiduidadeService } from './assiduidade.service';
 import { FindAgendamentoAulaDto } from './dto/FindAgendamentoAulaDto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { AtendanceControlling } from './dto/attendance-controlling.dto';
 
 @ApiTags('ASSIDUIDADE')
 @ApiBearerAuth()
@@ -31,5 +32,17 @@ export class AssiduidadeController {
   @Get('prova')
   assiduidadeProva() {
     return this.assiduidadeService.assiduidadeProva();
+  }
+
+  @Get('controle')
+  @ApiOperation({
+    summary: 'Consultar controle de assiduidade por Ano Lectivo,Estado da Aula,Semestre,Docente,Data Inicio,Data Fim',
+    description: 'Retorna lista de controle de assiduidade filtrados por docente, unidade curricular, ano lectivo e semestre.',
+  })
+  @ApiResponse({ status: 200, description: 'Lista de controle de assiduidade retornada com sucesso.' })
+  @ApiResponse({ status: 400, description: 'Parâmetros inválidos.' })
+  assiduidadeControle(@Query(ValidationPipe) dto: AtendanceControlling){
+    const utilizadorId = 163;
+    return this.assiduidadeService.attendanceControlling(dto);
   }
 }
