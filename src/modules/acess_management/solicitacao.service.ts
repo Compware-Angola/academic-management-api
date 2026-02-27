@@ -648,4 +648,24 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
     return { message: 'Imagem do aviso atualizada com sucesso' };
   }
 
+  
+  async getAvisoImagem(): Promise<string> {
+  const result = await this.dataSource.query(
+    `
+      SELECT FILE_NAME
+      FROM FK2_TB_AVISO_UMA
+      WHERE FILE_NAME IS NOT NULL
+      ORDER BY UPDATED_AT DESC
+      FETCH FIRST 1 ROWS ONLY
+    `
+  );
+
+  if (!result?.length) {
+    throw new Error('Imagem do aviso não encontrada');
+ 
+  }
+
+  return result[0].FILE_NAME;
+}
+
 }
