@@ -8,67 +8,91 @@ import { FindProgramaSemUCDTO } from './dto/find-programa-sem-uc.dto';
 @Injectable()
 export class DocentesService {
   constructor(private readonly dataSource: DataSource) {}
-  async findProgramaUC(filters: FindProgramaUCDTO) {
-    const {
-      anoCurricular,
-      anoLectivo,
-      codigoCurso,
-      semestre,
-      limit = 100,
-      page = 1,
-    } = filters;
+async findProgramaUC(filters: FindProgramaUCDTO) {
+  const {
+    anoCurricular,
+    anoLectivo,
+    codigoCurso,
+    semestre,
+    docenteId,
+    limit = 10,
+    page = 1,
+  } = filters;
 
-    const offset = (page - 1) * limit;
+  const offset = (page - 1) * limit;
 
-    const baseWhere = `
-    JSON_VALUE(mtpu.ref_ano_lectivo, '$.pk') = ${anoLectivo}
-    AND tgc.codigo_classe = ${anoCurricular}
-    AND tgc.codigo_semestre = ${semestre}
-    AND tgc.codigo_curso = ${codigoCurso}
-  `;
+const conditions: string[] = [];
+const params: any = {};
 
-    const sql = `
-    SELECT
-      mtpu.pk_programa                                   AS codigo,
-      JSON_VALUE(mtpu.ref_ano_lectivo,'$.desc')          AS anoLectivo,
-      JSON_VALUE(mtpu.ref_docente,'$.desc')              AS docente,
-      JSON_VALUE(mtpu.ref_grade_curricular, '$.desc')    AS gradeCurricular,
-      mtpu.fk_estado_programa                            AS estado,
-      mtpu.created_at                                    AS dataCriacao,
-      mtpu.updated_at                                    AS dataActualizacao,
-      mtpu.ficheiro_name                                 AS arquivo
-    FROM FK2_MGD_TB_PROGRAMA_UC mtpu
-    INNER JOIN fk2_tb_grade_curricular tgc
-      ON tgc.codigo = JSON_VALUE(mtpu.ref_grade_curricular, '$.pk')
-    WHERE ${baseWhere}
-    ORDER BY mtpu.created_at DESC
-    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
-  `;
+conditions.push(`JSON_VALUE(mtpu.ref_ano_lectivo, '$.pk') = :anoLectivo`);
+params.anoLectivo = anoLectivo;
 
-    const sqlCount = `
-    SELECT COUNT(*) AS TOTAL
-    FROM FK2_MGD_TB_PROGRAMA_UC mtpu
-    INNER JOIN fk2_tb_grade_curricular tgc
-      ON tgc.codigo = JSON_VALUE(mtpu.ref_grade_curricular, '$.pk')
-    WHERE ${baseWhere}
-  `;
+conditions.push(`tgc.codigo_classe = :anoCurricular`);
+params.anoCurricular = anoCurricular;
 
-    const [result, countResult] = await Promise.all([
-      this.dataSource.query(sql),
-      this.dataSource.query(sqlCount),
-    ]);
+conditions.push(`tgc.codigo_semestre = :semestre`);
+params.semestre = semestre;
 
-    const total = Number(countResult[0].TOTAL);
-    const totalPages = Math.ceil(total / limit);
+conditions.push(`tgc.codigo_curso = :codigoCurso`);
+params.codigoCurso = codigoCurso;
 
-    return {
-      data: await toLowerCaseKeys(result),
-      total,
-      page,
-      limit,
-      totalPages,
-    };
-  }
+if (docenteId) {
+  conditions.push(`JSON_VALUE(mtpu.ref_docente, '$.pk') = :docenteId`);
+  params.docenteId = docenteId;
+}
+
+const whereClause = conditions.join(' AND ');
+
+const sql = `
+  SELECT
+    mtpu.pk_programa                                   AS codigo,
+    JSON_VALUE(mtpu.ref_ano_lectivo,'$.desc')          AS anoLectivo,
+    JSON_VALUE(mtpu.ref_docente,'$.desc')              AS docente,
+    JSON_VALUE(mtpu.ref_grade_curricular, '$.desc')    AS gradeCurricular,
+    mtpu.fk_estado_programa                            AS estado,
+    mtpu.created_at                                    AS dataCriacao,
+    mtpu.updated_at                                    AS dataActualizacao,
+    mtpu.ficheiro_name                                 AS arquivo
+  FROM FK2_MGD_TB_PROGRAMA_UC mtpu
+  INNER JOIN fk2_tb_grade_curricular tgc
+    ON tgc.codigo = JSON_VALUE(mtpu.ref_grade_curricular, '$.pk')
+  WHERE ${whereClause}
+  ORDER BY mtpu.created_at DESC
+  OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+`;
+
+const sqlParams = {
+  ...params,
+  offset,
+  limit,
+};
+
+const sqlCount = `
+  SELECT COUNT(*) AS TOTAL
+  FROM FK2_MGD_TB_PROGRAMA_UC mtpu
+  INNER JOIN fk2_tb_grade_curricular tgc
+    ON tgc.codigo = JSON_VALUE(mtpu.ref_grade_curricular, '$.pk')
+  WHERE ${whereClause}
+`;
+
+const [result, countResult] = await Promise.all([
+  this.dataSource.query(sql, sqlParams),
+  this.dataSource.query(sqlCount, params), 
+]);
+
+
+
+  const total = Number(countResult[0].TOTAL);
+  const totalPages = Math.ceil(total / limit);
+
+  return {
+    data: await toLowerCaseKeys(result),
+    total,
+    page,
+    limit,
+    totalPages,
+  };
+}
   async findSemProgramaUC(filters: FindProgramaSemUCDTO) {
     const {
       anoLectivo,

@@ -52,6 +52,16 @@ export class FindProgramaUCDTO {
   anoCurricular: number;
 
   @ApiPropertyOptional({
+    description: 'Filtrar por docente',
+    example: 486,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  docenteId?: number;
+
+  @ApiPropertyOptional({
     description: 'Número da página',
     example: 1,
     minimum: 1,
