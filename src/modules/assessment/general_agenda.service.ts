@@ -530,22 +530,23 @@ export class GenaralAgendaService {
             const hasPratica = await this.temPratica(planoCurricularGrade);
             const hasOral = await this.temOral(gradeAluno.CODIGO_GRADE_CURRICULAR);
 
-            // Busca TODAS as notas em paralelo (grande otimização!)
-            const [
-                nota1f, nota2f, notaEx, notaRec, notaPra,
-                notaOr, notaOrRec, notaMel, notaEE, notaOEE
-            ] = await Promise.all([
-                this.buscarAvaliacao(2, gradeAluno.CODIGO),
-                this.buscarAvaliacao(3, gradeAluno.CODIGO),
-                this.buscarAvaliacao(6, gradeAluno.CODIGO),
-                this.buscarAvaliacao(7, gradeAluno.CODIGO),
-                this.buscarAvaliacao(4, gradeAluno.CODIGO),
-                this.buscarAvaliacao(9, gradeAluno.CODIGO),
-                this.buscarAvaliacao(23, gradeAluno.CODIGO),
-                this.buscarAvaliacao(22, gradeAluno.CODIGO),
-                this.buscarAvaliacao(11, gradeAluno.CODIGO),
-                this.buscarAvaliacao(24, gradeAluno.CODIGO)
-            ]);
+          // Busca TODAS as notas em paralelo (grande otimização!)
+           const avaliacoes = await this.buscarAvaliacoes(gradeAluno.CODIGO);
+
+            const getNota = (tipo: number) =>
+                avaliacoes.find(a => a.TIPO_AVALIACAO === tipo) || null;
+
+            const nota1f = getNota(2);
+            const nota2f = getNota(3);
+            const notaEx = getNota(6);
+            const notaRec = getNota(7);
+            const notaPra = getNota(4);
+            const notaOr = getNota(9);
+            const notaOrRec = getNota(23);
+            const notaMel = getNota(22);
+            const notaEE = getNota(11);
+            const notaOEE = getNota(24);
+
 
             // Helper local para evitar chamadas repetidas
             const temNota = (nota: any): boolean =>
@@ -980,21 +981,21 @@ export class GenaralAgendaService {
             const hasOral = await this.temOral(gradeAluno.CODIGO_GRADE_CURRICULAR);
 
             // Busca TODAS as notas em paralelo (grande otimização!)
-            const [
-                nota1f, nota2f, notaEx, notaRec, notaPra,
-                notaOr, notaOrRec, notaMel, notaEE, notaOEE
-            ] = await Promise.all([
-                this.buscarAvaliacao(2, gradeAluno.CODIGO),
-                this.buscarAvaliacao(3, gradeAluno.CODIGO),
-                this.buscarAvaliacao(6, gradeAluno.CODIGO),
-                this.buscarAvaliacao(7, gradeAluno.CODIGO),
-                this.buscarAvaliacao(4, gradeAluno.CODIGO),
-                this.buscarAvaliacao(9, gradeAluno.CODIGO),
-                this.buscarAvaliacao(23, gradeAluno.CODIGO),
-                this.buscarAvaliacao(22, gradeAluno.CODIGO),
-                this.buscarAvaliacao(11, gradeAluno.CODIGO),
-                this.buscarAvaliacao(24, gradeAluno.CODIGO)
-            ]);
+           const avaliacoes = await this.buscarAvaliacoes(gradeAluno.CODIGO);
+
+            const getNota = (tipo: number) =>
+                avaliacoes.find(a => a.TIPO_AVALIACAO === tipo) || null;
+
+            const nota1f = getNota(2);
+            const nota2f = getNota(3);
+            const notaEx = getNota(6);
+            const notaRec = getNota(7);
+            const notaPra = getNota(4);
+            const notaOr = getNota(9);
+            const notaOrRec = getNota(23);
+            const notaMel = getNota(22);
+            const notaEE = getNota(11);
+            const notaOEE = getNota(24);
 
             // Helper local para evitar chamadas repetidas
             const temNota = (nota: any): boolean =>
@@ -1410,6 +1411,18 @@ export class GenaralAgendaService {
 
 
         return avaliation[0];
+    }
+        private async buscarAvaliacoes(
+        gradeAlunoId: number
+    ): Promise<any[]> {
+
+        return await this.dataSource.query(`
+    SELECT avaliacao.*
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES avaliacao
+    WHERE avaliacao.GRADE_CURRICULAR_ALUNO = :1
+      AND avaliacao.TIPO_AVALIACAO IN (2,3,6,7,4,9,23,22,11,24)
+  `, [gradeAlunoId]);
+
     }
 
     private async temPratica(plano: any): Promise<boolean> {
