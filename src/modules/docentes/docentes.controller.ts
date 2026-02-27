@@ -40,7 +40,7 @@ findCursos(
 ) {
   return this.docentesService.findCursos(docenteId);
 }
-@Get(':docenteId/:cursoId/cadeiras')
+@Get(':docenteId/:cursoId/:classeId/cadeiras')
 @ApiOperation({ summary: 'Lista cadeiras do docente por curso' })
 @ApiParam({
   name: 'docenteId',
@@ -50,7 +50,12 @@ findCursos(
 @ApiParam({
   name: 'cursoId',
   type: String,
-  example: '13',
+  example: '11',
+})
+@ApiParam({
+  name: 'classeId',
+  type: String,
+  example: '2',
 })
 @ApiResponse({
   status: 200,
@@ -60,8 +65,9 @@ findCursos(
 findCadeiras(
   @Param('docenteId', ParseIntPipe) docenteId: string,
   @Param('cursoId', ParseIntPipe) cursoId: string,
+  @Param('classeId', ParseIntPipe) classeId: string,
 ) {
-  return this.docentesService.findCadeiras({ docenteId, cursoId });
+  return this.docentesService.findCadeiras({ docenteId, cursoId, classeId });
 }
 
 }

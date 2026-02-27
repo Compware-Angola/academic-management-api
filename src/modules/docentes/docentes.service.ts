@@ -160,8 +160,8 @@ WHERE JSON_VALUE(mtda.REF_DOCENTE, '$.pk') = :docenteId
     };
    }
 
-   async findCadeiras(filters: { docenteId: string; cursoId: string }) {
-    const { docenteId, cursoId } = filters;
+   async findCadeiras(filters: { docenteId: string; cursoId: string, classeId: string }) {
+    const { docenteId, cursoId, classeId } = filters;
 
     const sql = `
     SELECT DISTINCT
@@ -173,9 +173,10 @@ INNER JOIN FK2_TB_GRADE_CURRICULAR g
         ON g.codigo = JSON_VALUE(mtda.REF_CADEIRA, '$.pk')
 WHERE JSON_VALUE(mtda.REF_DOCENTE, '$.pk') = :docenteId
   AND g.CODIGO_CURSO = :cursoId
+  AND g.CODIGO_CLASSE = :classeId
   `;
 
-    const result = await this.dataSource.query(sql, [docenteId, cursoId]);
+    const result = await this.dataSource.query(sql, [docenteId, cursoId, classeId]);
 
     return {
       data: toLowerCaseKeys(result),
