@@ -1,3 +1,11 @@
+// src/users/referencias.controller.ts
+
+import { existsSync } from 'fs';
+import { UploadedFile, UseInterceptors,Res, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname,join } from 'path';
+
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SolicitacaoService } from './solicitacao.service';
@@ -120,30 +128,34 @@ export class SolicitacaoController {
   }
 
 
-// @Post('aviso/upload')
-// @UseInterceptors(
-//   FileInterceptor('file', {
-//     storage: diskStorage({
-//       destination: './uploads',
-//       filename: (req, file, cb) => {
-//         const uniqueSuffix =
-//           Date.now() + '-' + Math.round(Math.random() * 1e9);
-//         const ext = extname(file.originalname);
-//         cb(null, `aviso-${uniqueSuffix}${ext}`);
-//       },
-//     }),
-//     limits: { fileSize: 10 * 1024 * 1024 },
-//   }),
-// )
-// async uploadAvisoImagem(
-//   @UploadedFile() file: Express.Multer.File,
-// ) {
-//   await this.solicitacaoService.updateAvisoImagem(file.filename);
+@Post('aviso/upload')
+async uploadAvisoImagem(
+  @Body('filename') filename: string,
+) {
+  if (!filename) {
+    throw new BadRequestException('Filename é obrigatório');
+  }
 
-//   return {
-//     message: 'Imagem do aviso atualizada com sucesso',
-//     file: file.filename,
-//   };
-// }
+  await this.solicitacaoService.updateAvisoImagem(filename);
+
+  return {
+    message: 'Imagem do aviso atualizada com sucesso',
+    file: filename,
+  };
+}
+
+  @Get('aviso/imagem')
+  @ApiOperation({ summary: 'Buscar imagem atual de abertura do portal' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de roles retornada com sucesso',
+  })
+  async getImagemAviso() {
+      const fileName = await this.solicitacaoService.getAvisoImagem();
+
+      return {
+        filename: fileName,
+      };
+    }
 
 }
