@@ -1,10 +1,6 @@
 // src/users/referencias.controller.ts
 
-import { existsSync } from 'fs';
-import { UploadedFile, UseInterceptors,Res, BadRequestException } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname,join } from 'path';
+import {  BadRequestException } from '@nestjs/common';
 
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';

@@ -651,25 +651,6 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
     return { message: 'Imagem do aviso atualizada com sucesso' };
   }
 
-<<<<<<< HEAD
-  async getAvisoImagem(): Promise<string | null> {
-    const result = await this.dataSource.query(
-      `
-      SELECT FILE_NAME
-      FROM FK2_TB_AVISO_UMA
-      ORDER BY UPDATED_AT DESC
-      FETCH FIRST 1 ROWS ONLY
-      `
-    );
-
-    if (!result.length) {
-      return null;
-    }
-
-    return result[0].FILE_NAME;
-  }
-
-=======
   
   async getAvisoImagem(): Promise<string> {
   const result = await this.dataSource.query(
@@ -690,5 +671,4 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
   return result[0].FILE_NAME;
 }
 
->>>>>>> abdb2b94c574f6e04b10f4cd75d4909cd89eb9ac
 }
