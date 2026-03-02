@@ -1,4 +1,11 @@
 // src/users/referencias.controller.ts
+
+import { existsSync } from 'fs';
+import { UploadedFile, UseInterceptors,Res, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname,join } from 'path';
+
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SolicitacaoService } from './solicitacao.service';
@@ -10,6 +17,7 @@ import { HttpService } from '@nestjs/axios';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { FetchServicosSolicDTO } from './dto/listar-servicos-solicitacao.dto';
+import { CreateAvisoUmaDto } from './dto/create.aviso.dto';
 
 @ApiTags('solicitacao')
 @Controller('solicitacoa')
@@ -18,6 +26,7 @@ export class SolicitacaoController {
     private readonly solicitacaoService: SolicitacaoService,
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    
   ) {}
 
   @Get('solicitacoes')
@@ -93,5 +102,60 @@ export class SolicitacaoController {
       limit: Number(limit),
     });
   }
+
+  @Post('aviso')
+  @ApiOperation({ summary: 'Criar novo aviso' })
+  @ApiResponse({
+    status: 201,
+    description: 'Aviso criado com sucesso',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos',
+  })
+  async criarAviso(@Body() dto: CreateAvisoUmaDto) {
+    return this.solicitacaoService.createAvisoUma(dto);
+  }
+
+  @Get('roles')
+  @ApiOperation({ summary: 'Listar todos os nomes de roles' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de roles retornada com sucesso',
+  })
+  async listarRoles() {
+    return this.solicitacaoService.listarRoles();
+  }
+
+
+@Post('aviso/upload')
+async uploadAvisoImagem(
+  @Body('filename') filename: string,
+) {
+  if (!filename) {
+    throw new BadRequestException('Filename é obrigatório');
+  }
+
+  await this.solicitacaoService.updateAvisoImagem(filename);
+
+  return {
+    message: 'Imagem do aviso atualizada com sucesso',
+    file: filename,
+  };
+}
+
+  @Get('aviso/imagem')
+  @ApiOperation({ summary: 'Buscar imagem atual de abertura do portal' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de roles retornada com sucesso',
+  })
+  async getImagemAviso() {
+      const fileName = await this.solicitacaoService.getAvisoImagem();
+
+      return {
+        filename: fileName,
+      };
+    }
 
 }
