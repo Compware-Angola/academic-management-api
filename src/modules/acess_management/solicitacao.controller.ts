@@ -148,7 +148,7 @@ async uploadAvisoImagem(
   @ApiOperation({ summary: 'Buscar imagem atual de abertura do portal' })
   @ApiResponse({
     status: 200,
-    description: 'Imagem retornada com sucesso',
+    description: 'Lista de roles retornada com sucesso',
   })
   async getImagemAviso() {
       const fileName = await this.solicitacaoService.getAvisoImagem();
@@ -156,6 +156,6 @@ async uploadAvisoImagem(
       return {
         filename: fileName,
       };
-  }
+    }
 
 }
