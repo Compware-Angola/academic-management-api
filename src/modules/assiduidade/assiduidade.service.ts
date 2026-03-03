@@ -121,7 +121,7 @@ export class AssiduidadeService {
       unidadeCurricular = 0,
       dataInicial,
       dataFinal,
-      estado = 0,
+      estado= 0,
       anoLectivo = 0,
       semestre = 0,
       page = 1,
@@ -162,6 +162,8 @@ export class AssiduidadeService {
     if (estado !== 0) {
       conditions.push('aa.FK_ESTADO_AGENDAMENTO = :estado');
     }
+       console.log(estado);
+    
 
     if (anoLectivo !== 0) {
       conditions.push("h.FK_ANO_LECTIVO = :anoLectivo");
@@ -180,9 +182,9 @@ export class AssiduidadeService {
    d.DESIGNACAO AS unidade_curricular,
    at.DESIGNACAO  AS tipo_aula,
    al.ORDEM AS ordem_tempo,
-   al.HORA_INICIO AS hora_inicio,
-   al.HORA_TERMINO AS hora_fim,
-   aa.DATA_AULA AS data_aula,
+ TO_CHAR(aa.DATA_AULA, 'YYYY-MM-DD')     AS data_aula,
+TO_CHAR(al.HORA_INICIO, 'HH24:MI')      AS hora_inicio,
+TO_CHAR(al.HORA_TERMINO, 'HH24:MI')     AS hora_fim,
    aa.FK_ESTADO_AGENDAMENTO AS estado_agendamento_aula,
    est.DESIGNACAO AS estado_agendamento_aula_designacao,
    ds.DESIGNACAO AS dia_semana,
@@ -225,7 +227,7 @@ LEFT JOIN FK2_TB_CLASSES cl
 
 ${whereClause}
 
-ORDER BY aa.DATA_AULA ASC
+ORDER BY aa.PK_AGENDAMENTO_AULA ASC
 OFFSET :offset ROWS
 FETCH NEXT :limit ROWS ONLY
   `;
@@ -291,6 +293,7 @@ FETCH NEXT :limit ROWS ONLY
     if (estado !== 0) whereParams.estado = estado;
     if (semestre !== 0) whereParams.semestre = semestre;
     if (anoLectivo !== 0) whereParams.anoLectivo = anoLectivo;
+ 
 
     // Monta as condições dinamicamente
     const conditions: string[] = [
@@ -635,9 +638,9 @@ FETCH NEXT :limit ROWS ONLY
    d.DESIGNACAO AS unidade_curricular,
    at.DESIGNACAO  AS tipo_aula,
    al.ORDEM AS ordem_tempo,
-   al.HORA_INICIO AS hora_inicio,
-   al.HORA_TERMINO AS hora_fim,
-   aa.DATA_AULA AS data_aula,
+  TO_CHAR(aa.DATA_AULA, 'YYYY-MM-DD')     AS data_aula,
+TO_CHAR(al.HORA_INICIO, 'HH24:MI')      AS hora_inicio,
+TO_CHAR(al.HORA_TERMINO, 'HH24:MI')     AS hora_fim,
    aa.FK_ESTADO_AGENDAMENTO AS estado_agendamento_aula,
    est.DESIGNACAO AS estado_agendamento_aula_designacao,
    ds.DESIGNACAO AS dia_semana,
