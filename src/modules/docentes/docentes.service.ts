@@ -1,13 +1,79 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { DataSource } from 'typeorm';
-import { FindProgramaUCDTO } from './dto/find-programa-uc.dto';
+import { CreateProgramaUCDTO, FindProgramaUCDTO } from './dto/find-programa-uc.dto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FindProgramaSemUCDTO } from './dto/find-programa-sem-uc.dto';
+
 
 @Injectable()
 export class DocentesService {
   constructor(private readonly dataSource: DataSource) {}
+async createProgramaUC(data: CreateProgramaUCDTO) {
+
+  const [academicYear, semestre, docente, gradeCurricular] = await Promise.all([
+    this.dataSource.createQueryBuilder()
+      .select('CODIGO, DESIGNACAO').from('FK2_TB_ANO_LECTIVO', 'ano_lectivo')
+      .where('CODIGO = :anoLectivo', { anoLectivo: data.anoLectivo })
+      .getRawOne(),
+
+    this.dataSource.createQueryBuilder()
+      .select('*').from('FK2_TB_SEMESTRES', 'semestre')
+      .where('CODIGO = :semestre', { semestre: data.semestre })
+      .getRawOne(),
+
+    this.dataSource.createQueryBuilder()
+      .select('CODIGO, CODIGO_UTILIZADOR').from('FK2_MGD_TB_DOCENTE', 'docente')
+      .where('CODIGO = :docenteId', { docenteId: data.docenteCode })
+      .getRawOne(),
+
+    this.dataSource.createQueryBuilder()
+  .select([
+    'GRADE.CODIGO AS CODIGO',
+    'DISC.DESIGNACAO AS DESIGNACAO',
+  ])
+  .from('FK2_TB_GRADE_CURRICULAR', 'GRADE')
+  .innerJoin(
+    'FK2_TB_DISCIPLINAS',
+    'DISC',
+    'DISC.CODIGO = GRADE.CODIGO_DISCIPLINA',
+  )
+  .where('GRADE.CODIGO = :gradeCurricularId', {
+    gradeCurricularId: data.gradeCurricularCode,
+  })
+  .getRawOne(),
+  ]);
+
+ 
+  if (!academicYear) {
+    throw new NotFoundException('Ano lectivo não encontrado');
+  }
+
+  if (!semestre) {
+    throw new NotFoundException('Semestre não encontrado');
+  }
+
+  if (!docente) {
+    throw new NotFoundException('Docente não encontrado');
+  }
+
+  if (!gradeCurricular) {
+    throw new NotFoundException('Grade curricular não encontrada');
+  }
+
+  const refAnoLectivo = this.gernerateRefAnoLectivo(toLowerCaseKeys(academicYear));
+  const refDocente = this.generateRefDocente(toLowerCaseKeys(docente));
+  const refGradeCurricular = this.generateRefGradeCurricular(toLowerCaseKeys(gradeCurricular));
+ 
+  return {
+    message: 'Dados validados com sucesso',
+    refAnoLectivo,
+    semestre: toLowerCaseKeys(semestre),
+    refDocente,
+    refGradeCurricular
+  };
+}
+
 async findProgramaUC(filters: FindProgramaUCDTO) {
   const {
     anoCurricular,
@@ -93,7 +159,7 @@ const [result, countResult] = await Promise.all([
     totalPages,
   };
 }
-  async findSemProgramaUC(filters: FindProgramaSemUCDTO) {
+async findSemProgramaUC(filters: FindProgramaSemUCDTO) {
     const {
       anoLectivo,
       codigoCurso,
@@ -164,7 +230,7 @@ const [result, countResult] = await Promise.all([
     };
   }
 
-  async findCursos(docenteId:string) {
+async findCursos(docenteId:string) {
     const sql = `
            SELECT DISTINCT
        c.codigo,
@@ -184,7 +250,7 @@ WHERE JSON_VALUE(mtda.REF_DOCENTE, '$.pk') = :docenteId
     };
    }
 
-   async findCadeiras(filters: { docenteId: string; cursoId: string, classeId: string }) {
+async findCadeiras(filters: { docenteId: string; cursoId: string, classeId: string }) {
     const { docenteId, cursoId, classeId } = filters;
 
     const sql = `
@@ -206,4 +272,26 @@ WHERE JSON_VALUE(mtda.REF_DOCENTE, '$.pk') = :docenteId
       data: toLowerCaseKeys(result),
     };
   }
+
+  private gernerateRefAnoLectivo(data:any) {
+    return JSON.stringify({
+      pk: data.codigo,
+      desc: data.designacao,
+    });
+}
+
+private  generateRefDocente(data:any) {
+const docenteParsed =   JSON.parse(data.codigo_utilizador);
+    return JSON.stringify({
+      pk: data.codigo,
+      desc: docenteParsed.desc,
+    });
+}
+
+private generateRefGradeCurricular(data:any) {
+  return JSON.stringify({
+    pk: data.codigo,
+    desc: data.designacao,
+  });
+}
 }
