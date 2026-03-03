@@ -9,14 +9,14 @@ import { PermissionTypeDetails } from '../common/enums/permission.type';
 
 
 @ApiTags('defense-management-tfc')
-//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('defense-management-tfc')
 
 export class DefenseManagementTfcController {
   constructor(private readonly defenseManagementTfcService: DefenseManagementTfcService) {}
-  // @RequiredPermissions(
-  //   PermissionTypeDetails.DEFESA.sigla,
-  // )
+  @RequiredPermissions(
+    PermissionTypeDetails.DEFESA.sigla,
+  )
   @Get('students')
   @ApiOkResponse({ type:ListFinalistStudentsResponseDto, description: 'Lista de estudantes finalistas' })
   async listFinalistStudents(@Query() query: ListFinalistStudentsQueryDto) {
