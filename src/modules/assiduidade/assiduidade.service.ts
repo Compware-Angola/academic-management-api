@@ -39,8 +39,8 @@ export class AssiduidadeService {
   assiduidadeCampo(dto: FindAgendamentoAulaDto) {
     return this.attendanceTrip(dto)
   }
-// MARCAR ASSIDUIDADE  DA AULA (NORMAL/CAMPO)
-     async markAttendance(dto: MarkAttendanceDto
+  // MARCAR ASSIDUIDADE  DA AULA (NORMAL/CAMPO)
+  async markAttendance(dto: MarkAttendanceDto
   ): Promise<{ message: string }> {
 
     const sql = `
@@ -85,10 +85,16 @@ export class AssiduidadeService {
     }
   }
 
-  assiduidadeProva(dto: FindAttendanceTestDto) {
+   async assiduidadeProva(dto: FindAttendanceTestDto) {
     return this.attendanceTest(dto);
   }
+   async getAllStatusAgendamento() {
+    const sql = `
+    SELECT PK_ESTADO_AGENDAMENTO AS codigo, DESIGNACAO AS designacao  FROM FK2_MSA_TB_ESTADO_AGENDAMENTO`;
 
+    const status = await this.dataSource.query(sql);
+    return toLowerCaseKeys(status);
+  }
 
   private async checkgroupuser(
     utilizadorId: number,
@@ -108,7 +114,7 @@ export class AssiduidadeService {
 
     return result[0]?.TOTAL > 0;
   }
-// Assiduidade da aula
+  // Assiduidade da aula
   private async classScheduling(dto: FindAgendamentoAulaDto) {
     const {
       docente = 0,
@@ -738,6 +744,8 @@ ${whereClause}
       dataInicio,
       dataFim,
     };
+    console.log(dataInicio);
+
 
     if (docente !== 0) whereParams.docente = docente;
     if (disciplina !== 0) whereParams.disciplina = disciplina;
@@ -785,14 +793,24 @@ ${whereClause}
       cp.DATA_PROVA,
       d.DESIGNACAO AS disciplina,
       ap.DESIGNACAO AS estado,
+      v.ESTADO_AGENDAMENTO AS estado_agendamentoId,
+       JSON_VALUE(cp.REF_PRAZO, '$.pk_anoLectivo') AS ano_lectivo,
+       al.DESIGNACAO AS ano_lectivo_designacao,
+      JSON_VALUE(cp.REF_PRAZO, '$.pk_semestre') AS semestre,
+      cp.HORA_PROVA,
+      cp.HORA_TERMINO,
+      cp.DURACAOPROVA,
       JSON_VALUE(v.REF_VIGILANTE, '$.nome') AS docente_nome
     FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE v
     LEFT JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO ap
       ON ap.PK_ESTADO_AGENDAMENTO = v.ESTADO_AGENDAMENTO
-    INNER JOIN FK2_TB_CALENDARIO_PROVA cp
+    LEFT JOIN FK2_TB_CALENDARIO_PROVA cp
       ON cp.CODIGO = v.CALENDARIO_PROVA
-    INNER JOIN FK2_DISCIPLINA d
+    LEFT JOIN FK2_DISCIPLINA d
       ON d.CODIGO = cp.CODIGO_DISCIPLINA
+      LEFT JOIN FK2_TB_ANO_LECTIVO al
+      ON JSON_VALUE(cp.REF_PRAZO, '$.pk_anoLectivo' RETURNING NUMBER) = al.CODIGO
+    
     ${whereClause}
     ORDER BY cp.DATA_PROVA ASC
     OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
@@ -805,10 +823,12 @@ ${whereClause}
     FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE v
     LEFT JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO ap
       ON ap.PK_ESTADO_AGENDAMENTO = v.ESTADO_AGENDAMENTO
-    INNER JOIN FK2_TB_CALENDARIO_PROVA cp
+    LEFT JOIN FK2_TB_CALENDARIO_PROVA cp
       ON cp.CODIGO = v.CALENDARIO_PROVA
-    INNER JOIN FK2_DISCIPLINA d
+    LEFT JOIN FK2_DISCIPLINA d
       ON d.CODIGO = cp.CODIGO_DISCIPLINA
+        LEFT JOIN FK2_TB_ANO_LECTIVO al
+      ON JSON_VALUE(cp.REF_PRAZO, '$.pk_anoLectivo' RETURNING NUMBER) = al.CODIGO
     ${whereClause}
   `;
 
@@ -821,7 +841,7 @@ ${whereClause}
       const total = Number(countResult?.[0]?.TOTAL ?? 0);
 
       return {
-        data: records,
+        data: toLowerCaseKeys(records),
         total,
         page,
         limit,

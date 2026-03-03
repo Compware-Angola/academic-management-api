@@ -77,4 +77,14 @@ export class AssiduidadeController {
   
     return this.assiduidadeService.markAttendanceTest(dto);
   }
+
+  @Get('status')
+  @ApiOperation({
+    summary: 'Obter todos os status de agendamento',
+    description: 'Retorna uma lista com todos os status disponíveis para agendamentos.',
+  })
+  @ApiResponse({ status: 200, description: 'Status de agendamento retornados com sucesso.' })
+  getAllStatusAgendamento() {
+    return this.assiduidadeService.getAllStatusAgendamento();
+  }
 }
