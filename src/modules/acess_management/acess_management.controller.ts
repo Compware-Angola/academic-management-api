@@ -29,7 +29,7 @@ import {
   ApiNotFoundResponse,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  
   ApiParam,
   ApiQuery,
   ApiBadRequestResponse,
@@ -45,7 +45,7 @@ import { FilterUserLogadoDto } from './dto/filter-user-logado.dto';
 import { CreateLogsDTO } from './dto/create-logs.dto';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import {
-  PermissionType,
+
   PermissionTypeDetails,
 } from '../common/enums/permission.type';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
@@ -80,7 +80,7 @@ export class AcessManagementController {
     );
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
 
-    await AccessLogHelper.logAccess(this.httpService, {
+     AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${usuarioLogado?.nome} Criou O Utilizador ${userDateResponse.username}`,
       fkAcesso: 155,
       fkFuncionalidade: 232,
