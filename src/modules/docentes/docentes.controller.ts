@@ -1,7 +1,7 @@
-import { Controller, Get, Param, ParseIntPipe, Query, Req, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Req, ValidationPipe } from '@nestjs/common';
 import { DocentesService } from './docentes.service';
-import { FindProgramaUCDTO } from './dto/find-programa-uc.dto';
-import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import { CreateProgramaUCDTO, FindProgramaUCDTO } from './dto/find-programa-uc.dto';
+import { ApiBody, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { CursosResponseDto } from './dto/curso';
 import { CadeirasResponseDto } from './dto/cadeira';
 
@@ -68,6 +68,18 @@ findCadeiras(
   @Param('classeId', ParseIntPipe) classeId: string,
 ) {
   return this.docentesService.findCadeiras({ docenteId, cursoId, classeId });
+}
+@Post('/programa-uc')
+@ApiOperation({ summary: 'Cria um programa UC' })
+@ApiBody({ type: CreateProgramaUCDTO })
+@ApiResponse({
+  status: 200,
+  description: 'Programa UC criado com sucesso',
+})
+async createProgramaUC(
+  @Body(ValidationPipe) body: CreateProgramaUCDTO,
+) {
+  return this.docentesService.createProgramaUC(body);
 }
 
 }
