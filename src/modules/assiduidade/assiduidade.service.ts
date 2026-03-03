@@ -110,7 +110,7 @@ export class AssiduidadeService {
     `,
       { groupId, utilizadorId } as any
     );
-    console.log(result);
+   
 
     return result[0]?.TOTAL > 0;
   }
@@ -789,20 +789,23 @@ ${whereClause}
 
     const whereClause =
       conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
-
+ 
     const sql = `
     SELECT DISTINCT
       v.CODIGO,
-      cp.DATA_PROVA,
+    
+      TO_CHAR(cp.DATA_PROVA, 'YYYY-MM-DD') AS data_prova,
       d.DESIGNACAO AS disciplina,
       ap.DESIGNACAO AS estado,
       v.ESTADO_AGENDAMENTO AS estado_agendamentoId,
        JSON_VALUE(cp.REF_PRAZO, '$.pk_anoLectivo') AS ano_lectivo,
        al.DESIGNACAO AS ano_lectivo_designacao,
       JSON_VALUE(cp.REF_PRAZO, '$.pk_semestre') AS semestre,
-      cp.HORA_PROVA,
-      cp.HORA_TERMINO,
-      cp.DURACAOPROVA,
+      TO_CHAR(cp.HORA_PROVA, 'HH24:MI') AS hora_prova,
+        TO_CHAR(cp.HORA_TERMINO, 'HH24:MI') AS hora_termino,
+        TO_CHAR(cp.DURACAOPROVA, 'HH24:MI') AS duracao_prova,
+     
+      
       JSON_VALUE(v.REF_VIGILANTE, '$.nome') AS docente_nome
     FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE v
     LEFT JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO ap
