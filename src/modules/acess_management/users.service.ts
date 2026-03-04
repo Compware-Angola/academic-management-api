@@ -58,18 +58,40 @@ export class UsersService {
     );
     return result.length > 0;
   }
-    private async emailExistePerson(email: string,pessoaId: number): Promise<boolean> {
-    const result = await this.dataSource.query(
-      `SELECT 1 FROM FK2_MCA_TB_UTILIZADOR WHERE LOWER(EMAIL) = LOWER('${email}') AND ROWNUM = 1 AND PK_UTILIZADOR !=${pessoaId}`,
-    );
-    return result.length > 0;
-  }
-    private async telefoneExistePerson(telefone: string,pessoaId: number): Promise<boolean> {
-    const result = await this.dataSource.query(
-      `SELECT 1 FROM FK2_TB_PESSOA WHERE (TELEFONE1 = '${telefone}' OR TELEFONE2 = '${telefone}') AND ROWNUM = 1 AND PK_PESSOA !=${pessoaId}`,
-    );
-    return result.length > 0;
-  }
+ private async emailExistePerson(
+  email: string,
+  pessoaId: number,
+): Promise<boolean> {
+  const result = await this.dataSource.query(
+    `
+    SELECT 1 
+    FROM FK2_MCA_TB_UTILIZADOR 
+    WHERE LOWER(EMAIL) = LOWER(:email)
+      AND PK_UTILIZADOR != :pessoaId
+      AND ROWNUM = 1
+    `,
+    { email, pessoaId } as any,
+  );
+
+  return result.length > 0;
+}
+private async telefoneExistePerson(
+  telefone: string,
+  pessoaId: number,
+): Promise<boolean> {
+  const result = await this.dataSource.query(
+    `
+    SELECT 1
+    FROM FK2_TB_PESSOA
+    WHERE (TELEFONE1 = :telefone OR TELEFONE2 = :telefone)
+      AND PK_PESSOA != :pessoaId
+      AND ROWNUM = 1
+    `,
+    { telefone, pessoaId } as any,
+  );
+
+  return result.length > 0;
+}
   private async telefoneExiste(telefone: string): Promise<boolean> {
     const result = await this.dataSource.query(
       `SELECT 1 FROM FK2_TB_PESSOA WHERE TELEFONE1 = '${telefone}' OR TELEFONE2 = '${telefone}' AND ROWNUM = 1`,
