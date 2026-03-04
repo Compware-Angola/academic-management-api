@@ -62,25 +62,25 @@ export class CreatePersonUserDto {
   @IsOptional()
   @IsString()
   @Matches(
-    /^9[1-9]\d{7}$/,
-    {
-      message:
-        'O telefone 1 deve ter 9 dígitos e começar com 9 (formato padrão angolano atual, ex: 912345678)',
-    },
-  )
-  telefone1?: string;
+  /^(\+244)?9\d{8}$/,
+  {
+    message:
+      'O telefone deve ter 9 dígitos começando com 9, podendo incluir o prefixo +244 (ex: 912345678 ou +244912345678)',
+  },
+)
+telefone1?: string;
 
   @ApiProperty({ example: '987654321', required: false })
   @IsOptional()
   @IsString()
   @Matches(
-    /^9[1-9]\d{7}$/,
-    {
-      message:
-        'O telefone 2 deve ter 9 dígitos e começar com 9 (formato padrão angolano atual, ex: 987654321)',
-    },
-  )
-  telefone2?: string;
+  /^(\+244)?9\d{8}$/,
+  {
+    message:
+      'O telefone deve ter 9 dígitos começando com 9, podendo incluir o prefixo +244 (ex: 912345678 ou +244912345678)',
+  },
+)
+telefone2?: string;
  /*
   @ApiProperty({
     example: 'SenhaForte@2025',

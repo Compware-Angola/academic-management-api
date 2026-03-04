@@ -29,7 +29,7 @@ import {
   ApiNotFoundResponse,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  
   ApiParam,
   ApiQuery,
   ApiBadRequestResponse,
@@ -45,7 +45,7 @@ import { FilterUserLogadoDto } from './dto/filter-user-logado.dto';
 import { CreateLogsDTO } from './dto/create-logs.dto';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import {
-  PermissionType,
+
   PermissionTypeDetails,
 } from '../common/enums/permission.type';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
@@ -80,7 +80,7 @@ export class AcessManagementController {
     );
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
 
-    await AccessLogHelper.logAccess(this.httpService, {
+     AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${usuarioLogado?.nome} Criou O Utilizador ${userDateResponse.username}`,
       fkAcesso: 155,
       fkFuncionalidade: 232,
@@ -158,6 +158,34 @@ export class AcessManagementController {
     });
     return userDateResponse;
   }
+  @Put('update-user/:personId')
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+ // @RequiredPermissions()
+  @ApiOperation({ summary: 'Atualizar os dados de um utilizador' })
+  @ApiResponse({ status: 200, description: 'Dados do utilizador atualizados' })
+  @ApiNotFoundResponse({ description: 'Utilizador não encontrado' })
+  async updateUser(
+    @Param('personId', ParseIntPipe) personId: number,
+    @Body(ValidationPipe) dto: CreatePersonUserDto,
+    @Req() req: any,
+  ) {
+    const usuarioLogado = req.user;
+    const userDateResponse = await this.usersService.editarPessoaEUtilizador(
+      personId,
+      dto,
+      usuarioLogado.sub,
+    );
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+     AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${usuarioLogado?.nome} Atualizou os dados do Utilizador ${userDateResponse.username}`,
+      fkAcesso: 155,
+      fkFuncionalidade: 232,
+      fkUtilizadorResponsavel: usuarioLogado.sub,
+      fkOperacaoLog: 7,
+      ip: ip,
+    });
+    return userDateResponse;
+  } 
 
   @Put('add-group-to-user/:userId/:groupId')
   @RequiredPermissions(

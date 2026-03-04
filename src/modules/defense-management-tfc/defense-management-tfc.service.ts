@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 
@@ -9,16 +9,15 @@ export class DefenseManagementTfcService {
   async listFinalistStudents(query: any) {
     const { 
       anoLectivo, 
-      tipoCandidatura = 0, // No Java, 0 ignora o filtro
-      curso = 0,           // No Java, 0 ignora o filtro    
+      tipoCandidatura = 0, 
+      curso = 0,           
       page = 1, 
       limit = 10 
     } = query;
-    const  qtdCadeiras = 1
-
-    const offset = (page - 1) * limit;
-
     
+    const qtdCadeiras = 5; 
+    const offset = (page - 1) * limit;
+   
     const commonCTEs = `
       WITH total_cadeiras AS (
           SELECT tpcc.codigo_curso, COUNT(tpcg.codigo_grade_curricular) AS total
@@ -39,7 +38,7 @@ export class DefenseManagementTfcService {
       cadeiras_concluidas AS (
           SELECT 
               tgca.codigo_matricula, 
-              tgc.Codigo_Curso, -- Importante para o filtro de curso cruzado do Java
+              tgc.Codigo_Curso,
               COUNT(tgca.codigo_grade_curricular) AS concluidas
           FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
           INNER JOIN FK2_TB_GRADE_CURRICULAR tgc ON tgc.Codigo = tgca.codigo_grade_curricular
@@ -49,11 +48,21 @@ export class DefenseManagementTfcService {
       )
     `;
 
-    
     const whereClause = `
       WHERE (:3 = 0 OR tc.tipo_candidatura = :4)
         AND (:5 = 0 OR tc.Codigo = :6)
         AND (NVL(tc1.total, 0) + NVL(tc2.total, 0) - NVL(cc.concluidas, 0)) = :7
+        AND EXISTS (
+            SELECT 1
+            FROM FK2_TB_GRADE_CURRICULAR_ALUNO gca
+            INNER JOIN FK2_TB_GRADE_CURRICULAR gc ON gc.CODIGO = gca.CODIGO_GRADE_CURRICULAR
+            INNER JOIN FK2_TB_DISCIPLINAS d ON d.CODIGO = gc.CODIGO_DISCIPLINA
+            INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pcg ON pcg.CODIGO_GRADE_CURRICULAR = gc.CODIGO
+            INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pcc ON pcc.CODIGO = pcg.CODIGO_PLANO_CURRICULAR_CURSO
+            WHERE gca.CODIGO_MATRICULA = tm.Codigo
+              AND pcc.CODIGO_ANO_LECTIVO = :8
+              AND (UPPER(d.NOME_ABREVIATURA) LIKE '%TFC%' OR UPPER(d.DESIGNACAO) LIKE '%TFC%')
+        )
     `;
 
     const sqlData = `
@@ -73,7 +82,7 @@ export class DefenseManagementTfcService {
       LEFT JOIN cadeiras_concluidas cc ON (cc.codigo_matricula = tm.Codigo AND cc.Codigo_Curso = tm.Codigo_Curso)
       ${whereClause}
       ORDER BY tp.Nome_Completo
-      OFFSET :8 ROWS FETCH NEXT :9 ROWS ONLY
+      OFFSET :9 ROWS FETCH NEXT :10 ROWS ONLY
     `;
 
     const sqlCount = `
@@ -89,20 +98,22 @@ export class DefenseManagementTfcService {
       ${whereClause}
     `;
 
-    const commonParams = [
+ 
+    const params = [
       anoLectivo,        // :1
       anoLectivo,        // :2
-      tipoCandidatura,   // :3 (para o "OR ? = 0")
-      tipoCandidatura,   // :4 (para o "tc.tipo_candidatura = ?")
-      curso,             // :5 (para o "OR ? = 0")
-      curso,             // :6 (para o "tc.Codigo = ?")
-      qtdCadeiras        // :7 (o 'qutCadeiras' que define finalista)
+      tipoCandidatura,   // :3
+      tipoCandidatura,   // :4
+      curso,             // :5
+      curso,             // :6
+      qtdCadeiras,       // :7
+      anoLectivo         // :8 (Filtro TFC)
     ];
 
     try {
       const [data, countResult] = await Promise.all([
-        this.dataSource.query(sqlData, [...commonParams, offset, limit]),
-        this.dataSource.query(sqlCount, commonParams)
+        this.dataSource.query(sqlData, [...params, offset, limit]),
+        this.dataSource.query(sqlCount, params)
       ]);
 
       const total = Number(countResult[0]?.TOTAL || 0);
@@ -110,13 +121,13 @@ export class DefenseManagementTfcService {
       return {
         data: toLowerCaseKeys(data),
         total,
-        page,
-        limit,
+        page: Number(page),
+        limit: Number(limit),
         totalPages: Math.ceil(total / limit),
       };
     } catch (error) {
-      console.error('Erro na query Oracle:', error);
-      throw error;
+      console.error('Erro na query de alunos TFC:', error);
+      throw new InternalServerErrorException('Erro ao buscar lista de finalistas.');
     }
   }
 }
