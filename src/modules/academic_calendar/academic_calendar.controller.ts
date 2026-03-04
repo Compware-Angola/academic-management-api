@@ -18,7 +18,7 @@ import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { GenerateMesTempDTO } from './dto/generate-mes-temp.dto';
 import { CreateMesTempDTO } from './dto/create-mes-temp.dto';
-//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('academic-calendar')
 export class AcademicCalendarController {
   constructor(
