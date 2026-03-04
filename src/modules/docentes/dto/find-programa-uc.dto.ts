@@ -9,6 +9,7 @@ import {
   IsPositive,
   IsIn,
   Max,
+  IsString,
 } from 'class-validator';
 
 export class FindProgramaUCDTO {
@@ -86,4 +87,85 @@ export class FindProgramaUCDTO {
   @Max(100)
   @Type(() => Number)
   limit?: number = 25;
+}
+
+
+export class CreateProgramaUCDTO {
+  @ApiProperty({
+    description: 'Ano letivo obrigatório',
+    example: 21,
+    minimum: 1,
+  })
+  @IsNumber()
+  @IsPositive()
+  @Type(() => Number)
+  anoLectivo: number;
+
+  @ApiProperty({
+    description: 'Filtrar por semestre (1 ou 2)',
+    example: 1,
+    required: true,
+    enum: [1, 2],
+  })
+  @IsInt()
+  @IsIn([1, 2], { message: 'semestre deve ser 1 ou 2' })
+  @Type(() => Number)
+  semestre: number;
+
+  @ApiProperty({
+    description: 'Codigo do Curso',
+    example: 6,
+    required: true,
+  })
+  @IsInt()
+  @Type(() => Number)
+  codigoCurso: number;
+
+  @ApiProperty({
+    description: 'Codigo do Ano Curricular',
+    example: 1,
+    required: true,
+  })
+  @IsInt()
+  @Type(() => Number)
+  anoCurricularCode: number;
+
+  @ApiProperty({
+    description: 'Filtrar por docente',
+    example: 486,
+    required: true,
+  })
+  @IsInt()
+  @Type(() => Number)
+  docenteCode: number;
+
+  @ApiProperty({
+    description: 'Nome do ficheiro',
+    example: 'ficheiro.pdf',
+    required: true,
+  })
+  @IsString()
+  @Type(() => String)
+  ficheiroName: string;
+
+
+  @ApiProperty({
+    description: 'Estado do programa',
+    example: 1,
+    required: true,
+  })
+  @IsNumber()
+  @IsPositive()
+  @Type(() => Number)
+  estadoPrograma: number;
+
+  @ApiProperty({
+    description: 'Codigo da Grade Curricular',
+    example: 1,
+    required: true,
+  })
+  @IsInt()
+  @Type(() => Number)
+  gradeCurricularCode: number;
+  
 }

@@ -18,6 +18,7 @@ import { UpdatePasswordDto } from './dto/update-password.dto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { gerarHashExterno } from '../util/hash.util';
 import { FilterUserLogadoDto } from './dto/filter-user-logado.dto';
+import { UpdatePersonUserDto } from './dto/update-person-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -54,6 +55,18 @@ export class UsersService {
   private async emailExiste(email: string): Promise<boolean> {
     const result = await this.dataSource.query(
       `SELECT 1 FROM FK2_MCA_TB_UTILIZADOR WHERE LOWER(EMAIL) = LOWER('${email}') AND ROWNUM = 1`,
+    );
+    return result.length > 0;
+  }
+    private async emailExistePerson(email: string,pessoaId: number): Promise<boolean> {
+    const result = await this.dataSource.query(
+      `SELECT 1 FROM FK2_MCA_TB_UTILIZADOR WHERE LOWER(EMAIL) = LOWER('${email}') AND ROWNUM = 1 AND PK_UTILIZADOR !=${pessoaId}`,
+    );
+    return result.length > 0;
+  }
+    private async telefoneExistePerson(telefone: string,pessoaId: number): Promise<boolean> {
+    const result = await this.dataSource.query(
+      `SELECT 1 FROM FK2_TB_PESSOA WHERE (TELEFONE1 = '${telefone}' OR TELEFONE2 = '${telefone}') AND ROWNUM = 1 AND PK_PESSOA !=${pessoaId}`,
     );
     return result.length > 0;
   }
@@ -149,13 +162,17 @@ export class UsersService {
           u.EMAIL                                  AS email,
           u.ACTIVE_STATE                           AS activeState,
           u.OBS                                    AS obs,
+          pe.PK_PESSOA                             AS pessoaId,
         
           TO_CHAR(u.CREATED_AT, 'DD/MM/YYYY HH24:MI')   AS createdAt,
           TO_CHAR(u.UPDATED_AT, 'DD/MM/YYYY HH24:MI')   AS updatedAt,
           pe.NUM_DOC_IDENTIFICACAO                 AS numeroDocumento,
           TO_CHAR(pe.DATA_DE_NASCIMENTO, 'DD/MM/YYYY') AS dataDeNascimento,
           pe.TELEFONE1                             AS telefone1,
-          pe.TELEFONE2                             AS telefone2
+          pe.TELEFONE2                             AS telefone2,
+          pe.FK_GENERO                                  AS genero,
+          pe.FK_ESTADO_CIVIL                      AS estadoCivil,
+          pe.FK_NACIONALIDADE                    AS nacionalidade
         FROM FK2_MCA_TB_UTILIZADOR u
         LEFT JOIN FK2_TB_PESSOA pe 
           ON pe.pk_pessoa = JSON_VALUE(u.REF_PESSOA, '$.pk')
@@ -595,7 +612,143 @@ const result = await queryRunner.manager.query(
       await queryRunner.release();
     }
   }
+async editarPessoaEUtilizador(
+  pessoaId: number,
+  dto: UpdatePersonUserDto, 
+  usuarioLogadoId: number = 1,
+): Promise<CreatePersonUserResponseDto> {
+  const queryRunner = this.dataSource.createQueryRunner();
+  await queryRunner.connect();
+  await queryRunner.startTransaction();
 
+  try {
+    // 1. Verificar se a pessoa existe
+    const pessoaExiste = await queryRunner.manager.query(
+      `SELECT 1 FROM FK2_TB_PESSOA WHERE PK_PESSOA = :pessoaId AND ROWNUM = 1`,
+      [pessoaId],
+    );
+    if (!pessoaExiste || pessoaExiste.length === 0) {
+      throw new NotFoundException('Pessoa não encontrada.');
+    }
+
+    // 2. Validar email se for fornecido
+    if (dto.email) {
+      if (!this.validarEmail(dto.email)) {
+        throw new BadRequestException('Endereço de email inválido.');
+      }
+      const emailExiste = await this.emailExistePerson(dto.email, pessoaId);
+      if (emailExiste) {
+        throw new ConflictException('Já existe outro utilizador com este email.');
+      }
+    }
+
+    // 3. Validar telefones se forem fornecidos
+    if (dto.telefone1) {
+      const telefone1Existe = await this.telefoneExistePerson(dto.telefone1, pessoaId);
+      if (telefone1Existe) {
+        throw new ConflictException('Já existe outra pessoa com este número de telefone.');
+      }
+    }
+    if (dto.telefone2) {
+      const telefone2Existe = await this.telefoneExistePerson(dto.telefone2, pessoaId);
+      if (telefone2Existe) {
+        throw new ConflictException('Já existe outra pessoa com este número de telefone.');
+      }
+    }
+
+    // 4. Atualizar Pessoa
+    await queryRunner.manager.query(
+      `
+      UPDATE FK2_TB_PESSOA
+      SET
+        NOME_COMPLETO = NVL(:nomeCompleto, NOME_COMPLETO),
+        NUM_DOC_IDENTIFICACAO = NVL(:numDocIdentificacao, NUM_DOC_IDENTIFICACAO),
+        EMAIL = NVL(:email, EMAIL),
+        TELEFONE1 = NVL(:telefone1, TELEFONE1),
+        TELEFONE2 = NVL(:telefone2, TELEFONE2),
+        DATA_DE_NASCIMENTO = NVL(:dataDeNascimento, DATA_DE_NASCIMENTO),
+        FK_TIPO_DOCUMENTO_IDENTIFICACAO = NVL(:tipoDocumentoId, FK_TIPO_DOCUMENTO_IDENTIFICACAO),
+        FK_GENERO = NVL(:sexoId, FK_GENERO),
+        FK_ESTADO_CIVIL = NVL(:estadoCivilId, FK_ESTADO_CIVIL),
+        FK_NACIONALIDADE = NVL(:nacionalidadeId, FK_NACIONALIDADE),
+        UPDATED_AT = SYSDATE
+      WHERE PK_PESSOA = :pessoaId
+      `,
+      {
+        pessoaId,
+        nomeCompleto: dto.nomeCompleto || null,
+        numDocIdentificacao: dto.numDocIdentificacao || null,
+        email: dto.email || null,
+        telefone1: dto.telefone1 || null,
+        telefone2: dto.telefone2 || null,
+        dataDeNascimento: dto.dataDeNascimento ? new Date(dto.dataDeNascimento) : null,
+        tipoDocumentoId: dto.tipoDocumentoId || null,
+        sexoId: dto.sexoId || null,
+        estadoCivilId: dto.estadoCivilId || null,
+        nacionalidadeId: dto.nacionalidadeId || null,
+      } as any,
+    );
+
+    // 5. Recuperar ID do Utilizador ""
+    const utilizadorResult = await queryRunner.manager.query(
+      `SELECT PK_UTILIZADOR AS id, USERNAME FROM FK2_MCA_TB_UTILIZADOR WHERE 
+      JSON_VALUE(REF_PESSOA, '$.pk' RETURNING NUMBER) = :pessoaId
+       AND ROWNUM = 1`,
+      [pessoaId],
+    );
+    if (!utilizadorResult || utilizadorResult.length === 0) {
+      throw new InternalServerErrorException('Utilizador associado à pessoa não encontrado.');
+    }
+    const utilizadorId = Number(utilizadorResult[0].ID);
+    let username = utilizadorResult[0].USERNAME;
+
+    // 6. Atualizar Utilizador
+    await queryRunner.manager.query(
+      `
+      UPDATE FK2_MCA_TB_UTILIZADOR
+      SET
+        NOME = NVL(:nomeCompleto, NOME),
+        EMAIL = NVL(:email, EMAIL),
+        UPDATED_AT = SYSDATE
+      WHERE PK_UTILIZADOR = :utilizadorId
+      `,
+      {
+        utilizadorId,
+        nomeCompleto: dto.nomeCompleto || null,
+        email: dto.email || null,
+      } as any,
+    );
+
+    this.logger.log(
+      `Utilizador atualizado com sucesso: ${dto.nomeCompleto || username} | user_id=${usuarioLogadoId}`,
+    );
+
+    await queryRunner.commitTransaction();
+
+    return {
+      message: 'Utilizador atualizado com sucesso',
+      username,
+      senhaTemporariaGerada: false,
+      observacao: 'Os dados do utilizador foram atualizados com sucesso.',
+    };
+  } catch (error) {
+    await queryRunner.rollbackTransaction();
+    this.logger.error('Erro ao atualizar utilizador', error.stack);
+
+    if (
+      error instanceof ConflictException ||
+      error instanceof BadRequestException ||
+      error instanceof NotFoundException
+    ) {
+      throw error;
+    }
+    throw new InternalServerErrorException(
+      'Erro interno ao atualizar utilizador. Verifique os dados e tente novamente.',
+    );
+  } finally {
+    await queryRunner.release();
+  }
+}
 
   async listUsersAcesso(filter: FilterUserLogadoDto): Promise<{
     data: any[];
