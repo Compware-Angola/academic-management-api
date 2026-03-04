@@ -67,7 +67,8 @@ export class UsersService {
     SELECT 1 
     FROM FK2_MCA_TB_UTILIZADOR 
     WHERE LOWER(EMAIL) = LOWER(:email)
-      AND PK_UTILIZADOR != :pessoaId
+    AND JSON_VALUE(REF_PESSOA, '$.pk' RETURNING NUMBER) = :pessoaId
+    
       AND ROWNUM = 1
     `,
     { email, pessoaId } as any,
@@ -84,7 +85,7 @@ private async telefoneExistePerson(
     SELECT 1
     FROM FK2_TB_PESSOA
     WHERE (TELEFONE1 = :telefone OR TELEFONE2 = :telefone)
-      AND PK_PESSOA != :pessoaId
+      AND JSON_VALUE(REF_PESSOA, '$.pk' RETURNING NUMBER) = :pessoaId
       AND ROWNUM = 1
     `,
     { telefone, pessoaId } as any,
