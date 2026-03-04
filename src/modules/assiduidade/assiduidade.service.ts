@@ -110,7 +110,7 @@ export class AssiduidadeService {
     `,
       { groupId, utilizadorId } as any
     );
-    console.log(result);
+   
 
     return result[0]?.TOTAL > 0;
   }
@@ -121,7 +121,7 @@ export class AssiduidadeService {
       unidadeCurricular = 0,
       dataInicial,
       dataFinal,
-      estado = 0,
+      estado= 0,
       anoLectivo = 0,
       semestre = 0,
       page = 1,
@@ -162,6 +162,8 @@ export class AssiduidadeService {
     if (estado !== 0) {
       conditions.push('aa.FK_ESTADO_AGENDAMENTO = :estado');
     }
+       console.log(estado);
+    
 
     if (anoLectivo !== 0) {
       conditions.push("h.FK_ANO_LECTIVO = :anoLectivo");
@@ -180,9 +182,9 @@ export class AssiduidadeService {
    d.DESIGNACAO AS unidade_curricular,
    at.DESIGNACAO  AS tipo_aula,
    al.ORDEM AS ordem_tempo,
-   al.HORA_INICIO AS hora_inicio,
-   al.HORA_TERMINO AS hora_fim,
-   aa.DATA_AULA AS data_aula,
+ TO_CHAR(aa.DATA_AULA, 'YYYY-MM-DD')     AS data_aula,
+TO_CHAR(al.HORA_INICIO, 'HH24:MI')      AS hora_inicio,
+TO_CHAR(al.HORA_TERMINO, 'HH24:MI')     AS hora_fim,
    aa.FK_ESTADO_AGENDAMENTO AS estado_agendamento_aula,
    est.DESIGNACAO AS estado_agendamento_aula_designacao,
    ds.DESIGNACAO AS dia_semana,
@@ -225,7 +227,7 @@ LEFT JOIN FK2_TB_CLASSES cl
 
 ${whereClause}
 
-ORDER BY aa.DATA_AULA ASC
+ORDER BY aa.PK_AGENDAMENTO_AULA ASC
 OFFSET :offset ROWS
 FETCH NEXT :limit ROWS ONLY
   `;
@@ -291,6 +293,7 @@ FETCH NEXT :limit ROWS ONLY
     if (estado !== 0) whereParams.estado = estado;
     if (semestre !== 0) whereParams.semestre = semestre;
     if (anoLectivo !== 0) whereParams.anoLectivo = anoLectivo;
+ 
 
     // Monta as condições dinamicamente
     const conditions: string[] = [
@@ -635,9 +638,9 @@ FETCH NEXT :limit ROWS ONLY
    d.DESIGNACAO AS unidade_curricular,
    at.DESIGNACAO  AS tipo_aula,
    al.ORDEM AS ordem_tempo,
-   al.HORA_INICIO AS hora_inicio,
-   al.HORA_TERMINO AS hora_fim,
-   aa.DATA_AULA AS data_aula,
+  TO_CHAR(aa.DATA_AULA, 'YYYY-MM-DD')     AS data_aula,
+TO_CHAR(al.HORA_INICIO, 'HH24:MI')      AS hora_inicio,
+TO_CHAR(al.HORA_TERMINO, 'HH24:MI')     AS hora_fim,
    aa.FK_ESTADO_AGENDAMENTO AS estado_agendamento_aula,
    est.DESIGNACAO AS estado_agendamento_aula_designacao,
    ds.DESIGNACAO AS dia_semana,
@@ -744,8 +747,7 @@ ${whereClause}
       dataInicio,
       dataFim,
     };
-    console.log(dataInicio);
-
+  
 
     if (docente !== 0) whereParams.docente = docente;
     if (disciplina !== 0) whereParams.disciplina = disciplina;
@@ -786,27 +788,30 @@ ${whereClause}
 
     const whereClause =
       conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
-
+ 
     const sql = `
     SELECT DISTINCT
       v.CODIGO,
-      cp.DATA_PROVA,
+    
+      TO_CHAR(cp.DATA_PROVA, 'YYYY-MM-DD') AS data_prova,
       d.DESIGNACAO AS disciplina,
       ap.DESIGNACAO AS estado,
       v.ESTADO_AGENDAMENTO AS estado_agendamentoId,
        JSON_VALUE(cp.REF_PRAZO, '$.pk_anoLectivo') AS ano_lectivo,
        al.DESIGNACAO AS ano_lectivo_designacao,
       JSON_VALUE(cp.REF_PRAZO, '$.pk_semestre') AS semestre,
-      cp.HORA_PROVA,
-      cp.HORA_TERMINO,
-      cp.DURACAOPROVA,
-      JSON_VALUE(v.REF_VIGILANTE, '$.nome') AS docente_nome
+      TO_CHAR(cp.HORA_PROVA, 'HH24:MI') AS hora_prova,
+        TO_CHAR(cp.HORA_TERMINO, 'HH24:MI') AS hora_termino,
+        TO_CHAR(cp.DURACAOPROVA, 'HH24:MI') AS duracao_prova,
+     
+      
+      JSON_VALUE(v.REF_VIGILANTE, '$.desc') AS docente_nome
     FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE v
     LEFT JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO ap
       ON ap.PK_ESTADO_AGENDAMENTO = v.ESTADO_AGENDAMENTO
     LEFT JOIN FK2_TB_CALENDARIO_PROVA cp
       ON cp.CODIGO = v.CALENDARIO_PROVA
-    LEFT JOIN FK2_DISCIPLINA d
+    LEFT JOIN FK2_TB_DISCIPLINAS d
       ON d.CODIGO = cp.CODIGO_DISCIPLINA
       LEFT JOIN FK2_TB_ANO_LECTIVO al
       ON JSON_VALUE(cp.REF_PRAZO, '$.pk_anoLectivo' RETURNING NUMBER) = al.CODIGO

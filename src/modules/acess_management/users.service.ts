@@ -58,18 +58,41 @@ export class UsersService {
     );
     return result.length > 0;
   }
-    private async emailExistePerson(email: string,pessoaId: number): Promise<boolean> {
-    const result = await this.dataSource.query(
-      `SELECT 1 FROM FK2_MCA_TB_UTILIZADOR WHERE LOWER(EMAIL) = LOWER('${email}') AND ROWNUM = 1 AND PK_UTILIZADOR !=${pessoaId}`,
-    );
-    return result.length > 0;
-  }
-    private async telefoneExistePerson(telefone: string,pessoaId: number): Promise<boolean> {
-    const result = await this.dataSource.query(
-      `SELECT 1 FROM FK2_TB_PESSOA WHERE (TELEFONE1 = '${telefone}' OR TELEFONE2 = '${telefone}') AND ROWNUM = 1 AND PK_PESSOA !=${pessoaId}`,
-    );
-    return result.length > 0;
-  }
+ private async emailExistePerson(
+  email: string,
+  pessoaId: number,
+): Promise<boolean> {
+  const result = await this.dataSource.query(
+    `
+    SELECT 1 
+    FROM FK2_MCA_TB_UTILIZADOR 
+    WHERE LOWER(EMAIL) = LOWER(:email)
+    AND JSON_VALUE(REF_PESSOA, '$.pk' RETURNING NUMBER) != :pessoaId
+    
+      AND ROWNUM = 1
+    `,
+    { email, pessoaId } as any,
+  );
+
+  return result.length > 0;
+}
+private async telefoneExistePerson(
+  telefone: string,
+  pessoaId: number,
+): Promise<boolean> {
+  const result = await this.dataSource.query(
+    `
+    SELECT 1
+    FROM FK2_TB_PESSOA
+    WHERE (TELEFONE1 = :telefone OR TELEFONE2 = :telefone)
+       AND PK_PESSOA != :pessoaId
+      AND ROWNUM = 1
+    `,
+    { telefone, pessoaId } as any,
+  );
+
+  return result.length > 0;
+}
   private async telefoneExiste(telefone: string): Promise<boolean> {
     const result = await this.dataSource.query(
       `SELECT 1 FROM FK2_TB_PESSOA WHERE TELEFONE1 = '${telefone}' OR TELEFONE2 = '${telefone}' AND ROWNUM = 1`,
@@ -171,6 +194,7 @@ export class UsersService {
           pe.TELEFONE1                             AS telefone1,
           pe.TELEFONE2                             AS telefone2,
           pe.FK_GENERO                                  AS genero,
+          pe.FK_TIPO_DOCUMENTO_IDENTIFICACAO          AS tipoDocumentoId,
           pe.FK_ESTADO_CIVIL                      AS estadoCivil,
           pe.FK_NACIONALIDADE                    AS nacionalidade
         FROM FK2_MCA_TB_UTILIZADOR u
@@ -689,10 +713,12 @@ async editarPessoaEUtilizador(
       } as any,
     );
 
-    // 5. Recuperar ID do Utilizador
+    // 5. Recuperar ID do Utilizador ""
     const utilizadorResult = await queryRunner.manager.query(
-      `SELECT PK_UTILIZADOR AS id, USERNAME FROM FK2_MCA_TB_UTILIZADOR WHERE REF_PESSOA LIKE :refPessoa AND ROWNUM = 1`,
-      [`%\"pk\":${pessoaId}%`],
+      `SELECT PK_UTILIZADOR AS id, USERNAME FROM FK2_MCA_TB_UTILIZADOR WHERE 
+      JSON_VALUE(REF_PESSOA, '$.pk' RETURNING NUMBER) = :pessoaId
+       AND ROWNUM = 1`,
+      [pessoaId],
     );
     if (!utilizadorResult || utilizadorResult.length === 0) {
       throw new InternalServerErrorException('Utilizador associado à pessoa não encontrado.');
