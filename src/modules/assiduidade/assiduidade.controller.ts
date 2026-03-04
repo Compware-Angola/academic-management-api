@@ -45,4 +45,14 @@ export class AssiduidadeController {
     const utilizadorId = 163;
     return this.assiduidadeService.attendanceControlling(dto);
   }
+
+  @Get('estado-aula')
+  @ApiOperation({
+    summary: 'Lista estados da aula',
+    description: 'Retorna lista de estados da aula, para o controle de assiduidade.',
+  })
+  @ApiResponse({ status: 200, description: 'Lista de controle de assiduidade retornada com sucesso.' })
+  assiduidadeEstadoAula(){
+    return this.assiduidadeService.getStateLessonAttendance();
+  }
 }

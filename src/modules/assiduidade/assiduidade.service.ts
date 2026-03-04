@@ -513,134 +513,147 @@ FETCH NEXT :limit ROWS ONLY
     }
   }
 
-  async attendanceControlling(dto: AtendanceControlling){
-    const {
-      docente = 0,
-      dataInicial,
-      dataFinal,
-      estado = 0,
-      anoLectivo = 0,
-      semestre = 0,
-      page = 1,
-      limit = 20,
-    } = dto;
+  async attendanceControlling(dto: AtendanceControlling) {
+  const {
+    docente = 0,
+    dataInicial,
+    dataFinal,
+    estado = 0,
+    anoLectivo = 0,
+    semestre = 0,
+    page = 1,
+    limit = 20,
+  } = dto;
 
-    const offset = (page - 1) * limit;
-    const whereParams: Record<string, any> = {
-      dataInicial,
-      dataFinal,
-    };
+  const offset = (page - 1) * limit;
 
+  const whereParams: Record<string, any> = {
+    dataInicial,
+    dataFinal,
+  };
 
-    // Adiciona apenas os filtros que vieram preenchidos (≠ 0)
-    if (docente !== 0) whereParams.docente = docente;
+  const conditions: string[] = [
+    'aa.ACTIVE_STATE = 1',
+    'aa.DATA_AULA BETWEEN :dataInicial AND :dataFinal',
+    'h.ACTIVE_STATE = 1'
+  ];
 
+  // 🔹 Docente (usa FK estruturada)
+  if (docente !== 0) {
+    conditions.push('aa.FK_DOCENTE = :docente');
+    whereParams.docente = docente;
+  }
 
-    if (estado !== 0) whereParams.estado = estado;
-    if (semestre !== 0) whereParams.semestre = semestre;
-    if (anoLectivo !== 0) whereParams.anoLectivo = anoLectivo;
+  // 🔹 Estado (agora correto)
+  if (estado !== 0) {
+  conditions.push('aa.FK_ESTADO_AGENDAMENTO = :estado');
+  whereParams.estado = estado;
+}
 
-    // Monta as condições dinamicamente
-    const conditions: string[] = [
-      'aa.ACTIVE_STATE = 1',
-      'aa.DATA_AULA BETWEEN :dataInicial AND :dataFinal',
-      'h.ACTIVE_STATE= 1'
-    ];
+  // 🔹 Ano Lectivo
+  if (anoLectivo !== 0) {
+    conditions.push('h.FK_ANO_LECTIVO = :anoLectivo');
+    whereParams.anoLectivo = anoLectivo;
+  }
 
-    if (docente !== 0) {
-      conditions.push("JSON_VALUE(aa.REF_AULA, '$.pkDocente') = :docente");
-    }
+  // 🔹 Semestre (vem da grade curricular, não do horário)
+  if (semestre !== 0) {
+    conditions.push('gc.CODIGO_SEMESTRE = :semestre');
+    whereParams.semestre = semestre;
+  }
 
-    
+  const whereClause =
+    conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
-    if (estado !== 0) {
-      conditions.push('aa.PK_AGENDAMENTO_AULA = :estado');
-    }
-
-    if (anoLectivo !== 0) {
-      conditions.push("h.FK_ANO_LECTIVO = :anoLectivo");
-    }
-
-    if (semestre !== 0) {
-      conditions.push("h.FK_SEMESTRE = :semestre");
-    }
-
-    const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
-
-
-       const sql = `
-        SELECT DISTINCT
+  const sql = `
+    SELECT
       aa.PK_AGENDAMENTO_AULA AS codigo,
       c2.DESIGNACAO AS curso,
       d.DESIGNACAO AS unidade_curricular,
       al.ORDEM AS ordem_tempo,
-
       TO_CHAR(al.HORA_INICIO, 'HH24:MI')  AS hora_inicio,
       TO_CHAR(al.HORA_TERMINO, 'HH24:MI') AS hora_fim,
-
       aa.DATA_AULA AS data_aula,
-      JSON_VALUE(al.REF_DOCENTE, '$.nome') AS Docente
+      JSON_VALUE(al.REF_DOCENTE, '$.nome') AS docente
 
-  FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
+    FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
 
-  INNER JOIN FK2_MGH_TB_AULA al
-      ON JSON_VALUE(aa.REF_AULA, '$.pkAula') = al.PK_AULA
-  
-  INNER JOIN FK2_MGH_TB_HORARIO h
-    ON al.FK_HORARIO = h.PK_HORARIO
+    INNER JOIN FK2_MGH_TB_AULA al
+      ON TO_NUMBER(aa.FK_AULA) = al.PK_AULA
 
-  INNER JOIN FK2_TB_GRADE_CURRICULAR gc
-      ON aa.FK_GRADE_CURRICULAR = gc.CODIGO
+    INNER JOIN FK2_MGH_TB_HORARIO h
+      ON al.FK_HORARIO = h.PK_HORARIO
 
-  LEFT JOIN FK2_TB_DISCIPLINAS d
+    INNER JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO est
+      ON aa.FK_ESTADO_AGENDAMENTO = est.PK_ESTADO_AGENDAMENTO
+
+    INNER JOIN FK2_TB_GRADE_CURRICULAR gc
+      ON TO_NUMBER(aa.FK_GRADE_CURRICULAR) = gc.CODIGO
+
+    LEFT JOIN FK2_TB_DISCIPLINAS d
       ON gc.CODIGO_DISCIPLINA = d.CODIGO
 
-  LEFT JOIN FK2_TB_CURSOS c2
+    LEFT JOIN FK2_TB_CURSOS c2
       ON gc.CODIGO_CURSO = c2.CODIGO
-      ${whereClause}
 
-      ORDER BY aa.DATA_AULA ASC
-      OFFSET :offset ROWS
-      FETCH NEXT :limit ROWS ONLY
+    ${whereClause}
+
+    ORDER BY aa.DATA_AULA ASC
+    OFFSET :offset ROWS
+    FETCH NEXT :limit ROWS ONLY
   `;
 
-        
+  const sqlParams = { ...whereParams, offset, limit };
 
-    const sqlParams = { ...whereParams, offset, limit };
-
-
-    const countSql = `
-     SELECT COUNT(DISTINCT aa.PK_AGENDAMENTO_AULA) as total
+  const countSql = `
+    SELECT COUNT(*) as total
     FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
+
     INNER JOIN FK2_MGH_TB_AULA al
-      ON JSON_VALUE(aa.REF_AULA, '$.pkAula') = al.PK_AULA
-      INNER JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO est
-      ON aa.FK_ESTADO_AGENDAMENTO =est.PK_ESTADO_AGENDAMENTO
-       INNER JOIN FK2_MGH_TB_HORARIO h
+      ON TO_NUMBER(aa.FK_AULA) = al.PK_AULA
+
+    INNER JOIN FK2_MGH_TB_HORARIO h
       ON al.FK_HORARIO = h.PK_HORARIO
+
+    INNER JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO est
+      ON aa.FK_ESTADO_AGENDAMENTO = est.PK_ESTADO_AGENDAMENTO
+
+    INNER JOIN FK2_TB_GRADE_CURRICULAR gc
+      ON TO_NUMBER(aa.FK_GRADE_CURRICULAR) = gc.CODIGO
+
     ${whereClause}
   `;
 
-    try {
-      const [records, countResult] = await Promise.all([
-        this.dataSource.query(sql, sqlParams as any),
-        this.dataSource.query(countSql, whereParams as any),
-      ]);
+  try {
+    const [records, countResult] = await Promise.all([
+      this.dataSource.query(sql, sqlParams as any),
+      this.dataSource.query(countSql, whereParams as any),
+    ]);
 
-      const total = Number(countResult?.[0]?.TOTAL ?? 0);
+    const total = Number(countResult?.[0]?.TOTAL ?? 0);
 
-      return {
-        data: toLowerCaseKeys(records),
-        total,
-        page,
-        limit,
-        totalPages: total > 0 ? Math.ceil(total / limit) : 1,
-      };
-    } catch (error) {
-      console.error('Erro ao buscar agendamentos de al:', error);
-      throw new Error(`Falha ao consultar agendamentos: ${error.message}`);
-    }
-
+    return {
+      data: toLowerCaseKeys(records),
+      total,
+      page,
+      limit,
+      totalPages: total > 0 ? Math.ceil(total / limit) : 1,
+    };
+  } catch (error) {
+    console.error('Erro ao buscar agendamentos:', error);
+    throw new Error(`Falha ao consultar agendamentos: ${error.message}`);
   }
+}
+
+async getStateLessonAttendance(): Promise<[]> {
+  const result = await this.dataSource.query(
+    `
+      SELECT DESIGNACAO, PK_ESTADO_AGENDAMENTO
+      FROM FK2_MSA_TB_ESTADO_AGENDAMENTO
+    `
+  );
+
+  return result;
+}
 
 }
