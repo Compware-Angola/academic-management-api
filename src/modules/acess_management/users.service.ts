@@ -689,10 +689,12 @@ async editarPessoaEUtilizador(
       } as any,
     );
 
-    // 5. Recuperar ID do Utilizador
+    // 5. Recuperar ID do Utilizador ""
     const utilizadorResult = await queryRunner.manager.query(
-      `SELECT PK_UTILIZADOR AS id, USERNAME FROM FK2_MCA_TB_UTILIZADOR WHERE REF_PESSOA LIKE :refPessoa AND ROWNUM = 1`,
-      [`%\"pk\":${pessoaId}%`],
+      `SELECT PK_UTILIZADOR AS id, USERNAME FROM FK2_MCA_TB_UTILIZADOR WHERE 
+      JSON_VALUE(REF_PESSOA, '$.pk' RETURNING NUMBER) = :pessoaId
+       AND ROWNUM = 1`,
+      [pessoaId],
     );
     if (!utilizadorResult || utilizadorResult.length === 0) {
       throw new InternalServerErrorException('Utilizador associado à pessoa não encontrado.');
