@@ -67,7 +67,7 @@ export class UsersService {
     SELECT 1 
     FROM FK2_MCA_TB_UTILIZADOR 
     WHERE LOWER(EMAIL) = LOWER(:email)
-    AND JSON_VALUE(REF_PESSOA, '$.pk' RETURNING NUMBER) = :pessoaId
+    AND JSON_VALUE(REF_PESSOA, '$.pk' RETURNING NUMBER) != :pessoaId
     
       AND ROWNUM = 1
     `,
@@ -85,7 +85,7 @@ private async telefoneExistePerson(
     SELECT 1
     FROM FK2_TB_PESSOA
     WHERE (TELEFONE1 = :telefone OR TELEFONE2 = :telefone)
-      AND JSON_VALUE(REF_PESSOA, '$.pk' RETURNING NUMBER) = :pessoaId
+       AND PK_PESSOA != :pessoaId
       AND ROWNUM = 1
     `,
     { telefone, pessoaId } as any,
@@ -194,6 +194,7 @@ private async telefoneExistePerson(
           pe.TELEFONE1                             AS telefone1,
           pe.TELEFONE2                             AS telefone2,
           pe.FK_GENERO                                  AS genero,
+          pe.FK_TIPO_DOCUMENTO_IDENTIFICACAO          AS tipoDocumentoId,
           pe.FK_ESTADO_CIVIL                      AS estadoCivil,
           pe.FK_NACIONALIDADE                    AS nacionalidade
         FROM FK2_MCA_TB_UTILIZADOR u
