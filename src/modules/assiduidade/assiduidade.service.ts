@@ -747,8 +747,7 @@ ${whereClause}
       dataInicio,
       dataFim,
     };
-    console.log(dataInicio);
-
+  
 
     if (docente !== 0) whereParams.docente = docente;
     if (disciplina !== 0) whereParams.disciplina = disciplina;
