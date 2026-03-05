@@ -39,4 +39,14 @@ ApiTags('SUMÁRIO')
   async getAulasAgendadas(@Query() dto: FindAulasAgendadasSumarioDto) {
     return this.sumarioService.getAulasAgendadas(dto);
   }
+  @Get('controle-geral-assiduidade')
+  @ApiOperation({
+    summary: 'Obter controle geral de assiduidade',
+    description: 'Retorna um controle geral de assiduidade para aulas agendadas, incluindo informações sobre docentes, unidades curriculares e estados de agendamento.',
+  })
+  @ApiResponse({ status: 200, description: 'Controle geral de assiduidade encontrado com sucesso.' })
+  @ApiResponse({ status: 400, description: 'Parâmetros inválidos.' })
+  async controleGeralAssiduidade(@Query() dto: FindAulasAgendadasSumarioDto) {
+    return this.sumarioService.estatisticasPorDocenteComContexto(dto);
+   }
 }
