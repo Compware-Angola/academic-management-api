@@ -129,7 +129,7 @@ export class DocentesService {
 
     const conditions: string[] = [];
     const params: any = {};
-
+    conditions.push(`mtpu.active_state = 1`);
     conditions.push(`JSON_VALUE(mtpu.ref_ano_lectivo, '$.pk') = :anoLectivo`);
     params.anoLectivo = anoLectivo;
 
@@ -224,7 +224,9 @@ export class DocentesService {
     g.codigo NOT IN (
       SELECT JSON_VALUE(mtpu.ref_grade_curricular, '$.pk')
       FROM FK2_MGD_TB_PROGRAMA_UC mtpu
-      WHERE JSON_VALUE(mtpu.ref_ano_lectivo, '$.pk') = ${anoLectivo}
+      WHERE 1=1
+      and JSON_VALUE(mtpu.ref_ano_lectivo, '$.pk') = ${anoLectivo}
+      and mtpu.active_state = 1
     )
     AND g.codigo_curso = ${codigoCurso}
     AND g.codigo_classe = ${anoCurricular}
@@ -340,15 +342,51 @@ WHERE JSON_VALUE(mtda.REF_DOCENTE, '$.pk') = :docenteId
     payload: UpdateProgramaStatusUCDTO,
   ) {
     const { estado } = payload;
-    const sql = `update
+    const sqlEstados = `
+      select pk_estado
+      from fk2_mgd_estado_programa_uc
+      where 1=1
+      and pk_estado = :estado
+    `;
+    const resultado = await this.dataSource.query(sqlEstados, {
+      estado,
+    } as any);
+    if (!resultado) {
+      throw new BadRequestException('Estado não encontrado');
+    }
+    try {
+      const sql = `update
                   fk2_mgd_tb_programa_uc
                   set fk_estado_programa = :estado
                   where pk_programa = :codigoPrograma
                   `;
-    const resultado = await this.dataSource.query(sql, {
-      codigoPrograma,
-      estado,
-    } as any);
+      await this.dataSource.query(sql, {
+        codigoPrograma,
+        estado,
+      } as any);
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  public async updateProgramaVisibilidade(
+    codigoPrograma: number,
+    payload: UpdateProgramaStatusUCDTO,
+  ) {
+    const { estado } = payload;
+    try {
+      const sql = `update
+                  fk2_mgd_tb_programa_uc
+                  set active_state = :estado
+                  where pk_programa = :codigoPrograma
+                  `;
+      await this.dataSource.query(sql, {
+        codigoPrograma,
+        estado,
+      } as any);
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
   }
 
   private gernerateRefAnoLectivo(data: any) {
