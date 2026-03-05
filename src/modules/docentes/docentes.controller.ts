@@ -52,6 +52,17 @@ export class DocentesController {
   ) {
     return this.docentesService.updateProgramaStatus(id, query);
   }
+
+  @Put('/programa-uc/:id/visibilidade')
+  @RequiredPermissions(PermissionTypeDetails.VALIDACAO_PROGRAMA_UC.sigla)
+  updateProgramaUCVisibilidade(
+    @Param('id', ParseIntPipe) id: number,
+    @Body(ValidationPipe) query: UpdateProgramaStatusUCDTO,
+    @Req() req: any,
+  ) {
+    return this.docentesService.updateProgramaVisibilidade(id, query);
+  }
+
   @Get('/programas-sem-ucs')
   @RequiredPermissions(
     PermissionTypeDetails.LANCAMENTO_PROGRAMA_UC.sigla,
