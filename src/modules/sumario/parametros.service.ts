@@ -2,6 +2,7 @@ import { ConflictException, Injectable } from '@nestjs/common';
 
 import { DataSource } from 'typeorm/data-source/index.js';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
+import { UpdateParametroDto } from './dto/parametros.dto';
 
 
 @Injectable()
@@ -23,7 +24,6 @@ export class ParametrosService {
 
   return {
     data: records.map(record => {
-      // Normaliza as chaves (o Oracle costuma retornar TUDO_EM_MAIUSCULO)
       const lowerRecord = toLowerCaseKeys(record);
       
       return {
@@ -32,5 +32,22 @@ export class ParametrosService {
       };
     }),
   };
+}
+
+async updateParametro(id: number, updateDto: UpdateParametroDto) {
+ 
+  const argsString = JSON.stringify(updateDto.args);
+
+  await this.dataSource
+    .createQueryBuilder()
+    .update('FK2_MSA_TB_PARAMETRO')
+    .set({
+      ARGS: argsString,
+      UPDATED_AT: new Date(),
+    })
+    .where('PK_PARAMETRO = :id', { id })
+    .execute();
+
+  return { message: 'Parâmetro atualizado com sucesso' };
 }
 }
