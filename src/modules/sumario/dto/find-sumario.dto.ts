@@ -51,7 +51,7 @@ dataFinal?: Date;
   @IsOptional()
   @IsInt()
   @Type(() => Number)
-  estado?: number;
+  estado_sumario?: number;
 
   @ApiProperty({
     description: 'Ano Lectivo',

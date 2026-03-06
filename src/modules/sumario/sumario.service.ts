@@ -445,7 +445,7 @@ async getSumarios(dto: FindSumarioDto) {
     unidadeCurricular = 0,
     dataInicial,
     dataFinal,
-    estado = 0,
+    estado_sumario = 0,
     anoLectivo = 0,
     semestre = 0,
     page = 1,
@@ -460,7 +460,7 @@ async getSumarios(dto: FindSumarioDto) {
 
   if (docente !== 0) whereParams.docente = docente;
   if (unidadeCurricular !== 0) whereParams.unidadeCurricular = unidadeCurricular;
-  if (estado !== 0) whereParams.estado = estado;
+  if (estado_sumario !== 0) whereParams.estado_sumario = estado_sumario;
   if (semestre !== 0) whereParams.semestre = semestre;
   if (anoLectivo !== 0) whereParams.anoLectivo = anoLectivo;
   if( dataInicial !== undefined && dataInicial !== null && dataFinal !== undefined && dataFinal !== null) {
@@ -486,8 +486,8 @@ async getSumarios(dto: FindSumarioDto) {
     conditions.push("JSON_VALUE(aa.REF_AULA, '$.pkGrade') = :unidadeCurricular");
   }
 
-  if (estado !== 0) {
-    conditions.push('s.FK_ESTADO_SUMARIO = :estado');
+  if (estado_sumario !== 0) {
+    conditions.push('s.FK_ESTADO_SUMARIO = :estado_sumario');
   }
 
   if (anoLectivo !== 0) {
