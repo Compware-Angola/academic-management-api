@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 
 import { DataSource } from 'typeorm/data-source/index.js';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
@@ -275,17 +275,8 @@ async getEstatisticaSumarioAssiduidade(dto: FindAulasAgendadasSumarioDto) {
 
   const offset = (page - 1) * limit;
 
-  const paramsData: any = {
-    dataInicial,
-    dataFinal,
-    offset,
-    limit,
-  };
-
-  const paramsCount: any = {
-    dataInicial,
-    dataFinal,
-  };
+  const paramsData: any = { dataInicial, dataFinal, offset, limit };
+  const paramsCount: any = { dataInicial, dataFinal };
 
   const conditions: string[] = [
     "aa.ACTIVE_STATE = 1",
@@ -314,10 +305,11 @@ async getEstatisticaSumarioAssiduidade(dto: FindAulasAgendadasSumarioDto) {
 
   const sql = `
 SELECT
+  MIN(aa.PK_AGENDAMENTO_AULA) AS codigo_agendamento,
   JSON_VALUE(al.REF_DOCENTE,'$.nome') AS docente,
   d.DESIGNACAO AS unidade_curricular,
-  h.DESIGNACAO AS horario,
-  c2.DESIGNACAO AS curso,
+  MIN(h.DESIGNACAO) AS horario,
+  MIN(c2.DESIGNACAO) AS curso,
 
   /* CONTROLE DE SUMARIOS */
   SUM(CASE WHEN s.PK_TB_SUMARIO IS NULL THEN 1 ELSE 0 END) AS sumarios_pendentes,
@@ -353,7 +345,8 @@ INNER JOIN FK2_TB_GRADE_CURRICULAR gc
 
 LEFT JOIN FK2_TB_DISCIPLINAS d
   ON gc.CODIGO_DISCIPLINA = d.CODIGO
-  LEFT JOIN FK2_TB_CURSOS c2
+
+LEFT JOIN FK2_TB_CURSOS c2
   ON gc.CODIGO_CURSO = c2.CODIGO
 
 LEFT JOIN FK2_MSA_TB_SUMARIO s
@@ -363,9 +356,7 @@ ${whereClause}
 
 GROUP BY
   JSON_VALUE(al.REF_DOCENTE,'$.nome'),
-  d.DESIGNACAO,
-  h.DESIGNACAO,
-  c2.DESIGNACAO
+  d.DESIGNACAO
 
 ORDER BY docente
 
@@ -391,7 +382,8 @@ SELECT COUNT(*) AS total FROM (
 
   LEFT JOIN FK2_TB_DISCIPLINAS d
     ON gc.CODIGO_DISCIPLINA = d.CODIGO
-    LEFT JOIN FK2_TB_CURSOS c2
+
+  LEFT JOIN FK2_TB_CURSOS c2
     ON gc.CODIGO_CURSO = c2.CODIGO
 
   LEFT JOIN FK2_MSA_TB_SUMARIO s
@@ -401,9 +393,7 @@ SELECT COUNT(*) AS total FROM (
 
   GROUP BY
     JSON_VALUE(al.REF_DOCENTE,'$.nome'),
-    d.DESIGNACAO,
-    h.DESIGNACAO,
-    c2.DESIGNACAO
+    d.DESIGNACAO
 )
 `;
 
@@ -417,6 +407,7 @@ SELECT COUNT(*) AS total FROM (
 
     return {
       data: records.map((r) => ({
+        codigo_agendamento: r.CODIGO_AGENDAMENTO,
         docente: r.DOCENTE,
         unidadeCurricular: r.UNIDADE_CURRICULAR,
         horario: r.HORARIO,
@@ -464,8 +455,7 @@ async getSumarios(dto: FindSumarioDto) {
   const offset = (page - 1) * limit;
 
   const whereParams: Record<string, any> = {
-    dataInicial,
-    dataFinal,
+  
   };
 
   if (docente !== 0) whereParams.docente = docente;
@@ -473,10 +463,12 @@ async getSumarios(dto: FindSumarioDto) {
   if (estado !== 0) whereParams.estado = estado;
   if (semestre !== 0) whereParams.semestre = semestre;
   if (anoLectivo !== 0) whereParams.anoLectivo = anoLectivo;
-  if( dataFinal && dataInicial){
-    whereParams.dataInicial = dataInicial;
-    whereParams.dataFinal = dataFinal;
+  if( dataInicial !== undefined && dataInicial !== null && dataFinal !== undefined && dataFinal !== null) {
+     whereParams.dataInicial =dataInicial
+    whereParams.dataFinal =dataFinal
   }
+  
+
 
   const conditions: string[] = [
     'aa.ACTIVE_STATE = 1',
@@ -626,29 +618,67 @@ ${whereClause}
   }
 }
 async validarSumario(estado: number, codigo: number) {
-  const fields = [] as string[];
-  const params: any = { codigo };
-
-  if (estado !== undefined) {
-    fields.push('FK_ESTADO_SUMARIO = :fk_estado_sumario');
-    params.fk_estado_sumario = estado;
+  if (estado === undefined) {
+    throw new ConflictException('Estado do sumário é obrigatório');
   }
 
-  // Sempre atualizar data
-  fields.push('UPDATED_AT = SYSDATE');
+  // 1️⃣ Buscar o sumário
+  const sumario = await this.dataSource.query(
+    `SELECT * FROM FK2_MSA_TB_SUMARIO WHERE PK_TB_SUMARIO = :codigo`,
+    { codigo } as any
+  );
 
-  if (fields.length === 1) { 
-    throw new ConflictException('Nenhum campo enviado para atualização');
+  if (!sumario || sumario.length === 0) {
+    throw new NotFoundException('Sumário não encontrado');
   }
 
+  const aulaId = sumario[0].FK_AGENDAMENTO_AULA;
+
+  // 2️⃣ Buscar a aula relacionada
+  const aula = await this.dataSource.query(
+    `SELECT * FROM FK2_MSA_TB_AGENDAMENTO_AULA WHERE PK_AGENDAMENTO_AULA = :aulaId`,
+    { aulaId } as any
+  );
+
+  if (!aula || aula.length === 0) {
+    throw new NotFoundException('Aula relacionada ao sumário não encontrada');
+  }
+
+  // 3️⃣ Verificar se o sumarista já validou a aula
+  const aulaValidada = aula[0].FK_ESTADO_AGENDAMENTO === 3;
+
+  let podeValidar = aulaValidada;
+
+  // 4️⃣ Checar tabela de parâmetros se permite validar sem aula validada
+if (!podeValidar) {
+  const param = await this.dataSource.query(
+    `SELECT ARGS AS valor FROM FK2_MSA_TB_PARAMETRO WHERE SIGLA = 'pvssms'`
+  );
+
+  if (Array.isArray(param) && param.length > 0) {
+    const valorJson = JSON.parse(param[0].VALOR);
+    if (valorJson.valor === true) {
+      podeValidar = true;
+    }
+  }
+}
+  if (!podeValidar) {
+    throw new ConflictException(
+      'Não é possível validar o sumário porque a aula ainda não foi validada'
+    );
+  }
+
+ 
   const updateSql = `
     UPDATE FK2_MSA_TB_SUMARIO
-    SET ${fields.join(', ')}
+    SET FK_ESTADO_SUMARIO = :fk_estado_sumario,
+        UPDATED_AT = SYSDATE
     WHERE PK_TB_SUMARIO = :codigo
   `;
+  const params = { fk_estado_sumario: estado, codigo };
 
   try {
-    await this.dataSource.query(updateSql, params);
+    await this.dataSource.query(updateSql, params as any);
     return { success: true, message: 'Sumário atualizado com sucesso' };
   } catch (error) {
     console.error('Erro ao atualizar sumário:', error);
