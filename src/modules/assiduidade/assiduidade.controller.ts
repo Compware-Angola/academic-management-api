@@ -2,12 +2,10 @@ import { Controller, Get, Patch, Query, ValidationPipe } from '@nestjs/common';
 import { AssiduidadeService } from './assiduidade.service';
 import { FindAgendamentoAulaDto } from './dto/FindAgendamentoAulaDto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-<<<<<<< HEAD
 import { AtendanceControlling } from './dto/attendance-controlling.dto';
-=======
 import { FindAttendanceTestDto } from './dto/FindAttendanceTestDto';
 import { MarkAttendanceDto } from './dto/MarkAttendanceDto';
->>>>>>> cd1888a5652cd128974b51d973b94db528ad2814
+import { GeneralAttendanceCalendarDto } from './dto/GeneralAttendanceCalendarDto';
 
 @ApiTags('ASSIDUIDADE')
 @ApiBearerAuth()
@@ -112,5 +110,18 @@ export class AssiduidadeController {
   @ApiResponse({ status: 200, description: 'Lista de controle de assiduidade retornada com sucesso.' })
   assiduidadeEstadoAula(){
     return this.assiduidadeService.getStateLessonAttendance();
-  }
+}
+
+@Get('controle-geral-docente')
+@ApiOperation({
+  summary: 'Controle geral de assiduidade por docente (calendário)',
+  description: 'Calendário MÊS/SEMANA/DIA baseado em docenteId (preferível) ou docenteNome (legado).',
+})
+@ApiResponse({ status: 200, description: 'Dados retornados com sucesso.' })
+@ApiResponse({ status: 400, description: 'Parâmetros inválidos.' })
+controleGeralPorDocente(@Query(ValidationPipe) dto: GeneralAttendanceCalendarDto) {
+  return this.assiduidadeService.generalAttendanceByDocenteCalendar(dto);
+}
+
+
 }

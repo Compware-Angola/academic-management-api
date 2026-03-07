@@ -2,12 +2,11 @@ import { BadGatewayException, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { FindAgendamentoAulaDto } from './dto/FindAgendamentoAulaDto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
-<<<<<<< HEAD
 import { AtendanceControlling } from './dto/attendance-controlling.dto';
-=======
 import { FindAttendanceTestDto } from './dto/FindAttendanceTestDto';
 import { MarkAttendanceDto } from './dto/MarkAttendanceDto';
->>>>>>> cd1888a5652cd128974b51d973b94db528ad2814
+import { GeneralAttendanceCalendarDto } from './dto/GeneralAttendanceCalendarDto';
+import { addDays, parseISODateOrToday, startOfMonth, startOfNextMonth, startOfWeekMonday, toISODate } from '../common/helpers/parseISODateOrToday';
 
 @Injectable()
 export class AssiduidadeService {
@@ -571,7 +570,6 @@ FETCH NEXT :limit ROWS ONLY
       throw new Error(`Falha ao consultar agendamentos: ${error.message}`);
     }
   }
-<<<<<<< HEAD
 
   async attendanceControlling(dto: AtendanceControlling) {
   const {
@@ -715,7 +713,6 @@ async getStateLessonAttendance(): Promise<[]> {
 
   return result;
 }
-=======
   // Assiduidade de campo
   private async attendanceTrip(dto: FindAgendamentoAulaDto) {
     const {
@@ -1009,6 +1006,124 @@ ${whereClause}
   }
 
 
->>>>>>> cd1888a5652cd128974b51d973b94db528ad2814
+  async generalAttendanceByDocenteCalendar(dto: GeneralAttendanceCalendarDto) {
+    
+  const docenteIdNum = dto.docenteId ? Number(dto.docenteId) : 0;
+  const {docenteNome = '', modo } = dto;
+  const refDate = parseISODateOrToday(dto.dataReferencia);
+
+  if (!modo) {
+    throw new BadGatewayException('Parâmetro "modo" é obrigatório: MES | SEMANA | DIA');
+  }
+
+  // Intervalos (inicio inclusivo, fim exclusivo)
+  let inicio: Date;
+  let fim: Date;
+
+  if (modo === 'MES') {
+    inicio = startOfMonth(refDate);
+    fim = startOfNextMonth(refDate);
+  } else if (modo === 'SEMANA') {
+    inicio = startOfWeekMonday(refDate);
+    fim = addDays(inicio, 7);
+  } else {
+    // DIA
+    inicio = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate());
+    fim = addDays(inicio, 1);
+  }
+
+  // ✅ filtro docente: preferir docenteId (FK_DOCENTE); se não vier, usa docenteNome via JSON_VALUE
+  const conditions: string[] = [
+    'aa.ACTIVE_STATE = 1',
+    'aa.FK_ESTADO_AGENDAMENTO IN (1,2,3)',
+    'aa.DATA_AULA >= :inicio AND aa.DATA_AULA < :fim',
+  ];
+
+  const params: Record<string, any> = {
+    inicio,
+    fim,
+  };
+
+  // Se vier docenteId, filtra por FK_DOCENTE
+  if (docenteIdNum && docenteIdNum !== 0) {
+    conditions.push('aa.FK_DOCENTE = :docenteId');
+    params.docenteId = docenteIdNum;
+  } else if (docenteNome && docenteNome.trim().length > 0) {
+    // Compatível com o legado (nome do docente)
+    conditions.push(`JSON_VALUE(al.REF_DOCENTE, '$.nome') = :docenteNome`);
+    params.docenteNome = docenteNome.trim();
+  } else {
+    throw new BadGatewayException('Informe "docenteId" ou "docenteNome".');
+  }
+
+  const whereClause = `WHERE ${conditions.join(' AND ')}`;
+
+  // =========================
+  // MODO MÊS (agregado por dia)
+  // =========================
+  if (modo === 'MES') {
+    const sql = `
+      SELECT
+        TO_CHAR(TRUNC(aa.DATA_AULA), 'YYYY-MM-DD') AS dia,
+        COUNT(*) AS total_aulas,
+        SUM(CASE WHEN aa.FK_ESTADO_AGENDAMENTO = 1 THEN 1 ELSE 0 END) AS pendentes,
+        SUM(CASE WHEN aa.FK_ESTADO_AGENDAMENTO = 2 THEN 1 ELSE 0 END) AS faltas,
+        SUM(CASE WHEN aa.FK_ESTADO_AGENDAMENTO = 3 THEN 1 ELSE 0 END) AS presencas
+      FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
+      JOIN FK2_MGH_TB_AULA al
+        ON TO_NUMBER(aa.FK_AULA) = al.PK_AULA
+      ${whereClause}
+      GROUP BY TRUNC(aa.DATA_AULA)
+      ORDER BY TRUNC(aa.DATA_AULA)
+    `;
+
+    const rows = await this.dataSource.query(sql, params as any);
+    // Opcional: já devolve um "statusDoDia" para facilitar o frontend pintar
+    const data = toLowerCaseKeys(rows).map((r: any) => {
+      const pend = Number(r.pendentes || 0);
+      const falt = Number(r.faltas || 0);
+      const pres = Number(r.presencas || 0);
+
+      let statusDoDia: 'FALTA' | 'PENDENTE' | 'PRESENCA' | 'SEM_DADOS' = 'SEM_DADOS';
+      if (falt > 0) statusDoDia = 'FALTA';
+      else if (pend > 0) statusDoDia = 'PENDENTE';
+      else if (pres > 0) statusDoDia = 'PRESENCA';
+
+      return { ...r, statusDoDia };
+    });
+
+    return {
+      modo,
+      intervalo: { inicio: toISODate(inicio), fim: toISODate(addDays(fim, -1)) }, // fim "humano"
+      data,
+    };
+  }
+
+  // =====================================
+  // MODO SEMANA/DIA (lista de eventos)
+  // =====================================
+  const sql = `
+    SELECT
+      aa.PK_AGENDAMENTO_AULA AS codigo,
+      TO_CHAR(TRUNC(aa.DATA_AULA), 'YYYY-MM-DD') AS dia,
+      TO_CHAR(al.HORA_INICIO, 'HH24:MI') AS hora_inicio,
+      TO_CHAR(al.HORA_TERMINO, 'HH24:MI') AS hora_fim,
+      aa.FK_ESTADO_AGENDAMENTO AS estado,
+      al.ORDEM AS ordem_tempo
+    FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
+    JOIN FK2_MGH_TB_AULA al
+      ON TO_NUMBER(aa.FK_AULA) = al.PK_AULA
+    ${whereClause}
+    ORDER BY TRUNC(aa.DATA_AULA), al.HORA_INICIO
+  `;
+
+    const rows = await this.dataSource.query(sql, params as any);
+
+      return {
+        modo,
+        intervalo: { inicio: toISODate(inicio), fim: toISODate(addDays(fim, -1)) },
+        data: toLowerCaseKeys(rows),
+      };
+    }
 
 }

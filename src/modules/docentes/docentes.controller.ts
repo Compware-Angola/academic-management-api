@@ -4,6 +4,7 @@ import { CreateProgramaUCDTO, FindProgramaUCDTO } from './dto/find-programa-uc.d
 import { ApiBody, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { CursosResponseDto } from './dto/curso';
 import { CadeirasResponseDto } from './dto/cadeira';
+import { FindTeacherWeeklyScheduleDto } from './dto/FindTeacherWeeklyScheduleDto';
 
 @Controller('docentes')
 export class DocentesController {
@@ -80,6 +81,19 @@ async createProgramaUC(
   @Body(ValidationPipe) body: CreateProgramaUCDTO,
 ) {
   return this.docentesService.createProgramaUC(body);
+}
+
+@Get('horario-docente')
+@ApiOperation({
+  summary: 'Consultar horário semanal do docente',
+  description: 'Retorna o horário semanal estrutural do docente filtrado por ano lectivo, semestre e período.',
+})
+@ApiResponse({ status: 200, description: 'Horário semanal retornado com sucesso.' })
+@ApiResponse({ status: 400, description: 'Parâmetros inválidos.' })
+teacherWeeklySchedule(
+  @Query(ValidationPipe) dto: FindTeacherWeeklyScheduleDto,
+) {
+  return this.docentesService.teacherWeeklySchedule(dto);
 }
 
 }
