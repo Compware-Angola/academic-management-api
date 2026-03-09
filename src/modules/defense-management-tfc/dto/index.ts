@@ -1,12 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class ListFinalistStudentsQueryDto {
   @ApiPropertyOptional({ description: 'Ano letivo', example: 21 })
   @IsOptional()
   @IsInt()
-    @Type(() => Number)
+  @Type(() => Number)
   anoLectivo?: number;
 
   @ApiPropertyOptional({ description: 'Tipo de candidatura', example: 1 })
@@ -39,7 +39,7 @@ export class ListFinalistStudentsQueryDto {
 
 
 export class FinalistStudentDto {
-  @ApiProperty({ description: 'Nome completo do estudante', example: 'Domingos Canhanga' })
+  @ApiProperty({ description: 'Nome completo do estudante', example: 'José Manuel' })
   nome: string;
 
   @ApiProperty({ description: 'Número do bilhete de identidade', example: '12345678LA' })
@@ -88,3 +88,35 @@ export class ListFinalistStudentsResponseDto {
   totalPages: number;
 }
 
+export class FiltroOrientadorDto {
+  @ApiPropertyOptional({ description: 'Ano letivo', example: 21 })
+  @IsOptional()
+  @IsInt()
+    @Type(() => Number)
+  anoLectivoId?: number;
+
+  @ApiPropertyOptional({ description: 'Código do curso', example: 10 })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  cursoId?: number;
+
+  @ApiPropertyOptional({ description: 'Estado do orientador', example: 'activo' })
+  @IsOptional()
+  @IsString()
+  estado?: string;
+
+  @ApiPropertyOptional({ description: 'Número da página', example: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  page?: number;
+
+  @ApiPropertyOptional({ description: 'Número de registros por página', example: 10 })
+  @IsOptional()
+  @IsInt()
+  @Min(10)
+  @Type(() => Number)
+  limit?: number;
+}

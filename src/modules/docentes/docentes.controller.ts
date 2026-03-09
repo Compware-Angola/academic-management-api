@@ -21,6 +21,9 @@ import {
 import { ApiBody, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { CursosResponseDto } from './dto/curso';
 import { CadeirasResponseDto } from './dto/cadeira';
+<<<<<<< HEAD
+import { FindTeacherWeeklyScheduleDto } from './dto/FindTeacherWeeklyScheduleDto';
+=======
 import { UpdateProgramaStatusUCDTO } from './dto/update-programa-uc.dto';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
@@ -28,6 +31,7 @@ import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { FindAssiduidadeDTO } from './dto/find-assiduidade.dto';
 import { FindHorarioVigilantesCDTO } from './dto/find-horario-vigilantes.dto';
+>>>>>>> 6f2b83e9f3c88b30937ec9ddfa77f6b1d1bd0f72
 
 @Controller('docentes')
 //@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
