@@ -83,17 +83,4 @@ async createProgramaUC(
   return this.docentesService.createProgramaUC(body);
 }
 
-@Get('horario-docente')
-@ApiOperation({
-  summary: 'Consultar horário semanal do docente',
-  description: 'Retorna o horário semanal estrutural do docente filtrado por ano lectivo, semestre e período.',
-})
-@ApiResponse({ status: 200, description: 'Horário semanal retornado com sucesso.' })
-@ApiResponse({ status: 400, description: 'Parâmetros inválidos.' })
-teacherWeeklySchedule(
-  @Query(ValidationPipe) dto: FindTeacherWeeklyScheduleDto,
-) {
-  return this.docentesService.teacherWeeklySchedule(dto);
-}
-
 }

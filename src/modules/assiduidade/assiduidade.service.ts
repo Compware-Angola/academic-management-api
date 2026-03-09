@@ -7,6 +7,7 @@ import { FindAttendanceTestDto } from './dto/FindAttendanceTestDto';
 import { MarkAttendanceDto } from './dto/MarkAttendanceDto';
 import { GeneralAttendanceCalendarDto } from './dto/GeneralAttendanceCalendarDto';
 import { addDays, parseISODateOrToday, startOfMonth, startOfNextMonth, startOfWeekMonday, toISODate } from '../common/helpers/parseISODateOrToday';
+import { FindTeacherClassCalendarDto } from './dto/FindTeacherClassCalendarDto';
 
 @Injectable()
 export class AssiduidadeService {
@@ -571,7 +572,7 @@ FETCH NEXT :limit ROWS ONLY
     }
   }
 
-  async attendanceControlling(dto: AtendanceControlling) {
+async attendanceControlling(dto: AtendanceControlling) {
   const {
     docente = 0,
     dataInicial,
@@ -593,28 +594,28 @@ FETCH NEXT :limit ROWS ONLY
   const conditions: string[] = [
     'aa.ACTIVE_STATE = 1',
     'aa.DATA_AULA BETWEEN :dataInicial AND :dataFinal',
-    'h.ACTIVE_STATE = 1'
+    'h.ACTIVE_STATE = 1',
   ];
 
-  // 🔹 Docente (usa FK estruturada)
+  // Docente
   if (docente !== 0) {
     conditions.push('aa.FK_DOCENTE = :docente');
     whereParams.docente = docente;
   }
 
-  // 🔹 Estado (agora correto)
+  // Estado
   if (estado !== 0) {
-  conditions.push('aa.FK_ESTADO_AGENDAMENTO = :estado');
-  whereParams.estado = estado;
-}
+    conditions.push('aa.FK_ESTADO_AGENDAMENTO = :estado');
+    whereParams.estado = estado;
+  }
 
-  // 🔹 Ano Lectivo
+  // Ano Lectivo
   if (anoLectivo !== 0) {
     conditions.push('h.FK_ANO_LECTIVO = :anoLectivo');
     whereParams.anoLectivo = anoLectivo;
   }
 
-  // 🔹 Semestre (vem da grade curricular, não do horário)
+  // Semestre
   if (semestre !== 0) {
     conditions.push('gc.CODIGO_SEMESTRE = :semestre');
     whereParams.semestre = semestre;
@@ -631,31 +632,24 @@ FETCH NEXT :limit ROWS ONLY
       al.ORDEM AS ordem_tempo,
       TO_CHAR(al.HORA_INICIO, 'HH24:MI')  AS hora_inicio,
       TO_CHAR(al.HORA_TERMINO, 'HH24:MI') AS hora_fim,
-      aa.DATA_AULA AS data_aula,
+      TO_CHAR(aa.DATA_AULA, 'YYYY-MM-DD') AS data_aula,
+      aa.FK_ESTADO_AGENDAMENTO AS estado_agendamento,
+      est.DESIGNACAO AS estado_agendamento_designacao,
       JSON_VALUE(al.REF_DOCENTE, '$.nome') AS docente
-
     FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
-
     INNER JOIN FK2_MGH_TB_AULA al
       ON TO_NUMBER(aa.FK_AULA) = al.PK_AULA
-
     INNER JOIN FK2_MGH_TB_HORARIO h
       ON al.FK_HORARIO = h.PK_HORARIO
-
     INNER JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO est
       ON aa.FK_ESTADO_AGENDAMENTO = est.PK_ESTADO_AGENDAMENTO
-
     INNER JOIN FK2_TB_GRADE_CURRICULAR gc
       ON TO_NUMBER(aa.FK_GRADE_CURRICULAR) = gc.CODIGO
-
     LEFT JOIN FK2_TB_DISCIPLINAS d
       ON gc.CODIGO_DISCIPLINA = d.CODIGO
-
     LEFT JOIN FK2_TB_CURSOS c2
       ON gc.CODIGO_CURSO = c2.CODIGO
-
     ${whereClause}
-
     ORDER BY aa.DATA_AULA ASC
     OFFSET :offset ROWS
     FETCH NEXT :limit ROWS ONLY
@@ -664,34 +658,54 @@ FETCH NEXT :limit ROWS ONLY
   const sqlParams = { ...whereParams, offset, limit };
 
   const countSql = `
-    SELECT COUNT(*) as total
+    SELECT COUNT(*) AS total
     FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
-
     INNER JOIN FK2_MGH_TB_AULA al
       ON TO_NUMBER(aa.FK_AULA) = al.PK_AULA
-
     INNER JOIN FK2_MGH_TB_HORARIO h
       ON al.FK_HORARIO = h.PK_HORARIO
-
     INNER JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO est
       ON aa.FK_ESTADO_AGENDAMENTO = est.PK_ESTADO_AGENDAMENTO
-
     INNER JOIN FK2_TB_GRADE_CURRICULAR gc
       ON TO_NUMBER(aa.FK_GRADE_CURRICULAR) = gc.CODIGO
+    ${whereClause}
+  `;
 
+  const summarySql = `
+    SELECT
+      SUM(CASE WHEN aa.FK_ESTADO_AGENDAMENTO = 1 THEN 1 ELSE 0 END) AS marcacoes_pendentes,
+      SUM(CASE WHEN aa.FK_ESTADO_AGENDAMENTO = 2 THEN 1 ELSE 0 END) AS faltas_marcadas,
+      SUM(CASE WHEN aa.FK_ESTADO_AGENDAMENTO = 3 THEN 1 ELSE 0 END) AS presencas_marcadas
+    FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
+    INNER JOIN FK2_MGH_TB_AULA al
+      ON TO_NUMBER(aa.FK_AULA) = al.PK_AULA
+    INNER JOIN FK2_MGH_TB_HORARIO h
+      ON al.FK_HORARIO = h.PK_HORARIO
+    INNER JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO est
+      ON aa.FK_ESTADO_AGENDAMENTO = est.PK_ESTADO_AGENDAMENTO
+    INNER JOIN FK2_TB_GRADE_CURRICULAR gc
+      ON TO_NUMBER(aa.FK_GRADE_CURRICULAR) = gc.CODIGO
     ${whereClause}
   `;
 
   try {
-    const [records, countResult] = await Promise.all([
+    const [records, countResult, summaryResult] = await Promise.all([
       this.dataSource.query(sql, sqlParams as any),
       this.dataSource.query(countSql, whereParams as any),
+      this.dataSource.query(summarySql, whereParams as any),
     ]);
 
     const total = Number(countResult?.[0]?.TOTAL ?? 0);
 
+    const resumo = {
+      marcacoesPendentes: Number(summaryResult?.[0]?.MARCACOES_PENDENTES ?? 0),
+      faltasMarcadas: Number(summaryResult?.[0]?.FALTAS_MARCADAS ?? 0),
+      presencasMarcadas: Number(summaryResult?.[0]?.PRESENCAS_MARCADAS ?? 0),
+    };
+
     return {
       data: toLowerCaseKeys(records),
+      resumo,
       total,
       page,
       limit,
@@ -1125,5 +1139,77 @@ ${whereClause}
         data: toLowerCaseKeys(rows),
       };
     }
+
+    async teacherClassCalendar(dto: FindTeacherClassCalendarDto) {
+  const docente = Number(dto.docente);
+  const dataInicial = dto.dataInicial ?? '2000-01-01';
+  const dataFinal = dto.dataFinal ?? '2100-12-31';
+
+  const sql = `
+    SELECT
+      aa.PK_AGENDAMENTO_AULA AS codigo,
+      TO_CHAR(aa.DATA_AULA, 'YYYY-MM-DD') AS data_aula,
+      TO_CHAR(al.HORA_INICIO, 'HH24:MI') AS hora_inicio,
+      TO_CHAR(al.HORA_TERMINO, 'HH24:MI') AS hora_fim,
+      aa.FK_ESTADO_AGENDAMENTO AS estado,
+      est.DESIGNACAO AS estado_designacao,
+      JSON_VALUE(aa.REF_AULA, '$.designacaoGrade') AS disciplina,
+      JSON_VALUE(al.REF_DOCENTE, '$.nome') AS docente,
+      JSON_VALUE(al.REF_SALA, '$.desc') AS sala,
+      ta.DESIGNACAO AS tipo_aula,
+      m.DESIGNACAO AS modalidade
+    FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
+    INNER JOIN FK2_MGH_TB_AULA al
+      ON JSON_VALUE(aa.REF_AULA, '$.pkAula' RETURNING NUMBER) = al.PK_AULA
+    INNER JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO est
+      ON aa.FK_ESTADO_AGENDAMENTO = est.PK_ESTADO_AGENDAMENTO
+    INNER JOIN FK2_MGH_TB_HORARIO h
+      ON al.FK_HORARIO = h.PK_HORARIO
+    LEFT JOIN FK2_MGH_TB_TIPO_AULA ta
+      ON al.FK_TIPO_AULA = ta.PK_TIPO_AULA
+    LEFT JOIN FK2_MGH_TB_MODALIDADE m
+      ON al.FK_MODALIDADE = m.PK_MODALIDADE
+    WHERE aa.ACTIVE_STATE = 1
+      AND JSON_VALUE(aa.REF_AULA, '$.pkDocente' RETURNING NUMBER) = :docente
+      AND aa.DATA_AULA BETWEEN TO_DATE(:dataInicial, 'YYYY-MM-DD') AND TO_DATE(:dataFinal, 'YYYY-MM-DD')
+      AND h.FK_ESTADO_HORARIO_WF <> 4
+    ORDER BY aa.DATA_AULA ASC, al.HORA_INICIO ASC
+  `;
+
+  try {
+    const rows = await this.dataSource.query(sql, {
+      docente,
+      dataInicial,
+      dataFinal,
+    } as any);
+
+    const data = toLowerCaseKeys(rows).map((item: any) => ({
+      ...item,
+      start: `${item.data_aula}T${item.hora_inicio}:00`,
+      end: `${item.data_aula}T${item.hora_fim}:00`,
+      cor:
+        Number(item.estado) === 1
+          ? '#ffca38'
+          : Number(item.estado) === 2
+          ? '#ff9999'
+          : Number(item.estado) === 3
+          ? '#99ff99'
+          : '#ffca38',
+    }));
+
+    return {
+      data,
+      resumo: {
+        totalEventos: data.length,
+        pendentes: data.filter((item: any) => Number(item.estado) === 1).length,
+        faltas: data.filter((item: any) => Number(item.estado) === 2).length,
+        presencas: data.filter((item: any) => Number(item.estado) === 3).length,
+      },
+    };
+  } catch (error) {
+    console.error('Erro ao buscar calendário de aulas do docente:', error);
+    throw new Error(`Falha ao consultar calendário de aulas: ${error.message}`);
+  }
+}
 
 }

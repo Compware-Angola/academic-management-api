@@ -6,6 +6,7 @@ import { AtendanceControlling } from './dto/attendance-controlling.dto';
 import { FindAttendanceTestDto } from './dto/FindAttendanceTestDto';
 import { MarkAttendanceDto } from './dto/MarkAttendanceDto';
 import { GeneralAttendanceCalendarDto } from './dto/GeneralAttendanceCalendarDto';
+import { FindTeacherClassCalendarDto } from './dto/FindTeacherClassCalendarDto';
 
 @ApiTags('ASSIDUIDADE')
 @ApiBearerAuth()
@@ -121,6 +122,19 @@ export class AssiduidadeController {
 @ApiResponse({ status: 400, description: 'Parâmetros inválidos.' })
 controleGeralPorDocente(@Query(ValidationPipe) dto: GeneralAttendanceCalendarDto) {
   return this.assiduidadeService.generalAttendanceByDocenteCalendar(dto);
+}
+
+@Get('calendario-docente')
+@ApiOperation({
+  summary: 'Consultar calendário de aulas do docente',
+  description: 'Retorna os agendamentos reais de aulas do docente em formato de calendário.',
+})
+@ApiResponse({ status: 200, description: 'Calendário do docente retornado com sucesso.' })
+@ApiResponse({ status: 400, description: 'Parâmetros inválidos.' })
+teacherClassCalendar(
+  @Query(ValidationPipe) dto: FindTeacherClassCalendarDto,
+) {
+  return this.assiduidadeService.teacherClassCalendar(dto);
 }
 
 
