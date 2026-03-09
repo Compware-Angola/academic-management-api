@@ -89,6 +89,17 @@ export class BookTestService {
 
     return JSON.stringify(ref_json_utilizador);
   }
+  private async obterCodigoDisciplinaByGrade(gradeId: number) {
+    const result = await this.dataSource.query(
+      'select codigo_disciplina from fk2_tb_grade_curricular where codigo = :gradeId',
+      [gradeId],
+    );
+    const row = result?.[0];
+    if (!row) {
+      throw new BadRequestException(`Disciplina não encontrada`);
+    }
+    return row?.CODIGO_DISCIPLINA;
+  }
 
   async createCalendarioProva(dto: CreateCalendarioProvaDto) {
     const ref_json_prazo = await this.obterPrazo(dto.prazoId);
@@ -140,6 +151,9 @@ export class BookTestService {
     `;
 
     try {
+      const codigoDisciplina = await this.obterCodigoDisciplinaByGrade(
+        dto.codigoDisciplina,
+      );
       const result = await this.dataSource.query(sql, {
         codigoCalendario: dto.codigoCalendario,
         codigoTipoProva: dto.codigoTipoProva,
@@ -148,7 +162,7 @@ export class BookTestService {
         codigoSala: dto.codigoSala,
         codigoUtilizador: dto.codigoUtilizador,
         codigoPeriodo: dto.codigoPeriodo,
-        codigoDisciplina: dto.codigoDisciplina,
+        codigoDisciplina: codigoDisciplina,
         dataProva: dto.dataProva,
         duracaoProva: dto.duracaoProva,
         horaTermino: dto.horaTermino,
@@ -207,7 +221,7 @@ export class BookTestService {
             disponivel: true,
           }),
           refUtilizadorRegisto: ref_json_utilizador,
-          estadoAgendamento: 1
+          estadoAgendamento: 1,
         } as any);
 
         proximoCodigo++;

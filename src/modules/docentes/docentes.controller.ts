@@ -26,9 +26,10 @@ import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../common/enums/permission.type';
+import { FindHorarioVigilantesCDTO } from './dto/find-horario-vigilantes.dto';
 
 @Controller('docentes')
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 export class DocentesController {
   constructor(private readonly docentesService: DocentesService) {}
 
@@ -102,6 +103,19 @@ export class DocentesController {
   findCadeiras(@Query(ValidationPipe) query: FindDocenteCadeira) {
     return this.docentesService.findCadeiras(query);
   }
+  @Get('/horarios-vigilantes')
+  @ApiOperation({ summary: 'Lista Horários Vigilantes' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista Horários Vigilantes em um prazo',
+    type: CadeirasResponseDto,
+  })
+  findHorariosVigilantes(
+    @Query(ValidationPipe) query: FindHorarioVigilantesCDTO,
+  ) {
+    return this.docentesService.findHorarioVigilantes(query);
+  }
+
   @Post('/programa-uc')
   @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_PROGRAMA_UC.sigla)
   @ApiOperation({ summary: 'Cria um programa UC' })

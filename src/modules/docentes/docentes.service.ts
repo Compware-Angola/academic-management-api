@@ -14,6 +14,7 @@ import {
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FindProgramaSemUCDTO } from './dto/find-programa-sem-uc.dto';
 import { UpdateProgramaStatusUCDTO } from './dto/update-programa-uc.dto';
+import { FindHorarioVigilantesCDTO } from './dto/find-horario-vigilantes.dto';
 
 @Injectable()
 export class DocentesService {
@@ -409,5 +410,108 @@ WHERE JSON_VALUE(mtda.REF_DOCENTE, '$.pk') = :docenteId
       pk: data.codigo,
       desc: data.designacao,
     });
+  }
+  async findHorarioVigilantes(filters: FindHorarioVigilantesCDTO) {
+    const {
+      vigilanteId,
+      periodoId,
+      prazoId,
+      estado,
+      limit = 10,
+      page = 1,
+    } = filters;
+
+    const offset = (page - 1) * limit;
+
+    const conditions: string[] = [];
+    const params: any = {};
+
+    conditions.push(`1=1`);
+
+    if (vigilanteId) {
+      conditions.push(`JSON_VALUE(cv.ref_vigilante,'$.pk') = :vigilanteId`);
+      params.vigilanteId = vigilanteId;
+    }
+
+    if (periodoId) {
+      conditions.push(`cp.codigo_periodo = :periodoId`);
+      params.periodoId = periodoId;
+    }
+
+    if (prazoId) {
+      conditions.push(`JSON_VALUE(cp.ref_prazo,'$.pk_prazo') = :prazoId`);
+      params.prazoId = prazoId;
+    }
+
+    if (estado) {
+      conditions.push(`es.pk_estado_agendamento = :estado`);
+      params.estado = estado;
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    const sql = `
+    SELECT
+      JSON_VALUE(cp.ref_horario,'$.desc')        AS horario,
+      TO_CHAR(cp.hora_termino,'hh24:mi:ss')      AS horaTermino,
+      TO_CHAR(cp.hora_prova,'hh24:mi:ss')        AS horaProva,
+      cp.data_prova                              AS dataProva,
+      d.designacao                               AS disciplina,
+      s.designacao                               AS sala,
+      JSON_VALUE(cv.ref_vigilante,'$.desc')      AS docente,
+      es.designacao                              AS estado
+    FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE cv
+    INNER JOIN FK2_TB_CALENDARIO_PROVA cp
+      ON cv.calendario_prova = cp.codigo
+    INNER JOIN FK2_MCAL_TB_PRAZO pz
+      ON pz.pk_prazo = JSON_VALUE(cp.ref_prazo,'$.pk_prazo')
+    LEFT JOIN FK2_TB_SALAS s
+      ON s.codigo = cp.codigo_sala
+    LEFT JOIN FK2_TB_DISCIPLINAS d
+      ON d.codigo = cp.codigo_disciplina
+    LEFT JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO es
+      ON es.pk_estado_agendamento = cv.estado_agendamento
+    WHERE ${whereClause}
+    ORDER BY cv.calendario_prova
+    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+  `;
+
+    const sqlParams = {
+      ...params,
+      offset,
+      limit,
+    };
+
+    const sqlCount = `
+    SELECT COUNT(*) AS TOTAL
+    FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE cv
+    INNER JOIN FK2_TB_CALENDARIO_PROVA cp
+      ON cv.calendario_prova = cp.codigo
+    INNER JOIN FK2_MCAL_TB_PRAZO pz
+      ON pz.pk_prazo = JSON_VALUE(cp.ref_prazo,'$.pk_prazo')
+    LEFT JOIN FK2_TB_SALAS s
+      ON s.codigo = cp.codigo_sala
+    LEFT JOIN FK2_TB_DISCIPLINAS d
+      ON d.codigo = cp.codigo_disciplina
+    LEFT JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO es
+      ON es.pk_estado_agendamento = cv.estado_agendamento
+    WHERE ${whereClause}
+  `;
+
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, sqlParams),
+      this.dataSource.query(sqlCount, params),
+    ]);
+
+    const total = Number(countResult[0].TOTAL);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: await toLowerCaseKeys(result),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
   }
 }
