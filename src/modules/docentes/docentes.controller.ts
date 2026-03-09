@@ -26,6 +26,7 @@ import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../common/enums/permission.type';
+import { FindAssiduidadeDTO } from './dto/find-assiduidade.dto';
 
 @Controller('docentes')
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -112,5 +113,16 @@ export class DocentesController {
   })
   async createProgramaUC(@Body(ValidationPipe) body: CreateProgramaUCDTO) {
     return this.docentesService.createProgramaUC(body);
+  }
+
+
+@Get('assiduidade/:docenteId') // Definindo o parâmetro na rota
+  @ApiOperation({ summary: 'Buscar assiduidade do docente por ID' })
+  @ApiResponse({ status: 200, description: 'Lista de agendamentos encontrada.' })
+  async findAssiduidade(
+    @Param('docenteId', ParseIntPipe) docenteId: number, 
+    @Query() query: FindAssiduidadeDTO, 
+  ) {
+    return this.docentesService.findAssiduidadeDocente(docenteId, query);
   }
 }
