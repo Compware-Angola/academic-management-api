@@ -14,6 +14,8 @@ import {
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FindProgramaSemUCDTO } from './dto/find-programa-sem-uc.dto';
 import { UpdateProgramaStatusUCDTO } from './dto/update-programa-uc.dto';
+import { FindAssiduidadeDTO } from './dto/find-assiduidade.dto';
+import { FindHorarioVigilantesCDTO } from './dto/find-horario-vigilantes.dto';
 
 @Injectable()
 export class DocentesService {
@@ -337,6 +339,94 @@ WHERE JSON_VALUE(mtda.REF_DOCENTE, '$.pk') = :docenteId
       data: toLowerCaseKeys(result),
     };
   }
+
+  async findAssiduidadeDocente(docenteId: number, filters: FindAssiduidadeDTO) {
+    const {
+      gradeId,
+      estadoAgendamento,
+      dataInicio,
+      dataFim,
+      anoLectivo = 0,
+      semestre = 0,
+      page = 1,
+      limit = 20,
+    } = filters;
+    const offset = (page - 1) * limit;
+
+    // Definição das colunas para evitar o "..."
+
+    // No seu DocentesService:
+
+    const hasDates = dataInicio && dataFim;
+    // 1. Defina apenas o corpo da consulta (Colunas e FROM)
+    const columns = `
+    aa.PK_AGENDAMENTO_AULA AS "Codigo",
+    TO_CHAR(aa.DATA_AULA, 'YYYY-MM-DD') AS "data_aula",
+    estado.DESIGNACAO AS "estado",
+    JSON_VALUE(aa.REF_AULA, '$.nomeDocente') AS "Docente",
+    al.ORDEM AS "ordem_tempo",
+    c2.DESIGNACAO AS "curso",
+    d.DESIGNACAO AS "unidade_curricular",
+    TO_CHAR(al.HORA_INICIO, 'HH24:MI') AS "hora_inicio",
+    TO_CHAR(al.HORA_TERMINO, 'HH24:MI') AS "hora_termino"
+  `;
+
+    const fromWhere = `
+    FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
+    INNER JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO estado ON aa.FK_ESTADO_AGENDAMENTO = estado.PK_ESTADO_AGENDAMENTO
+    INNER JOIN FK2_MGH_TB_AULA al ON JSON_VALUE(aa.REF_AULA, '$.pkAula') = al.PK_AULA
+    INNER JOIN FK2_MGH_TB_HORARIO h ON al.FK_HORARIO = h.PK_HORARIO
+    INNER JOIN FK2_TB_GRADE_CURRICULAR gc ON aa.FK_GRADE_CURRICULAR = gc.CODIGO
+    LEFT JOIN FK2_TB_DISCIPLINAS d ON gc.CODIGO_DISCIPLINA = d.CODIGO
+    LEFT JOIN FK2_TB_CURSOS c2 ON gc.CODIGO_CURSO = c2.CODIGO
+    WHERE aa.ACTIVE_STATE = 1
+      AND (TO_NUMBER(JSON_VALUE(aa.REF_AULA, '$.pkDocente')) = :d1 OR :d2 = 0)
+      AND (TO_NUMBER(JSON_VALUE(aa.REF_AULA, '$.pkGrade')) = :g1 OR :g2 = 0)
+      AND (aa.FK_ESTADO_AGENDAMENTO = :e1 OR :e2 = 0)
+      AND (h.FK_ANO_LECTIVO = :a1 OR :a2 = 0)
+      AND (h.FK_SEMESTRE = :s1 OR :s2 = 0)
+     AND (:hasDate = 0 OR aa.DATA_AULA BETWEEN TO_DATE(:dataInicio, 'YYYY-MM-DD') AND TO_DATE(:dataFim, 'YYYY-MM-DD'))
+      AND aa.DATA_AULA <= TRUNC(SYSDATE)
+  `;
+
+    // 2. Monte o SQL final sem duplicar SELECT
+    const sql = `SELECT DISTINCT ${columns} ${fromWhere} ORDER BY "data_aula" ASC, "ordem_tempo" ASC OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY`;
+    const countSql = `SELECT COUNT(DISTINCT aa.PK_AGENDAMENTO_AULA) AS TOTAL ${fromWhere}`;
+
+    const filterParams = {
+      d1: docenteId || 0,
+      d2: docenteId || 0,
+      g1: gradeId || 0,
+      g2: gradeId || 0,
+      e1: estadoAgendamento || 0,
+      e2: estadoAgendamento || 0,
+      a1: anoLectivo || 0,
+      a2: anoLectivo || 0,
+      s1: semestre || 0,
+      s2: semestre || 0,
+      hasDate: hasDates ? 1 : 0, // Flag: 1 para usar data, 0 para ignorar
+      dataInicio: dataInicio || '1900-01-01', // Valores dummy se não houver data
+      dataFim: dataFim || '2100-01-01',
+    };
+    const sqlParams = {
+      ...filterParams,
+      offset,
+      limit,
+    };
+
+    const [records, countResult] = await Promise.all([
+      this.dataSource.query(sql, sqlParams as any),
+      this.dataSource.query(countSql, filterParams as any),
+    ]);
+    const total = Number(countResult[0]?.TOTAL || 0);
+    return {
+      data: toLowerCaseKeys(records),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
   public async updateProgramaStatus(
     codigoPrograma: number,
     payload: UpdateProgramaStatusUCDTO,
@@ -409,5 +499,108 @@ WHERE JSON_VALUE(mtda.REF_DOCENTE, '$.pk') = :docenteId
       pk: data.codigo,
       desc: data.designacao,
     });
+  }
+  async findHorarioVigilantes(filters: FindHorarioVigilantesCDTO) {
+    const {
+      vigilanteId,
+      periodoId,
+      prazoId,
+      estado,
+      limit = 10,
+      page = 1,
+    } = filters;
+
+    const offset = (page - 1) * limit;
+
+    const conditions: string[] = [];
+    const params: any = {};
+
+    conditions.push(`1=1`);
+
+    if (vigilanteId) {
+      conditions.push(`JSON_VALUE(cv.ref_vigilante,'$.pk') = :vigilanteId`);
+      params.vigilanteId = vigilanteId;
+    }
+
+    if (periodoId) {
+      conditions.push(`cp.codigo_periodo = :periodoId`);
+      params.periodoId = periodoId;
+    }
+
+    if (prazoId) {
+      conditions.push(`JSON_VALUE(cp.ref_prazo,'$.pk_prazo') = :prazoId`);
+      params.prazoId = prazoId;
+    }
+
+    if (estado) {
+      conditions.push(`es.pk_estado_agendamento = :estado`);
+      params.estado = estado;
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    const sql = `
+    SELECT
+      JSON_VALUE(cp.ref_horario,'$.desc')        AS horario,
+      TO_CHAR(cp.hora_termino,'hh24:mi:ss')      AS horaTermino,
+      TO_CHAR(cp.hora_prova,'hh24:mi:ss')        AS horaProva,
+      cp.data_prova                              AS dataProva,
+      d.designacao                               AS disciplina,
+      s.designacao                               AS sala,
+      JSON_VALUE(cv.ref_vigilante,'$.desc')      AS docente,
+      es.designacao                              AS estado
+    FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE cv
+    INNER JOIN FK2_TB_CALENDARIO_PROVA cp
+      ON cv.calendario_prova = cp.codigo
+    INNER JOIN FK2_MCAL_TB_PRAZO pz
+      ON pz.pk_prazo = JSON_VALUE(cp.ref_prazo,'$.pk_prazo')
+    LEFT JOIN FK2_TB_SALAS s
+      ON s.codigo = cp.codigo_sala
+    LEFT JOIN FK2_TB_DISCIPLINAS d
+      ON d.codigo = cp.codigo_disciplina
+    LEFT JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO es
+      ON es.pk_estado_agendamento = cv.estado_agendamento
+    WHERE ${whereClause}
+    ORDER BY cv.calendario_prova
+    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+  `;
+
+    const sqlParams = {
+      ...params,
+      offset,
+      limit,
+    };
+
+    const sqlCount = `
+    SELECT COUNT(*) AS TOTAL
+    FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE cv
+    INNER JOIN FK2_TB_CALENDARIO_PROVA cp
+      ON cv.calendario_prova = cp.codigo
+    INNER JOIN FK2_MCAL_TB_PRAZO pz
+      ON pz.pk_prazo = JSON_VALUE(cp.ref_prazo,'$.pk_prazo')
+    LEFT JOIN FK2_TB_SALAS s
+      ON s.codigo = cp.codigo_sala
+    LEFT JOIN FK2_TB_DISCIPLINAS d
+      ON d.codigo = cp.codigo_disciplina
+    LEFT JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO es
+      ON es.pk_estado_agendamento = cv.estado_agendamento
+    WHERE ${whereClause}
+  `;
+
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, sqlParams),
+      this.dataSource.query(sqlCount, params),
+    ]);
+
+    const total = Number(countResult[0].TOTAL);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: await toLowerCaseKeys(result),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
   }
 }
