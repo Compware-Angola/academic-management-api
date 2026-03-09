@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 
 import { DataSource } from 'typeorm/data-source/index.js';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
@@ -180,130 +180,145 @@ FETCH NEXT :limit ROWS ONLY
       throw new Error(`Falha ao consultar agendamentos: ${error.message}`);
     }
   }
-  async createSumario(dto:CreateSumarioDto) {
-      const { descricao, fk_agendamento_aula, fk_estado_sumario } = dto;
-      // verificar se  a aula ja tem um sumário ativo
-      const checkSql = `
+  async createSumario(dto: CreateSumarioDto) {
+    const { descricao, fk_agendamento_aula, fk_estado_sumario } = dto;
+
+    const config = await this.getParametro('tms')
+    if (descricao && descricao.length < config) {
+      throw new BadRequestException(
+        `O Sumário deve ter no mínimo ${config} caracteres.`,
+      );
+    }
+
+    const checkSql = `
         SELECT COUNT(*) AS count
         FROM FK2_MSA_TB_SUMARIO
         WHERE FK_AGENDAMENTO_AULA = :fk_agendamento_aula
           AND ACTIVE_STATE = 1
       `;
 
-      const checkResult = await this.dataSource.query(checkSql, { fk_agendamento_aula } as any);
-      const existingCount = Number(checkResult?.[0]?.COUNT ?? 0);
+    const checkResult = await this.dataSource.query(checkSql, { fk_agendamento_aula } as any);
+    const existingCount = Number(checkResult?.[0]?.COUNT ?? 0);
 
-      if (existingCount > 0) {
-        throw new ConflictException('Já existe um sumário ativo para este agendamento de aula.');
-      }
-      const insertSql = `
+    if (existingCount > 0) {
+      throw new ConflictException('Já existe um sumário ativo para este agendamento de aula.');
+    }
+    const insertSql = `
         INSERT INTO FK2_MSA_TB_SUMARIO (DESCRICAO, FK_AGENDAMENTO_AULA, FK_ESTADO_SUMARIO, ACTIVE_STATE, CREATED_AT, UPDATED_AT)
         VALUES (:descricao, :fk_agendamento_aula, :fk_estado_sumario, 1,SYSDATE,SYSDATE)
       `;
 
-      try {
-       await this.dataSource.query(insertSql, {
-          descricao,
-          fk_agendamento_aula,
-          fk_estado_sumario,
-        } as any);
+    try {
+      await this.dataSource.query(insertSql, {
+        descricao,
+        fk_agendamento_aula,
+        fk_estado_sumario,
+      } as any);
 
-        return { success: true, message: 'Sumário criado com sucesso' };
-      } catch (error) {
-        console.error('Erro ao criar sumário:', error);
-        throw new Error(`Falha ao criar sumário: ${error.message}`);
-      }
- 
+      return { success: true, message: 'Sumário criado com sucesso' };
+    } catch (error) {
+      console.error('Erro ao criar sumário:', error);
+      throw new Error(`Falha ao criar sumário: ${error.message}`);
+    }
+
   }
-async updateSumario(dto: UpdateSumarioDto, codigo: number) {
-  const fields = [] as string[];
-  const params: any = { codigo };
+  async updateSumario(dto: UpdateSumarioDto, codigo: number) {
+    const fields = [] as string[];
+    const params: any = { codigo };
 
-  if (dto.descricao !== undefined) {
-    fields.push('DESCRICAO = :descricao');
-    params.descricao = dto.descricao;
-  }
+    const config = await this.getParametro('tms')
+    if (dto.descricao && dto.descricao.length < config) {
+      throw new BadRequestException(
+        `O Sumário deve ter no mínimo ${config} caracteres.`,
+      );
+    }
 
-  if (dto.fk_agendamento_aula !== undefined) {
-    fields.push('FK_AGENDAMENTO_AULA = :fk_agendamento_aula');
-    params.fk_agendamento_aula = dto.fk_agendamento_aula;
-  }
 
- 
+    if (dto.descricao !== undefined) {
+      fields.push('DESCRICAO = :descricao');
+      params.descricao = dto.descricao;
+    }
 
-  if (dto.active_state !== undefined) {
-    fields.push('ACTIVE_STATE = :active_state');
-    params.active_state = dto.active_state;
-  }
+    if (dto.fk_agendamento_aula !== undefined) {
+      fields.push('FK_AGENDAMENTO_AULA = :fk_agendamento_aula');
+      params.fk_agendamento_aula = dto.fk_agendamento_aula;
+    }
 
-  if (dto.justificacao_director !== undefined) {
-    fields.push('JUSTIFICACAO_DIRECTOR = :justificacao_director');
-    params.justificacao_director = dto.justificacao_director;
-  }
 
-  // Sempre atualizar data
-  fields.push('UPDATED_AT = SYSDATE');
 
-  if (fields.length === 1) { 
-    throw new ConflictException('Nenhum campo enviado para atualização');
-  }
+    if (dto.active_state !== undefined) {
+      fields.push('ACTIVE_STATE = :active_state');
+      params.active_state = dto.active_state;
+    }
 
-  const updateSql = `
+    if (dto.justificacao_director !== undefined) {
+      fields.push('JUSTIFICACAO_DIRECTOR = :justificacao_director');
+      params.justificacao_director = dto.justificacao_director;
+    }
+
+    // Sempre atualizar data
+    fields.push('UPDATED_AT = SYSDATE');
+
+    if (fields.length === 1) {
+      throw new ConflictException('Nenhum campo enviado para atualização');
+    }
+
+    const updateSql = `
     UPDATE FK2_MSA_TB_SUMARIO
     SET ${fields.join(', ')}
     WHERE PK_TB_SUMARIO = :codigo
   `;
 
-  try {
-    await this.dataSource.query(updateSql, params);
-    return { success: true, message: 'Sumário atualizado com sucesso' };
-  } catch (error) {
-    console.error('Erro ao atualizar sumário:', error);
-    throw new Error(`Falha ao atualizar sumário: ${error.message}`);
+    try {
+      await this.dataSource.query(updateSql, params);
+      return { success: true, message: 'Sumário atualizado com sucesso' };
+    } catch (error) {
+      console.error('Erro ao atualizar sumário:', error);
+      throw new Error(`Falha ao atualizar sumário: ${error.message}`);
+    }
   }
-}
-async getEstatisticaSumarioAssiduidade(dto: FindAulasAgendadasSumarioDto) {
-  const {
-    docente = 0,
-    dataInicial,
-    dataFinal,
-    anoLectivo = 0,
-    semestre = 0,
-    page = 1,
-    limit = 20,
-  } = dto;
+  async getEstatisticaSumarioAssiduidade(dto: FindAulasAgendadasSumarioDto) {
+    const {
+      docente = 0,
+      dataInicial,
+      dataFinal,
+      anoLectivo = 0,
+      semestre = 0,
+      page = 1,
+      limit = 20,
+    } = dto;
 
-  const offset = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-  const paramsData: any = { dataInicial, dataFinal, offset, limit };
-  const paramsCount: any = { dataInicial, dataFinal };
+    const paramsData: any = { dataInicial, dataFinal, offset, limit };
+    const paramsCount: any = { dataInicial, dataFinal };
 
-  const conditions: string[] = [
-    "aa.ACTIVE_STATE = 1",
-    "aa.DATA_AULA BETWEEN :dataInicial AND :dataFinal",
-  ];
+    const conditions: string[] = [
+      "aa.ACTIVE_STATE = 1",
+      "aa.DATA_AULA BETWEEN :dataInicial AND :dataFinal",
+    ];
 
-  if (docente !== 0) {
-    conditions.push("JSON_VALUE(aa.REF_AULA,'$.pkDocente') = :docente");
-    paramsData.docente = docente;
-    paramsCount.docente = docente;
-  }
+    if (docente !== 0) {
+      conditions.push("JSON_VALUE(aa.REF_AULA,'$.pkDocente') = :docente");
+      paramsData.docente = docente;
+      paramsCount.docente = docente;
+    }
 
-  if (anoLectivo !== 0) {
-    conditions.push("h.FK_ANO_LECTIVO = :anoLectivo");
-    paramsData.anoLectivo = anoLectivo;
-    paramsCount.anoLectivo = anoLectivo;
-  }
+    if (anoLectivo !== 0) {
+      conditions.push("h.FK_ANO_LECTIVO = :anoLectivo");
+      paramsData.anoLectivo = anoLectivo;
+      paramsCount.anoLectivo = anoLectivo;
+    }
 
-  if (semestre !== 0) {
-    conditions.push("h.FK_SEMESTRE = :semestre");
-    paramsData.semestre = semestre;
-    paramsCount.semestre = semestre;
-  }
+    if (semestre !== 0) {
+      conditions.push("h.FK_SEMESTRE = :semestre");
+      paramsData.semestre = semestre;
+      paramsCount.semestre = semestre;
+    }
 
-  const whereClause = "WHERE " + conditions.join(" AND ");
+    const whereClause = "WHERE " + conditions.join(" AND ");
 
-  const sql = `
+    const sql = `
 SELECT
   MIN(aa.PK_AGENDAMENTO_AULA) AS codigo_agendamento,
   JSON_VALUE(al.REF_DOCENTE,'$.nome') AS docente,
@@ -364,7 +379,7 @@ OFFSET :offset ROWS
 FETCH NEXT :limit ROWS ONLY
 `;
 
-  const countSql = `
+    const countSql = `
 SELECT COUNT(*) AS total FROM (
   SELECT
     JSON_VALUE(al.REF_DOCENTE,'$.nome'),
@@ -397,111 +412,111 @@ SELECT COUNT(*) AS total FROM (
 )
 `;
 
-  try {
-    const [records, countResult] = await Promise.all([
-      this.dataSource.query(sql, paramsData),
-      this.dataSource.query(countSql, paramsCount),
-    ]);
+    try {
+      const [records, countResult] = await Promise.all([
+        this.dataSource.query(sql, paramsData),
+        this.dataSource.query(countSql, paramsCount),
+      ]);
 
-    const total = Number(countResult?.[0]?.TOTAL ?? 0);
+      const total = Number(countResult?.[0]?.TOTAL ?? 0);
 
-    return {
-      data: records.map((r) => ({
-        codigo_agendamento: r.CODIGO_AGENDAMENTO,
-        docente: r.DOCENTE,
-        unidadeCurricular: r.UNIDADE_CURRICULAR,
-        horario: r.HORARIO,
-        curso: r.CURSO,
+      return {
+        data: records.map((r) => ({
+          codigo_agendamento: r.CODIGO_AGENDAMENTO,
+          docente: r.DOCENTE,
+          unidadeCurricular: r.UNIDADE_CURRICULAR,
+          horario: r.HORARIO,
+          curso: r.CURSO,
 
-        controleSumarios: {
-          pendentes: Number(r.SUMARIOS_PENDENTES),
-          lancados: Number(r.SUMARIOS_LANCADOS),
-          total: Number(r.TOTAL_SUMARIOS),
-        },
+          controleSumarios: {
+            pendentes: Number(r.SUMARIOS_PENDENTES),
+            lancados: Number(r.SUMARIOS_LANCADOS),
+            total: Number(r.TOTAL_SUMARIOS),
+          },
 
-        controleAssiduidade: {
-          pendentes: Number(r.ASSID_PENDENTES),
-          presenca: Number(r.ASSID_PRESENCA),
-          falta: Number(r.ASSID_FALTA),
-          total: Number(r.TOTAL_ASSID),
-        },
+          controleAssiduidade: {
+            pendentes: Number(r.ASSID_PENDENTES),
+            presenca: Number(r.ASSID_PRESENCA),
+            falta: Number(r.ASSID_FALTA),
+            total: Number(r.TOTAL_ASSID),
+          },
 
-        sumarioComAssiduidade: Number(r.SUMARIO_COM_ASSID),
-      })),
+          sumarioComAssiduidade: Number(r.SUMARIO_COM_ASSID),
+        })),
 
-      total,
-      page,
-      limit,
-      totalPages: total > 0 ? Math.ceil(total / limit) : 1,
+        total,
+        page,
+        limit,
+        totalPages: total > 0 ? Math.ceil(total / limit) : 1,
+      };
+    } catch (error) {
+      console.error("Erro ao buscar estatísticas:", error);
+      throw new Error(`Falha ao consultar estatísticas: ${error.message}`);
+    }
+  }
+  async getSumarios(dto: FindSumarioDto) {
+    const {
+      docente = 0,
+      unidadeCurricular = 0,
+      dataInicial,
+      dataFinal,
+      estado_sumario = 0,
+      anoLectivo = 0,
+      semestre = 0,
+      page = 1,
+      limit = 20,
+    } = dto;
+
+    const offset = (page - 1) * limit;
+
+    const whereParams: Record<string, any> = {
+
     };
-  } catch (error) {
-    console.error("Erro ao buscar estatísticas:", error);
-    throw new Error(`Falha ao consultar estatísticas: ${error.message}`);
-  }
-}
-async getSumarios(dto: FindSumarioDto) {
-  const {
-    docente = 0,
-    unidadeCurricular = 0,
-    dataInicial,
-    dataFinal,
-    estado_sumario = 0,
-    anoLectivo = 0,
-    semestre = 0,
-    page = 1,
-    limit = 20,
-  } = dto;
 
-  const offset = (page - 1) * limit;
-
-  const whereParams: Record<string, any> = {
-  
-  };
-
-  if (docente !== 0) whereParams.docente = docente;
-  if (unidadeCurricular !== 0) whereParams.unidadeCurricular = unidadeCurricular;
-  if (estado_sumario !== 0) whereParams.estado_sumario = estado_sumario;
-  if (semestre !== 0) whereParams.semestre = semestre;
-  if (anoLectivo !== 0) whereParams.anoLectivo = anoLectivo;
-  if( dataInicial !== undefined && dataInicial !== null && dataFinal !== undefined && dataFinal !== null) {
-     whereParams.dataInicial =dataInicial
-    whereParams.dataFinal =dataFinal
-  }
-  
+    if (docente !== 0) whereParams.docente = docente;
+    if (unidadeCurricular !== 0) whereParams.unidadeCurricular = unidadeCurricular;
+    if (estado_sumario !== 0) whereParams.estado_sumario = estado_sumario;
+    if (semestre !== 0) whereParams.semestre = semestre;
+    if (anoLectivo !== 0) whereParams.anoLectivo = anoLectivo;
+    if (dataInicial !== undefined && dataInicial !== null && dataFinal !== undefined && dataFinal !== null) {
+      whereParams.dataInicial = dataInicial
+      whereParams.dataFinal = dataFinal
+    }
 
 
-  const conditions: string[] = [
-    'aa.ACTIVE_STATE = 1',
-   
-  ];
 
-  if (dataInicial && dataFinal) {
-    conditions.push('aa.DATA_AULA BETWEEN :dataInicial AND :dataFinal');
-  }
-  if (docente !== 0) {
-    conditions.push("JSON_VALUE(aa.REF_AULA, '$.pkDocente') = :docente");
-  }
+    const conditions: string[] = [
+      'aa.ACTIVE_STATE = 1',
 
-  if (unidadeCurricular !== 0) {
-    conditions.push("JSON_VALUE(aa.REF_AULA, '$.pkGrade') = :unidadeCurricular");
-  }
+    ];
 
-  if (estado_sumario !== 0) {
-    conditions.push('s.FK_ESTADO_SUMARIO = :estado_sumario');
-  }
+    if (dataInicial && dataFinal) {
+      conditions.push('aa.DATA_AULA BETWEEN :dataInicial AND :dataFinal');
+    }
+    if (docente !== 0) {
+      conditions.push("JSON_VALUE(aa.REF_AULA, '$.pkDocente') = :docente");
+    }
 
-  if (anoLectivo !== 0) {
-    conditions.push('h.FK_ANO_LECTIVO = :anoLectivo');
-  }
+    if (unidadeCurricular !== 0) {
+      conditions.push("JSON_VALUE(aa.REF_AULA, '$.pkGrade') = :unidadeCurricular");
+    }
 
-  if (semestre !== 0) {
-    conditions.push('h.FK_SEMESTRE = :semestre');
-  }
+    if (estado_sumario !== 0) {
+      conditions.push('s.FK_ESTADO_SUMARIO = :estado_sumario');
+    }
 
-  const whereClause =
-    conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+    if (anoLectivo !== 0) {
+      conditions.push('h.FK_ANO_LECTIVO = :anoLectivo');
+    }
 
-  const sql = `
+    if (semestre !== 0) {
+      conditions.push('h.FK_SEMESTRE = :semestre');
+    }
+
+    const whereClause =
+      conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+    const sql = `
 SELECT DISTINCT
    s.PK_TB_SUMARIO AS sumario_codigo,
    s.DESCRICAO AS sumario_descricao,
@@ -583,9 +598,9 @@ OFFSET :offset ROWS
 FETCH NEXT :limit ROWS ONLY
 `;
 
-  const sqlParams = { ...whereParams, offset, limit };
+    const sqlParams = { ...whereParams, offset, limit };
 
-  const countSql = `
+    const countSql = `
 SELECT COUNT(DISTINCT s.PK_TB_SUMARIO) as total
 FROM FK2_MSA_TB_SUMARIO s
 INNER JOIN FK2_MSA_TB_AGENDAMENTO_AULA aa
@@ -597,92 +612,99 @@ INNER JOIN FK2_MGH_TB_HORARIO h
 ${whereClause}
 `;
 
-  try {
-    const [records, countResult] = await Promise.all([
-      this.dataSource.query(sql, sqlParams as any),
-      this.dataSource.query(countSql, whereParams as any),
-    ]);
+    try {
+      const [records, countResult] = await Promise.all([
+        this.dataSource.query(sql, sqlParams as any),
+        this.dataSource.query(countSql, whereParams as any),
+      ]);
 
-    const total = Number(countResult?.[0]?.TOTAL ?? 0);
+      const total = Number(countResult?.[0]?.TOTAL ?? 0);
 
-    return {
-      data: toLowerCaseKeys(records),
-      total,
-      page,
-      limit,
-      totalPages: total > 0 ? Math.ceil(total / limit) : 1,
-    };
-  } catch (error) {
-    console.error('Erro ao buscar sumários:', error);
-    throw new Error(`Falha ao consultar sumários: ${error.message}`);
-  }
-}
-async validarSumario(estado: number, codigo: number) {
-  if (estado === undefined) {
-    throw new ConflictException('Estado do sumário é obrigatório');
-  }
-
-  // 1️⃣ Buscar o sumário
-  const sumario = await this.dataSource.query(
-    `SELECT * FROM FK2_MSA_TB_SUMARIO WHERE PK_TB_SUMARIO = :codigo`,
-    { codigo } as any
-  );
-
-  if (!sumario || sumario.length === 0) {
-    throw new NotFoundException('Sumário não encontrado');
-  }
-
-  const aulaId = sumario[0].FK_AGENDAMENTO_AULA;
-
-  // 2️⃣ Buscar a aula relacionada
-  const aula = await this.dataSource.query(
-    `SELECT * FROM FK2_MSA_TB_AGENDAMENTO_AULA WHERE PK_AGENDAMENTO_AULA = :aulaId`,
-    { aulaId } as any
-  );
-
-  if (!aula || aula.length === 0) {
-    throw new NotFoundException('Aula relacionada ao sumário não encontrada');
-  }
-
-  // 3️⃣ Verificar se o sumarista já validou a aula
-  const aulaValidada = aula[0].FK_ESTADO_AGENDAMENTO === 3;
-
-  let podeValidar = aulaValidada;
-
-  // 4️⃣ Checar tabela de parâmetros se permite validar sem aula validada
-if (!podeValidar) {
-  const param = await this.dataSource.query(
-    `SELECT ARGS AS valor FROM FK2_MSA_TB_PARAMETRO WHERE SIGLA = 'pvssms'`
-  );
-
-  if (Array.isArray(param) && param.length > 0) {
-    const valorJson = JSON.parse(param[0].VALOR);
-    if (valorJson.valor === true) {
-      podeValidar = true;
+      return {
+        data: toLowerCaseKeys(records),
+        total,
+        page,
+        limit,
+        totalPages: total > 0 ? Math.ceil(total / limit) : 1,
+      };
+    } catch (error) {
+      console.error('Erro ao buscar sumários:', error);
+      throw new Error(`Falha ao consultar sumários: ${error.message}`);
     }
   }
-}
-  if (!podeValidar) {
-    throw new ConflictException(
-      'Não é possível validar o sumário porque a aula ainda não foi validada'
-    );
-  }
+  async validarSumario(estado: number, codigo: number) {
+    if (estado === undefined) {
+      throw new ConflictException('Estado do sumário é obrigatório');
+    }
 
- 
-  const updateSql = `
+    // 1️⃣ Buscar o sumário
+    const sumario = await this.dataSource.query(
+      `SELECT * FROM FK2_MSA_TB_SUMARIO WHERE PK_TB_SUMARIO = :codigo`,
+      { codigo } as any
+    );
+
+    if (!sumario || sumario.length === 0) {
+      throw new NotFoundException('Sumário não encontrado');
+    }
+
+    const aulaId = sumario[0].FK_AGENDAMENTO_AULA;
+
+    // 2️⃣ Buscar a aula relacionada
+    const aula = await this.dataSource.query(
+      `SELECT * FROM FK2_MSA_TB_AGENDAMENTO_AULA WHERE PK_AGENDAMENTO_AULA = :aulaId`,
+      { aulaId } as any
+    );
+
+    if (!aula || aula.length === 0) {
+      throw new NotFoundException('Aula relacionada ao sumário não encontrada');
+    }
+
+    // 3️⃣ Verificar se o sumarista já validou a aula
+    const aulaValidada = aula[0].FK_ESTADO_AGENDAMENTO === 3;
+
+    let podeValidar = aulaValidada;
+
+    // 4️⃣ Checar tabela de parâmetros se permite validar sem aula validada
+    if (!podeValidar) {
+      podeValidar = await this.getParametro('pvssms')
+    }
+    if (!podeValidar) {
+      throw new ConflictException(
+        'Não é possível validar o sumário porque a aula ainda não foi validada'
+      );
+    }
+
+
+    const updateSql = `
     UPDATE FK2_MSA_TB_SUMARIO
     SET FK_ESTADO_SUMARIO = :fk_estado_sumario,
         UPDATED_AT = SYSDATE
     WHERE PK_TB_SUMARIO = :codigo
   `;
-  const params = { fk_estado_sumario: estado, codigo };
+    const params = { fk_estado_sumario: estado, codigo };
 
-  try {
-    await this.dataSource.query(updateSql, params as any);
-    return { success: true, message: 'Sumário atualizado com sucesso' };
-  } catch (error) {
-    console.error('Erro ao atualizar sumário:', error);
-    throw new Error(`Falha ao atualizar sumário: ${error.message}`);
+    try {
+      await this.dataSource.query(updateSql, params as any);
+      return { success: true, message: 'Sumário atualizado com sucesso' };
+    } catch (error) {
+      console.error('Erro ao atualizar sumário:', error);
+      throw new Error(`Falha ao atualizar sumário: ${error.message}`);
+    }
   }
-}
+  async getParametro(sigla: string): Promise<any> {
+    const param = await this.dataSource.query(
+      `SELECT ARGS AS valor FROM FK2_MSA_TB_PARAMETRO WHERE SIGLA = :sigla`,
+      [sigla],
+    );
+
+    if (Array.isArray(param) && param.length > 0) {
+      try {
+        return JSON.parse(param[0].VALOR).valor;
+      } catch {
+        return param[0].VALOR;
+      }
+    }
+
+    return null;
+  }
 }

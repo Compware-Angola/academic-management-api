@@ -1,6 +1,7 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
+import { FiltroOrientadorDto } from './dto';
 
 @Injectable()
 export class DefenseManagementTfcService {
@@ -130,4 +131,65 @@ export class DefenseManagementTfcService {
       throw new InternalServerErrorException('Erro ao buscar lista de finalistas.');
     }
   }
+
+  async orientadoresTFC(filtros: FiltroOrientadorDto) {
+    const { anoLectivoId, cursoId, estado, page=1, limit=20 } = filtros;
+    const offset = (page - 1) * limit;
+
+    const baseQuery = `
+      FROM FK2_MGTFC_TB_ORIENTADOR o
+      LEFT JOIN FK2_TB_CURSOS c ON c.CODIGO = TO_NUMBER(JSON_VALUE(o.REF_CURSO, '$.pk'))
+      LEFT JOIN FK2_TB_ANO_LECTIVO al ON al.CODIGO = TO_NUMBER(JSON_VALUE(o.REF_ANO_LECTIVO, '$.pk'))
+      LEFT JOIN FK2_TB_UTILIZADORES u ON u.CODIGO = TO_NUMBER(JSON_VALUE(o.REF_UTILIZADOR, '$.pk'))
+      WHERE 1=1
+        AND (TO_NUMBER(JSON_VALUE(o.REF_ANO_LECTIVO, '$.pk')) = :anoId OR :anoId IS NULL)
+        AND (TO_NUMBER(JSON_VALUE(o.REF_CURSO, '$.pk')) = :cursoId OR :cursoId IS NULL)
+        AND (o.ESTADO_ORIENTADOR = :estado OR :estado IS NULL)
+    `;
+
+    const sql = `
+      SELECT 
+        o.PK_ORIENTADOR AS "codigo",
+        c.DESIGNACAO AS "curso",
+        o.NUMERO_ORIENTADOS AS "numero_orientados",
+        al.DESIGNACAO AS "ano_lectivo",
+        o.ESTADO_ORIENTADOR AS "estado",
+        u.NOME AS "utilizador",
+        TO_CHAR(o.CREATED_AT, 'DD/MM/YYYY') AS "data_cadastro"
+      ${baseQuery}
+      ORDER BY o.CREATED_AT DESC
+      OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+    `;
+
+    const params = {
+      anoId: anoLectivoId || null,
+      cursoId: cursoId || null,
+      estado: estado || null,
+      offset,
+      limit
+    };
+
+    const data = await this.dataSource.query(sql, [
+      params.anoId, params.anoId,
+      params.cursoId, params.cursoId,
+      params.estado, params.estado,
+      params.offset,
+      params.limit
+    ]);
+
+    // Busca o total para a paginação
+    const totalResult = await this.dataSource.query(`SELECT COUNT(*) as TOTAL ${baseQuery}`, [
+      params.anoId, params.anoId,
+      params.cursoId, params.cursoId,
+      params.estado, params.estado
+    ]);
+
+    return {
+      data,
+      total: totalResult[0].TOTAL,
+      page,
+      limit
+    };
+  }
+  
 }

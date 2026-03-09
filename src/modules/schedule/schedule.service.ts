@@ -21,10 +21,15 @@ import { ListScheduleWithPermissionDto } from './dto/list-schedule-with-permissi
 import { UpdatePermissionEditScheduleDto } from './dto/update-permission-edit-schedule.dto';
 import { formatHora } from '../util/formate-date';
 import { promptToCreateAndEditService } from '../academic_activities/prompt-to-create-and-edit.service';
+import { Queue } from 'bullmq';
+import { InjectQueue } from '@nestjs/bullmq';
 
 @Injectable()
 export class ScheduleService {
   constructor(
+    @InjectQueue('schedule_service')
+    private readonly scheduleQueue: Queue,
+
     private readonly dataSource: DataSource,
     private readonly promptToCreateAndEditService: promptToCreateAndEditService,
   ) {}
@@ -57,15 +62,15 @@ export class ScheduleService {
   }
 
   async update(userId: number, horarioIdParam: number, dto: UpdateScheduleDto) {
-    let dataInicioLoophole;
-    let dataFimLoophole;
+    let dataInicioLoophole: any;
+    let dataFimLoophole: any;
 
-    let dataInicio;
-    let dataFim;
+    let dataInicio: any;
+    let dataFim: any;
 
-    let estaNoPrazo;
+    let estaNoPrazo: any;
 
-    let loopholeToEdit;
+    let loopholeToEdit: any;
     const agora = new Date();
 
     const terms =
@@ -832,7 +837,11 @@ ORDER BY
     );
 
     // --------------------------------------------------------------------
-    // 4) RETORNAR RESPOSTA AMIGÁVEL
+    // 4) Iniciar Fila para Agendar Aulas
+    // --------------------------------------------------------------------
+    await this.queueScheduleClass(horarioId);
+    // --------------------------------------------------------------------
+    // 5) RETORNAR RESPOSTA AMIGÁVEL
     // --------------------------------------------------------------------
     return {
       success: true,
@@ -2582,8 +2591,6 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       [sala],
     );
 
-    console.log(result, sala);
-
     return result[0]?.DESIGNACAO as string;
   }
   private async getschedule(cheduleId: number): Promise<any> {
@@ -2670,5 +2677,26 @@ WHERE tu.PK_UTILIZADOR = :1
     );
 
     return userData[0];
+  }
+
+  async queueScheduleClass(
+    scheduleId: number,
+  ): Promise<{ message: string; taskId: string | undefined }> {
+    const job = await this.scheduleQueue.add(
+      'scheduleClass',
+      {
+        scheduleId,
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        attempts: 3,
+        backoff: 5000,
+      },
+    );
+    return {
+      message: 'Processamento iniciado: Agendar Aulas ...',
+      taskId: job.id,
+    };
   }
 }
