@@ -636,11 +636,14 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
     async updateAvisoImagem(fileName: string): Promise<{ message: string }> {
     const result = await this.dataSource.query(
       `
-      UPDATE FK2_TB_AVISO_UMA
-      SET 
-        FILE_NAME = :fileName,
-        UPDATED_AT = SYSDATE
-      WHERE ID = 50
+          INSERT INTO FK2_TB_AVISO_UMA (
+          FILE_NAME,
+          UPDATED_AT
+        )
+        VALUES (
+          :1,
+          SYSDATE
+        )
       `,
       [fileName],
     );
