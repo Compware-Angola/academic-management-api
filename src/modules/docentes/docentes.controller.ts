@@ -116,7 +116,8 @@ export class DocentesController {
   }
 
 
-@Get('assiduidade/:docenteId') // Definindo o parâmetro na rota
+@Get('assiduidade/:docenteId')
+ @RequiredPermissions(PermissionTypeDetails.MINHAS_ASSIDUIDADES.sigla)
   @ApiOperation({ summary: 'Buscar assiduidade do docente por ID' })
   @ApiResponse({ status: 200, description: 'Lista de agendamentos encontrada.' })
   async findAssiduidade(
