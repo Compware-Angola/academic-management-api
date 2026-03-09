@@ -1,86 +1,149 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Req, ValidationPipe } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Put,
+  Query,
+  Req,
+  UseGuards,
+  ValidationPipe,
+} from '@nestjs/common';
 import { DocentesService } from './docentes.service';
-import { CreateProgramaUCDTO, FindProgramaUCDTO } from './dto/find-programa-uc.dto';
+import {
+  CreateProgramaUCDTO,
+  FindDocenteCadeira,
+  FindDocenteUcCurso,
+  FindProgramaUCDTO,
+} from './dto/find-programa-uc.dto';
 import { ApiBody, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { CursosResponseDto } from './dto/curso';
 import { CadeirasResponseDto } from './dto/cadeira';
+<<<<<<< HEAD
 import { FindTeacherWeeklyScheduleDto } from './dto/FindTeacherWeeklyScheduleDto';
+=======
+import { UpdateProgramaStatusUCDTO } from './dto/update-programa-uc.dto';
+import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { RequiredPermissions } from '../common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from '../common/enums/permission.type';
+import { FindAssiduidadeDTO } from './dto/find-assiduidade.dto';
+import { FindHorarioVigilantesCDTO } from './dto/find-horario-vigilantes.dto';
+>>>>>>> 6f2b83e9f3c88b30937ec9ddfa77f6b1d1bd0f72
 
 @Controller('docentes')
+//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 export class DocentesController {
   constructor(private readonly docentesService: DocentesService) {}
 
   @Get('/programa-uc')
+  @RequiredPermissions(
+    PermissionTypeDetails.LANCAMENTO_PROGRAMA_UC.sigla,
+    PermissionTypeDetails.VALIDACAO_PROGRAMA_UC.sigla,
+  )
   findProgramaUC(
     @Query(ValidationPipe) query: FindProgramaUCDTO,
     @Req() req: any,
   ) {
     return this.docentesService.findProgramaUC(query);
   }
+  @Put('/programa-uc/estado/:id')
+  @RequiredPermissions(PermissionTypeDetails.VALIDACAO_PROGRAMA_UC.sigla)
+  updateProgramaUC(
+    @Param('id', ParseIntPipe) id: number,
+    @Body(ValidationPipe) query: UpdateProgramaStatusUCDTO,
+    @Req() req: any,
+  ) {
+    return this.docentesService.updateProgramaStatus(id, query);
+  }
+
+  @Put('/programa-uc/:id/visibilidade')
+  @RequiredPermissions(PermissionTypeDetails.VALIDACAO_PROGRAMA_UC.sigla)
+  updateProgramaUCVisibilidade(
+    @Param('id', ParseIntPipe) id: number,
+    @Body(ValidationPipe) query: UpdateProgramaStatusUCDTO,
+    @Req() req: any,
+  ) {
+    return this.docentesService.updateProgramaVisibilidade(id, query);
+  }
+
   @Get('/programas-sem-ucs')
+  @RequiredPermissions(
+    PermissionTypeDetails.LANCAMENTO_PROGRAMA_UC.sigla,
+    PermissionTypeDetails.VALIDACAO_PROGRAMA_UC.sigla,
+  )
   findProgramaSemUC(
     @Query(ValidationPipe) query: FindProgramaUCDTO,
     @Req() req: any,
   ) {
     return this.docentesService.findSemProgramaUC(query);
   }
-@Get(':docenteId/cursos')
-@ApiOperation({ summary: 'Lista cursos do docente' })
-@ApiParam({
-  name: 'docenteId',
-  type: String,
-  example: '486',
-})
-@ApiResponse({
-  status: 200,
-  description: 'Lista de cursos do docente',
-  type: CursosResponseDto,
-})
-findCursos(
-  @Param('docenteId', ParseIntPipe) docenteId: string,
-) {
-  return this.docentesService.findCursos(docenteId);
-}
-@Get(':docenteId/:cursoId/:classeId/cadeiras')
-@ApiOperation({ summary: 'Lista cadeiras do docente por curso' })
-@ApiParam({
-  name: 'docenteId',
-  type: String,
-  example: '486',
-})
-@ApiParam({
-  name: 'cursoId',
-  type: String,
-  example: '11',
-})
-@ApiParam({
-  name: 'classeId',
-  type: String,
-  example: '2',
-})
-@ApiResponse({
-  status: 200,
-  description: 'Lista de cadeiras do docente no curso',
-  type: CadeirasResponseDto,
-})
-findCadeiras(
-  @Param('docenteId', ParseIntPipe) docenteId: string,
-  @Param('cursoId', ParseIntPipe) cursoId: string,
-  @Param('classeId', ParseIntPipe) classeId: string,
-) {
-  return this.docentesService.findCadeiras({ docenteId, cursoId, classeId });
-}
-@Post('/programa-uc')
-@ApiOperation({ summary: 'Cria um programa UC' })
-@ApiBody({ type: CreateProgramaUCDTO })
-@ApiResponse({
-  status: 200,
-  description: 'Programa UC criado com sucesso',
-})
-async createProgramaUC(
-  @Body(ValidationPipe) body: CreateProgramaUCDTO,
-) {
-  return this.docentesService.createProgramaUC(body);
-}
+  @Get(':docenteId/cursos')
+  @ApiOperation({ summary: 'Lista cursos do docente' })
+  @ApiParam({
+    name: 'docenteId',
+    type: String,
+    example: '486',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de cursos do docente',
+    type: CursosResponseDto,
+  })
+  findCursos(
+    @Param('docenteId', ParseIntPipe) docenteId: string,
+    @Query(ValidationPipe) query: FindDocenteUcCurso,
+  ) {
+    return this.docentesService.findCursos(docenteId, query);
+  }
+  @Get('/cadeiras')
+  @ApiOperation({ summary: 'Lista cadeiras do docente por curso' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de cadeiras do docente no curso',
+    type: CadeirasResponseDto,
+  })
+  findCadeiras(@Query(ValidationPipe) query: FindDocenteCadeira) {
+    return this.docentesService.findCadeiras(query);
+  }
+  @Get('/horarios-vigilantes')
+  @ApiOperation({ summary: 'Lista Horários Vigilantes' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista Horários Vigilantes em um prazo',
+    type: CadeirasResponseDto,
+  })
+  findHorariosVigilantes(
+    @Query(ValidationPipe) query: FindHorarioVigilantesCDTO,
+  ) {
+    return this.docentesService.findHorarioVigilantes(query);
+  }
 
+  @Post('/programa-uc')
+  @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_PROGRAMA_UC.sigla)
+  @ApiOperation({ summary: 'Cria um programa UC' })
+  @ApiBody({ type: CreateProgramaUCDTO })
+  @ApiResponse({
+    status: 200,
+    description: 'Programa UC criado com sucesso',
+  })
+  async createProgramaUC(@Body(ValidationPipe) body: CreateProgramaUCDTO) {
+    return this.docentesService.createProgramaUC(body);
+  }
+
+  @Get('assiduidade/:docenteId')
+  @RequiredPermissions(PermissionTypeDetails.MINHAS_ASSIDUIDADES.sigla)
+  @ApiOperation({ summary: 'Buscar assiduidade do docente por ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de agendamentos encontrada.',
+  })
+  async findAssiduidade(
+    @Param('docenteId', ParseIntPipe) docenteId: number,
+    @Query() query: FindAssiduidadeDTO,
+  ) {
+    return this.docentesService.findAssiduidadeDocente(docenteId, query);
+  }
 }

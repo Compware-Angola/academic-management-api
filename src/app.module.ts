@@ -22,6 +22,9 @@ import { AssiduidadeModule } from './modules/assiduidade/assiduidade.module';
 import { DocentesModule } from './modules/docentes/docentes.module';
 
 import { DefenseManagementTfcModule } from './modules/defense-management-tfc/defense-management-tfc.module';
+import { SumarioModule } from './modules/sumario/sumario.module';
+import { BullConfigModule } from './modules/bull/bull.module';
+
 
 @Module({
   imports: [
@@ -82,6 +85,8 @@ import { DefenseManagementTfcModule } from './modules/defense-management-tfc/def
     AssiduidadeModule,
     DocentesModule,
     DefenseManagementTfcModule,
+    SumarioModule,
+    BullConfigModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService],

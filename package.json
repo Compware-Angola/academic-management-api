@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
+    "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -28,8 +29,14 @@
     "@nestjs/swagger": "^11.2.3",
     "@nestjs/typeorm": "^11.0.0",
     "bcrypt": "^6.0.0",
+    "bullmq": "^5.70.4",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
+<<<<<<< HEAD
+=======
+    "ioredis": "^5.10.0",
+    "multer": "^2.0.2",
+>>>>>>> 6f2b83e9f3c88b30937ec9ddfa77f6b1d1bd0f72
     "oracledb": "^6.10.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"

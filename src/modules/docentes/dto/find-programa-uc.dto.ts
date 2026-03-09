@@ -63,6 +63,26 @@ export class FindProgramaUCDTO {
   docenteId?: number;
 
   @ApiPropertyOptional({
+    description: 'Filtrar por Estado',
+    example: 1,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  estado?: number;
+
+  @ApiPropertyOptional({
+    description: 'Filtrar por Unidade Curricular',
+    example: 486,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  unidadeCurricular?: number;
+
+  @ApiPropertyOptional({
     description: 'Número da página',
     example: 1,
     minimum: 1,
@@ -89,14 +109,13 @@ export class FindProgramaUCDTO {
   limit?: number = 25;
 }
 
-
 export class CreateProgramaUCDTO {
   @ApiProperty({
     description: 'Ano letivo obrigatório',
     example: 21,
     minimum: 1,
   })
-  @IsNumber()
+  @IsInt()
   @IsPositive()
   @Type(() => Number)
   anoLectivo: number;
@@ -122,15 +141,6 @@ export class CreateProgramaUCDTO {
   codigoCurso: number;
 
   @ApiProperty({
-    description: 'Codigo do Ano Curricular',
-    example: 1,
-    required: true,
-  })
-  @IsInt()
-  @Type(() => Number)
-  anoCurricularCode: number;
-
-  @ApiProperty({
     description: 'Filtrar por docente',
     example: 486,
     required: true,
@@ -148,17 +158,6 @@ export class CreateProgramaUCDTO {
   @Type(() => String)
   ficheiroName: string;
 
-
-  @ApiProperty({
-    description: 'Estado do programa',
-    example: 1,
-    required: true,
-  })
-  @IsNumber()
-  @IsPositive()
-  @Type(() => Number)
-  estadoPrograma: number;
-
   @ApiProperty({
     description: 'Codigo da Grade Curricular',
     example: 1,
@@ -167,5 +166,65 @@ export class CreateProgramaUCDTO {
   @IsInt()
   @Type(() => Number)
   gradeCurricularCode: number;
-  
+}
+export class FindDocenteUcCurso {
+  @ApiProperty({
+    description: 'Ano letivo obrigatório',
+    example: 21,
+    minimum: 1,
+  })
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  anoLectivo: number;
+}
+
+export class FindDocenteCadeira {
+  @ApiProperty({
+    description: 'Ano letivo obrigatório',
+    example: 21,
+    minimum: 1,
+  })
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  anoLectivo: number;
+
+  @ApiProperty({
+    description: 'Filtrar por semestre (1 ou 2)',
+    example: 1,
+    required: true,
+    enum: [1, 2],
+  })
+  @IsInt()
+  @IsIn([1, 2], { message: 'semestre deve ser 1 ou 2' })
+  @Type(() => Number)
+  semestreId: number;
+
+  @ApiProperty({
+    description: 'Codigo do Curso',
+    example: 6,
+    required: true,
+  })
+  @IsInt()
+  @Type(() => Number)
+  cursoId: number;
+
+  @ApiProperty({
+    description: 'Codigo do Ano Curricular',
+    example: 1,
+    required: true,
+  })
+  @IsInt()
+  @Type(() => Number)
+  classeId: number;
+
+  @ApiProperty({
+    description: 'Filtrar por docente',
+    example: 486,
+    required: false,
+  })
+  @IsInt()
+  @Type(() => Number)
+  docenteId: number;
 }

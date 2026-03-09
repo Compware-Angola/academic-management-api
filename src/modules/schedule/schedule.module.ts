@@ -6,13 +6,19 @@ import { promptToCreateAndEditService } from '../academic_activities/prompt-to-c
 import { AnoLectivoUtil } from '../util/current-academic-year';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AcademicYear } from '../shared/entities/academic.year.entity';
+import { BullModule } from '@nestjs/bullmq';
 
 @Module({
-   imports: [TypeOrmModule.forFeature([AcademicYear]),HttpModule.register({
-      timeout: 5000,
-      maxRedirects: 5
-    })],
+  imports: [TypeOrmModule.forFeature([AcademicYear]), HttpModule.register({
+    timeout: 5000,
+    maxRedirects: 5
+  }),
+  BullModule.registerQueue({
+    name: 'schedule_service',
+  }),
+
+  ],
   controllers: [ScheduleController],
-  providers: [ScheduleService,promptToCreateAndEditService,AnoLectivoUtil],
+  providers: [ScheduleService, promptToCreateAndEditService, AnoLectivoUtil],
 })
-export class ScheduleModule {}
+export class ScheduleModule { }
