@@ -32,7 +32,7 @@ export class ScheduleService {
 
     private readonly dataSource: DataSource,
     private readonly promptToCreateAndEditService: promptToCreateAndEditService,
-  ) {}
+  ) { }
   async create(userId: number, dto: CreateScheduleDto) {
     const terms =
       await this.promptToCreateAndEditService.promptToCreateAndEditSchedule(
@@ -2051,81 +2051,73 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
 
     // -------------------- QUERY PRINCIPAL (SEM DISTINCT) --------------------
     const sql = `
-    SELECT
-      h.PK_HORARIO                                       AS CODIGO,
-      DBMS_LOB.SUBSTR(h.DESIGNACAO, 4000, 1)             AS HORARIO_NOME,
-      json_value(al.REF_DOCENTE, '$.nome')               AS DOCENTE_NOME,
-      json_value(al.REF_DOCENTE, '$.pkDocente')          AS CODIGO_DOCENTE,
-      al.HORA_INICIO                                     AS HORA_INICIO,
-      al.HORA_TERMINO                                    AS HORA_TERMINO,
-      TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, ''))       AS CODIGO_GRADE,
-      DBMS_LOB.SUBSTR(d.DESIGNACAO, 4000, 1)             AS DISCIPLINA,
-      DBMS_LOB.SUBSTR(m.DESIGNACAO, 4000, 1)             AS MODALIDADE,
-      DBMS_LOB.SUBSTR(at.DESIGNACAO, 4000, 1)            AS TIPO_AULA,
-      DBMS_LOB.SUBSTR(ds.DESIGNACAO, 4000, 1)            AS DIA_SEMANA,
-      ds.ORDEM                                           AS ORDEM_DIA_SEMANA,
-      au.DESIGNACAO                                          AS SALA,
-      json_value(al.REF_SALA, '$.pk')                      AS SALAID,
-      c.CODIGO_CURSO                                     AS CODIGO_CURSO,
-      c2.SIGLA                                           AS CURSO,
-      DBMS_LOB.SUBSTR(cl.DESIGNACAO, 4000, 1)            AS ANO,
-      h.CAPACIDADE                                       AS CAPACIDADE,
-      CASE WHEN h.APENASPRIMEIROANO = 1 THEN 'Sim' ELSE 'Não' END AS RESERVADO,
-      h.FK_PERIODO                                       AS PERIODO,
-      DBMS_LOB.SUBSTR(ew.DESIGNACAO, 4000, 1)            AS ESTADO,
-      ew.COR                                             AS ESTADOCOR,
-      ew.PK_ESTADO_HORARIO_WF                            AS ESTADOID,
-      CASE WHEN h.DIPONIVEL = 1 THEN 'Disponivel' ELSE 'Fechado' END AS DISPONIBILIDADE,
-      NVL(ut_criador.NOME, h.CREATED_BY)                 AS CRIADOPOR,
-      NVL(ut_atualizador.NOME, h.LAST_UPDATED_BY)        AS ATUALIZADOPOR,
-      TO_CHAR(h.UPDATED_AT, 'DD/MM/YYYY HH24:MI')        AS DATAULTIMAATUALIZACAO,
-      TO_CHAR(h.CREATED_AT, 'DD/MM/YYYY HH24:MI')        AS DATACRIACAO
-    FROM FK2_MGH_TB_HORARIO h
-        INNER JOIN FK2_MGH_TB_AULA al
-                ON al.FK_HORARIO = h.PK_HORARIO
-                INNER JOIN     FK2_TB_SALAS        au
-                ON  json_value(al.REF_SALA, '$.pk') =au. CODIGO
-        INNER JOIN FK2_MGH_TB_TIPO_AULA at
-                ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
-        INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
-                ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
-        INNER JOIN FK2_MGH_TB_MODALIDADE m
-                ON m.PK_MODALIDADE = al.FK_MODALIDADE
-        INNER JOIN FK2_TB_GRADE_CURRICULAR c
-                ON TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, '')) = c.CODIGO
-        LEFT JOIN FK2_TB_DISCIPLINAS d
-                ON c.CODIGO_DISCIPLINA = d.CODIGO
-        LEFT JOIN FK2_TB_CURSOS c2
-                ON c.CODIGO_CURSO = c2.CODIGO
-        LEFT JOIN FK2_TB_CLASSES cl
-                ON c.CODIGO_CLASSE = cl.CODIGO
-        LEFT JOIN FK2_MGH_TB_ESTADO_HORARIO_WF ew
-                ON h.FK_ESTADO_HORARIO_WF = ew.PK_ESTADO_HORARIO_WF
-        LEFT JOIN FK2_MCA_TB_UTILIZADOR ut_criador
-                ON h.CREATED_BY = ut_criador.PK_UTILIZADOR
-        LEFT JOIN FK2_MCA_TB_UTILIZADOR ut_atualizador
-                ON h.LAST_UPDATED_BY = ut_atualizador.PK_UTILIZADOR
-    WHERE ${baseWhere}
-
-    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+  SELECT *
+FROM (
+  SELECT
+    h.PK_HORARIO AS CODIGO,
+    DBMS_LOB.SUBSTR(h.DESIGNACAO, 4000, 1) AS HORARIO_NOME,
+    json_value(al.REF_DOCENTE, '$.nome') AS DOCENTE_NOME,
+    json_value(al.REF_DOCENTE, '$.pkDocente') AS CODIGO_DOCENTE,
+    al.HORA_INICIO AS HORA_INICIO,
+    al.HORA_TERMINO AS HORA_TERMINO,
+    TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, '')) AS CODIGO_GRADE,
+    DBMS_LOB.SUBSTR(d.DESIGNACAO, 4000, 1) AS DISCIPLINA,
+    DBMS_LOB.SUBSTR(m.DESIGNACAO, 4000, 1) AS MODALIDADE,
+    DBMS_LOB.SUBSTR(at.DESIGNACAO, 4000, 1) AS TIPO_AULA,
+    DBMS_LOB.SUBSTR(ds.DESIGNACAO, 4000, 1) AS DIA_SEMANA,
+    ds.ORDEM AS ORDEM_DIA_SEMANA,
+    au.DESIGNACAO AS SALA,
+    json_value(al.REF_SALA, '$.pk') AS SALAID,
+    c.CODIGO_CURSO AS CODIGO_CURSO,
+    c2.SIGLA AS CURSO,
+    DBMS_LOB.SUBSTR(cl.DESIGNACAO, 4000, 1) AS ANO,
+    h.CAPACIDADE AS CAPACIDADE,
+    CASE WHEN h.APENASPRIMEIROANO = 1 THEN 'Sim' ELSE 'Não' END AS RESERVADO,
+    h.FK_PERIODO AS PERIODO,
+    DBMS_LOB.SUBSTR(ew.DESIGNACAO, 4000, 1) AS ESTADO,
+    ew.COR AS ESTADOCOR,
+    ew.PK_ESTADO_HORARIO_WF AS ESTADOID,
+    CASE WHEN h.DIPONIVEL = 1 THEN 'Disponivel' ELSE 'Fechado' END AS DISPONIBILIDADE,
+    NVL(ut_criador.NOME, h.CREATED_BY) AS CRIADOPOR,
+    NVL(ut_atualizador.NOME, h.LAST_UPDATED_BY) AS ATUALIZADOPOR,
+    TO_CHAR(h.UPDATED_AT, 'DD/MM/YYYY HH24:MI') AS DATAULTIMAATUALIZACAO,
+    TO_CHAR(h.CREATED_AT, 'DD/MM/YYYY HH24:MI') AS DATACRIACAO,
+    ROW_NUMBER() OVER (PARTITION BY h.PK_HORARIO ORDER BY al.HORA_INICIO) AS RN
+  FROM FK2_MGH_TB_HORARIO h
+  INNER JOIN FK2_MGH_TB_AULA al ON al.FK_HORARIO = h.PK_HORARIO
+  INNER JOIN FK2_TB_SALAS au ON json_value(al.REF_SALA, '$.pk') = au.CODIGO
+  INNER JOIN FK2_MGH_TB_TIPO_AULA at ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
+  INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+  INNER JOIN FK2_MGH_TB_MODALIDADE m ON m.PK_MODALIDADE = al.FK_MODALIDADE
+  INNER JOIN FK2_TB_GRADE_CURRICULAR c ON TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, '')) = c.CODIGO
+  LEFT JOIN FK2_TB_DISCIPLINAS d ON c.CODIGO_DISCIPLINA = d.CODIGO
+  LEFT JOIN FK2_TB_CURSOS c2 ON c.CODIGO_CURSO = c2.CODIGO
+  LEFT JOIN FK2_TB_CLASSES cl ON c.CODIGO_CLASSE = cl.CODIGO
+  LEFT JOIN FK2_MGH_TB_ESTADO_HORARIO_WF ew ON h.FK_ESTADO_HORARIO_WF = ew.PK_ESTADO_HORARIO_WF
+  LEFT JOIN FK2_MCA_TB_UTILIZADOR ut_criador ON h.CREATED_BY = ut_criador.PK_UTILIZADOR
+  LEFT JOIN FK2_MCA_TB_UTILIZADOR ut_atualizador ON h.LAST_UPDATED_BY = ut_atualizador.PK_UTILIZADOR
+  WHERE ${baseWhere}
+) 
+WHERE RN = 1
+OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
   `;
 
     // -------------------- QUERY DE CONTAGEM --------------------
     const sqlCount = `
-    SELECT COUNT(*) AS TOTAL
-    FROM FK2_MGH_TB_HORARIO h
-      INNER JOIN FK2_MGH_TB_AULA al
-              ON al.FK_HORARIO = h.PK_HORARIO
-      INNER JOIN FK2_MGH_TB_TIPO_AULA at
-              ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
-      INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
-              ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
-      INNER JOIN FK2_MGH_TB_MODALIDADE m
-              ON m.PK_MODALIDADE = al.FK_MODALIDADE
-      INNER JOIN FK2_TB_GRADE_CURRICULAR c
-              ON TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, '')) = c.CODIGO
-    WHERE ${baseWhere}
-  `;
+SELECT COUNT(DISTINCT h.PK_HORARIO) AS TOTAL
+FROM FK2_MGH_TB_HORARIO h
+INNER JOIN FK2_MGH_TB_AULA al
+        ON al.FK_HORARIO = h.PK_HORARIO
+INNER JOIN FK2_MGH_TB_TIPO_AULA at
+        ON at.PK_TIPO_AULA = al.FK_TIPO_AULA
+INNER JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
+        ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+INNER JOIN FK2_MGH_TB_MODALIDADE m
+        ON m.PK_MODALIDADE = al.FK_MODALIDADE
+INNER JOIN FK2_TB_GRADE_CURRICULAR c
+        ON TO_NUMBER(NULLIF(h.FK_GRADE_CURRICULAR, '')) = c.CODIGO
+WHERE ${baseWhere}
+`;
 
     const [result, countResult] = await Promise.all([
       this.dataSource.query(sql),
