@@ -324,7 +324,7 @@ export class ScheduleController {
   }
 
   @Patch(':horarioId/validar/:userId')
-  @RequiredPermissions(PermissionTypeDetails.VALIDACAO_DOCENTE.sigla)
+  //@RequiredPermissions(PermissionTypeDetails.sigla)
   async validate(
     @Param('horarioId', ParseIntPipe) horarioId: number,
     @Param('userId', ParseIntPipe) userId: number,

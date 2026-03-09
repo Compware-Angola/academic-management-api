@@ -21,11 +21,17 @@ import { ListScheduleWithPermissionDto } from './dto/list-schedule-with-permissi
 import { UpdatePermissionEditScheduleDto } from './dto/update-permission-edit-schedule.dto';
 import { formatHora } from '../util/formate-date';
 import { promptToCreateAndEditService } from '../academic_activities/prompt-to-create-and-edit.service';
+import { Queue } from 'bullmq';
+import { InjectQueue } from '@nestjs/bullmq';
 
 
 @Injectable()
 export class ScheduleService {
-  constructor(private readonly dataSource: DataSource, private readonly promptToCreateAndEditService: promptToCreateAndEditService) {}
+  constructor(
+    @InjectQueue('schedule_service')
+    private readonly scheduleQueue: Queue,
+
+    private readonly dataSource: DataSource, private readonly promptToCreateAndEditService: promptToCreateAndEditService) { }
   async create(userId: number, dto: CreateScheduleDto) {
     const terms = await this.promptToCreateAndEditService.promptToCreateAndEditSchedule(dto.anoLectivo);
     if (!terms) {
@@ -52,21 +58,21 @@ export class ScheduleService {
   }
 
   async update(userId: number, horarioIdParam: number, dto: UpdateScheduleDto) {
-    let dataInicioLoophole;
-    let dataFimLoophole;
+    let dataInicioLoophole:any;
+    let dataFimLoophole:any;
 
-    let dataInicio;
-    let dataFim;
+    let dataInicio:any;
+    let dataFim:any;
 
-    let estaNoPrazo;
+    let estaNoPrazo:any;
 
-    let loopholeToEdit;
+    let loopholeToEdit:any;
     const agora = new Date();
 
     const terms = await this.promptToCreateAndEditService.promptToCreateAndEditSchedule(dto.anoLectivo);
 
     console.log(terms);
-    
+
 
     if (!terms) {
       throw new BadRequestException(
@@ -81,8 +87,8 @@ export class ScheduleService {
         agora.getTime() <= dataFim.getTime();
     }
 
-    console.log(estaNoPrazo,"22");
-    
+    console.log(estaNoPrazo, "22");
+
 
     // Brecha
     const loopholeToEditSchedule =
@@ -145,33 +151,33 @@ export class ScheduleService {
       dataExclusao: new Date().toISOString(),
     };
   }
-  
-async getAulasOcupadasParaDropdown(
-  salaCodigo: number,
-  anoLectivo: number,
-  periodo: number,
-): Promise<{ aulas: any[] }> {
 
-  // 1. Verifica se a sala existe
-  const salaResult = await this.dataSource.query(
-    `
+  async getAulasOcupadasParaDropdown(
+    salaCodigo: number,
+    anoLectivo: number,
+    periodo: number,
+  ): Promise<{ aulas: any[] }> {
+
+    // 1. Verifica se a sala existe
+    const salaResult = await this.dataSource.query(
+      `
     SELECT CODIGO
     FROM FK2_TB_SALAS
     WHERE CODIGO = :salaCodigo
       AND DELETED_AT IS NULL
     `,
-    { salaCodigo } as any,
-  );
-
-  if (!salaResult?.length) {
-    throw new NotFoundException(
-      `Sala com código ${salaCodigo} não encontrada ou inativa`,
+      { salaCodigo } as any,
     );
-  }
 
-  // 2. Busca as aulas ocupadas
-  const aulasResult = await this.dataSource.query(
-    `
+    if (!salaResult?.length) {
+      throw new NotFoundException(
+        `Sala com código ${salaCodigo} não encontrada ou inativa`,
+      );
+    }
+
+    // 2. Busca as aulas ocupadas
+    const aulasResult = await this.dataSource.query(
+      `
     SELECT
       al.PK_AULA,
       ta.DESCRICAO AS TIPO_AULA,
@@ -202,44 +208,44 @@ async getAulasOcupadasParaDropdown(
         'HH24:MI'
       )
     `,
-    { salaCodigo, anoLectivo, periodo } as any,
-  );
+      { salaCodigo, anoLectivo, periodo } as any,
+    );
 
-  // 3. Agrupa por dia da semana
-  const mapaDias = new Map<number, any>();
+    // 3. Agrupa por dia da semana
+    const mapaDias = new Map<number, any>();
 
-  aulasResult.forEach((aula: any, index: number) => {
-    if (!mapaDias.has(aula.PK_DIA_DA_SEMANA)) {
-      mapaDias.set(aula.PK_DIA_DA_SEMANA, {
-        diaSemana: {
-          pkDiaDaSemana: aula.PK_DIA_DA_SEMANA,
-          designacao: aula.DIA_SEMANA,
-          ordem: aula.ORDEM_DIA_SEMANA,
-        },
-        tempos: [],
+    aulasResult.forEach((aula: any, index: number) => {
+      if (!mapaDias.has(aula.PK_DIA_DA_SEMANA)) {
+        mapaDias.set(aula.PK_DIA_DA_SEMANA, {
+          diaSemana: {
+            pkDiaDaSemana: aula.PK_DIA_DA_SEMANA,
+            designacao: aula.DIA_SEMANA,
+            ordem: aula.ORDEM_DIA_SEMANA,
+          },
+          tempos: [],
+        });
+      }
+
+      mapaDias.get(aula.PK_DIA_DA_SEMANA).tempos.push({
+
+        horaInicio: formatHora(aula.HORA_INICIO),
+        horaFim: formatHora(aula.HORA_TERMINO),
+        disponivel: false, // 🔴 SEMPRE FALSE
+        codigoAula: aula.PK_AULA,
+        tipoAula: aula.TIPO_AULA,
+        periodo: aula.FK_PERIODO,
       });
-    }
-
-    mapaDias.get(aula.PK_DIA_DA_SEMANA).tempos.push({
-    
-       horaInicio: formatHora(aula.HORA_INICIO),
-  horaFim: formatHora(aula.HORA_TERMINO),
-      disponivel: false, // 🔴 SEMPRE FALSE
-      codigoAula: aula.PK_AULA,
-      tipoAula: aula.TIPO_AULA,
-      periodo: aula.FK_PERIODO,
     });
-  });
 
-  // 4. Monta retorno final
-  const items = Array.from(mapaDias.values());
+    // 4. Monta retorno final
+    const items = Array.from(mapaDias.values());
 
-  return {
-    aulas: [
-      ...items
-    ],
-  };
-}
+    return {
+      aulas: [
+        ...items
+      ],
+    };
+  }
 
 
   async createPermissionToEditSchedule(query: CreatePermissionEditScheduleDto) {
@@ -829,9 +835,13 @@ ORDER BY
         horarioId,
       } as any,
     );
-
+    
+     // --------------------------------------------------------------------
+    // 4) Iniciar Fila para Agendar Aulas
     // --------------------------------------------------------------------
-    // 4) RETORNAR RESPOSTA AMIGÁVEL
+    await this.queueScheduleClass(horarioId)
+    // --------------------------------------------------------------------
+    // 5) RETORNAR RESPOSTA AMIGÁVEL
     // --------------------------------------------------------------------
     return {
       success: true,
@@ -1859,51 +1869,51 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
       totalPages,
     };
   }
-async findScheduleByDayOfTheweek({
-  unidadeCurricular,
-  anoCurricular,
-  diaSemana,
-  anoLectivo,
-  semestre,
-  periodo,
-  curso,
-  limit = 10,
-  page = 1,
-}: ListScheduleDayOfWeekto) {
-  const offset = (page - 1) * limit;
+  async findScheduleByDayOfTheweek({
+    unidadeCurricular,
+    anoCurricular,
+    diaSemana,
+    anoLectivo,
+    semestre,
+    periodo,
+    curso,
+    limit = 10,
+    page = 1,
+  }: ListScheduleDayOfWeekto) {
+    const offset = (page - 1) * limit;
 
-  const whereConditions: string[] = [
-    `c.CODIGO_CURSO = ${curso}`,
-    `ds.PK_DIA_DA_SEMANA = ${diaSemana}`,
-    `h.FK_ANO_LECTIVO = ${anoLectivo}`,
-    `h.ACTIVE_STATE = 1`,
-    `al.ACTIVE_STATE = 1`,           // corrigido: al em vez de h (se for o caso)
-    `h.DIPONIVEL = 1`,
-    `h.FK_ESTADO_HORARIO_WF != 4`,
-  ];
+    const whereConditions: string[] = [
+      `c.CODIGO_CURSO = ${curso}`,
+      `ds.PK_DIA_DA_SEMANA = ${diaSemana}`,
+      `h.FK_ANO_LECTIVO = ${anoLectivo}`,
+      `h.ACTIVE_STATE = 1`,
+      `al.ACTIVE_STATE = 1`,           // corrigido: al em vez de h (se for o caso)
+      `h.DIPONIVEL = 1`,
+      `h.FK_ESTADO_HORARIO_WF != 4`,
+    ];
 
-  // Adiciona semestre apenas se fornecido
-  if (semestre !== undefined && semestre !== null) {
-    whereConditions.push(`h.FK_SEMESTRE = ${semestre}`);
-  }
+    // Adiciona semestre apenas se fornecido
+    if (semestre !== undefined && semestre !== null) {
+      whereConditions.push(`h.FK_SEMESTRE = ${semestre}`);
+    }
 
-  // Adiciona período apenas se fornecido
-  if (periodo !== undefined && periodo !== null) {
-    whereConditions.push(`h.FK_PERIODO = ${periodo}`);
-  }
+    // Adiciona período apenas se fornecido
+    if (periodo !== undefined && periodo !== null) {
+      whereConditions.push(`h.FK_PERIODO = ${periodo}`);
+    }
 
-  if (unidadeCurricular !== undefined && unidadeCurricular !== null) {
-    whereConditions.push(`c.CODIGO = ${unidadeCurricular}`);
-  }
+    if (unidadeCurricular !== undefined && unidadeCurricular !== null) {
+      whereConditions.push(`c.CODIGO = ${unidadeCurricular}`);
+    }
 
-  if (anoCurricular !== undefined && anoCurricular !== null) {
-    whereConditions.push(`c.CODIGO_CLASSE = ${anoCurricular}`);
-  }
+    if (anoCurricular !== undefined && anoCurricular !== null) {
+      whereConditions.push(`c.CODIGO_CLASSE = ${anoCurricular}`);
+    }
 
-  const baseWhere = whereConditions.join('\n      AND ');
+    const baseWhere = whereConditions.join('\n      AND ');
 
-  // -------------------- QUERY PRINCIPAL COM DISTINCT --------------------
-  const sql = `
+    // -------------------- QUERY PRINCIPAL COM DISTINCT --------------------
+    const sql = `
     SELECT DISTINCT
       h.PK_HORARIO                                       AS CODIGO,
       DBMS_LOB.SUBSTR(h.DESIGNACAO, 4000, 1)             AS HORARIO_NOME,
@@ -1962,8 +1972,8 @@ async findScheduleByDayOfTheweek({
     OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
   `;
 
-  // -------------------- QUERY DE CONTAGEM --------------------
-  const sqlCount = `
+    // -------------------- QUERY DE CONTAGEM --------------------
+    const sqlCount = `
     SELECT COUNT(DISTINCT h.PK_HORARIO) AS TOTAL
     FROM FK2_MGH_TB_HORARIO h
       INNER JOIN FK2_MGH_TB_AULA al
@@ -1979,22 +1989,22 @@ async findScheduleByDayOfTheweek({
     WHERE ${baseWhere}
   `;
 
-  const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql),
-    this.dataSource.query(sqlCount),
-  ]);
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql),
+      this.dataSource.query(sqlCount),
+    ]);
 
-  const total = Number(countResult[0].TOTAL);
-  const totalPages = Math.ceil(total / limit);
+    const total = Number(countResult[0].TOTAL);
+    const totalPages = Math.ceil(total / limit);
 
-  return {
-    data: await toLowerCaseKeys(result),
-    total,
-    page,
-    limit,
-    totalPages,
-  };
-}
+    return {
+      data: await toLowerCaseKeys(result),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
   async findScheduleByClassRoom({
     unidadeCurricular,
     anoCurricular,
@@ -2222,7 +2232,7 @@ async findScheduleByDayOfTheweek({
       obs = null,
     } = dto;
     console.log(dto);
-    
+
 
     // === 1. Buscar dados descritivos ===
     const v_grade_curricular = await this.getGradeCurricular(unidadeCurricular);
@@ -2323,7 +2333,7 @@ async findScheduleByDayOfTheweek({
       // ==================== UPDATE ====================
       horarioId = horarioIdParam;
       console.log(dto);
-      
+
 
       await this.dataSource.query(
         `
@@ -2397,8 +2407,8 @@ async findScheduleByDayOfTheweek({
         str.replace(/"/g, '\\"').replace(/\n/g, '\\n');
 
       const ref_docente = nomeDocente
-      ? `{"pkDocente":${dto.docente},"nome":"${escape(nomeDocente)}"}`
-      : `{"pkDocente":null,"nome":"Por atribuir"}`;
+        ? `{"pkDocente":${dto.docente},"nome":"${escape(nomeDocente)}"}`
+        : `{"pkDocente":null,"nome":"Por atribuir"}`;
       const v_desc_sala = await this.getDescricaoSala(dto.sala);
       const ref_sala = dto.sala
         ? `{"pk":${dto.sala},"desc":"${escape(v_desc_sala)}"}`
@@ -2452,7 +2462,7 @@ async findScheduleByDayOfTheweek({
       )
       `,
           {
-           
+
             horarioId,
             diaSemana: aula.diaSemana,
             fkTipoAula: dto.tipoAula,
@@ -2469,7 +2479,7 @@ async findScheduleByDayOfTheweek({
           } as any,
         );
 
-    
+
       } catch (error: any) {
         console.error(
           `[DEV] Erro ao inserir aula com PK_AULA = ${proximoPkAula}`,
@@ -2553,7 +2563,7 @@ async findScheduleByDayOfTheweek({
       [codigoDocente],
     );
 
-  
+
 
     return result[0]?.nome as string;
   }
@@ -2584,9 +2594,6 @@ async findScheduleByDayOfTheweek({
       [sala],
     );
 
-    console.log(result,sala);
-    
-  
 
     return result[0]?.DESIGNACAO as string;
   }
@@ -2620,18 +2627,18 @@ async findScheduleByDayOfTheweek({
     );
   }
 
-private async loopholeToEditSchedule(scheduleId: number): Promise<any> {
-  const result = await this.dataSource.query(
-    `SELECT DATA_INICIO, DATA_FIM, PK_PERMISAO_EDICAO_HORARIO
+  private async loopholeToEditSchedule(scheduleId: number): Promise<any> {
+    const result = await this.dataSource.query(
+      `SELECT DATA_INICIO, DATA_FIM, PK_PERMISAO_EDICAO_HORARIO
      FROM FK2_MGH_TB_PERMISAO_EDICAO_HORARIO
      WHERE FK_HORARIO = :scheduleId
        AND ATIVE_STATE = 1
      ORDER BY PK_PERMISAO_EDICAO_HORARIO DESC
      FETCH FIRST 1 ROWS ONLY`,
-    { scheduleId } as any,
-  );
-  return result[0];
-}
+      { scheduleId } as any,
+    );
+    return result[0];
+  }
 
 
   private async getUser(userId: number) {
@@ -2676,4 +2683,27 @@ WHERE tu.PK_UTILIZADOR = :1
 
     return userData[0];
   }
+
+    async queueScheduleClass(
+    scheduleId:number
+  ): Promise<{ message: string; taskId: string | undefined }> {
+    const job = await this.scheduleQueue.add(
+      'scheduleClass',
+      {
+        scheduleId,
+     
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        attempts: 3,
+        backoff: 5000,
+      },
+    );
+    return {
+      message: 'Processamento iniciado: Agendar Aulas ...',
+      taskId: job.id,
+    };
+  }
+
 }
