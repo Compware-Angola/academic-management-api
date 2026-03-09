@@ -20,13 +20,11 @@ export class FindAssiduidadeDTO {
   @ApiPropertyOptional({ example: '2022-10-07', description: 'Data de início (YYYY-MM-DD)' })
   @IsString()
   @IsOptional()
-  @IsEmpty()
   dataInicio?: string;
 
   @ApiPropertyOptional({ example: '2022-10-14', description: 'Data de fim (YYYY-MM-DD)' })
   @IsString()
   @IsOptional()
-  @IsEmpty()
   dataFim?: string;
 
   @ApiPropertyOptional({ example: 2026, description: 'Ano Lectivo (0 para todos)' })
