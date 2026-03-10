@@ -188,6 +188,7 @@ export class ScheduleService {
       ds.PK_DIA_DA_SEMANA,
       ds.DESIGNACAO AS DIA_SEMANA,
       ds.ORDEM AS ORDEM_DIA_SEMANA,
+      al.ORDEM AS ORDEM_TEMPO,
       al.HORA_INICIO,
       al.HORA_TERMINO,
       h.FK_PERIODO
@@ -233,9 +234,10 @@ export class ScheduleService {
       mapaDias.get(aula.PK_DIA_DA_SEMANA).tempos.push({
         horaInicio: formatHora(aula.HORA_INICIO),
         horaFim: formatHora(aula.HORA_TERMINO),
-        disponivel: false, // 🔴 SEMPRE FALSE
+        disponivel: false, 
         codigoAula: aula.PK_AULA,
         tipoAula: aula.TIPO_AULA,
+        ordem_tempo:aula.ORDEM_TEMPO,
         periodo: aula.FK_PERIODO,
       });
     });
