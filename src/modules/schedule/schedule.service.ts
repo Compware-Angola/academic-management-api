@@ -660,6 +660,8 @@ export class ScheduleService {
       atualizadoPor: h.ATUALIZADOPOR || null,
       dataUltimaAtualizacao: h.DATAULTIMAATUALIZACAO,
       dataCriacao: h.DATACRIACAO,
+       modalidade: aulas[0].MODALIDADE,
+      modalidadeId: Number(aulas[0].MODALIDADEID),
 
       // Array completo de aulas
       aulas: aulas.map((a: any) => ({
