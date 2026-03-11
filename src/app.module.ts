@@ -26,6 +26,7 @@ import { SumarioModule } from './modules/sumario/sumario.module';
 import { BullConfigModule } from './modules/bull/bull.module';
 import { DocenteGestaoModule } from './modules/docente_gestao/docente_gestao.module';
 import { PlanoEstudoModule } from './modules/plano_estudo/plano_estudo.module';
+import { DropdownFiltersModule } from './modules/shared/dropdown_filters/dropdown_filters.module';
 
 
 @Module({
@@ -91,6 +92,7 @@ import { PlanoEstudoModule } from './modules/plano_estudo/plano_estudo.module';
     BullConfigModule,
     DocenteGestaoModule,
     PlanoEstudoModule,
+    DropdownFiltersModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService],
