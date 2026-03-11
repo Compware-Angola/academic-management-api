@@ -16,6 +16,9 @@ import { FindProgramaSemUCDTO } from './dto/find-programa-sem-uc.dto';
 import { UpdateProgramaStatusUCDTO } from './dto/update-programa-uc.dto';
 import { FindAssiduidadeDTO } from './dto/find-assiduidade.dto';
 import { FindHorarioVigilantesCDTO } from './dto/find-horario-vigilantes.dto';
+import { FindAfectacaoDTO } from '../docente_gestao/dto/find-afectacao.dto';
+import { UpdateAfectacaoDTO } from '../docente_gestao/dto/update-afectacao.dto';
+import { FindDocenteAfectacaoDTO } from '../docente_gestao/dto/find-docente-afectacao.dto';
 
 @Injectable()
 export class DocentesService {
