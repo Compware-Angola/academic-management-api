@@ -78,8 +78,6 @@ export class ScheduleService {
         dto.anoLectivo,
       );
 
-    console.log(terms);
-
     if (!terms) {
       throw new BadRequestException(
         'O prazo de criação Ainda Não foi  definido.',
@@ -662,8 +660,8 @@ export class ScheduleService {
       atualizadoPor: h.ATUALIZADOPOR || null,
       dataUltimaAtualizacao: h.DATAULTIMAATUALIZACAO,
       dataCriacao: h.DATACRIACAO,
-       modalidade: aulas[0].MODALIDADE,
-      modalidadeId: Number(aulas[0].MODALIDADEID),
+       modalidade: aulas[0]?.MODALIDADE,
+      modalidadeId: Number(aulas[0]?.MODALIDADEID),
 
       // Array completo de aulas
       aulas: aulas.map((a: any) => ({
@@ -2387,16 +2385,6 @@ WHERE ${baseWhere}
     }
 
     // === INSERIR AULAS DETALHADAS (tabela filha) ===
-    // 1. Busca o maior PK_AULA atual (apenas uma vez, fora do loop)
-    let maxPkAulaResult = await this.dataSource.query(`
-  SELECT MAX(PK_AULA) AS max_id FROM FK2_MGH_TB_AULA
-`);
-
-    let proximoPkAula = (maxPkAulaResult[0]?.MAX_ID || 0) + 1;
-
-    console.log(
-      `[DEV] Maior PK_AULA atual: ${maxPkAulaResult[0]?.MAX_ID}. Próximo será: ${proximoPkAula}`,
-    );
 
     // 2. Loop das aulas com PK_AULA manual e incremental
     for (const aula of aulas) {
@@ -2476,18 +2464,11 @@ WHERE ${baseWhere}
           } as any,
         );
       } catch (error: any) {
-        console.error(
-          `[DEV] Erro ao inserir aula com PK_AULA = ${proximoPkAula}`,
-          error.message,
-        );
-        // Se quiser parar no primeiro erro:
-        // throw error;
-        // Ou continua tentando as próximas (útil em dev)
+        
       }
     }
 
-    // Opcional: mostra o próximo ID que seria usado na próxima execução
-    console.log(`[DEV] Próximo PK_AULA disponível: ${proximoPkAula}`);
+  
     const message = horarioIdParam
       ? 'Horário atualizado com sucesso!'
       : 'Horário criado com sucesso!';
