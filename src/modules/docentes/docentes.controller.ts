@@ -30,6 +30,8 @@ import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { FindAssiduidadeDTO } from './dto/find-assiduidade.dto';
 import { FindHorarioVigilantesCDTO } from './dto/find-horario-vigilantes.dto';
+import { FindAfectacaoDTO } from './dto/find-afectacao.dto';
+import { UpdateAfectacaoDTO } from './dto/update-afectacao.dto';
 
 @Controller('docentes')
 //@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -107,6 +109,7 @@ export class DocentesController {
     return this.docentesService.findCadeiras(query);
   }
   @Get('/horarios-vigilantes')
+  @RequiredPermissions(PermissionTypeDetails.HORAS_DE_VIGILANCIA.sigla!)
   @ApiOperation({ summary: 'Lista Horários Vigilantes' })
   @ApiResponse({
     status: 200,
@@ -143,5 +146,26 @@ export class DocentesController {
     @Query() query: FindAssiduidadeDTO,
   ) {
     return this.docentesService.findAssiduidadeDocente(docenteId, query);
+  }
+
+  @Get('/afectacao')
+  //@RequiredPermissions(PermissionTypeDetails.GESTAO_AFETACOES.sigla!)
+  @ApiOperation({ summary: 'Listar Docentes Afectação' })
+  @ApiResponse({
+    status: 200,
+    description: 'Listar Docentes Afectação',
+    type: FindAfectacaoDTO,
+  })
+  findAfectacao(@Query(ValidationPipe) query: FindAfectacaoDTO) {
+    return this.docentesService.findAfectacao(query);
+  }
+  @Put('/afectacao/:codigo/status')
+  //@RequiredPermissions(PermissionTypeDetails.GESTAO_AFETACOES.sigla!)
+  updateAfectacaoStatus(
+    @Param('codigo', ParseIntPipe) codigo: number,
+    @Body(ValidationPipe) query: UpdateAfectacaoDTO,
+    @Req() req: any,
+  ) {
+    return this.docentesService.updateAfectacaoStatus(codigo, query);
   }
 }
