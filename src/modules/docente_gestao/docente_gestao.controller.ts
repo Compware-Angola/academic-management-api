@@ -16,10 +16,11 @@ import { DocenteGestaoService } from './docente_gestao.service';
 import { CreateDocenteGestaoDto } from './dto/create-docente_gestao.dto';
 import { UpdateDocenteGestaoDto } from './dto/update-docente_gestao.dto';
 import { FindParametrosDocenteTO } from './dto/find-parametros-docente.dto';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { FindAfectacaoDTO } from './dto/find-afectacao.dto';
+import { ApiOperation, ApiTags, ApiResponse } from '@nestjs/swagger';
 import { UpdateAfectacaoDTO } from './dto/update-afectacao.dto';
+import { FindAfectacaoDTO } from './dto/find-afectacao.dto';
 
+@ApiTags('docente-gestao')
 @Controller('docente-gestao')
 export class DocenteGestaoController {
   constructor(private readonly service: DocenteGestaoService) {}
