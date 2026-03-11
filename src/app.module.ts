@@ -24,6 +24,7 @@ import { DocentesModule } from './modules/docentes/docentes.module';
 import { DefenseManagementTfcModule } from './modules/defense-management-tfc/defense-management-tfc.module';
 import { SumarioModule } from './modules/sumario/sumario.module';
 import { BullConfigModule } from './modules/bull/bull.module';
+import { DocenteGestaoModule } from './modules/docente_gestao/docente_gestao.module';
 
 
 @Module({
@@ -87,6 +88,7 @@ import { BullConfigModule } from './modules/bull/bull.module';
     DefenseManagementTfcModule,
     SumarioModule,
     BullConfigModule,
+    DocenteGestaoModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService],
