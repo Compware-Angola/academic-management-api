@@ -159,6 +159,7 @@ export class ScheduleService {
     salaCodigo: number,
     anoLectivo: number,
     periodo: number,
+    semetre:number
   ): Promise<{ aulas: any[] }> {
     // 1. Verifica se a sala existe
     const salaResult = await this.dataSource.query(
@@ -204,6 +205,7 @@ export class ScheduleService {
       AND h.FK_PERIODO = :periodo
       AND h.FK_ANO_LECTIVO = :anoLectivo
       AND au.CODIGO = :salaCodigo
+      AND h.FK_SEMESTRE =: semetre
     ORDER BY
       ds.ORDEM,
       TO_DATE(
@@ -211,7 +213,7 @@ export class ScheduleService {
         'HH24:MI'
       )
     `,
-      { salaCodigo, anoLectivo, periodo } as any,
+      { salaCodigo, anoLectivo, periodo ,semetre} as any,
     );
 
     // 3. Agrupa por dia da semana
