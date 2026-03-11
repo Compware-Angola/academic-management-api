@@ -91,8 +91,9 @@ export class ScheduleController {
     @Param('salaCodigo', ParseIntPipe) salaCodigo: number,
     @Query('anoLectivo', ParseIntPipe) anoLectivo: number,
     @Query('periodo', ParseIntPipe) periodo: number,
+    @Query('semetre',ParseIntPipe) semestre:number,
   ) {
-    return this.scheduleService.getAulasOcupadasParaDropdown(salaCodigo, anoLectivo, periodo);
+    return this.scheduleService.getAulasOcupadasParaDropdown(salaCodigo, anoLectivo, periodo,semestre);
   }
   // ================ LISTAGENS ================
   @Get()
