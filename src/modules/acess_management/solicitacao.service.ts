@@ -562,62 +562,73 @@ async listarAvisos(
 }
 
 async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
-  await this.dataSource.query(
-    `
-    INSERT INTO FK2_TB_AVISO_UMA (
-      ASSUNTO,
-      DATE_EXPIRACAO,
-      USER_ID,
-      DESCRICAO,
-      SIGLA,
-      FILE_NAME,
-      DESTINO,
-      CURSO,
-      PERIODO,
-      CREATED_AT,
-      UPDATED_AT,
-      CANAL,
-      STATUS_,
-      ORIGEM
-    )
-    VALUES (
-      :assunto,
-      :dateExpiracao,
-      :userId,
-      :descricao,
-      :sigla,
-      :fileName,
-      :destino,
-      :curso,
-      :periodo,
-      SYSDATE,
-      SYSDATE,
-      :canal,
-      :status,
-      :origem
-    )
-    `,
-    {
-      assunto: dto.assunto.trim(),
-      dateExpiracao: dto.date_expiracao
-      ? new Date(dto.date_expiracao)
-      : null,
-      userId: dto.userId ?? null,
-      descricao: dto.descricao.trim(),
-      sigla: dto.sigla ?? null,
-      fileName: dto.fileName ?? null,
-      destino: dto.destino ?? null,
-      curso: dto.curso ?? null,
-      periodo: dto.periodo ?? null,
-      canal: dto.canal ?? null,
-      status: dto.status ?? 1,
-      origem: dto.origem ?? null,
-    } as any,
-  );
+    // aceita date_expiracao ou dateExpiracao
+    const rawDateExpiracao: any =
+      (dto as any).date_expiracao ?? (dto as any).dateExpiracao ?? null;
+    const dateExpiracaoParam = rawDateExpiracao
+      ? new Date(rawDateExpiracao)
+      : null;
 
-  return { message: 'Aviso criado com sucesso' };
-}
+    // aceita userId, user_id ou authorId
+    const userIdParam =
+      (dto as any).userId ??
+      (dto as any).user_id ??
+      (dto as any).authorId ??
+      null;
 
+    await this.dataSource.query(
+      `
+      INSERT INTO FK2_TB_AVISO_UMA (
+        ASSUNTO,
+        DATE_EXPIRACAO,
+        USER_ID,
+        DESCRICAO,
+        SIGLA,
+        FILE_NAME,
+        DESTINO,
+        CURSO,
+        PERIODO,
+        CREATED_AT,
+        UPDATED_AT,
+        CANAL,
+        STATUS_,
+        ORIGEM
+      )
+      VALUES (
+        :assunto,
+        :dateExpiracao,
+        :userId,
+        :descricao,
+        :sigla,
+        :fileName,
+        :destino,
+        :curso,
+        :periodo,
+        SYSDATE,
+        SYSDATE,
+        :canal,
+        :status,
+        :origem
+      )
+      `,
+      {
+        assunto: dto.assunto.trim(),
+        dateExpiracao: dateExpiracaoParam,
+        userId: userIdParam,
+        descricao: dto.descricao.trim(),
+        sigla: dto.sigla ?? null,
+        fileName: dto.fileName ?? null,
+        destino: dto.destino ?? null,
+        curso: dto.curso ?? null,
+        periodo: dto.periodo ?? null,
+        canal: dto.canal ?? null,
+        status: dto.status ?? 1,
+        origem: dto.origem ?? null,
+      } as any,
+    );
+
+    return { message: 'Aviso criado com sucesso' };
+  }
 
     async listarRoles(): Promise<any[]> {
     const sql = `
@@ -670,5 +681,60 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
 
   return result[0].FILE_NAME;
 }
+
+ async updateAvisoUma(
+    id: number,
+    dto: CreateAvisoUmaDto,
+  ): Promise<{ message: string }> {
+    const rawDateExpiracao: any =
+      (dto as any).date_expiracao ?? (dto as any).dateExpiracao ?? null;
+    const dateExpiracaoParam = rawDateExpiracao
+      ? new Date(rawDateExpiracao)
+      : null;
+
+    const userIdParam =
+      (dto as any).userId ??
+      (dto as any).user_id ??
+      (dto as any).authorId ??
+      null;
+
+    await this.dataSource.query(
+      `
+      UPDATE FK2_TB_AVISO_UMA
+      SET
+        ASSUNTO = :assunto,
+        DATE_EXPIRACAO = :dateExpiracao,
+        USER_ID = :userId,
+        DESCRICAO = :descricao,
+        SIGLA = :sigla,
+        FILE_NAME = :fileName,
+        DESTINO = :destino,
+        CURSO = :curso,
+        PERIODO = :periodo,
+        UPDATED_AT = SYSDATE,
+        CANAL = :canal,
+        STATUS_ = :status,
+        ORIGEM = :origem
+      WHERE ID = :id
+      `,
+      {
+        id,
+        assunto: dto.assunto?.trim(),
+        dateExpiracao: dateExpiracaoParam,
+        userId: userIdParam,
+        descricao: dto.descricao?.trim(),
+        sigla: dto.sigla ?? null,
+        fileName: dto.fileName ?? null,
+        destino: dto.destino ?? null,
+        curso: dto.curso ?? null,
+        periodo: dto.periodo ?? null,
+        canal: dto.canal ?? null,
+        status: dto.status ?? 1,
+        origem: dto.origem ?? null,
+      } as any,
+    );
+
+    return { message: 'Aviso atualizado com sucesso' };
+  }
 
 }

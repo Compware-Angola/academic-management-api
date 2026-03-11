@@ -1,6 +1,6 @@
 // src/users/referencias.controller.ts
 
-import {  BadRequestException } from '@nestjs/common';
+import {  BadRequestException, Param, Put, Req } from '@nestjs/common';
 
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -109,8 +109,15 @@ export class SolicitacaoController {
     status: 400,
     description: 'Dados inválidos',
   })
-  async criarAviso(@Body() dto: CreateAvisoUmaDto) {
-    return this.solicitacaoService.createAvisoUma(dto);
+  async criarAviso(
+    @Body() dto: CreateAvisoUmaDto,
+    @Req() req: any,
+  ) {
+    const userId = req.user?.userId
+    return this.solicitacaoService.createAvisoUma({
+      ...dto,
+      userId
+    });
   }
 
   @Get('roles')
@@ -153,5 +160,15 @@ async uploadAvisoImagem(
         filename: fileName,
       };
     }
+
+  @Put('aviso/:id')
+  @ApiOperation({ summary: 'Editar aviso existente' })
+  @ApiResponse({ status: 200, description: 'Aviso atualizado com sucesso' })
+  async editarAviso(
+    @Param('id') id: number,
+    @Body() dto: CreateAvisoUmaDto,
+  ) {
+    return this.solicitacaoService.updateAvisoUma(Number(id), dto);
+  }
 
 }
