@@ -158,7 +158,8 @@ export class ScheduleService {
     salaCodigo: number,
     anoLectivo: number,
     periodo: number,
-    semetre: number
+    semetre: number,
+    horarioId?:number
   ): Promise<{ aulas: any[] }> {
     // 1. Verifica se a sala existe
     const salaResult = await this.dataSource.query(
@@ -176,44 +177,48 @@ export class ScheduleService {
         `Sala com código ${salaCodigo} não encontrada ou inativa`,
       );
     }
-
+let horarioCondition = '';
+if (horarioId) {
+  horarioCondition = 'AND h.PK_HORARIO <> :horarioId';
+}
     // 2. Busca as aulas ocupadas
-    const aulasResult = await this.dataSource.query(
-      `
-    SELECT
-      al.PK_AULA,
-      ta.DESCRICAO AS TIPO_AULA,
-      ds.PK_DIA_DA_SEMANA,
-      ds.DESIGNACAO AS DIA_SEMANA,
-      ds.ORDEM AS ORDEM_DIA_SEMANA,
-      al.ORDEM AS ORDEM_TEMPO,
-      al.HORA_INICIO,
-      al.HORA_TERMINO,
-      h.FK_PERIODO
-    FROM FK2_TB_SALAS au
-    INNER JOIN FK2_MGH_TB_AULA al
-      ON json_value(al.REF_SALA, '$.pk') = au.CODIGO
-    INNER JOIN FK2_MGH_TB_HORARIO h
-      ON h.PK_HORARIO = al.FK_HORARIO
-    LEFT JOIN FK2_TB_TIPO_AULA ta
-      ON ta.CODIGO = al.FK_TIPO_AULA
-    LEFT JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
-      ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
-    WHERE au.DELETED_AT IS NULL
-      AND al.ACTIVE_STATE = 1
-      AND h.FK_PERIODO = :periodo
-      AND h.FK_ANO_LECTIVO = :anoLectivo
-      AND au.CODIGO = :salaCodigo
-      AND h.FK_SEMESTRE =: semetre
-    ORDER BY
-      ds.ORDEM,
-      TO_DATE(
-        REGEXP_SUBSTR(al.HORA_INICIO, '[0-2][0-9]:[0-5][0-9]'),
-        'HH24:MI'
-      )
-    `,
-      { salaCodigo, anoLectivo, periodo, semetre } as any,
-    );
+  const aulasResult = await this.dataSource.query(
+  `
+  SELECT
+    al.PK_AULA,
+    ta.DESCRICAO AS TIPO_AULA,
+    ds.PK_DIA_DA_SEMANA,
+    ds.DESIGNACAO AS DIA_SEMANA,
+    ds.ORDEM AS ORDEM_DIA_SEMANA,
+    al.ORDEM AS ORDEM_TEMPO,
+    al.HORA_INICIO,
+    al.HORA_TERMINO,
+    h.FK_PERIODO
+  FROM FK2_TB_SALAS au
+  INNER JOIN FK2_MGH_TB_AULA al
+    ON json_value(al.REF_SALA, '$.pk') = au.CODIGO
+  INNER JOIN FK2_MGH_TB_HORARIO h
+    ON h.PK_HORARIO = al.FK_HORARIO
+  LEFT JOIN FK2_TB_TIPO_AULA ta
+    ON ta.CODIGO = al.FK_TIPO_AULA
+  LEFT JOIN FK2_MGH_TB_DIA_DA_SEMANA ds
+    ON ds.PK_DIA_DA_SEMANA = al.FK_DIA_DA_SEMANA
+  WHERE au.DELETED_AT IS NULL
+    AND al.ACTIVE_STATE = 1
+    AND h.FK_PERIODO = :periodo
+    AND h.FK_ANO_LECTIVO = :anoLectivo
+    AND au.CODIGO = :salaCodigo
+    AND h.FK_SEMESTRE = :semetre
+    ${horarioCondition}
+  ORDER BY
+    ds.ORDEM,
+    TO_DATE(
+      REGEXP_SUBSTR(al.HORA_INICIO, '[0-2][0-9]:[0-5][0-9]'),
+      'HH24:MI'
+    )
+  `,
+  { salaCodigo, anoLectivo, periodo, semetre, horarioId } as any,
+);
 
     // 3. Agrupa por dia da semana
     const mapaDias = new Map<number, any>();

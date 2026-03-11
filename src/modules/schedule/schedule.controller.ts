@@ -13,6 +13,7 @@ import {
   UsePipes,
   UseGuards,
   Req,
+  DefaultValuePipe,
 } from '@nestjs/common';
 
 import { ScheduleService } from './schedule.service';
@@ -37,6 +38,7 @@ import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
+import { GetAulasOcupadasDto } from './dto/get-aulas-ocupadas.dto';
 
 @ApiTags('schedule')
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -71,30 +73,19 @@ export class ScheduleController {
     return result;
  
   }
-  @Get('aulas-ocupadas/:salaCodigo')
-  @ApiOperation({
-    summary: 'Obter aulas ocupadas em uma sala para um ano lectivo',
-    description:
-      'Retorna as aulas que estão ocupadas em uma sala específica para o ano lectivo informado. Sempre retorna um array (vazio ou com itens), ideal para popular dropdowns.',
-  })
-  @ApiParam({
-    name: 'salaCodigo',
-    type: Number,
-    description: 'Código da sala',
-    example: 161,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de aulas ocupadas na sala para o ano lectivo informado.',
-  })
-   async getAulasOcupadas(
-    @Param('salaCodigo', ParseIntPipe) salaCodigo: number,
-    @Query('anoLectivo', ParseIntPipe) anoLectivo: number,
-    @Query('periodo', ParseIntPipe) periodo: number,
-    @Query('semetre',ParseIntPipe) semestre:number,
-  ) {
-    return this.scheduleService.getAulasOcupadasParaDropdown(salaCodigo, anoLectivo, periodo,semestre);
-  }
+@Get('aulas-ocupadas/:salaCodigo')
+async getAulasOcupadas(
+  @Param('salaCodigo', ParseIntPipe) salaCodigo: number,
+  @Query() query: GetAulasOcupadasDto,
+) {
+  return this.scheduleService.getAulasOcupadasParaDropdown(
+    salaCodigo,
+    query.anoLectivo,
+    query.periodo,
+    query.semestre,
+    query.horarioId,
+  );
+}
   // ================ LISTAGENS ================
   @Get()
   @RequiredPermissions(PermissionTypeDetails.LISTAR_HORARIOS.sigla)
