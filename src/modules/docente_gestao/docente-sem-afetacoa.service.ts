@@ -72,7 +72,6 @@ export class UcDocenteSemAfetacaoService {
             data:toLowerCaseKeys(data),
             meta: {
                total: totalItems,
-                itemCount: data.length,
                 limit: Number(limit),
                 totalPages,
                 page: Number(page),
