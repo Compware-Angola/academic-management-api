@@ -287,5 +287,106 @@ export class DocenteGestaoService {
       throw new BadRequestException(error.message);
     }
   }
-  async findDocenteAfectacao(filters: FindDocenteAfectacaoDTO) {}
+  async findDocenteAfectacao(filters: FindDocenteAfectacaoDTO) {
+    const {
+      anoLectivo,
+      semestre,
+      docente,
+      dataInicial,
+      dataFinal,
+      limit = 25,
+      page = 1,
+    } = filters;
+
+    const offset = (page - 1) * limit;
+
+    const conditions: string[] = [];
+    const params: any = {};
+
+    conditions.push(`1=1`);
+    conditions.push(`a.ACTIVE_STATE = 1`);
+    conditions.push(`l.codigo = :anoLectivo`);
+
+    params.anoLectivo = anoLectivo;
+
+    if (semestre) {
+      conditions.push(`s.PK_SEMESTRE = :semestre`);
+      params.semestre = semestre;
+    }
+
+    if (docente) {
+      conditions.push(`d.codigo = :docente`);
+      params.docente = docente;
+    }
+
+    if (dataInicial && dataFinal) {
+      conditions.push(`a.CREATED_AT BETWEEN :dataInicial AND :dataFinal`);
+      params.dataInicial = dataInicial;
+      params.dataFinal = dataFinal;
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    const sql = `
+  SELECT DISTINCT
+    JSON_VALUE(a.REF_DOCENTE,'$.desc')  AS docente,
+    d.N_MECANOGRAFICO                   AS mecanografico,
+    d.codigo                            AS codigo_docente
+
+  FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
+
+  INNER JOIN FK2_MGD_TB_DOCENTE d
+    ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
+
+  INNER JOIN FK2_TB_ANO_LECTIVO l
+    ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
+
+  INNER JOIN FK2_MCAL_TB_SEMESTRE s
+    ON s.PK_SEMESTRE = a.SEMESTRE
+
+  WHERE ${whereClause}
+
+  ORDER BY JSON_VALUE(a.REF_DOCENTE,'$.desc') ASC
+  OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+  `;
+
+    const sqlParams = {
+      ...params,
+      offset,
+      limit,
+    };
+
+    const sqlCount = `
+  SELECT COUNT(DISTINCT d.codigo) AS TOTAL
+
+  FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
+
+  INNER JOIN FK2_MGD_TB_DOCENTE d
+    ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
+
+  INNER JOIN FK2_TB_ANO_LECTIVO l
+    ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
+
+  INNER JOIN FK2_MCAL_TB_SEMESTRE s
+    ON s.PK_SEMESTRE = a.SEMESTRE
+
+  WHERE ${whereClause}
+  `;
+
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, sqlParams),
+      this.dataSource.query(sqlCount, params),
+    ]);
+
+    const total = Number(countResult[0].TOTAL);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: await toLowerCaseKeys(result),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
 }
