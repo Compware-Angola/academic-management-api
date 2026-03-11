@@ -25,6 +25,7 @@ import { DefenseManagementTfcModule } from './modules/defense-management-tfc/def
 import { SumarioModule } from './modules/sumario/sumario.module';
 import { BullConfigModule } from './modules/bull/bull.module';
 import { DocenteGestaoModule } from './modules/docente_gestao/docente_gestao.module';
+import { PlanoEstudoModule } from './modules/plano_estudo/plano_estudo.module';
 
 
 @Module({
@@ -89,6 +90,7 @@ import { DocenteGestaoModule } from './modules/docente_gestao/docente_gestao.mod
     SumarioModule,
     BullConfigModule,
     DocenteGestaoModule,
+    PlanoEstudoModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService],

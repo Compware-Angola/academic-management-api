@@ -91,7 +91,6 @@ export class ScheduleService {
         agora.getTime() <= dataFim.getTime();
     }
 
-    console.log(estaNoPrazo, '22');
 
     // Brecha
     const loopholeToEditSchedule =
@@ -155,32 +154,49 @@ export class ScheduleService {
     };
   }
 
-  async getAulasOcupadasParaDropdown(
-    salaCodigo: number,
-    anoLectivo: number,
-    periodo: number,
-    semetre:number
-  ): Promise<{ aulas: any[] }> {
-    // 1. Verifica se a sala existe
-    const salaResult = await this.dataSource.query(
-      `
+ async getAulasOcupadasParaDropdown(
+  salaCodigo: number,
+  anoLectivo: number,
+  periodo: number,
+  semetre: number,
+  horarioId?: number,
+): Promise<{ aulas: any[] }> {
+
+  // 1️⃣ Verifica se a sala existe
+  const salaResult = await this.dataSource.query(
+    `
     SELECT CODIGO
     FROM FK2_TB_SALAS
     WHERE CODIGO = :salaCodigo
       AND DELETED_AT IS NULL
     `,
-      { salaCodigo } as any,
+    { salaCodigo } as any,
+  );
+
+  if (!salaResult?.length) {
+    throw new NotFoundException(
+      `Sala com código ${salaCodigo} não encontrada ou inativa`,
     );
+  }
 
-    if (!salaResult?.length) {
-      throw new NotFoundException(
-        `Sala com código ${salaCodigo} não encontrada ou inativa`,
-      );
-    }
+  // 2️⃣ Condição dinâmica para ignorar o próprio horário (edição)
+  let horarioCondition = '';
 
-    // 2. Busca as aulas ocupadas
-    const aulasResult = await this.dataSource.query(
-      `
+  const params: any = {
+    salaCodigo,
+    anoLectivo,
+    periodo,
+    semetre,
+  };
+
+  if (horarioId !== undefined && Number.isInteger(horarioId) && horarioId > 0) {
+    horarioCondition = 'AND h.PK_HORARIO <> :horarioId';
+    params.horarioId = horarioId;
+  }
+
+  // 3️⃣ Busca aulas ocupadas
+  const aulasResult = await this.dataSource.query(
+    `
     SELECT
       al.PK_AULA,
       ta.DESCRICAO AS TIPO_AULA,
@@ -205,7 +221,8 @@ export class ScheduleService {
       AND h.FK_PERIODO = :periodo
       AND h.FK_ANO_LECTIVO = :anoLectivo
       AND au.CODIGO = :salaCodigo
-      AND h.FK_SEMESTRE =: semetre
+      AND h.FK_SEMESTRE = :semetre
+      ${horarioCondition}
     ORDER BY
       ds.ORDEM,
       TO_DATE(
@@ -213,42 +230,40 @@ export class ScheduleService {
         'HH24:MI'
       )
     `,
-      { salaCodigo, anoLectivo, periodo ,semetre} as any,
-    );
+    params,
+  );
 
-    // 3. Agrupa por dia da semana
-    const mapaDias = new Map<number, any>();
+  // 4️⃣ Agrupa por dia da semana
+  const mapaDias = new Map<number, any>();
 
-    aulasResult.forEach((aula: any, index: number) => {
-      if (!mapaDias.has(aula.PK_DIA_DA_SEMANA)) {
-        mapaDias.set(aula.PK_DIA_DA_SEMANA, {
-          diaSemana: {
-            pkDiaDaSemana: aula.PK_DIA_DA_SEMANA,
-            designacao: aula.DIA_SEMANA,
-            ordem: aula.ORDEM_DIA_SEMANA,
-          },
-          tempos: [],
-        });
-      }
-
-      mapaDias.get(aula.PK_DIA_DA_SEMANA).tempos.push({
-        horaInicio: formatHora(aula.HORA_INICIO),
-        horaFim: formatHora(aula.HORA_TERMINO),
-        disponivel: false, 
-        codigoAula: aula.PK_AULA,
-        tipoAula: aula.TIPO_AULA,
-        ordem_tempo:aula.ORDEM_TEMPO,
-        periodo: aula.FK_PERIODO,
+  aulasResult.forEach((aula: any) => {
+    if (!mapaDias.has(aula.PK_DIA_DA_SEMANA)) {
+      mapaDias.set(aula.PK_DIA_DA_SEMANA, {
+        diaSemana: {
+          pkDiaDaSemana: aula.PK_DIA_DA_SEMANA,
+          designacao: aula.DIA_SEMANA,
+          ordem: aula.ORDEM_DIA_SEMANA,
+        },
+        tempos: [],
       });
+    }
+
+    mapaDias.get(aula.PK_DIA_DA_SEMANA).tempos.push({
+      horaInicio: formatHora(aula.HORA_INICIO),
+      horaFim: formatHora(aula.HORA_TERMINO),
+      disponivel: false,
+      codigoAula: aula.PK_AULA,
+      tipoAula: aula.TIPO_AULA,
+      ordem_tempo: aula.ORDEM_TEMPO,
+      periodo: aula.FK_PERIODO,
     });
+  });
 
-    // 4. Monta retorno final
-    const items = Array.from(mapaDias.values());
-
-    return {
-      aulas: [...items],
-    };
-  }
+  // 5️⃣ Retorno final
+  return {
+    aulas: Array.from(mapaDias.values()),
+  };
+}
 
   async createPermissionToEditSchedule(query: CreatePermissionEditScheduleDto) {
     const json_user = `{"pk": ${query.userId}, "desc": " ", "corLetra": "black", "disponivel": true}`;
@@ -662,7 +677,7 @@ export class ScheduleService {
       atualizadoPor: h.ATUALIZADOPOR || null,
       dataUltimaAtualizacao: h.DATAULTIMAATUALIZACAO,
       dataCriacao: h.DATACRIACAO,
-       modalidade: aulas[0]?.MODALIDADE,
+      modalidade: aulas[0]?.MODALIDADE,
       modalidadeId: Number(aulas[0]?.MODALIDADEID),
 
       // Array completo de aulas
@@ -843,7 +858,7 @@ ORDER BY
     // --------------------------------------------------------------------
     // 4) Iniciar Fila para Agendar Aulas
     // --------------------------------------------------------------------
-    await this.queueScheduleClass(horarioId);
+    // await this.queueScheduleClass(horarioId);
     // --------------------------------------------------------------------
     // 5) RETORNAR RESPOSTA AMIGÁVEL
     // --------------------------------------------------------------------
@@ -2331,7 +2346,7 @@ WHERE ${baseWhere}
     } else {
       // ==================== UPDATE ====================
       horarioId = horarioIdParam;
-      console.log(dto);
+
 
       await this.dataSource.query(
         `
@@ -2380,10 +2395,14 @@ WHERE ${baseWhere}
       );
 
       // Limpa aulas antigas
-      await this.dataSource.query(
-        `DELETE FROM fk2_mgh_tb_aula WHERE fk_horario = :1`,
-        [horarioId],
-      );
+      if (aulas.length > 0) {
+        await this.dataSource.query(
+          `DELETE FROM fk2_mgh_tb_aula WHERE fk_horario = :1`,
+          [horarioId],
+        );
+
+      }
+
     }
 
     // === INSERIR AULAS DETALHADAS (tabela filha) ===
@@ -2466,11 +2485,11 @@ WHERE ${baseWhere}
           } as any,
         );
       } catch (error: any) {
-        
+
       }
     }
 
-  
+
     const message = horarioIdParam
       ? 'Horário atualizado com sucesso!'
       : 'Horário criado com sucesso!';
