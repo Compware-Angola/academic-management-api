@@ -292,6 +292,7 @@ export class DocenteGestaoService {
       anoLectivo,
       semestre,
       docente,
+      tipoAfectacao,
       dataInicial,
       dataFinal,
       limit = 25,
@@ -326,55 +327,93 @@ export class DocenteGestaoService {
     }
 
     const whereClause = conditions.join(' AND ');
+    let sqlCommand = '';
+    let sqlCount = '';
 
-    const sql = `
-  SELECT DISTINCT
-    JSON_VALUE(a.REF_DOCENTE,'$.desc')  AS docente,
-    d.N_MECANOGRAFICO                   AS mecanografico,
-    d.codigo                            AS codigo_docente
+    if (tipoAfectacao) {
+      sqlCommand = `
+      SELECT DISTINCT
+        JSON_VALUE(a.REF_DOCENTE,'$.desc')  AS docente,
+        d.N_MECANOGRAFICO                   AS mecanografico,
+        d.codigo                            AS codigo_docente
 
-  FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
+      FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
 
-  INNER JOIN FK2_MGD_TB_DOCENTE d
-    ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
+      INNER JOIN FK2_MGD_TB_DOCENTE d
+        ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
 
-  INNER JOIN FK2_TB_ANO_LECTIVO l
-    ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
+      INNER JOIN FK2_TB_ANO_LECTIVO l
+        ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
 
-  INNER JOIN FK2_MCAL_TB_SEMESTRE s
-    ON s.PK_SEMESTRE = a.SEMESTRE
+      INNER JOIN FK2_MCAL_TB_SEMESTRE s
+        ON s.PK_SEMESTRE = a.SEMESTRE
 
-  WHERE ${whereClause}
+      WHERE ${whereClause}
 
-  ORDER BY JSON_VALUE(a.REF_DOCENTE,'$.desc') ASC
-  OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
-  `;
+      ORDER BY JSON_VALUE(a.REF_DOCENTE,'$.desc') ASC
+      OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+      `;
 
+      sqlCount = `
+        SELECT COUNT(DISTINCT d.codigo) AS TOTAL
+
+        FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
+
+        INNER JOIN FK2_MGD_TB_DOCENTE d
+          ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
+
+        INNER JOIN FK2_TB_ANO_LECTIVO l
+          ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
+
+        INNER JOIN FK2_MCAL_TB_SEMESTRE s
+          ON s.PK_SEMESTRE = a.SEMESTRE
+
+        WHERE ${whereClause}
+      `;
+    } else {
+      sqlCommand = `
+      select
+          json_value(d.CODIGO_UTILIZADOR,'$.desc') as docente,
+          d.N_MECANOGRAFICO                        as mecanografico,
+          d.codigo                            as codigo_docente
+      from FK2_MGD_TB_DOCENTE d
+      where 1=1
+      and d.codigo not in (
+                    select  d.codigo
+                    from FK2_MGD_TB_DOCENTE_AFECTACAO a
+                    inner join FK2_MGD_TB_DOCENTE     d on d.codigo        = json_value(a.REF_DOCENTE,'$.pk')
+                    inner join FK2_TB_ANO_LECTIVO     l on l.codigo        = json_value(a.REF_ANO_LECTIVO,'$.pk')
+                    inner join FK2_MCAL_TB_SEMESTRE   s on s.PK_SEMESTRE   = a.SEMESTRE
+                    where ${whereClause}
+      )
+      ORDER BY json_value(d.CODIGO_UTILIZADOR,'$.desc') ASC
+      OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+      `;
+
+      sqlCount = `
+        SELECT COUNT(*) AS TOTAL
+        FROM FK2_MGD_TB_DOCENTE d
+        WHERE 1=1
+        AND d.codigo NOT IN (
+              SELECT d.codigo
+              FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
+              INNER JOIN FK2_MGD_TB_DOCENTE d
+                  ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
+              INNER JOIN FK2_TB_ANO_LECTIVO l
+                  ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
+              INNER JOIN FK2_MCAL_TB_SEMESTRE s
+                  ON s.PK_SEMESTRE = a.SEMESTRE
+              WHERE ${whereClause}
+        )
+     `;
+    }
     const sqlParams = {
       ...params,
       offset,
       limit,
     };
-
-    const sqlCount = `
-  SELECT COUNT(DISTINCT d.codigo) AS TOTAL
-
-  FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
-
-  INNER JOIN FK2_MGD_TB_DOCENTE d
-    ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
-
-  INNER JOIN FK2_TB_ANO_LECTIVO l
-    ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
-
-  INNER JOIN FK2_MCAL_TB_SEMESTRE s
-    ON s.PK_SEMESTRE = a.SEMESTRE
-
-  WHERE ${whereClause}
-  `;
-
     const [result, countResult] = await Promise.all([
-      this.dataSource.query(sql, sqlParams),
+      this.dataSource.query(sqlCommand, sqlParams),
       this.dataSource.query(sqlCount, params),
     ]);
 
