@@ -3,9 +3,8 @@ import { DocenteGestaoService } from './docente_gestao.service';
 import { CreateDocenteGestaoDto } from './dto/create-docente_gestao.dto';
 import { UpdateDocenteGestaoDto } from './dto/update-docente_gestao.dto';
 import { FindParametrosDocenteTO } from './dto/find-parametros-docente.dto';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation } from '@nestjs/swagger';
 
-@ApiTags('gestao-de-docente')
 @Controller('docente-gestao')
 export class DocenteGestaoController {
   constructor(private readonly service: DocenteGestaoService) { }
