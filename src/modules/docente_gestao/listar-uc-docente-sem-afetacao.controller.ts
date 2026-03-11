@@ -2,7 +2,7 @@ import { Controller, Get, Query } from "@nestjs/common";
 import { ListarUCDocenteSemAfetacaoFiltroDto } from "./dto/listar-uc-docente-sem-afetacao-filtro.dto";
 import { UcDocenteSemAfetacaoService } from "./uc-docente-sem-afetacoa.service";
 import { ApiTags } from "@nestjs/swagger";
-@ApiTags('gestao-docente')
+@ApiTags('gestao-de-docente')
 @Controller('gestao-docente')
 export class ListarUCDocenteSemAfetacaoController {
     constructor(private readonly ucDocenteSemAfetacaoService: UcDocenteSemAfetacaoService) {}
