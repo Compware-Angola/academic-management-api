@@ -19,6 +19,7 @@ import { FindParametrosDocenteTO } from './dto/find-parametros-docente.dto';
 import { ApiOperation, ApiTags, ApiResponse } from '@nestjs/swagger';
 import { UpdateAfectacaoDTO } from './dto/update-afectacao.dto';
 import { FindAfectacaoDTO } from './dto/find-afectacao.dto';
+import { FindDocenteAfectacaoDTO } from './dto/find-docente-afectacao.dto';
 
 @ApiTags('docente-gestao')
 @Controller('docente-gestao')
@@ -54,5 +55,18 @@ export class DocenteGestaoController {
     @Req() req: any,
   ) {
     return this.service.updateAfectacaoStatus(codigo, query);
+  }
+  @Get('/docente/afectacao')
+  //@RequiredPermissions(PermissionTypeDetails.GESTAO_AFETACOES.sigla!)
+  @ApiOperation({
+    summary: 'Listar Docentes Afectados ou docentes não afectados',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Listar Docentes Afectados ou docentes não afectados',
+    type: FindDocenteAfectacaoDTO,
+  })
+  findDocenteAfectacao(@Query(ValidationPipe) query: FindDocenteAfectacaoDTO) {
+    return this.service.findDocenteAfectacao(query);
   }
 }
