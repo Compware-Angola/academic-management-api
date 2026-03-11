@@ -91,7 +91,6 @@ export class ScheduleService {
         agora.getTime() <= dataFim.getTime();
     }
 
-    console.log(estaNoPrazo, '22');
 
     // Brecha
     const loopholeToEditSchedule =
@@ -159,7 +158,7 @@ export class ScheduleService {
     salaCodigo: number,
     anoLectivo: number,
     periodo: number,
-    semetre:number
+    semetre: number
   ): Promise<{ aulas: any[] }> {
     // 1. Verifica se a sala existe
     const salaResult = await this.dataSource.query(
@@ -213,7 +212,7 @@ export class ScheduleService {
         'HH24:MI'
       )
     `,
-      { salaCodigo, anoLectivo, periodo ,semetre} as any,
+      { salaCodigo, anoLectivo, periodo, semetre } as any,
     );
 
     // 3. Agrupa por dia da semana
@@ -234,10 +233,10 @@ export class ScheduleService {
       mapaDias.get(aula.PK_DIA_DA_SEMANA).tempos.push({
         horaInicio: formatHora(aula.HORA_INICIO),
         horaFim: formatHora(aula.HORA_TERMINO),
-        disponivel: false, 
+        disponivel: false,
         codigoAula: aula.PK_AULA,
         tipoAula: aula.TIPO_AULA,
-        ordem_tempo:aula.ORDEM_TEMPO,
+        ordem_tempo: aula.ORDEM_TEMPO,
         periodo: aula.FK_PERIODO,
       });
     });
@@ -662,7 +661,7 @@ export class ScheduleService {
       atualizadoPor: h.ATUALIZADOPOR || null,
       dataUltimaAtualizacao: h.DATAULTIMAATUALIZACAO,
       dataCriacao: h.DATACRIACAO,
-       modalidade: aulas[0]?.MODALIDADE,
+      modalidade: aulas[0]?.MODALIDADE,
       modalidadeId: Number(aulas[0]?.MODALIDADEID),
 
       // Array completo de aulas
@@ -2331,7 +2330,7 @@ WHERE ${baseWhere}
     } else {
       // ==================== UPDATE ====================
       horarioId = horarioIdParam;
-      console.log(dto);
+
 
       await this.dataSource.query(
         `
@@ -2380,10 +2379,14 @@ WHERE ${baseWhere}
       );
 
       // Limpa aulas antigas
-      await this.dataSource.query(
-        `DELETE FROM fk2_mgh_tb_aula WHERE fk_horario = :1`,
-        [horarioId],
-      );
+      if (aulas.length > 0) {
+        await this.dataSource.query(
+          `DELETE FROM fk2_mgh_tb_aula WHERE fk_horario = :1`,
+          [horarioId],
+        );
+
+      }
+
     }
 
     // === INSERIR AULAS DETALHADAS (tabela filha) ===
@@ -2466,11 +2469,11 @@ WHERE ${baseWhere}
           } as any,
         );
       } catch (error: any) {
-        
+
       }
     }
 
-  
+
     const message = horarioIdParam
       ? 'Horário atualizado com sucesso!'
       : 'Horário criado com sucesso!';
