@@ -159,7 +159,7 @@ export class ScheduleService {
     anoLectivo: number,
     periodo: number,
     semetre: number,
-    horarioId?:number
+    horarioId?: number
   ): Promise<{ aulas: any[] }> {
     // 1. Verifica se a sala existe
     const salaResult = await this.dataSource.query(
@@ -177,13 +177,15 @@ export class ScheduleService {
         `Sala com código ${salaCodigo} não encontrada ou inativa`,
       );
     }
-let horarioCondition = '';
-if (horarioId) {
+    let horarioCondition = '';
+
+
+if (horarioId !== undefined && Number.isInteger(horarioId) && horarioId > 0) {
   horarioCondition = 'AND h.PK_HORARIO <> :horarioId';
 }
     // 2. Busca as aulas ocupadas
-  const aulasResult = await this.dataSource.query(
-  `
+    const aulasResult = await this.dataSource.query(
+      `
   SELECT
     al.PK_AULA,
     ta.DESCRICAO AS TIPO_AULA,
@@ -217,8 +219,8 @@ if (horarioId) {
       'HH24:MI'
     )
   `,
-  { salaCodigo, anoLectivo, periodo, semetre, horarioId } as any,
-);
+      { salaCodigo, anoLectivo, periodo, semetre, horarioId } as any,
+    );
 
     // 3. Agrupa por dia da semana
     const mapaDias = new Map<number, any>();
