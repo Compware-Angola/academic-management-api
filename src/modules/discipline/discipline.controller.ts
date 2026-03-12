@@ -26,7 +26,8 @@ import { FindDisciplinasDto } from './dto/find-disciplinas.dto';
 import { CreateDisciplinaDto } from './dto/create-discipline.dto';
 import { UpdateDisciplinaDto } from './dto/update-discipline.dto';
 import { FindGradeCurricularDto } from './dto/FindGradeCurricularDto';
-import { CreateUnidadeCurricularDto } from './dto/create-unidade-curricular.dto';
+import { CreateUnidadeCurricularDto } from './dto/create-unidade-curricular.plano.dto';
+import { CreateUnidadeCurricularDepartamentoDto } from './dto/create-unidade-curricular-departamento.dto';
 
 @ApiTags('DISCIPLINAS')
 @Controller('discipline')
@@ -103,10 +104,18 @@ export class DisciplineController {
     description: 'Adiciona UC ao plano.',
   })
   @HttpCode(HttpStatus.CREATED)
-  async adicionarUnidadeCurricular(
+  async adicionarUnidadeCurricularNoPlano(
     @Body() dto: CreateUnidadeCurricularDto,
   ) {
     const codigoUtilizador= 1
-    return this.disciplineService.adicionarUnidadeCurricular(dto,codigoUtilizador);
+    return this.disciplineService.adicionarUnidadeCurricularNoPlano(dto,codigoUtilizador);
   }
+
+  @Post('departamento')
+@HttpCode(HttpStatus.CREATED)
+async adicionarUnidadeCurricularNoDepartamento(
+  @Body() dto: CreateUnidadeCurricularDepartamentoDto,
+) {
+  return this.disciplineService.adicionarUnidadeCurricularNoDepartamento(dto);
+}
 }
