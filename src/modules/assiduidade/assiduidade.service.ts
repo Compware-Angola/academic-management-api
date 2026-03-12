@@ -89,10 +89,10 @@ export class AssiduidadeService {
     }
   }
 
-   async assiduidadeProva(dto: FindAttendanceTestDto) {
+  async assiduidadeProva(dto: FindAttendanceTestDto) {
     return this.attendanceTest(dto);
   }
-   async getAllStatusAgendamento() {
+  async getAllStatusAgendamento() {
     const sql = `
     SELECT PK_ESTADO_AGENDAMENTO AS codigo, DESIGNACAO AS designacao  FROM FK2_MSA_TB_ESTADO_AGENDAMENTO`;
 
@@ -114,7 +114,7 @@ export class AssiduidadeService {
     `,
       { groupId, utilizadorId } as any
     );
-   
+
 
     return result[0]?.TOTAL > 0;
   }
@@ -125,7 +125,7 @@ export class AssiduidadeService {
       unidadeCurricular = 0,
       dataInicial,
       dataFinal,
-      estado= 0,
+      estado = 0,
       anoLectivo = 0,
       semestre = 0,
       page = 1,
@@ -166,8 +166,8 @@ export class AssiduidadeService {
     if (estado !== 0) {
       conditions.push('aa.FK_ESTADO_AGENDAMENTO = :estado');
     }
-       console.log(estado);
-    
+    console.log(estado);
+
 
     if (anoLectivo !== 0) {
       conditions.push("h.FK_ANO_LECTIVO = :anoLectivo");
@@ -299,7 +299,7 @@ FETCH NEXT :limit ROWS ONLY
     if (estado !== 0) whereParams.estado = estado;
     if (semestre !== 0) whereParams.semestre = semestre;
     if (anoLectivo !== 0) whereParams.anoLectivo = anoLectivo;
- 
+
 
     // Monta as condições dinamicamente
     const conditions: string[] = [
@@ -574,59 +574,59 @@ FETCH NEXT :limit ROWS ONLY
     }
   }
 
-async attendanceControlling(dto: AtendanceControlling) {
-  const {
-    docente = 0,
-    dataInicial,
-    dataFinal,
-    estado = 0,
-    anoLectivo = 0,
-    semestre = 0,
-    page = 1,
-    limit = 20,
-  } = dto;
+  async attendanceControlling(dto: AtendanceControlling) {
+    const {
+      docente = 0,
+      dataInicial,
+      dataFinal,
+      estado = 0,
+      anoLectivo = 0,
+      semestre = 0,
+      page = 1,
+      limit = 20,
+    } = dto;
 
-  const offset = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-  const whereParams: Record<string, any> = {
-    dataInicial,
-    dataFinal,
-  };
+    const whereParams: Record<string, any> = {
+      dataInicial,
+      dataFinal,
+    };
 
-  const conditions: string[] = [
-    'aa.ACTIVE_STATE = 1',
-    'aa.DATA_AULA BETWEEN :dataInicial AND :dataFinal',
-    'h.ACTIVE_STATE = 1',
-  ];
+    const conditions: string[] = [
+      'aa.ACTIVE_STATE = 1',
+      'aa.DATA_AULA BETWEEN :dataInicial AND :dataFinal',
+      'h.ACTIVE_STATE = 1',
+    ];
 
-  // Docente
-  if (docente !== 0) {
-    conditions.push('aa.FK_DOCENTE = :docente');
-    whereParams.docente = docente;
-  }
+    // Docente
+    if (docente !== 0) {
+      conditions.push('aa.FK_DOCENTE = :docente');
+      whereParams.docente = docente;
+    }
 
-  // Estado
-  if (estado !== 0) {
-    conditions.push('aa.FK_ESTADO_AGENDAMENTO = :estado');
-    whereParams.estado = estado;
-  }
+    // Estado
+    if (estado !== 0) {
+      conditions.push('aa.FK_ESTADO_AGENDAMENTO = :estado');
+      whereParams.estado = estado;
+    }
 
-  // Ano Lectivo
-  if (anoLectivo !== 0) {
-    conditions.push('h.FK_ANO_LECTIVO = :anoLectivo');
-    whereParams.anoLectivo = anoLectivo;
-  }
+    // Ano Lectivo
+    if (anoLectivo !== 0) {
+      conditions.push('h.FK_ANO_LECTIVO = :anoLectivo');
+      whereParams.anoLectivo = anoLectivo;
+    }
 
-  // Semestre
-  if (semestre !== 0) {
-    conditions.push('gc.CODIGO_SEMESTRE = :semestre');
-    whereParams.semestre = semestre;
-  }
+    // Semestre
+    if (semestre !== 0) {
+      conditions.push('gc.CODIGO_SEMESTRE = :semestre');
+      whereParams.semestre = semestre;
+    }
 
-  const whereClause =
-    conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+    const whereClause =
+      conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
-  const sql = `
+    const sql = `
     SELECT
       aa.PK_AGENDAMENTO_AULA AS codigo,
       c2.DESIGNACAO AS curso,
@@ -657,9 +657,9 @@ async attendanceControlling(dto: AtendanceControlling) {
     FETCH NEXT :limit ROWS ONLY
   `;
 
-  const sqlParams = { ...whereParams, offset, limit };
+    const sqlParams = { ...whereParams, offset, limit };
 
-  const countSql = `
+    const countSql = `
     SELECT COUNT(*) AS total
     FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
     INNER JOIN FK2_MGH_TB_AULA al
@@ -673,7 +673,7 @@ async attendanceControlling(dto: AtendanceControlling) {
     ${whereClause}
   `;
 
-  const summarySql = `
+    const summarySql = `
     SELECT
       SUM(CASE WHEN aa.FK_ESTADO_AGENDAMENTO = 1 THEN 1 ELSE 0 END) AS marcacoes_pendentes,
       SUM(CASE WHEN aa.FK_ESTADO_AGENDAMENTO = 2 THEN 1 ELSE 0 END) AS faltas_marcadas,
@@ -690,45 +690,45 @@ async attendanceControlling(dto: AtendanceControlling) {
     ${whereClause}
   `;
 
-  try {
-    const [records, countResult, summaryResult] = await Promise.all([
-      this.dataSource.query(sql, sqlParams as any),
-      this.dataSource.query(countSql, whereParams as any),
-      this.dataSource.query(summarySql, whereParams as any),
-    ]);
+    try {
+      const [records, countResult, summaryResult] = await Promise.all([
+        this.dataSource.query(sql, sqlParams as any),
+        this.dataSource.query(countSql, whereParams as any),
+        this.dataSource.query(summarySql, whereParams as any),
+      ]);
 
-    const total = Number(countResult?.[0]?.TOTAL ?? 0);
+      const total = Number(countResult?.[0]?.TOTAL ?? 0);
 
-    const resumo = {
-      marcacoesPendentes: Number(summaryResult?.[0]?.MARCACOES_PENDENTES ?? 0),
-      faltasMarcadas: Number(summaryResult?.[0]?.FALTAS_MARCADAS ?? 0),
-      presencasMarcadas: Number(summaryResult?.[0]?.PRESENCAS_MARCADAS ?? 0),
-    };
+      const resumo = {
+        marcacoesPendentes: Number(summaryResult?.[0]?.MARCACOES_PENDENTES ?? 0),
+        faltasMarcadas: Number(summaryResult?.[0]?.FALTAS_MARCADAS ?? 0),
+        presencasMarcadas: Number(summaryResult?.[0]?.PRESENCAS_MARCADAS ?? 0),
+      };
 
-    return {
-      data: toLowerCaseKeys(records),
-      resumo,
-      total,
-      page,
-      limit,
-      totalPages: total > 0 ? Math.ceil(total / limit) : 1,
-    };
-  } catch (error) {
-    console.error('Erro ao buscar agendamentos:', error);
-    throw new Error(`Falha ao consultar agendamentos: ${error.message}`);
+      return {
+        data: toLowerCaseKeys(records),
+        resumo,
+        total,
+        page,
+        limit,
+        totalPages: total > 0 ? Math.ceil(total / limit) : 1,
+      };
+    } catch (error) {
+      console.error('Erro ao buscar agendamentos:', error);
+      throw new Error(`Falha ao consultar agendamentos: ${error.message}`);
+    }
   }
-}
 
-async getStateLessonAttendance(): Promise<[]> {
-  const result = await this.dataSource.query(
-    `
+  async getStateLessonAttendance(): Promise<[]> {
+    const result = await this.dataSource.query(
+      `
       SELECT DESIGNACAO, PK_ESTADO_AGENDAMENTO
       FROM FK2_MSA_TB_ESTADO_AGENDAMENTO
     `
-  );
+    );
 
-  return result;
-}
+    return result;
+  }
   // Assiduidade de campo
   private async attendanceTrip(dto: FindAgendamentoAulaDto) {
     const {
@@ -909,9 +909,9 @@ ${whereClause}
       dataInicio,
       dataFim,
     };
-  
 
-    if (docente !== 0) whereParams.docente = docente;
+
+
     if (disciplina !== 0) whereParams.disciplina = disciplina;
     if (estado !== 0) whereParams.estado = estado;
     if (anoLectivo !== 0) whereParams.anoLectivo = anoLectivo;
@@ -922,10 +922,33 @@ ${whereClause}
       'cp.DATA_PROVA BETWEEN :dataInicio AND :dataFim',
     ];
 
+    // TEnho que pegar o id do 
+    // FK2_MGD_TB_DOCENTE este é a tabela 
+
+
     if (docente !== 0) {
-      conditions.push(
-        "JSON_VALUE(v.REF_VIGILANTE, '$.pk' RETURNING NUMBER) = :docente"
+      const result = await this.dataSource.query(
+        `
+    SELECT 
+      CODIGO,
+      JSON_VALUE(CODIGO_UTILIZADOR, '$.pk' RETURNING NUMBER) AS UTILIZADOR
+    FROM FK2_MGD_TB_DOCENTE
+    WHERE CODIGO = :docente
+    `,
+        { docente } as any
       );
+
+      const utilizadorId = result?.[0]?.UTILIZADOR;
+
+      if (utilizadorId) {
+        conditions.push(
+          "JSON_VALUE(v.REF_VIGILANTE, '$.pk' RETURNING NUMBER) = :utilizadorId"
+        );
+        // ✅ Add utilizadorId to whereParams so it's available for both queries
+        whereParams.utilizadorId = utilizadorId;
+      }
+
+
     }
 
     if (anoLectivo !== 0) {
@@ -950,7 +973,7 @@ ${whereClause}
 
     const whereClause =
       conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
- 
+
     const sql = `
     SELECT DISTINCT
       v.CODIGO,
@@ -1022,62 +1045,62 @@ ${whereClause}
 
 
   async generalAttendanceByDocenteCalendar(dto: GeneralAttendanceCalendarDto) {
-    
-  const docenteIdNum = dto.docenteId ? Number(dto.docenteId) : 0;
-  const {docenteNome = '', modo } = dto;
-  const refDate = parseISODateOrToday(dto.dataReferencia);
 
-  if (!modo) {
-    throw new BadGatewayException('Parâmetro "modo" é obrigatório: MES | SEMANA | DIA');
-  }
+    const docenteIdNum = dto.docenteId ? Number(dto.docenteId) : 0;
+    const { docenteNome = '', modo } = dto;
+    const refDate = parseISODateOrToday(dto.dataReferencia);
 
-  // Intervalos (inicio inclusivo, fim exclusivo)
-  let inicio: Date;
-  let fim: Date;
+    if (!modo) {
+      throw new BadGatewayException('Parâmetro "modo" é obrigatório: MES | SEMANA | DIA');
+    }
 
-  if (modo === 'MES') {
-    inicio = startOfMonth(refDate);
-    fim = startOfNextMonth(refDate);
-  } else if (modo === 'SEMANA') {
-    inicio = startOfWeekMonday(refDate);
-    fim = addDays(inicio, 7);
-  } else {
-    // DIA
-    inicio = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate());
-    fim = addDays(inicio, 1);
-  }
+    // Intervalos (inicio inclusivo, fim exclusivo)
+    let inicio: Date;
+    let fim: Date;
 
-  // ✅ filtro docente: preferir docenteId (FK_DOCENTE); se não vier, usa docenteNome via JSON_VALUE
-  const conditions: string[] = [
-    'aa.ACTIVE_STATE = 1',
-    'aa.FK_ESTADO_AGENDAMENTO IN (1,2,3)',
-    'aa.DATA_AULA >= :inicio AND aa.DATA_AULA < :fim',
-  ];
+    if (modo === 'MES') {
+      inicio = startOfMonth(refDate);
+      fim = startOfNextMonth(refDate);
+    } else if (modo === 'SEMANA') {
+      inicio = startOfWeekMonday(refDate);
+      fim = addDays(inicio, 7);
+    } else {
+      // DIA
+      inicio = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate());
+      fim = addDays(inicio, 1);
+    }
 
-  const params: Record<string, any> = {
-    inicio,
-    fim,
-  };
+    // ✅ filtro docente: preferir docenteId (FK_DOCENTE); se não vier, usa docenteNome via JSON_VALUE
+    const conditions: string[] = [
+      'aa.ACTIVE_STATE = 1',
+      'aa.FK_ESTADO_AGENDAMENTO IN (1,2,3)',
+      'aa.DATA_AULA >= :inicio AND aa.DATA_AULA < :fim',
+    ];
 
-  // Se vier docenteId, filtra por FK_DOCENTE
-  if (docenteIdNum && docenteIdNum !== 0) {
-    conditions.push('aa.FK_DOCENTE = :docenteId');
-    params.docenteId = docenteIdNum;
-  } else if (docenteNome && docenteNome.trim().length > 0) {
-    // Compatível com o legado (nome do docente)
-    conditions.push(`JSON_VALUE(al.REF_DOCENTE, '$.nome') = :docenteNome`);
-    params.docenteNome = docenteNome.trim();
-  } else {
-    throw new BadGatewayException('Informe "docenteId" ou "docenteNome".');
-  }
+    const params: Record<string, any> = {
+      inicio,
+      fim,
+    };
 
-  const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    // Se vier docenteId, filtra por FK_DOCENTE
+    if (docenteIdNum && docenteIdNum !== 0) {
+      conditions.push('aa.FK_DOCENTE = :docenteId');
+      params.docenteId = docenteIdNum;
+    } else if (docenteNome && docenteNome.trim().length > 0) {
+      // Compatível com o legado (nome do docente)
+      conditions.push(`JSON_VALUE(al.REF_DOCENTE, '$.nome') = :docenteNome`);
+      params.docenteNome = docenteNome.trim();
+    } else {
+      throw new BadGatewayException('Informe "docenteId" ou "docenteNome".');
+    }
 
-  // =========================
-  // MODO MÊS (agregado por dia)
-  // =========================
-  if (modo === 'MES') {
-    const sql = `
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+
+    // =========================
+    // MODO MÊS (agregado por dia)
+    // =========================
+    if (modo === 'MES') {
+      const sql = `
       SELECT
         TO_CHAR(TRUNC(aa.DATA_AULA), 'YYYY-MM-DD') AS dia,
         COUNT(*) AS total_aulas,
@@ -1092,32 +1115,32 @@ ${whereClause}
       ORDER BY TRUNC(aa.DATA_AULA)
     `;
 
-    const rows = await this.dataSource.query(sql, params as any);
-    // Opcional: já devolve um "statusDoDia" para facilitar o frontend pintar
-    const data = toLowerCaseKeys(rows).map((r: any) => {
-      const pend = Number(r.pendentes || 0);
-      const falt = Number(r.faltas || 0);
-      const pres = Number(r.presencas || 0);
+      const rows = await this.dataSource.query(sql, params as any);
+      // Opcional: já devolve um "statusDoDia" para facilitar o frontend pintar
+      const data = toLowerCaseKeys(rows).map((r: any) => {
+        const pend = Number(r.pendentes || 0);
+        const falt = Number(r.faltas || 0);
+        const pres = Number(r.presencas || 0);
 
-      let statusDoDia: 'FALTA' | 'PENDENTE' | 'PRESENCA' | 'SEM_DADOS' = 'SEM_DADOS';
-      if (falt > 0) statusDoDia = 'FALTA';
-      else if (pend > 0) statusDoDia = 'PENDENTE';
-      else if (pres > 0) statusDoDia = 'PRESENCA';
+        let statusDoDia: 'FALTA' | 'PENDENTE' | 'PRESENCA' | 'SEM_DADOS' = 'SEM_DADOS';
+        if (falt > 0) statusDoDia = 'FALTA';
+        else if (pend > 0) statusDoDia = 'PENDENTE';
+        else if (pres > 0) statusDoDia = 'PRESENCA';
 
-      return { ...r, statusDoDia };
-    });
+        return { ...r, statusDoDia };
+      });
 
-    return {
-      modo,
-      intervalo: { inicio: toISODate(inicio), fim: toISODate(addDays(fim, -1)) }, // fim "humano"
-      data,
-    };
-  }
+      return {
+        modo,
+        intervalo: { inicio: toISODate(inicio), fim: toISODate(addDays(fim, -1)) }, // fim "humano"
+        data,
+      };
+    }
 
-  // =====================================
-  // MODO SEMANA/DIA (lista de eventos)
-  // =====================================
-  const sql = `
+    // =====================================
+    // MODO SEMANA/DIA (lista de eventos)
+    // =====================================
+    const sql = `
     SELECT
       aa.PK_AGENDAMENTO_AULA AS codigo,
       TO_CHAR(TRUNC(aa.DATA_AULA), 'YYYY-MM-DD') AS dia,
@@ -1134,19 +1157,19 @@ ${whereClause}
 
     const rows = await this.dataSource.query(sql, params as any);
 
-      return {
-        modo,
-        intervalo: { inicio: toISODate(inicio), fim: toISODate(addDays(fim, -1)) },
-        data: toLowerCaseKeys(rows),
-      };
-    }
+    return {
+      modo,
+      intervalo: { inicio: toISODate(inicio), fim: toISODate(addDays(fim, -1)) },
+      data: toLowerCaseKeys(rows),
+    };
+  }
 
-    async teacherClassCalendar(dto: FindTeacherClassCalendarDto) {
-  const docente = Number(dto.docente);
-  const dataInicial = dto.dataInicial ?? '2000-01-01';
-  const dataFinal = dto.dataFinal ?? '2100-12-31';
+  async teacherClassCalendar(dto: FindTeacherClassCalendarDto) {
+    const docente = Number(dto.docente);
+    const dataInicial = dto.dataInicial ?? '2000-01-01';
+    const dataFinal = dto.dataFinal ?? '2100-12-31';
 
-  const sql = `
+    const sql = `
     SELECT
       aa.PK_AGENDAMENTO_AULA AS codigo,
       TO_CHAR(aa.DATA_AULA, 'YYYY-MM-DD') AS data_aula,
@@ -1177,40 +1200,40 @@ ${whereClause}
     ORDER BY aa.DATA_AULA ASC, al.HORA_INICIO ASC
   `;
 
-  try {
-    const rows = await this.dataSource.query(sql, {
-      docente,
-      dataInicial,
-      dataFinal,
-    } as any);
+    try {
+      const rows = await this.dataSource.query(sql, {
+        docente,
+        dataInicial,
+        dataFinal,
+      } as any);
 
-    const data = toLowerCaseKeys(rows).map((item: any) => ({
-      ...item,
-      start: `${item.data_aula}T${item.hora_inicio}:00`,
-      end: `${item.data_aula}T${item.hora_fim}:00`,
-      cor:
-        Number(item.estado) === 1
-          ? '#ffca38'
-          : Number(item.estado) === 2
-          ? '#ff9999'
-          : Number(item.estado) === 3
-          ? '#99ff99'
-          : '#ffca38',
-    }));
+      const data = toLowerCaseKeys(rows).map((item: any) => ({
+        ...item,
+        start: `${item.data_aula}T${item.hora_inicio}:00`,
+        end: `${item.data_aula}T${item.hora_fim}:00`,
+        cor:
+          Number(item.estado) === 1
+            ? '#ffca38'
+            : Number(item.estado) === 2
+              ? '#ff9999'
+              : Number(item.estado) === 3
+                ? '#99ff99'
+                : '#ffca38',
+      }));
 
-    return {
-      data,
-      resumo: {
-        totalEventos: data.length,
-        pendentes: data.filter((item: any) => Number(item.estado) === 1).length,
-        faltas: data.filter((item: any) => Number(item.estado) === 2).length,
-        presencas: data.filter((item: any) => Number(item.estado) === 3).length,
-      },
-    };
-  } catch (error) {
-    console.error('Erro ao buscar calendário de aulas do docente:', error);
-    throw new Error(`Falha ao consultar calendário de aulas: ${error.message}`);
+      return {
+        data,
+        resumo: {
+          totalEventos: data.length,
+          pendentes: data.filter((item: any) => Number(item.estado) === 1).length,
+          faltas: data.filter((item: any) => Number(item.estado) === 2).length,
+          presencas: data.filter((item: any) => Number(item.estado) === 3).length,
+        },
+      };
+    } catch (error) {
+      console.error('Erro ao buscar calendário de aulas do docente:', error);
+      throw new Error(`Falha ao consultar calendário de aulas: ${error.message}`);
+    }
   }
-}
 
 }

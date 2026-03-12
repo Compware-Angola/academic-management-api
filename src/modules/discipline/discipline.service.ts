@@ -1,29 +1,30 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FindDisciplinaAlunoDTO } from './dto/find-disciplina-aluno.dto';
+import { FindDisciplinasDto } from './dto/find-disciplinas.dto';
 
 @Injectable()
 export class DisciplineService {
-  constructor(private readonly dataSource: DataSource) {}
-  async findGradeCurricularAluno({
-    matriculaId,
-    semestre,
-    anoLectivo,
-    limit = 25,
-    page = 1,
-  }: FindDisciplinaAlunoDTO) {
-    const offset = (page - 1) * limit;
+        constructor(private readonly dataSource: DataSource) { }
+        async findGradeCurricularAluno({
+                matriculaId,
+                semestre,
+                anoLectivo,
+                limit = 25,
+                page = 1,
+        }: FindDisciplinaAlunoDTO) {
+                const offset = (page - 1) * limit;
 
-    const baseWhere = `
+                const baseWhere = `
     al.codigo_matricula = ${matriculaId}
     AND g.status_ = 1
     AND cfr.codigo_ano_lectivo = ${anoLectivo}
     ${semestre ? `AND s.codigo = ${semestre}` : ''}
   `;
 
-    const sql = `
+                const sql = `
     SELECT DISTINCT
       d.designacao        AS disciplina,
       d.codigo_disciplina AS codigo_disciplina,
@@ -64,7 +65,7 @@ export class DisciplineService {
     OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
   `;
 
-    const sqlCount = `
+                const sqlCount = `
     SELECT COUNT(*) AS TOTAL
     FROM (
       SELECT DISTINCT d.codigo_disciplina
@@ -81,20 +82,106 @@ export class DisciplineService {
     )
   `;
 
-    const [result, countResult] = await Promise.all([
-      this.dataSource.query(sql),
-      this.dataSource.query(sqlCount),
-    ]);
+                const [result, countResult] = await Promise.all([
+                        this.dataSource.query(sql),
+                        this.dataSource.query(sqlCount),
+                ]);
 
-    const total = Number(countResult[0].TOTAL);
-    const totalPages = Math.ceil(total / limit);
+                const total = Number(countResult[0].TOTAL);
+                const totalPages = Math.ceil(total / limit);
 
-    return {
-      data: await toLowerCaseKeys(result),
-      total,
-      page,
-      limit,
-      totalPages,
-    };
-  }
+                return {
+                        data: await toLowerCaseKeys(result),
+                        total,
+                        page,
+                        limit,
+                        totalPages,
+                };
+        }
+        // Service
+        async findDisciplinas(dto: FindDisciplinasDto) {
+                const {
+                        tipoUnidadeCurricular,
+                        naturezaUnidadeCurricular,
+                        status,
+                        search,
+                        page = 1,
+                        limit = 25,
+                } = dto;
+
+                const offset = (page - 1) * limit;
+                const conditions: string[] = [];
+                const params: Record<string, any> = {};
+
+                if (tipoUnidadeCurricular) {
+                        conditions.push('d.TIPO_UNIDADE_CURRICULAR = :tipoUnidadeCurricular');
+                        params.tipoUnidadeCurricular = tipoUnidadeCurricular;
+                }
+
+                if (naturezaUnidadeCurricular) {
+                        conditions.push('d.NATUREZA_UNIDADE_CURRICULAR = :naturezaUnidadeCurricular');
+                        params.naturezaUnidadeCurricular = naturezaUnidadeCurricular;
+                }
+
+                if (status !== undefined) {
+                        conditions.push('d.STATUS_ = :status');
+                        params.status = status;
+                }
+
+                if (search) {
+                        conditions.push(
+                                '(UPPER(d.DESIGNACAO) LIKE UPPER(:search) OR UPPER(d.NOME_ABREVIATURA) LIKE UPPER(:search))'
+                        );
+                        params.search = `%${search}%`;
+                }
+
+                const whereClause =
+                        conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+                const sql = `
+    SELECT
+      d.CODIGO,
+      d.DESIGNACAO,
+      d.NOME_ABREVIATURA,
+      d.CODIGO_DISCIPLINA,
+      d.DURACAO,
+      d.TIPO_UNIDADE_CURRICULAR,
+      d.NATUREZA_UNIDADE_CURRICULAR,
+      d.CODIGO_TIPO_UC,
+      d.CODIGO_NATUREZA_UC,
+      d.STATUS_,
+       d.DATA_REGISTO AS data_registo,
+     d.DATA_ULTIMA_ATUALIZACAO AS data_ultima_atualizacao
+    FROM FK2_TB_DISCIPLINAS d
+    ${whereClause}
+    ORDER BY d.DESIGNACAO ASC
+    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+  `;
+
+                const countSql = `
+    SELECT COUNT(*) AS total
+    FROM FK2_TB_DISCIPLINAS d
+    ${whereClause}
+  `;
+
+                try {
+                        const [records, countResult] = await Promise.all([
+                                this.dataSource.query(sql, params as any),
+                                this.dataSource.query(countSql, params as any),
+                        ]);
+
+                        const total = Number(countResult?.[0]?.TOTAL ?? 0);
+
+                        return {
+                                data: toLowerCaseKeys(records),
+                                total,
+                                page,
+                                limit,
+                                totalPages: total > 0 ? Math.ceil(total / limit) : 1,
+                        };
+                } catch (error) {
+                        console.error('Erro ao buscar disciplinas:', error);
+                        throw new InternalServerErrorException(`Falha ao buscar disciplinas: ${error.message}`);
+                }
+        }
 }

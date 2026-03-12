@@ -29,6 +29,8 @@ import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { FindAssiduidadeDTO } from './dto/find-assiduidade.dto';
 import { FindHorarioVigilantesCDTO } from './dto/find-horario-vigilantes.dto';
+import { FindAfectacaoDTO } from '../docente_gestao/dto/find-afectacao.dto';
+import { UpdateAfectacaoDTO } from '../docente_gestao/dto/update-afectacao.dto';
 
 @Controller('docentes')
 //@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -106,6 +108,7 @@ export class DocentesController {
     return this.docentesService.findCadeiras(query);
   }
   @Get('/horarios-vigilantes')
+  @RequiredPermissions(PermissionTypeDetails.HORAS_DE_VIGILANCIA.sigla!)
   @ApiOperation({ summary: 'Lista Horários Vigilantes' })
   @ApiResponse({
     status: 200,
