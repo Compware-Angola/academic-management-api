@@ -28,6 +28,7 @@ import { UpdateDisciplinaDto } from './dto/update-discipline.dto';
 import { FindGradeCurricularDto } from './dto/FindGradeCurricularDto';
 import { CreateUnidadeCurricularDto } from './dto/create-unidade-curricular.plano.dto';
 import { CreateUnidadeCurricularDepartamentoDto } from './dto/create-unidade-curricular-departamento.dto';
+import { FindUnidadeCurricularDeptDto } from './dto/find-unidade-curricular-dept.dto';
 
 @ApiTags('DISCIPLINAS')
 @Controller('discipline')
@@ -121,5 +122,13 @@ async adicionarUnidadeCurricularNoDepartamento(
   @Body() dto: CreateUnidadeCurricularDepartamentoDto,
 ) {
   return this.disciplineService.adicionarUnidadeCurricularNoDepartamento(dto);
+}
+@Get('departamento')
+ @ApiOperation({
+    summary: 'Listar  UC no departamento',
+    description: 'Retorna lista de uc no departamento.',
+  })
+async listarUnidadeCurricularDept(@Query() dto: FindUnidadeCurricularDeptDto) {
+  return this.disciplineService.listarUnidadeCurricularDept(dto);
 }
 }

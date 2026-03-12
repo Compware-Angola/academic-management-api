@@ -9,6 +9,7 @@ import { UpdateDisciplinaDto } from './dto/update-discipline.dto';
 import { FindGradeCurricularDto } from './dto/FindGradeCurricularDto';
 import { CreateUnidadeCurricularDto } from './dto/create-unidade-curricular.plano.dto';
 import { CreateUnidadeCurricularDepartamentoDto } from './dto/create-unidade-curricular-departamento.dto';
+import { FindUnidadeCurricularDeptDto } from './dto/find-unidade-curricular-dept.dto';
 
 @Injectable()
 export class DisciplineService {
@@ -414,6 +415,94 @@ WHERE ${whereClause}
                 }
         }
 
+        async listarUnidadeCurricularDept(dto: FindUnidadeCurricularDeptDto) {
+                const {
+                        departamento,
+                        classe,
+                        semestre,
+                        search,
+                        page = 1,
+                        limit = 25,
+                } = dto;
+
+                const offset = (page - 1) * limit;
+                const conditions: string[] = ['1=1'];
+                const params: Record<string, any> = {};
+
+                if (departamento) {
+                        conditions.push('gc.FK_DEPARTAMENTO = :departamento');
+                        params.departamento = departamento;
+                }
+
+                if (classe) {
+                        conditions.push('gc.CODIGO_CLASSE = :classe');
+                        params.classe = classe;
+                }
+
+                if (semestre) {
+                        conditions.push('gc.CODIGO_SEMESTRE = :semestre');
+                        params.semestre = semestre;
+                }
+
+                if (search) {
+                        conditions.push('UPPER(dic.DESIGNACAO) LIKE UPPER(:search)');
+                        params.search = `%${search}%`;
+                }
+
+                const whereClause = 'WHERE ' + conditions.join(' AND ');
+
+                const sql = `
+    SELECT
+      gc.CODIGO                     AS codigo_grade,
+      gc.CODIGO_DISCIPLINA          AS codigo_disciplina,
+      dic.DESIGNACAO                AS unidade_curricular,
+      cc.CODIGO                     AS codigo_classe,
+      cc.DESIGNACAO                 AS ano_curricular,
+      ss.CODIGO                     AS codigo_semestre,
+      ss.DESIGNACAO                 AS semestre,
+      gc.FK_DEPARTAMENTO            AS codigo_departamento,
+      gc.STATUS_                    AS status
+    FROM FK2_TB_GRADE_CURRICULAR gc
+    INNER JOIN FK2_TB_DISCIPLINAS dic ON dic.CODIGO = gc.CODIGO_DISCIPLINA
+    INNER JOIN FK2_TB_CLASSES cc      ON cc.CODIGO  = gc.CODIGO_CLASSE
+    INNER JOIN FK2_TB_SEMESTRES ss    ON ss.CODIGO  = gc.CODIGO_SEMESTRE
+    ${whereClause}
+    ORDER BY dic.DESIGNACAO ASC
+    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+  `;
+
+                const countSql = `
+    SELECT COUNT(*) AS total
+    FROM FK2_TB_GRADE_CURRICULAR gc
+    INNER JOIN FK2_TB_DISCIPLINAS dic ON dic.CODIGO = gc.CODIGO_DISCIPLINA
+    INNER JOIN FK2_TB_CLASSES cc      ON cc.CODIGO  = gc.CODIGO_CLASSE
+    INNER JOIN FK2_TB_SEMESTRES ss    ON ss.CODIGO  = gc.CODIGO_SEMESTRE
+    ${whereClause}
+  `;
+
+                try {
+                        const [records, countResult] = await Promise.all([
+                                this.dataSource.query(sql, params as any),
+                                this.dataSource.query(countSql, params as any),
+                        ]);
+
+                        const total = Number(countResult?.[0]?.TOTAL ?? 0);
+
+                        return {
+                                data: toLowerCaseKeys(records),
+                                total,
+                                page,
+                                limit,
+                                totalPages: total > 0 ? Math.ceil(total / limit) : 1,
+                        };
+                } catch (error) {
+                        console.error('Erro ao listar unidades curriculares do departamento:', error);
+                        throw new InternalServerErrorException(
+                                `Erro ao listar unidades curriculares: ${error.message}`
+                        );
+                }
+        }
+
 
         async adicionarUnidadeCurricularNoPlano(dto: CreateUnidadeCurricularDto, codigoUtilizador: number) {
                 const {
@@ -440,7 +529,7 @@ WHERE ${whereClause}
                 try {
                         codigoPlanoCurso = await this.getPlanoCurso(codigoCurso, codigoAnoLectivo)
 
-   
+
                         if (!codigoPlanoCurso || codigoPlanoCurso < 0) {
                                 throw new NotFoundException('Não foi encontrado plano do curso.');
                         }
@@ -556,7 +645,7 @@ WHERE ${whereClause}
                         codigoUtilizador,
                         cursos,
                 } = dto;
-
+                let codigoPlanoCurso: number;
                 // 1. Verificar se a disciplina existe
                 const disciplinaResult = await this.dataSource.query(
                         `SELECT COUNT(*) AS total FROM FK2_TB_DISCIPLINAS WHERE CODIGO = :codigoDisciplina`,
@@ -646,9 +735,10 @@ WHERE ${whereClause}
                                         });
                                         resultado.mensagem = 'Grade criada no departamento.';
                                 }
-                             await this.getPlanoCurso(codigoCurso, codigoAnoLectivo)
+                                // pegar id do plano do curso
+                                codigoPlanoCurso = await this.getPlanoCurso(codigoCurso, codigoAnoLectivo)
 
-                             // ADICIONAR NO PLANO
+                                // ADICIONAR NO PLANO
 
                         } catch (error) {
                                 resultado.status = 'erro';
