@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { CreateDocenteGestaoDto } from './dto/create-docente_gestao.dto';
-import { UpdateDocenteGestaoDto } from './dto/update-docente_gestao.dto';
+import { UpdateDocenteDto } from './dto/update-docente.dto';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FindParametrosDocenteTO } from './dto/find-parametros-docente.dto';
@@ -428,4 +428,139 @@ export class DocenteGestaoService {
       totalPages,
     };
   }
+  // UPDATE DOCENTE
+async updateDocente(codigo: number, dto: UpdateDocenteDto) {
+  const fields: string[] = [];
+  const params: Record<string, any> = { codigo };
+
+
+  const docenteActual = await this.dataSource.query(
+    `
+    SELECT 
+      CODIGO,
+       JSON_VALUE(CODIGO_UTILIZADOR, '$.pk' RETURNING NUMBER) AS UTILIZADOR_PK
+    FROM FK2_MGD_TB_DOCENTE
+    WHERE CODIGO = :codigo
+    `,
+    { codigo } as any
+  );
+  console.log(docenteActual.length);
+  
+
+  if (docenteActual.length === 0) {
+    throw new NotFoundException(`Docente com código ${codigo} não encontrado.`);
+  }
+
+  const utilizadorPk =  docenteActual[0].UTILIZADOR_PK;
+
+  if (!utilizadorPk) {
+    throw new BadRequestException(`Docente não possui utilizador associado.`);
+  }
+
+
+  const utilizador = await this.dataSource.query(
+    `
+    SELECT 
+      PK_UTILIZADOR AS CODIGO,
+      NOME
+    FROM FK2_MCA_TB_UTILIZADOR
+    WHERE PK_UTILIZADOR = :utilizadorPk
+    `,
+    { utilizadorPk } as any
+  );
+
+  if (!utilizador || utilizador.length === 0) {
+    throw new NotFoundException(
+      `Utilizador com código ${utilizadorPk} não encontrado.`
+    );
+  }
+
+
+  const { CODIGO: UTIL_CODIGO, NOME } = utilizador[0];
+  const desc = `${NOME}`.trim();
+  const refUtilizador = JSON.stringify({ pk: UTIL_CODIGO, desc });
+
+  fields.push('CODIGO_UTILIZADOR = :refUtilizador');
+  params.refUtilizador = refUtilizador;
+
+  // Restantes campos
+  if (dto.apreciacao !== undefined) {
+    fields.push('APRECIACAO = :apreciacao');
+    params.apreciacao = dto.apreciacao;
+  }
+  if (dto.nMecanografico !== undefined) {
+    fields.push('N_MECANOGRAFICO = :nMecanografico');
+    params.nMecanografico = dto.nMecanografico;
+  }
+  if (dto.fkEscalao !== undefined) {
+    fields.push('FK_ESCALAO = :fkEscalao');
+    params.fkEscalao = dto.fkEscalao;
+  }
+  if (dto.tbCategoriaDocente !== undefined) {
+    fields.push('TB_CATEGORIA_DOCENTE = :tbCategoriaDocente');
+    params.tbCategoriaDocente = dto.tbCategoriaDocente;
+  }
+  if (dto.faculdade !== undefined) {
+    fields.push('FACULDADE = :faculdade');
+    params.faculdade = dto.faculdade;
+  }
+  if (dto.codigoValidacao !== undefined) {
+    fields.push('CODIGO_VALIDACAO = :codigoValidacao');
+    params.codigoValidacao = dto.codigoValidacao;
+  }
+  if (dto.valorHora !== undefined) {
+    fields.push('VALOR_HORA = :valorHora');
+    params.valorHora = dto.valorHora;
+  }
+  if (dto.fkCandidatura !== undefined) {
+    fields.push('FK_CANDIDATURA = :fkCandidatura');
+    params.fkCandidatura = dto.fkCandidatura;
+  }
+  if (dto.totalAnoExperiencia !== undefined) {
+    fields.push('TOTAL_ANO_EXPERIENCIA = :totalAnoExperiencia');
+    params.totalAnoExperiencia = dto.totalAnoExperiencia;
+  }
+  if (dto.dataInicioDocencia !== undefined) {
+    fields.push('DATAINICIODOCENCIA = :dataInicioDocencia');
+    params.dataInicioDocencia = dto.dataInicioDocencia;
+  }
+  if (dto.propostaDeContratacao !== undefined) {
+    fields.push('PROPOSTA_DE_CONTRATACAO = :propostaDeContratacao');
+    params.propostaDeContratacao = dto.propostaDeContratacao;
+  }
+  if (dto.valorhoraAlt !== undefined) {
+    fields.push('VALORHORA = :valorhoraAlt');
+    params.valorhoraAlt = dto.valorhoraAlt;
+  }
+  if (dto.codContrato !== undefined) {
+    fields.push('COD_CONTRATO = :codContrato');
+    params.codContrato = dto.codContrato;
+  }
+
+  fields.push('UPDATED_AT = :updatedAt');
+  params.updatedAt = new Date();
+
+  const sql = `
+    UPDATE FK2_MGD_TB_DOCENTE
+    SET ${fields.join(', \n    ')}
+    WHERE CODIGO = :codigo
+  `;
+
+  try {
+    const result = await this.dataSource.query(sql, params as any);
+
+    return {
+      message: 'Docente atualizado com sucesso.',
+      codigo,
+      utilizadorSincronizado: { pk: UTIL_CODIGO, desc },
+      camposAtualizados: fields.length - 1, 
+    };
+  } catch (error) {
+    if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      throw error;
+    }
+    console.error('Erro ao atualizar docente:', error);
+    throw new InternalServerErrorException(`Falha ao atualizar docente: ${error.message}`);
+  }
+}
 }

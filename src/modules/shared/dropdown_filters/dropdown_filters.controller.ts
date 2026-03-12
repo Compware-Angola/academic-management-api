@@ -1,34 +1,27 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
-import { DropdownFiltersService } from './dropdown_filters.service';
-import { CreateDropdownFilterDto } from './dto/create-dropdown_filter.dto';
-import { UpdateDropdownFilterDto } from './dto/update-dropdown_filter.dto';
+import { Controller, Get } from '@nestjs/common';
+import { EscalaoService } from './services/escalao.service';
+import { ApiTags } from '@nestjs/swagger';
+import { CategoriaDocenteService } from './services/categoria.docente.service';
+import { TipoUCService } from './services/tipo-uc.service';
 
+@ApiTags("DROPDOWN-FILTERS")
 @Controller('dropdown-filters')
 export class DropdownFiltersController {
-  constructor(private readonly dropdownFiltersService: DropdownFiltersService) {}
+  constructor(private readonly dropdownFiltersEscalao: EscalaoService,
+  private readonly  dropdownFiltersCategoriaDocente:CategoriaDocenteService,
+private readonly  dropdownFiltersTipoUCService :TipoUCService
+) {}
 
-  @Post()
-  create(@Body() createDropdownFilterDto: CreateDropdownFilterDto) {
-    return this.dropdownFiltersService.create(createDropdownFilterDto);
-  }
-
-  @Get()
-  findAll() {
-    return this.dropdownFiltersService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.dropdownFiltersService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateDropdownFilterDto: UpdateDropdownFilterDto) {
-    return this.dropdownFiltersService.update(+id, updateDropdownFilterDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.dropdownFiltersService.remove(+id);
-  }
+@Get('escalao')
+async getEscalaoDropdown() {
+  return this.dropdownFiltersEscalao.getEscalaoDropdown();
+}
+@Get('categoria/docente')
+async getCategoriaDropdown() {
+  return this.dropdownFiltersCategoriaDocente.getCategoriaDropdown();
+}
+@Get('tipo-uc')
+async getTipoUcDropdown() {
+  return this.dropdownFiltersTipoUCService.getTipoUcDropdown();
+}
 }
