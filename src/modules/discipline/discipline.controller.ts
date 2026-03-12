@@ -23,6 +23,7 @@ import { FindDisciplinaAlunoDTO } from './dto/find-disciplina-aluno.dto';
 import { FindDisciplinasDto } from './dto/find-disciplinas.dto';
 import { CreateDisciplinaDto } from './dto/create-discipline.dto';
 import { UpdateDisciplinaDto } from './dto/update-discipline.dto';
+import { FindGradeCurricularDto } from './dto/FindGradeCurricularDto';
 
 @ApiTags('DISCIPLINAS')
 @Controller('discipline')
@@ -84,4 +85,9 @@ async updateDisciplina(
   async findDisciplinas(@Query() dto: FindDisciplinasDto) {
     return this.disciplineService.findDisciplinas(dto);
   }
+
+  @Get('grade-curricular')
+async findGradeCurricular(@Query() dto: FindGradeCurricularDto) {
+  return this.disciplineService.findGradeCurricular(dto);
+}
 }

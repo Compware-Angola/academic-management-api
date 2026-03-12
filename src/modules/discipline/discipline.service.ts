@@ -6,6 +6,7 @@ import { FindDisciplinaAlunoDTO } from './dto/find-disciplina-aluno.dto';
 import { FindDisciplinasDto } from './dto/find-disciplinas.dto';
 import { CreateDisciplinaDto } from './dto/create-discipline.dto';
 import { UpdateDisciplinaDto } from './dto/update-discipline.dto';
+import { FindGradeCurricularDto } from './dto/FindGradeCurricularDto';
 
 @Injectable()
 export class DisciplineService {
@@ -252,74 +253,165 @@ export class DisciplineService {
         }
 
         // Service
-async updateDisciplina(codigo: number, dto: UpdateDisciplinaDto,pkUtilizador:number) {
-  const fields: string[] = [];
-  const params: Record<string, any> = { codigo };
+        async updateDisciplina(codigo: number, dto: UpdateDisciplinaDto, pkUtilizador: number) {
+                const fields: string[] = [];
+                const params: Record<string, any> = { codigo };
 
-  if (dto.designacao !== undefined) {
-    fields.push('DESIGNACAO = :designacao');
-    params.designacao = dto.designacao;
-  }
-  if (pkUtilizador !== undefined) {
-    fields.push('USER_ = :pkUtilizador');
-    params.pkUtilizador = pkUtilizador;
-  }
-  if (dto.tipoUnidadeCurricular !== undefined) {
-    fields.push('TIPO_UNIDADE_CURRICULAR = :tipoUnidadeCurricular');
-    params.tipoUnidadeCurricular = dto.tipoUnidadeCurricular;
-  }
-  if (dto.naturezaUnidadeCurricular !== undefined) {
-    fields.push('NATUREZA_UNIDADE_CURRICULAR = :naturezaUnidadeCurricular');
-    params.naturezaUnidadeCurricular = dto.naturezaUnidadeCurricular;
-  }
-  if (dto.codigoDisciplina !== undefined) {
-    fields.push('CODIGO_DISCIPLINA = :codigoDisciplina');
-    params.codigoDisciplina = dto.codigoDisciplina;
-  }
-  if (dto.nomeAbreviatura !== undefined) {
-    fields.push('NOME_ABREVIATURA = :nomeAbreviatura');
-    params.nomeAbreviatura = dto.nomeAbreviatura;
-  }
-  if (dto.duracao !== undefined) {
-    fields.push('DURACAO = :duracao');
-    params.duracao = dto.duracao;
-  }
-  if (dto.status !== undefined) {
-    fields.push('STATUS_ = :status');
-    params.status = dto.status;
-  }
+                if (dto.designacao !== undefined) {
+                        fields.push('DESIGNACAO = :designacao');
+                        params.designacao = dto.designacao;
+                }
+                if (pkUtilizador !== undefined) {
+                        fields.push('USER_ = :pkUtilizador');
+                        params.pkUtilizador = pkUtilizador;
+                }
+                if (dto.tipoUnidadeCurricular !== undefined) {
+                        fields.push('TIPO_UNIDADE_CURRICULAR = :tipoUnidadeCurricular');
+                        params.tipoUnidadeCurricular = dto.tipoUnidadeCurricular;
+                }
+                if (dto.naturezaUnidadeCurricular !== undefined) {
+                        fields.push('NATUREZA_UNIDADE_CURRICULAR = :naturezaUnidadeCurricular');
+                        params.naturezaUnidadeCurricular = dto.naturezaUnidadeCurricular;
+                }
+                if (dto.codigoDisciplina !== undefined) {
+                        fields.push('CODIGO_DISCIPLINA = :codigoDisciplina');
+                        params.codigoDisciplina = dto.codigoDisciplina;
+                }
+                if (dto.nomeAbreviatura !== undefined) {
+                        fields.push('NOME_ABREVIATURA = :nomeAbreviatura');
+                        params.nomeAbreviatura = dto.nomeAbreviatura;
+                }
+                if (dto.duracao !== undefined) {
+                        fields.push('DURACAO = :duracao');
+                        params.duracao = dto.duracao;
+                }
+                if (dto.status !== undefined) {
+                        fields.push('STATUS_ = :status');
+                        params.status = dto.status;
+                }
 
-  if (fields.length === 0) {
-    throw new BadRequestException('Nenhum campo fornecido para atualização.');
-  }
+                if (fields.length === 0) {
+                        throw new BadRequestException('Nenhum campo fornecido para atualização.');
+                }
 
-  // Sempre atualiza DATA_ULTIMA_ATUALIZACAO
-  fields.push('DATA_ULTIMA_ATUALIZACAO = SYSDATE');
+                // Sempre atualiza DATA_ULTIMA_ATUALIZACAO
+                fields.push('DATA_ULTIMA_ATUALIZACAO = SYSDATE');
 
-  const sql = `
+                const sql = `
     UPDATE FK2_TB_DISCIPLINAS
     SET ${fields.join(',\n    ')}
     WHERE CODIGO = :codigo
   `;
 
-  try {
-    await this.dataSource.query(sql, params as any);
-    return {
-      message: 'Disciplina atualizada com sucesso.',
-      codigo,
-      camposAtualizados: fields.length - 1, 
-    };
-  } catch (error) {
-    if (
-      error instanceof NotFoundException ||
-      error instanceof BadRequestException
-    ) {
-      throw error;
-    }
-    console.error('Erro ao atualizar disciplina:', error);
-    throw new InternalServerErrorException(
-      `Erro ao atualizar disciplina: ${error.message}`
-    );
-  }
-}
+                try {
+                        await this.dataSource.query(sql, params as any);
+                        return {
+                                message: 'Disciplina atualizada com sucesso.',
+                                codigo,
+                                camposAtualizados: fields.length - 1,
+                        };
+                } catch (error) {
+                        if (
+                                error instanceof NotFoundException ||
+                                error instanceof BadRequestException
+                        ) {
+                                throw error;
+                        }
+                        console.error('Erro ao atualizar disciplina:', error);
+                        throw new InternalServerErrorException(
+                                `Erro ao atualizar disciplina: ${error.message}`
+                        );
+                }
+        }
+        // Service
+        async findGradeCurricular(dto: FindGradeCurricularDto) {
+                const {
+                        classe,
+                        curso,
+                        anoLectivo,
+                        page = 1,
+                        limit = 25,
+                } = dto;
+
+                const offset = (page - 1) * limit;
+                const conditions: string[] = ['1=1'];
+                const params: Record<string, any> = {};
+
+                if (classe) {
+                        conditions.push('gc.CODIGO_CLASSE = :classe');
+                        params.classe = classe;
+                }
+
+                if (curso) {
+                        conditions.push('gc.Codigo_Curso = :curso');
+                        params.curso = curso;
+                }
+
+                const whereClause = conditions.join(' AND ');
+
+                const sql = `
+    SELECT
+      plc.Codigo       AS codigo,
+      dd.CODIGO         AS codigo_disciplina,
+      dd.DESIGNACAO     AS descricao_disciplina,
+      cc.DESIGNACAO     AS descricao_curso,
+      cc.CODIGO         AS codigo_curso,
+      cl.DESIGNACAO     AS descricao_classe,
+      cl.CODIGO         AS codigo_classe,
+      ss.CODIGO         AS codigo_semestre,
+      ss.DESIGNACAO     AS designacao_semestre
+    FROM FK2_TB_PLANO_CURRICULAR_CURSO plc
+    inner join FK2_TB_PLANO_CURRICULAR_GRADE pcg  on pcg.CODIGO_PLANO_CURRICULAR_CURSO  = plc.CODIGO 
+     inner join FK2_TB_GRADE_CURRICULAR gc on gc.Codigo = pcg.codigo_grade_curricular
+    INNER JOIN FK2_TB_DISCIPLINAS dd ON dd.CODIGO = gc.Codigo_Disciplina
+    INNER JOIN FK2_TB_CURSOS cc      ON cc.CODIGO = gc.Codigo_Curso
+    INNER JOIN FK2_TB_CLASSES cl     ON cl.CODIGO = gc.CODIGO_CLASSE 
+    INNER JOIN FK2_TB_SEMESTRES ss   ON ss.CODIGO = gc.Codigo_Semestre
+   
+    WHERE ${whereClause}
+    ORDER BY cc.DESIGNACAO ASC, cl.DESIGNACAO ASC, ss.CODIGO ASC
+    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+  `;
+
+                const countSql = `
+SELECT COUNT(DISTINCT gc.CODIGO) AS total
+FROM FK2_TB_PLANO_CURRICULAR_CURSO plc
+INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pcg  
+  ON pcg.CODIGO_PLANO_CURRICULAR_CURSO = plc.CODIGO
+INNER JOIN FK2_TB_GRADE_CURRICULAR gc 
+  ON gc.CODIGO = pcg.CODIGO_GRADE_CURRICULAR
+INNER JOIN FK2_TB_DISCIPLINAS dd 
+  ON dd.CODIGO = gc.CODIGO_DISCIPLINA
+INNER JOIN FK2_TB_CURSOS cc      
+  ON cc.CODIGO = gc.CODIGO_CURSO
+INNER JOIN FK2_TB_CLASSES cl     
+  ON cl.CODIGO = gc.CODIGO_CLASSE 
+INNER JOIN FK2_TB_SEMESTRES ss   
+  ON ss.CODIGO = gc.CODIGO_SEMESTRE
+WHERE ${whereClause}
+`;
+
+                try {
+                        const [records, countResult] = await Promise.all([
+                                this.dataSource.query(sql, params as any),
+                                this.dataSource.query(countSql, params as any),
+                        ]);
+
+                        const total = Number(countResult?.[0]?.TOTAL ?? 0);
+
+                        return {
+                                data: toLowerCaseKeys(records),
+                                total,
+                                page,
+                                limit,
+                                totalPages: total > 0 ? Math.ceil(total / limit) : 1,
+                        };
+                } catch (error) {
+                        console.error('Erro ao buscar grade curricular:', error);
+                        throw new InternalServerErrorException(
+                                `Erro ao buscar grade curricular: ${error.message}`
+                        );
+                }
+        }
+
 }
