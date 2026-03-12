@@ -9,6 +9,7 @@ import {
   IsPositive,
   IsIn,
   Max,
+  IsString,
 } from 'class-validator';
 export class FindGradeCurricularDto {
   @ApiPropertyOptional({ example: 1 })
@@ -32,6 +33,10 @@ export class FindGradeCurricularDto {
   @Type(() => Number)
   anoLectivo?: number;
 
+  @ApiPropertyOptional({ example: 'Matemática', description: 'Pesquisar por nome da disciplina' })
+  @IsOptional()
+  @IsString()
+  search?: string;
   @ApiPropertyOptional({ example: 1, default: 1 })
   @IsOptional()
   @IsInt()

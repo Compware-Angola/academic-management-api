@@ -330,6 +330,7 @@ export class DisciplineService {
                         classe,
                         curso,
                         anoLectivo,
+                        search,
                         page = 1,
                         limit = 25,
                 } = dto;
@@ -350,6 +351,10 @@ export class DisciplineService {
                 if(anoLectivo){
                      conditions.push('plc.CODIGO_ANO_LECTIVO = :anoLectivo');
                         params.anoLectivo = anoLectivo;    
+                }
+                   if (search) {
+                        conditions.push('UPPER( dd.DESIGNACAO) LIKE UPPER(:search)');
+                        params.search = `%${search}%`;
                 }
 
                 const whereClause = conditions.join(' AND ');
