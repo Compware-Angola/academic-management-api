@@ -3,14 +3,11 @@ import { CreateDocenteGestaoDto } from './dto/create-docente_gestao.dto';
 import { UpdateDocenteDto } from './dto/update-docente.dto';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
-<<<<<<< HEAD
-import { FilterDocenteDto } from './dto/filter-docente.dto';
-=======
 import { FindParametrosDocenteTO } from './dto/find-parametros-docente.dto';
 import { FindAfectacaoDTO } from './dto/find-afectacao.dto';
 import { UpdateAfectacaoDTO } from './dto/update-afectacao.dto';
 import { FindDocenteAfectacaoDTO } from './dto/find-docente-afectacao.dto';
->>>>>>> cf25ef42a34c9f813ac6bc06cf547d7caa703b82
+import { FilterDocenteDto } from './dto/filter-docente.dto';
 
 @Injectable()
 export class DocenteGestaoService {
@@ -567,7 +564,11 @@ async updateDocente(codigo: number, dto: UpdateDocenteDto) {
     throw new InternalServerErrorException(`Falha ao atualizar docente: ${error.message}`);
   }
 
-   async listDocentes(filter: FilterDocenteDto) {
+   
+
+}
+
+async listDocentes(filter: FilterDocenteDto) {
   const { page = 1, limit = 25, area, search } = filter;
   const offset = (page - 1) * limit;
 
@@ -631,6 +632,7 @@ async updateDocente(codigo: number, dto: UpdateDocenteDto) {
     SELECT *
     FROM (
       SELECT
+        d.CODIGO AS codigo,
         d.N_MECANOGRAFICO AS numero_mec,
         u.NOME AS nome,
         u.EMAIL AS email,
@@ -672,7 +674,5 @@ async updateDocente(codigo: number, dto: UpdateDocenteDto) {
     limit,
     totalPages: Math.ceil(total / limit) || 1,
   };
-}
-
 }
 }

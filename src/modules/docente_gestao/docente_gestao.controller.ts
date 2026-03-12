@@ -21,6 +21,7 @@ import { UpdateAfectacaoDTO } from './dto/update-afectacao.dto';
 import { FindAfectacaoDTO } from './dto/find-afectacao.dto';
 import { FindDocenteAfectacaoDTO } from './dto/find-docente-afectacao.dto';
 import { UpdateDocenteDto } from './dto/update-docente.dto';
+import { FilterDocenteDto } from './dto/filter-docente.dto';
 
 @ApiTags('docente-gestao')
 @Controller('docente-gestao')
@@ -82,7 +83,7 @@ export class DocenteGestaoController {
 @ApiOperation({ summary: 'Listar todos os professores por área de formação' })
 @ApiResponse({ status: 200 })
 async listDocentes(@Query() dto: FilterDocenteDto) {
-  return this.docenteGestaoService.listDocentes(dto);
+  return this.service.listDocentes(dto);
 }
   
 }
