@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsInt, IsOptional, Max, Min } from "class-validator";
+import { IsInt, IsOptional, IsString, Max, Min } from "class-validator";
 
 export class ListarUCDocenteSemAfetacaoFiltroDto {
     @ApiPropertyOptional({ description: 'Ano letivo', example: 21 })
@@ -30,6 +30,11 @@ export class ListarUCDocenteSemAfetacaoFiltroDto {
     @Min(1)
     @Type(() => Number)
     classeId?: number;
+
+    @ApiPropertyOptional({ description: 'Pesquisa', example: 'Geografia Física' })
+    @IsOptional()
+    @IsString()
+    search?: string;
 
       @ApiPropertyOptional({
         description: 'Número da página',
