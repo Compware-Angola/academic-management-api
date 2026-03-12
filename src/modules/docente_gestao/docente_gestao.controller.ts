@@ -1,7 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query} from '@nestjs/common';
 import { DocenteGestaoService } from './docente_gestao.service';
 import { CreateDocenteGestaoDto } from './dto/create-docente_gestao.dto';
 import { UpdateDocenteGestaoDto } from './dto/update-docente_gestao.dto';
+import { FilterDocenteDto } from './dto/filter-docente.dto';
+import { ApiOperation ,ApiResponse } from '@nestjs/swagger';
+
 
 @Controller('docente-gestao')
 export class DocenteGestaoController {
@@ -31,4 +34,12 @@ export class DocenteGestaoController {
   remove(@Param('id') id: string) {
     return this.docenteGestaoService.remove(+id);
   }
+
+@Get('docentes')
+@ApiOperation({ summary: 'Listar todos os professores por área de formação' })
+@ApiResponse({ status: 200 })
+async listDocentes(@Query() dto: FilterDocenteDto) {
+  return this.docenteGestaoService.listDocentes(dto);
+}
+  
 }
