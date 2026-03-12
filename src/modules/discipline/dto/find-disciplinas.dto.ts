@@ -5,9 +5,7 @@ import {
   IsInt,
   IsOptional,
   Min,
-  IsNumber,
-  IsPositive,
-  IsIn,
+
   Max,
   IsString,
 } from 'class-validator';
@@ -15,24 +13,21 @@ import {
 export class FindDisciplinasDto {
 
 
-  @ApiPropertyOptional({
-    description: 'Filtrar por tipo de unidade curricular',
-    example: 1,
-  })
-  @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  tipoUnidadeCurricular?: number;
+@ApiPropertyOptional({
+  description: 'Filtrar por tipo de unidade curricular',
+  example: 'MIC',
+})
+@IsOptional()
+@IsString()
+tipoUnidadeCurricular?: string;
 
-  @ApiPropertyOptional({
-    description: 'Filtrar por natureza de unidade curricular',
-    example: 1,
-  })
-  @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  naturezaUnidadeCurricular?: number;
-
+@ApiPropertyOptional({
+  description: 'Filtrar por natureza de unidade curricular',
+  example: 'TP',
+})
+@IsOptional()
+@IsString()
+naturezaUnidadeCurricular?: string;
   @ApiPropertyOptional({
     description: 'Filtrar por status',
     example: 1,
