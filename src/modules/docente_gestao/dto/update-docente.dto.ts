@@ -8,8 +8,6 @@ export class UpdateDocenteDto {
   @IsString()
   apreciacao?: string;
 
-
-
   @ApiPropertyOptional({ description: 'Número mecanográfico do docente', example: 'DOC12345' })
   @IsOptional()
   @IsString()
