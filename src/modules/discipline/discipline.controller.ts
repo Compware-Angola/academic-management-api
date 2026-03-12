@@ -112,6 +112,10 @@ export class DisciplineController {
   }
 
   @Post('departamento')
+     @ApiOperation({
+    summary: 'add uc no Departamento',
+    description: 'Adiciona UC ao departamento.',
+  })
 @HttpCode(HttpStatus.CREATED)
 async adicionarUnidadeCurricularNoDepartamento(
   @Body() dto: CreateUnidadeCurricularDepartamentoDto,
