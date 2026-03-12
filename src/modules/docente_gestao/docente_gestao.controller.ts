@@ -14,17 +14,18 @@ import {
 } from '@nestjs/common';
 import { DocenteGestaoService } from './docente_gestao.service';
 import { CreateDocenteGestaoDto } from './dto/create-docente_gestao.dto';
-import { UpdateDocenteGestaoDto } from './dto/update-docente_gestao.dto';
+
 import { FindParametrosDocenteTO } from './dto/find-parametros-docente.dto';
 import { ApiOperation, ApiTags, ApiResponse } from '@nestjs/swagger';
 import { UpdateAfectacaoDTO } from './dto/update-afectacao.dto';
 import { FindAfectacaoDTO } from './dto/find-afectacao.dto';
 import { FindDocenteAfectacaoDTO } from './dto/find-docente-afectacao.dto';
+import { UpdateDocenteDto } from './dto/update-docente.dto';
 
 @ApiTags('docente-gestao')
 @Controller('docente-gestao')
 export class DocenteGestaoController {
-  constructor(private readonly service: DocenteGestaoService) {}
+  constructor(private readonly service: DocenteGestaoService) { }
   @Get('/parametros')
   @ApiOperation({
     summary: 'Listar parametros',
@@ -68,5 +69,12 @@ export class DocenteGestaoController {
   })
   findDocenteAfectacao(@Query(ValidationPipe) query: FindDocenteAfectacaoDTO) {
     return this.service.findDocenteAfectacao(query);
+  }
+  @Patch('/update-docente/:codigo')
+  async updateDocente(
+    @Param('codigo', ParseIntPipe) codigo: number,
+    @Body() dto: UpdateDocenteDto,
+  ) {
+    return this.service.updateDocente(codigo, dto);
   }
 }
