@@ -87,6 +87,10 @@ async updateDisciplina(
   }
 
   @Get('grade-curricular')
+   @ApiOperation({
+    summary: 'Listar  UC no plano',
+    description: 'Retorna lista dos uc.',
+  })
 async findGradeCurricular(@Query() dto: FindGradeCurricularDto) {
   return this.disciplineService.findGradeCurricular(dto);
 }
