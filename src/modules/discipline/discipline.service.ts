@@ -434,6 +434,7 @@ WHERE ${whereClause}
                         page = 1,
                         limit = 25,
                 } = dto;
+                
 
                 const offset = (page - 1) * limit;
                 const conditions: string[] = ['1=1'];
@@ -458,10 +459,12 @@ WHERE ${whereClause}
                         conditions.push('UPPER(dic.DESIGNACAO) LIKE UPPER(:search)');
                         params.search = `%${search}%`;
                 }
-                if(estado){
-                       conditions.push(' gc.STATUS_  = :estado');
-                        params.estado = estado;  
-                }
+             if (estado !== undefined && estado !== null) {
+  console.log(estado, "ppp");
+
+  conditions.push('gc.STATUS_ = :estado');
+  params.estado = estado;
+}
 
                 const whereClause = 'WHERE ' + conditions.join(' AND ');
 
