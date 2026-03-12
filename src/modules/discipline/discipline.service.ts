@@ -1,9 +1,11 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FindDisciplinaAlunoDTO } from './dto/find-disciplina-aluno.dto';
 import { FindDisciplinasDto } from './dto/find-disciplinas.dto';
+import { CreateDisciplinaDto } from './dto/create-discipline.dto';
+import { UpdateDisciplinaDto } from './dto/update-discipline.dto';
 
 @Injectable()
 export class DisciplineService {
@@ -98,7 +100,7 @@ export class DisciplineService {
                         totalPages,
                 };
         }
-        // Service
+
         async findDisciplinas(dto: FindDisciplinasDto) {
                 const {
                         tipoUnidadeCurricular,
@@ -184,4 +186,140 @@ export class DisciplineService {
                         throw new InternalServerErrorException(`Falha ao buscar disciplinas: ${error.message}`);
                 }
         }
+
+
+        async createDisciplina(dto: CreateDisciplinaDto, pkUtilizador: number) {
+                const {
+                        designacao,
+
+                        tipoUnidadeCurricular,
+                        naturezaUnidadeCurricular,
+                        codigoDisciplina,
+                        nomeAbreviatura,
+                } = dto;
+
+
+
+                const sql = `
+    INSERT INTO FK2_TB_DISCIPLINAS (
+     
+      DESIGNACAO,
+      DATA_REGISTO,
+      TIPO_UNIDADE_CURRICULAR,
+      NATUREZA_UNIDADE_CURRICULAR,
+      DATA_ULTIMA_ATUALIZACAO,
+      USER_,
+      DURACAO,
+      CODIGO_DISCIPLINA,
+      NOME_ABREVIATURA
+    ) VALUES (
+     
+      :designacao,
+      SYSDATE,
+      :tipoUnidadeCurricular,
+      :naturezaUnidadeCurricular,
+      SYSDATE,
+      :pkUtilizador,
+      1,
+      :codigoDisciplina,
+      :nomeAbreviatura
+    )
+  `;
+
+                const params = {
+
+                        designacao,
+                        tipoUnidadeCurricular,
+                        naturezaUnidadeCurricular,
+                        pkUtilizador,
+                        codigoDisciplina: codigoDisciplina ?? null,
+                        nomeAbreviatura: nomeAbreviatura ?? null,
+                };
+
+                try {
+                        await this.dataSource.query(sql, params as any);
+
+                        return {
+                                message: 'Disciplina criada com sucesso.',
+
+                        };
+                } catch (error) {
+                        console.error('Erro ao criar disciplina:', error);
+                        throw new InternalServerErrorException(
+                                `Erro ao cadastrar disciplina: ${error.message}`
+                        );
+                }
+        }
+
+        // Service
+async updateDisciplina(codigo: number, dto: UpdateDisciplinaDto,pkUtilizador:number) {
+  const fields: string[] = [];
+  const params: Record<string, any> = { codigo };
+
+  if (dto.designacao !== undefined) {
+    fields.push('DESIGNACAO = :designacao');
+    params.designacao = dto.designacao;
+  }
+  if (pkUtilizador !== undefined) {
+    fields.push('USER_ = :pkUtilizador');
+    params.pkUtilizador = pkUtilizador;
+  }
+  if (dto.tipoUnidadeCurricular !== undefined) {
+    fields.push('TIPO_UNIDADE_CURRICULAR = :tipoUnidadeCurricular');
+    params.tipoUnidadeCurricular = dto.tipoUnidadeCurricular;
+  }
+  if (dto.naturezaUnidadeCurricular !== undefined) {
+    fields.push('NATUREZA_UNIDADE_CURRICULAR = :naturezaUnidadeCurricular');
+    params.naturezaUnidadeCurricular = dto.naturezaUnidadeCurricular;
+  }
+  if (dto.codigoDisciplina !== undefined) {
+    fields.push('CODIGO_DISCIPLINA = :codigoDisciplina');
+    params.codigoDisciplina = dto.codigoDisciplina;
+  }
+  if (dto.nomeAbreviatura !== undefined) {
+    fields.push('NOME_ABREVIATURA = :nomeAbreviatura');
+    params.nomeAbreviatura = dto.nomeAbreviatura;
+  }
+  if (dto.duracao !== undefined) {
+    fields.push('DURACAO = :duracao');
+    params.duracao = dto.duracao;
+  }
+  if (dto.status !== undefined) {
+    fields.push('STATUS_ = :status');
+    params.status = dto.status;
+  }
+
+  if (fields.length === 0) {
+    throw new BadRequestException('Nenhum campo fornecido para atualização.');
+  }
+
+  // Sempre atualiza DATA_ULTIMA_ATUALIZACAO
+  fields.push('DATA_ULTIMA_ATUALIZACAO = SYSDATE');
+
+  const sql = `
+    UPDATE FK2_TB_DISCIPLINAS
+    SET ${fields.join(',\n    ')}
+    WHERE CODIGO = :codigo
+  `;
+
+  try {
+    await this.dataSource.query(sql, params as any);
+    return {
+      message: 'Disciplina atualizada com sucesso.',
+      codigo,
+      camposAtualizados: fields.length - 1, 
+    };
+  } catch (error) {
+    if (
+      error instanceof NotFoundException ||
+      error instanceof BadRequestException
+    ) {
+      throw error;
+    }
+    console.error('Erro ao atualizar disciplina:', error);
+    throw new InternalServerErrorException(
+      `Erro ao atualizar disciplina: ${error.message}`
+    );
+  }
+}
 }
