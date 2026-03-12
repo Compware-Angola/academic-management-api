@@ -16,12 +16,13 @@ import { DocenteGestaoService } from './docente_gestao.service';
 import { CreateDocenteGestaoDto } from './dto/create-docente_gestao.dto';
 
 import { FindParametrosDocenteTO } from './dto/find-parametros-docente.dto';
-import { ApiOperation, ApiTags, ApiResponse } from '@nestjs/swagger';
+import { ApiOperation, ApiTags, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { UpdateAfectacaoDTO } from './dto/update-afectacao.dto';
 import { FindAfectacaoDTO } from './dto/find-afectacao.dto';
 import { FindDocenteAfectacaoDTO } from './dto/find-docente-afectacao.dto';
 import { UpdateDocenteDto } from './dto/update-docente.dto';
 import { FilterDocenteDto } from './dto/filter-docente.dto';
+import { FilterDocenteRegenteDto } from './dto/filter-docente-regente.dto';
 
 @ApiTags('docente-gestao')
 @Controller('docente-gestao')
@@ -84,6 +85,21 @@ export class DocenteGestaoController {
 @ApiResponse({ status: 200 })
 async listDocentes(@Query() dto: FilterDocenteDto) {
   return this.service.listDocentes(dto);
+}
+
+@Get('docentes-regentes')
+@ApiOperation({ summary: 'Listar docentes regentes com filtros' })
+@ApiResponse({ status: 200 })
+@ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+@ApiQuery({ name: 'limit', required: false, type: Number, example: 25 })
+@ApiQuery({ name: 'ano_lectivo', required: false, type: Number, example: 17 })
+@ApiQuery({ name: 'curso', required: false, type: Number, example: 12 })
+@ApiQuery({ name: 'classe', required: false, type: Number, example: 3 })
+@ApiQuery({ name: 'semestre', required: false, type: Number, example: 1 })
+@ApiQuery({ name: 'estado', required: false, type: Number, example: 0 })
+@ApiQuery({ name: 'search', required: false, type: String, example: 'Topografia' })
+async listDocentesRegentes(@Query() dto: FilterDocenteRegenteDto) {
+  return this.service.listDocentesRegentes(dto);
 }
   
 }

@@ -8,6 +8,7 @@ import { FindAfectacaoDTO } from './dto/find-afectacao.dto';
 import { UpdateAfectacaoDTO } from './dto/update-afectacao.dto';
 import { FindDocenteAfectacaoDTO } from './dto/find-docente-afectacao.dto';
 import { FilterDocenteDto } from './dto/filter-docente.dto';
+import { FilterDocenteRegenteDto } from './dto/filter-docente-regente.dto';
 
 @Injectable()
 export class DocenteGestaoService {
@@ -675,4 +676,164 @@ async listDocentes(filter: FilterDocenteDto) {
     totalPages: Math.ceil(total / limit) || 1,
   };
 }
+
+async listDocentesRegentes(filter: FilterDocenteRegenteDto) {
+  const {
+    page = 1,
+    limit = 25,
+    ano_lectivo,
+    curso,
+    classe,
+    semestre,
+    estado = 0,
+    search,
+  } = filter;
+
+  const offset = (page - 1) * limit;
+
+  const params: Record<string, any> = {
+    offset,
+    limit_plus_offset: offset + limit,
+  };
+
+  const countParams: Record<string, any> = {};
+
+  const anoLectivo = ano_lectivo ?? null;
+params.ano_lectivo = anoLectivo;
+countParams.ano_lectivo = anoLectivo;
+
+  let whereClause = `WHERE g.STATUS_ NOT IN (0, 3)`;
+
+  // ano lectivo
+  //if (ano_lectivo !== undefined && ano_lectivo !== null) {
+    //whereClause += ` AND a.FK_ANO_LECTIVO = :ano_lectivo`;
+    //params.ano_lectivo = ano_lectivo;
+    //countParams.ano_lectivo = ano_lectivo;
+  //}
+
+  // curso
+  if (curso !== undefined && curso !== null && curso !== 0) {
+    whereClause += ` AND g.CODIGO_CURSO = :curso`;
+    params.curso = curso;
+    countParams.curso = curso;
+  }
+
+  // classe / ano curricular
+  if (classe !== undefined && classe !== null && classe !== 0) {
+    whereClause += ` AND g.CODIGO_CLASSE = :classe`;
+    params.classe = classe;
+    countParams.classe = classe;
+  }
+
+  // semestre
+  if (semestre !== undefined && semestre !== null && semestre !== 0) {
+    whereClause += ` AND g.CODIGO_SEMESTRE = :semestre`;
+    params.semestre = semestre;
+    countParams.semestre = semestre;
+  }
+
+  // estado
+  if (estado === 1) {
+    whereClause += ` AND a.PK_AFECTACAO IS NULL`;
+  } else if (estado === 2) {
+    whereClause += ` AND a.PK_AFECTACAO IS NOT NULL`;
+  }
+
+  // search
+  if (search && search.trim()) {
+    const term = `%${search.trim().toUpperCase()}%`;
+    whereClause += `
+      AND (
+        UPPER(NVL(u.NOME, 'N/A')) LIKE :search
+        OR UPPER(dsc.DESIGNACAO) LIKE :search
+        OR UPPER(cl.DESIGNACAO) LIKE :search
+        OR UPPER(s.DESIGNACAO) LIKE :search
+        OR UPPER(c.DESIGNACAO) LIKE :search
+      )
+    `;
+    params.search = term;
+    countParams.search = term;
+  }
+
+  const countSql = `
+    SELECT COUNT(*) AS total
+    FROM FK2_TB_GRADE_CURRICULAR g
+    LEFT JOIN FK2_TB_CURSOS c
+      ON c.CODIGO = g.CODIGO_CURSO
+    LEFT JOIN FK2_TB_CLASSES cl
+      ON cl.CODIGO = g.CODIGO_CLASSE
+    LEFT JOIN FK2_TB_SEMESTRES s
+      ON s.CODIGO = g.CODIGO_SEMESTRE
+    LEFT JOIN FK2_TB_DISCIPLINAS dsc
+      ON dsc.CODIGO = g.CODIGO_DISCIPLINA
+
+      LEFT JOIN FK2_MGD_TB_DOCENTE_AFECTACAO a
+  ON a.FK_CADEIRA = g.CODIGO
+ AND a.FK_CATEGORIA = 32
+ AND a.ACTIVE_STATE = 1
+ AND (:ano_lectivo IS NULL OR a.FK_ANO_LECTIVO = :ano_lectivo)
+
+    LEFT JOIN FK2_MGD_TB_DOCENTE d
+      ON d.CODIGO = a.FK_DOCENTE
+    LEFT JOIN FK2_MCA_TB_UTILIZADOR u
+      ON u.PK_UTILIZADOR = JSON_VALUE(d.CODIGO_UTILIZADOR, '$.pk')
+    ${whereClause}
+  `;
+
+  const countResult = await this.dataSource.query(countSql, countParams as any);
+  const total = Number(countResult[0]?.TOTAL ?? 0);
+
+  const dataSql = `
+    SELECT *
+    FROM (
+      SELECT
+        g.CODIGO AS codigo_grade,
+        cl.DESIGNACAO AS ano_curricular,
+        s.DESIGNACAO AS semestre,
+        dsc.DESIGNACAO AS unidade_curricular,
+        NVL(u.NOME, 'N/A') AS docente,
+        a.PK_AFECTACAO AS pk_afectacao,
+        ROW_NUMBER() OVER (
+          ORDER BY g.CODIGO_CLASSE, g.CODIGO_SEMESTRE, dsc.DESIGNACAO ASC
+        ) AS rn
+      FROM FK2_TB_GRADE_CURRICULAR g
+      LEFT JOIN FK2_TB_CURSOS c
+        ON c.CODIGO = g.CODIGO_CURSO
+      LEFT JOIN FK2_TB_CLASSES cl
+        ON cl.CODIGO = g.CODIGO_CLASSE
+      LEFT JOIN FK2_TB_SEMESTRES s
+        ON s.CODIGO = g.CODIGO_SEMESTRE
+      LEFT JOIN FK2_TB_DISCIPLINAS dsc
+        ON dsc.CODIGO = g.CODIGO_DISCIPLINA
+      LEFT JOIN FK2_MGD_TB_DOCENTE_AFECTACAO a
+  ON a.FK_CADEIRA = g.CODIGO
+ AND a.FK_CATEGORIA = 32
+ AND a.ACTIVE_STATE = 1
+ AND (:ano_lectivo IS NULL OR a.FK_ANO_LECTIVO = :ano_lectivo)
+      LEFT JOIN FK2_MGD_TB_DOCENTE d
+        ON d.CODIGO = a.FK_DOCENTE
+      LEFT JOIN FK2_MCA_TB_UTILIZADOR u
+        ON u.PK_UTILIZADOR = JSON_VALUE(d.CODIGO_UTILIZADOR, '$.pk')
+      ${whereClause}
+    ) t
+    WHERE rn BETWEEN (:offset + 1) AND :limit_plus_offset
+    ORDER BY rn
+  `;
+
+  const result = await this.dataSource.query(dataSql, params as any);
+
+  const data = result.map((row: any) => {
+    const { RN, ...item } = row;
+    return item;
+  });
+
+  return {
+    data: await toLowerCaseKeys(data),
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit) || 1,
+  };
+}
+
 }
