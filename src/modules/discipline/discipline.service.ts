@@ -429,6 +429,7 @@ WHERE ${whereClause}
                         departamento,
                         classe,
                         semestre,
+                        estado,
                         search,
                         page = 1,
                         limit = 25,
@@ -456,6 +457,10 @@ WHERE ${whereClause}
                 if (search) {
                         conditions.push('UPPER(dic.DESIGNACAO) LIKE UPPER(:search)');
                         params.search = `%${search}%`;
+                }
+                if(estado){
+                       conditions.push(' gc.STATUS_  = :estado');
+                        params.estado = estado;  
                 }
 
                 const whereClause = 'WHERE ' + conditions.join(' AND ');

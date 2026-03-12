@@ -16,6 +16,12 @@ export class FindUnidadeCurricularDeptDto {
   @IsPositive()
   @Type(() => Number)
   classe?: number;
+    @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  estado?: number;
 
   @ApiPropertyOptional({ example: 1, description: 'Filtrar por semestre' })
   @IsOptional()
