@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
-
+import oracledb from 'oracledb';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FindDisciplinaAlunoDTO } from './dto/find-disciplina-aluno.dto';
@@ -7,6 +7,7 @@ import { FindDisciplinasDto } from './dto/find-disciplinas.dto';
 import { CreateDisciplinaDto } from './dto/create-discipline.dto';
 import { UpdateDisciplinaDto } from './dto/update-discipline.dto';
 import { FindGradeCurricularDto } from './dto/FindGradeCurricularDto';
+import { CreateUnidadeCurricularDto } from './dto/create-unidade-curricular.dto';
 
 @Injectable()
 export class DisciplineService {
@@ -188,7 +189,6 @@ export class DisciplineService {
                 }
         }
 
-
         async createDisciplina(dto: CreateDisciplinaDto, pkUtilizador: number) {
                 const {
                         designacao,
@@ -252,7 +252,6 @@ export class DisciplineService {
                 }
         }
 
-        // Service
         async updateDisciplina(codigo: number, dto: UpdateDisciplinaDto, pkUtilizador: number) {
                 const fields: string[] = [];
                 const params: Record<string, any> = { codigo };
@@ -323,7 +322,7 @@ export class DisciplineService {
                         );
                 }
         }
-        // Service
+
         async findGradeCurricular(dto: FindGradeCurricularDto) {
                 const {
                         classe,
@@ -410,6 +409,281 @@ WHERE ${whereClause}
                         console.error('Erro ao buscar grade curricular:', error);
                         throw new InternalServerErrorException(
                                 `Erro ao buscar grade curricular: ${error.message}`
+                        );
+                }
+        }
+
+
+        async adicionarUnidadeCurricular(dto: CreateUnidadeCurricularDto,codigoUtilizador:number) {
+                const {
+                        codigoDisciplina,
+                        codigoAnoLectivo,
+                        codigoSemestre,
+                        codigoClasse,
+                        codigoCurso,
+                        
+                } = dto;
+
+                // 1. Verificar se a disciplina existe
+                const disciplinaResult = await this.dataSource.query(
+                        `SELECT COUNT(*) AS total FROM FK2_TB_DISCIPLINAS WHERE CODIGO = :codigoDisciplina`,
+                        { codigoDisciplina } as any
+                );
+
+                if (Number(disciplinaResult?.[0]?.TOTAL) === 0) {
+                        throw new NotFoundException('Não foi encontrado disciplina.');
+                }
+
+                // 2. Verificar se existe plano do curso
+                let codigoPlanoCurso: number;
+                try {
+                        const planoResult = await this.dataSource.query(
+                                `
+      SELECT CODIGO
+      FROM FK2_TB_PLANO_CURRICULAR_CURSO
+      WHERE CODIGO_CURSO = :codigoCurso
+        AND CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+      FETCH FIRST 1 ROWS ONLY
+      `,
+                                { codigoCurso, codigoAnoLectivo } as any
+                        );
+
+                        if (!planoResult || planoResult.length === 0) {
+                                throw new NotFoundException('Não foi encontrado plano do curso.');
+                        }
+
+                        codigoPlanoCurso = Number(planoResult[0].CODIGO);
+                } catch (error) {
+                        if (error instanceof NotFoundException) throw error;
+                        throw new NotFoundException('Não foi encontrado plano do curso.');
+                }
+
+                // 3. Obter grade curricular caso exista
+                const gradeResult = await this.dataSource.query(
+                        `
+    SELECT CODIGO
+    FROM FK2_TB_GRADE_CURRICULAR
+    WHERE CODIGO_DISCIPLINA = :codigoDisciplina
+      AND CODIGO_CURSO       = :codigoCurso
+      AND CODIGO_SEMESTRE    = :codigoSemestre
+    FETCH FIRST 1 ROWS ONLY
+    `,
+                        { codigoDisciplina, codigoCurso, codigoSemestre } as any
+                );
+
+                let codigoGrade: number | null = gradeResult?.[0]?.CODIGO
+                        ? Number(gradeResult[0].CODIGO)
+                        : null;
+
+                if (codigoGrade !== null) {
+                        // 4a. Grade já existe — verificar se está vinculada a um departamento
+                        const existDeptResult = await this.dataSource.query(
+                                `
+      SELECT COUNT(*) AS total
+      FROM FK2_TB_GRADE_CURRICULAR d
+      INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pg
+              ON pg.CODIGO_GRADE_CURRICULAR = d.CODIGO
+      INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pcc
+              ON pcc.CODIGO = pg.CODIGO_PLANO_CURRICULAR_CURSO
+      INNER JOIN FK2_TB_CURSOS c
+              ON c.CODIGO = pcc.CODIGO_CURSO
+      WHERE d.FK_DEPARTAMENTO IS NOT NULL
+        AND d.CODIGO_DISCIPLINA = :codigoDisciplina
+        AND d.CODIGO_SEMESTRE   = :codigoSemestre
+        AND c.CODIGO            = :codigoCurso
+        AND d.STATUS_           = 1
+      `,
+                                { codigoDisciplina, codigoSemestre, codigoCurso } as any
+                        );
+
+                        if (Number(existDeptResult?.[0]?.TOTAL) > 0) {
+                                throw new BadRequestException(
+                                        'Esta grade já está vinculada a um departamento.'
+                                );
+                        }
+
+                        // 5a. Verificar se já existe no plano
+                        const existPlanoResult = await this.dataSource.query(
+                                `
+      SELECT COUNT(*) AS total
+      FROM FK2_TB_PLANO_CURRICULAR_GRADE u
+      JOIN FK2_TB_GRADE_CURRICULAR g
+          ON g.CODIGO = u.CODIGO_GRADE_CURRICULAR
+      JOIN FK2_TB_CLASSES c
+          ON c.CODIGO = g.CODIGO_CLASSE
+      WHERE u.CODIGO_PLANO_CURRICULAR_CURSO = :codigoPlanoCurso
+        AND g.CODIGO = :codigoGrade
+        AND c.CODIGO = :codigoClasse
+      `,
+                                { codigoPlanoCurso, codigoGrade, codigoClasse } as any
+                        );
+
+                        if (Number(existPlanoResult?.[0]?.TOTAL) > 0) {
+                                throw new BadRequestException(
+                                        'Esta grade curricular já faz parte deste plano selecionado!'
+                                );
+                        }
+
+                        // 6a. Adicionar ao plano
+                        await this.adicionarPlano(codigoUtilizador, codigoGrade, codigoPlanoCurso);
+                } else {
+                        // 4b. Grade não existe — criar grade curricular
+                        codigoGrade = await this.criarGradeCurricular({
+                                codigoDisciplina,
+                                codigoAnoLectivo,
+                                codigoClasse,
+                                codigoCurso,
+                                codigoUtilizador,
+                                codigoSemestre,
+                                departamento: null,
+                        });
+
+                        if (!codigoGrade) {
+                                throw new InternalServerErrorException('Erro ao criar grade curricular.');
+                        }
+
+                        // 5b. Adicionar ao plano
+                        await this.adicionarPlano(codigoUtilizador, codigoGrade, codigoPlanoCurso);
+                }
+
+                return {
+                        message: 'Disciplina cadastrada na grade com sucesso.',
+                        codigo: codigoGrade,
+                };
+        }
+
+        // ─── Helpers privados ───────────────────────────────────────────────────────
+
+        private async criarGradeCurricular(params: {
+                codigoDisciplina: number;
+                codigoAnoLectivo: number;
+                codigoClasse: number;
+                codigoCurso: number;
+                codigoUtilizador: number;
+                codigoSemestre: number;
+                departamento: number | null;
+        }): Promise<number> {
+                const {
+                        codigoDisciplina,
+                        codigoClasse,
+                        codigoCurso,
+                        codigoUtilizador,
+                        codigoSemestre,
+                        departamento,
+                } = params;
+
+            
+
+              const result=  await this.dataSource.query(
+                        `
+    INSERT INTO FK2_TB_GRADE_CURRICULAR (
+      CODIGO_CURSO,
+      CODIGO_DISCIPLINA,
+      CODIGO_CLASSE,
+      CODIGO_SEMESTRE,
+      HORASTOTAIS,
+      HORASTEORICAS,
+      HORASTEORICOSPRATICAS,
+      HORASPRATICAS,
+      DATA_REGISTO,
+      DATA_ULTIMAA_ATUALIZACAO,
+      USER_,
+      HORASESTAGIO,
+      HORASSEMINARIO,
+      HORASRELATORIO,
+      NUM_MAX_FALTAS,
+      VALOR_INSCRICAO,
+      CANAL,
+      STATUS_,
+      PESO_PRIMEIRA_FREQ,
+      NOTA_MIN_PRIMEIRA_FREQ,
+      PESO_SEGUNDA_FREQ,
+      NOTA_MIN_SEGUNDA_FREQ,
+      PESO_PRATICA,
+      NOTA_MIN_PRATICA,
+      FORMULA_DEFIDA_POR,
+      UTILIZADOR,
+      FK_DEPARTAMENTO
+    ) VALUES (
+      :codigoCurso,
+      :codigoDisciplina,
+      :codigoClasse,
+      :codigoSemestre,
+      1, 1, 1, 1,
+      SYSDATE,
+      SYSDATE,
+      :codigoUtilizador,
+      1, 1, 1, 1, 0, 1, 1,
+      0, 0, 0, 0, 0, 0,
+      NULL,
+      NULL,
+      :departamento,
+     
+    ) RETURNING CODIGO INTO :outId
+    `,
+                        {
+                                codigoCurso,
+                                codigoDisciplina,
+                                codigoClasse,
+                                codigoSemestre,
+                                codigoUtilizador,
+                                departamento,
+                                 outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+                        } as any
+                );
+             
+
+                return result?.outId[0];
+        }
+
+        private async adicionarPlano(
+                codigoUtilizador: number,
+                codigoGrade: number,
+                codigoPlanoCurso: number
+        ): Promise<void> {
+                // Gerar código
+                const codigoResult = await this.dataSource.query(
+                        `SELECT NVL(MAX(CODIGO), 0) + 1 AS novo_codigo FROM FK2_TB_PLANO_CURRICULAR_GRADE`
+                );
+                const codigo = Number(codigoResult?.[0]?.NOVO_CODIGO ?? 1);
+
+                try {
+                        await this.dataSource.query(
+                                `
+      INSERT INTO FK2_TB_PLANO_CURRICULAR_GRADE (
+        CODIGO,
+        CODIGO_PLANO_CURRICULAR_CURSO,
+        CODIGO_GRADE_CURRICULAR,
+        DATA,
+        CODIGO_UTILIZADOR,
+        PESO_PRIMEIRA_FREQ,
+        PESO_SEGUNDA_FREQ,
+        PESO_PRATICA,
+        NOTA_MIN_PRIMEIRA_FREQ,
+        NOTA_MIN_SEGUNDA_FREQ,
+        NOTA_MIN_PRATICA,
+        UTILIZADOR
+      ) VALUES (
+        :codigo,
+        :codigoPlanoCurso,
+        :codigoGrade,
+        SYSDATE,
+        NULL,
+        50,
+        50,
+        0,
+        8,
+        8,
+        8,
+        :codigoUtilizador
+      )
+      `,
+                                { codigo, codigoPlanoCurso, codigoGrade, codigoUtilizador } as any
+                        );
+                } catch (error) {
+                        console.error('Erro ao adicionar plano de grade:', error);
+                        throw new InternalServerErrorException(
+                                `Erro ao adicionar grade no plano: ${error.message}`
                         );
                 }
         }
