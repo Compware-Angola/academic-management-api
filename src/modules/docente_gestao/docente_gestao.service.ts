@@ -330,7 +330,7 @@ export class DocenteGestaoService {
     let sqlCommand = '';
     let sqlCount = '';
 
-    if (tipoAfectacao) {
+    if (tipoAfectacao == 1) {
       sqlCommand = `
       SELECT DISTINCT
         JSON_VALUE(a.REF_DOCENTE,'$.desc')  AS docente,
