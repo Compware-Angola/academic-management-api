@@ -347,6 +347,10 @@ export class DisciplineService {
                         conditions.push('gc.Codigo_Curso = :curso');
                         params.curso = curso;
                 }
+                if(anoLectivo){
+                     conditions.push('plc.CODIGO_ANO_LECTIVO = :anoLectivo');
+                        params.anoLectivo = anoLectivo;    
+                }
 
                 const whereClause = conditions.join(' AND ');
 
@@ -362,8 +366,8 @@ export class DisciplineService {
       ss.CODIGO         AS codigo_semestre,
       ss.DESIGNACAO     AS designacao_semestre
     FROM FK2_TB_PLANO_CURRICULAR_CURSO plc
-    inner join FK2_TB_PLANO_CURRICULAR_GRADE pcg  on pcg.CODIGO_PLANO_CURRICULAR_CURSO  = plc.CODIGO 
-     inner join FK2_TB_GRADE_CURRICULAR gc on gc.Codigo = pcg.codigo_grade_curricular
+    INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pcg  on pcg.CODIGO_PLANO_CURRICULAR_CURSO  = plc.CODIGO 
+    INNER JOIN FK2_TB_GRADE_CURRICULAR gc on gc.Codigo = pcg.codigo_grade_curricular
     INNER JOIN FK2_TB_DISCIPLINAS dd ON dd.CODIGO = gc.Codigo_Disciplina
     INNER JOIN FK2_TB_CURSOS cc      ON cc.CODIGO = gc.Codigo_Curso
     INNER JOIN FK2_TB_CLASSES cl     ON cl.CODIGO = gc.CODIGO_CLASSE 
