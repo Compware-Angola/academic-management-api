@@ -451,7 +451,7 @@ async updateDocente(codigo: number, dto: UpdateDocenteDto) {
     throw new NotFoundException(`Docente com código ${codigo} não encontrado.`);
   }
 
-  const utilizadorPk = dto.codigoUtilizador ?? docenteActual[0].UTILIZADOR_PK;
+  const utilizadorPk =  docenteActual[0].UTILIZADOR_PK;
 
   if (!utilizadorPk) {
     throw new BadRequestException(`Docente não possui utilizador associado.`);
