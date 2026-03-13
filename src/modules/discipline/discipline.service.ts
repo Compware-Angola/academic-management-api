@@ -348,11 +348,11 @@ export class DisciplineService {
                         conditions.push('gc.Codigo_Curso = :curso');
                         params.curso = curso;
                 }
-                if(anoLectivo){
-                     conditions.push('plc.CODIGO_ANO_LECTIVO = :anoLectivo');
-                        params.anoLectivo = anoLectivo;    
+                if (anoLectivo) {
+                        conditions.push('plc.CODIGO_ANO_LECTIVO = :anoLectivo');
+                        params.anoLectivo = anoLectivo;
                 }
-                   if (search) {
+                if (search) {
                         conditions.push('UPPER( dd.DESIGNACAO) LIKE UPPER(:search)');
                         params.search = `%${search}%`;
                 }
@@ -434,7 +434,7 @@ WHERE ${whereClause}
                         page = 1,
                         limit = 25,
                 } = dto;
-                
+
 
                 const offset = (page - 1) * limit;
                 const conditions: string[] = ['1=1'];
@@ -459,12 +459,12 @@ WHERE ${whereClause}
                         conditions.push('UPPER(dic.DESIGNACAO) LIKE UPPER(:search)');
                         params.search = `%${search}%`;
                 }
-             if (estado !== undefined && estado !== null) {
-  console.log(estado, "ppp");
+                if (estado !== undefined && estado !== null) {
+                        console.log(estado, "ppp");
 
-  conditions.push('gc.STATUS_ = :estado');
-  params.estado = estado;
-}
+                        conditions.push('gc.STATUS_ = :estado');
+                        params.estado = estado;
+                }
 
                 const whereClause = 'WHERE ' + conditions.join(' AND ');
 
@@ -662,7 +662,7 @@ WHERE ${whereClause}
                         codigoUtilizador,
                         cursos,
                 } = dto;
-                let codigoPlanoCurso: number;
+
                 // 1. Verificar se a disciplina existe
                 const disciplinaResult = await this.dataSource.query(
                         `SELECT COUNT(*) AS total FROM FK2_TB_DISCIPLINAS WHERE CODIGO = :codigoDisciplina`,
@@ -741,7 +741,7 @@ WHERE ${whereClause}
                                         resultado.mensagem = 'Grade reactivada no departamento.';
                                 } else {
                                         // 2d. Não existe — criar grade curricular com departamento
-                                        await this.criarGradeCurricular({
+                                        const codigoGrade = await this.criarGradeCurricular({
                                                 codigoDisciplina,
                                                 codigoAnoLectivo,
                                                 codigoClasse,
@@ -750,12 +750,14 @@ WHERE ${whereClause}
                                                 codigoSemestre,
                                                 departamento: codigoDepartamento,
                                         });
+
+                                        // pegar id do plano do curso
+                                        const codigoPlanoCurso = await this.getPlanoCurso(codigoCurso, codigoAnoLectivo)
+                                        // ADICIONAR NO PLANO
+                                        await this.adicionarPlano(codigoUtilizador, codigoGrade, codigoPlanoCurso);
                                         resultado.mensagem = 'Grade criada no departamento.';
                                 }
-                                // pegar id do plano do curso
-                                codigoPlanoCurso = await this.getPlanoCurso(codigoCurso, codigoAnoLectivo)
 
-                                // ADICIONAR NO PLANO
 
                         } catch (error) {
                                 resultado.status = 'erro';
