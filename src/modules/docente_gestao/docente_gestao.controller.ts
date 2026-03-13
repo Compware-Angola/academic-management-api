@@ -13,17 +13,19 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { DocenteGestaoService } from './docente_gestao.service';
-import { CreateDocenteGestaoDto } from './dto/create-docente_gestao.dto';
-import { UpdateDocenteGestaoDto } from './dto/update-docente_gestao.dto';
+
+
 import { FindParametrosDocenteTO } from './dto/find-parametros-docente.dto';
 import { ApiOperation, ApiTags, ApiResponse } from '@nestjs/swagger';
 import { UpdateAfectacaoDTO } from './dto/update-afectacao.dto';
 import { FindAfectacaoDTO } from './dto/find-afectacao.dto';
+import { FindDocenteAfectacaoDTO } from './dto/find-docente-afectacao.dto';
+import { UpdateDocenteDto } from './dto/update-docente.dto';
 
 @ApiTags('docente-gestao')
 @Controller('docente-gestao')
 export class DocenteGestaoController {
-  constructor(private readonly service: DocenteGestaoService) {}
+  constructor(private readonly service: DocenteGestaoService) { }
   @Get('/parametros')
   @ApiOperation({
     summary: 'Listar parametros',
@@ -54,5 +56,32 @@ export class DocenteGestaoController {
     @Req() req: any,
   ) {
     return this.service.updateAfectacaoStatus(codigo, query);
+  }
+  @Get('/docente/afectacao')
+  //@RequiredPermissions(PermissionTypeDetails.GESTAO_AFETACOES.sigla!)
+  @ApiOperation({
+    summary: 'Listar Docentes Afectados ou docentes não afectados',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Listar Docentes Afectados ou docentes não afectados',
+    type: FindDocenteAfectacaoDTO,
+  })
+  findDocenteAfectacao(@Query(ValidationPipe) query: FindDocenteAfectacaoDTO) {
+    return this.service.findDocenteAfectacao(query);
+  }
+  @Patch('/update-docente/:codigo')
+  async updateDocente(
+    @Param('codigo', ParseIntPipe) codigo: number,
+    @Body() dto: UpdateDocenteDto,
+  ) {
+    return this.service.updateDocente(codigo, dto);
+  }
+  @Get('docente/:codigo')
+    @ApiOperation({
+    summary: 'Obter o docente pelo Id',
+  })
+  async findByIdDocente(@Param('codigo', ParseIntPipe) codigo: number): Promise<any> {
+    return this.service.findByIdDocente(codigo);
   }
 }

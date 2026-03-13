@@ -316,7 +316,7 @@ async getAulasOcupadas(
   }
 
   @Patch(':horarioId/validar/:userId')
-  //@RequiredPermissions(PermissionTypeDetails.sigla)
+  @RequiredPermissions(PermissionTypeDetails.VALIDACAO_HORARIO.sigla)
   async validate(
     @Param('horarioId', ParseIntPipe) horarioId: number,
     @Param('userId', ParseIntPipe) userId: number,

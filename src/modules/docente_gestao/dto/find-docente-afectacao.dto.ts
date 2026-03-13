@@ -58,23 +58,23 @@ export class FindDocenteAfectacaoDTO {
   @Type(() => Number)
   docente: number;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Data inicial do intervalo',
     example: '2025-01-02',
     type: String,
     format: 'date',
   })
-  @IsNotEmpty()
+  @IsOptional()
   @Type(() => Date)
   dataInicial: Date;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Data Final do intervalo',
     example: '2025-12-30',
     type: String,
     format: 'date',
   })
-  @IsNotEmpty()
+  @IsOptional()
   @Type(() => Date)
   dataFinal: Date;
 

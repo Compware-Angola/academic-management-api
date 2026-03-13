@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { CreateDocenteGestaoDto } from './dto/create-docente_gestao.dto';
-import { UpdateDocenteGestaoDto } from './dto/update-docente_gestao.dto';
+import { UpdateDocenteDto } from './dto/update-docente.dto';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FindParametrosDocenteTO } from './dto/find-parametros-docente.dto';
@@ -292,6 +292,7 @@ export class DocenteGestaoService {
       anoLectivo,
       semestre,
       docente,
+      tipoAfectacao,
       dataInicial,
       dataFinal,
       limit = 25,
@@ -326,55 +327,93 @@ export class DocenteGestaoService {
     }
 
     const whereClause = conditions.join(' AND ');
+    let sqlCommand = '';
+    let sqlCount = '';
 
-    const sql = `
-  SELECT DISTINCT
-    JSON_VALUE(a.REF_DOCENTE,'$.desc')  AS docente,
-    d.N_MECANOGRAFICO                   AS mecanografico,
-    d.codigo                            AS codigo_docente
+    if (tipoAfectacao == 1) {
+      sqlCommand = `
+      SELECT DISTINCT
+        JSON_VALUE(a.REF_DOCENTE,'$.desc')  AS docente,
+        d.N_MECANOGRAFICO                   AS mecanografico,
+        d.codigo                            AS codigo_docente
 
-  FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
+      FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
 
-  INNER JOIN FK2_MGD_TB_DOCENTE d
-    ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
+      INNER JOIN FK2_MGD_TB_DOCENTE d
+        ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
 
-  INNER JOIN FK2_TB_ANO_LECTIVO l
-    ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
+      INNER JOIN FK2_TB_ANO_LECTIVO l
+        ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
 
-  INNER JOIN FK2_MCAL_TB_SEMESTRE s
-    ON s.PK_SEMESTRE = a.SEMESTRE
+      INNER JOIN FK2_MCAL_TB_SEMESTRE s
+        ON s.PK_SEMESTRE = a.SEMESTRE
 
-  WHERE ${whereClause}
+      WHERE ${whereClause}
 
-  ORDER BY JSON_VALUE(a.REF_DOCENTE,'$.desc') ASC
-  OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
-  `;
+      ORDER BY JSON_VALUE(a.REF_DOCENTE,'$.desc') ASC
+      OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+      `;
 
+      sqlCount = `
+        SELECT COUNT(DISTINCT d.codigo) AS TOTAL
+
+        FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
+
+        INNER JOIN FK2_MGD_TB_DOCENTE d
+          ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
+
+        INNER JOIN FK2_TB_ANO_LECTIVO l
+          ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
+
+        INNER JOIN FK2_MCAL_TB_SEMESTRE s
+          ON s.PK_SEMESTRE = a.SEMESTRE
+
+        WHERE ${whereClause}
+      `;
+    } else {
+      sqlCommand = `
+      select
+          json_value(d.CODIGO_UTILIZADOR,'$.desc') as docente,
+          d.N_MECANOGRAFICO                        as mecanografico,
+          d.codigo                            as codigo_docente
+      from FK2_MGD_TB_DOCENTE d
+      where 1=1
+      and d.codigo not in (
+                    select  d.codigo
+                    from FK2_MGD_TB_DOCENTE_AFECTACAO a
+                    inner join FK2_MGD_TB_DOCENTE     d on d.codigo        = json_value(a.REF_DOCENTE,'$.pk')
+                    inner join FK2_TB_ANO_LECTIVO     l on l.codigo        = json_value(a.REF_ANO_LECTIVO,'$.pk')
+                    inner join FK2_MCAL_TB_SEMESTRE   s on s.PK_SEMESTRE   = a.SEMESTRE
+                    where ${whereClause}
+      )
+      ORDER BY json_value(d.CODIGO_UTILIZADOR,'$.desc') ASC
+      OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+      `;
+
+      sqlCount = `
+        SELECT COUNT(*) AS TOTAL
+        FROM FK2_MGD_TB_DOCENTE d
+        WHERE 1=1
+        AND d.codigo NOT IN (
+              SELECT d.codigo
+              FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
+              INNER JOIN FK2_MGD_TB_DOCENTE d
+                  ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
+              INNER JOIN FK2_TB_ANO_LECTIVO l
+                  ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
+              INNER JOIN FK2_MCAL_TB_SEMESTRE s
+                  ON s.PK_SEMESTRE = a.SEMESTRE
+              WHERE ${whereClause}
+        )
+     `;
+    }
     const sqlParams = {
       ...params,
       offset,
       limit,
     };
-
-    const sqlCount = `
-  SELECT COUNT(DISTINCT d.codigo) AS TOTAL
-
-  FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
-
-  INNER JOIN FK2_MGD_TB_DOCENTE d
-    ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
-
-  INNER JOIN FK2_TB_ANO_LECTIVO l
-    ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
-
-  INNER JOIN FK2_MCAL_TB_SEMESTRE s
-    ON s.PK_SEMESTRE = a.SEMESTRE
-
-  WHERE ${whereClause}
-  `;
-
     const [result, countResult] = await Promise.all([
-      this.dataSource.query(sql, sqlParams),
+      this.dataSource.query(sqlCommand, sqlParams),
       this.dataSource.query(sqlCount, params),
     ]);
 
@@ -389,4 +428,184 @@ export class DocenteGestaoService {
       totalPages,
     };
   }
+  // UPDATE DOCENTE
+async updateDocente(codigo: number, dto: UpdateDocenteDto) {
+  const fields: string[] = [];
+  const params: Record<string, any> = { codigo };
+
+
+  const docenteActual = await this.dataSource.query(
+    `
+    SELECT 
+      CODIGO,
+       JSON_VALUE(CODIGO_UTILIZADOR, '$.pk' RETURNING NUMBER) AS UTILIZADOR_PK
+    FROM FK2_MGD_TB_DOCENTE
+    WHERE CODIGO = :codigo
+    `,
+    { codigo } as any
+  );
+  console.log(docenteActual.length);
+  
+
+  if (docenteActual.length === 0) {
+    throw new NotFoundException(`Docente com código ${codigo} não encontrado.`);
+  }
+
+  const utilizadorPk =  docenteActual[0].UTILIZADOR_PK;
+
+  if (!utilizadorPk) {
+    throw new BadRequestException(`Docente não possui utilizador associado.`);
+  }
+
+
+  const utilizador = await this.dataSource.query(
+    `
+    SELECT 
+      PK_UTILIZADOR AS CODIGO,
+      NOME
+    FROM FK2_MCA_TB_UTILIZADOR
+    WHERE PK_UTILIZADOR = :utilizadorPk
+    `,
+    { utilizadorPk } as any
+  );
+
+  if (!utilizador || utilizador.length === 0) {
+    throw new NotFoundException(
+      `Utilizador com código ${utilizadorPk} não encontrado.`
+    );
+  }
+
+
+  const { CODIGO: UTIL_CODIGO, NOME } = utilizador[0];
+  const desc = `${NOME}`.trim();
+  const refUtilizador = JSON.stringify({ pk: UTIL_CODIGO, desc });
+
+  fields.push('CODIGO_UTILIZADOR = :refUtilizador');
+  params.refUtilizador = refUtilizador;
+
+  // Restantes campos
+  if (dto.apreciacao !== undefined) {
+    fields.push('APRECIACAO = :apreciacao');
+    params.apreciacao = dto.apreciacao;
+  }
+  if (dto.nMecanografico !== undefined) {
+    fields.push('N_MECANOGRAFICO = :nMecanografico');
+    params.nMecanografico = dto.nMecanografico;
+  }
+  if (dto.fkEscalao !== undefined) {
+    fields.push('FK_ESCALAO = :fkEscalao');
+    params.fkEscalao = dto.fkEscalao;
+  }
+  if (dto.tbCategoriaDocente !== undefined) {
+    fields.push('TB_CATEGORIA_DOCENTE = :tbCategoriaDocente');
+    params.tbCategoriaDocente = dto.tbCategoriaDocente;
+  }
+  if (dto.faculdade !== undefined) {
+    fields.push('FACULDADE = :faculdade');
+    params.faculdade = dto.faculdade;
+  }
+  if (dto.codigoValidacao !== undefined) {
+    fields.push('CODIGO_VALIDACAO = :codigoValidacao');
+    params.codigoValidacao = dto.codigoValidacao;
+  }
+  if (dto.valorHora !== undefined) {
+    fields.push('VALOR_HORA = :valorHora');
+    params.valorHora = dto.valorHora;
+  }
+  if (dto.fkCandidatura !== undefined) {
+    fields.push('FK_CANDIDATURA = :fkCandidatura');
+    params.fkCandidatura = dto.fkCandidatura;
+  }
+  if (dto.totalAnoExperiencia !== undefined) {
+    fields.push('TOTAL_ANO_EXPERIENCIA = :totalAnoExperiencia');
+    params.totalAnoExperiencia = dto.totalAnoExperiencia;
+  }
+  if (dto.dataInicioDocencia !== undefined) {
+    fields.push('DATAINICIODOCENCIA = :dataInicioDocencia');
+    params.dataInicioDocencia = dto.dataInicioDocencia;
+  }
+  if (dto.propostaDeContratacao !== undefined) {
+    fields.push('PROPOSTA_DE_CONTRATACAO = :propostaDeContratacao');
+    params.propostaDeContratacao = dto.propostaDeContratacao;
+  }
+  if (dto.valorhoraAlt !== undefined) {
+    fields.push('VALORHORA = :valorhoraAlt');
+    params.valorhoraAlt = dto.valorhoraAlt;
+  }
+  if (dto.codContrato !== undefined) {
+    fields.push('COD_CONTRATO = :codContrato');
+    params.codContrato = dto.codContrato;
+  }
+
+  fields.push('UPDATED_AT = :updatedAt');
+  params.updatedAt = new Date();
+
+  const sql = `
+    UPDATE FK2_MGD_TB_DOCENTE
+    SET ${fields.join(', \n    ')}
+    WHERE CODIGO = :codigo
+  `;
+
+  try {
+    const result = await this.dataSource.query(sql, params as any);
+
+    return {
+      message: 'Docente atualizado com sucesso.',
+      codigo,
+      utilizadorSincronizado: { pk: UTIL_CODIGO, desc },
+      camposAtualizados: fields.length - 1, 
+    };
+  } catch (error) {
+    if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      throw error;
+    }
+    console.error('Erro ao atualizar docente:', error);
+    throw new InternalServerErrorException(`Falha ao atualizar docente: ${error.message}`);
+  }
+}
+
+async findByIdDocente(codigo: number): Promise<any> {
+  const query = `
+    SELECT
+      td.CODIGO                     AS codigo,
+    --  td.CODIGO_UTILIZADOR          AS codigo_utilizador_json,
+      td.N_MECANOGRAFICO            AS n_mecanografico,
+      td.FK_ESCALAO                 AS codigo_escalao,
+      td.TB_CATEGORIA_DOCENTE       AS codigo_categoria,
+      td.FACULDADE                  AS faculdade,
+      td.CODIGO_VALIDACAO           AS codigo_validacao,
+      td.VALOR_HORA                 AS valor_hora,
+      td.CREATED_AT                 AS created_at,
+      td.UPDATED_AT                 AS updated_at,
+      td.FK_CANDIDATURA             AS fk_candidatura,
+      td.TOTAL_ANO_EXPERIENCIA      AS total_ano_experiencia,
+      td.DATAINICIODOCENCIA         AS data_inicio_docencia,
+      td.PROPOSTA_DE_CONTRATACAO    AS proposta_de_contratacao,
+      td.VALORHORA                  AS valorhora,
+      td.COD_CONTRATO               AS cod_contrato,
+      td.APRECIACAO                 AS apreciacao,
+      tu.PK_UTILIZADOR              AS pk_utilizador,
+      tu.EMAIL                      AS email,
+      tu.USERNAME                   AS username,
+      tu.NOME                       AS nome,
+      ed.DESIGNACAO                 AS escalao,
+      cd.DESIGNACAO                 AS descricao_categoria,
+      ga.DESIGNACAO                 AS descricao_grau_academico
+    FROM FK2_MGD_TB_DOCENTE td
+    INNER JOIN FK2_MCA_TB_UTILIZADOR    tu  ON json_value(td.CODIGO_UTILIZADOR, '$.pk') = tu.PK_UTILIZADOR
+    INNER JOIN FK2_TB_ESCALAO_DOCENTE   ed  ON ed.CODIGO  = td.FK_ESCALAO
+    INNER JOIN FK2_TB_CATEGORIA_DOCENTE cd  ON cd.CODIGO  = td.TB_CATEGORIA_DOCENTE
+    INNER JOIN FK2_MGD_TB_CANDIDATURA   ccc ON ccc.CODIGO = td.FK_CANDIDATURA
+    INNER JOIN FK2_TB_GRAU_ACADEMICO    ga  ON ga.CODIGO  = ccc.GRAU_ACADEMICO
+    WHERE td.CODIGO = :id
+  `;
+
+  const result = await this.dataSource.query(query, [codigo]);
+
+  if (!result || result.length === 0) {
+    throw new NotFoundException(`Docente com id ${codigo} não encontrado`);
+  }
+
+  return toLowerCaseKeys(result[0]);
+}
 }
