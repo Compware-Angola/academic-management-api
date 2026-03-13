@@ -13,7 +13,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { DocenteGestaoService } from './docente_gestao.service';
-import { CreateDocenteGestaoDto } from './dto/create-docente_gestao.dto';
+
 
 import { FindParametrosDocenteTO } from './dto/find-parametros-docente.dto';
 import { ApiOperation, ApiTags, ApiResponse } from '@nestjs/swagger';
@@ -76,5 +76,12 @@ export class DocenteGestaoController {
     @Body() dto: UpdateDocenteDto,
   ) {
     return this.service.updateDocente(codigo, dto);
+  }
+  @Get('docente/:codigo')
+    @ApiOperation({
+    summary: 'Obter o docente pelo Id',
+  })
+  async findByIdDocente(@Param('codigo', ParseIntPipe) codigo: number): Promise<any> {
+    return this.service.findByIdDocente(codigo);
   }
 }

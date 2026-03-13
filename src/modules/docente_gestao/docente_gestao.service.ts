@@ -563,4 +563,49 @@ async updateDocente(codigo: number, dto: UpdateDocenteDto) {
     throw new InternalServerErrorException(`Falha ao atualizar docente: ${error.message}`);
   }
 }
+
+async findByIdDocente(codigo: number): Promise<any> {
+  const query = `
+    SELECT
+      td.CODIGO                     AS codigo,
+    --  td.CODIGO_UTILIZADOR          AS codigo_utilizador_json,
+      td.N_MECANOGRAFICO            AS n_mecanografico,
+      td.FK_ESCALAO                 AS codigo_escalao,
+      td.TB_CATEGORIA_DOCENTE       AS codigo_categoria,
+      td.FACULDADE                  AS faculdade,
+      td.CODIGO_VALIDACAO           AS codigo_validacao,
+      td.VALOR_HORA                 AS valor_hora,
+      td.CREATED_AT                 AS created_at,
+      td.UPDATED_AT                 AS updated_at,
+      td.FK_CANDIDATURA             AS fk_candidatura,
+      td.TOTAL_ANO_EXPERIENCIA      AS total_ano_experiencia,
+      td.DATAINICIODOCENCIA         AS data_inicio_docencia,
+      td.PROPOSTA_DE_CONTRATACAO    AS proposta_de_contratacao,
+      td.VALORHORA                  AS valorhora,
+      td.COD_CONTRATO               AS cod_contrato,
+      td.APRECIACAO                 AS apreciacao,
+      tu.PK_UTILIZADOR              AS pk_utilizador,
+      tu.EMAIL                      AS email,
+      tu.USERNAME                   AS username,
+      tu.NOME                       AS nome,
+      ed.DESIGNACAO                 AS escalao,
+      cd.DESIGNACAO                 AS descricao_categoria,
+      ga.DESIGNACAO                 AS descricao_grau_academico
+    FROM FK2_MGD_TB_DOCENTE td
+    INNER JOIN FK2_MCA_TB_UTILIZADOR    tu  ON json_value(td.CODIGO_UTILIZADOR, '$.pk') = tu.PK_UTILIZADOR
+    INNER JOIN FK2_TB_ESCALAO_DOCENTE   ed  ON ed.CODIGO  = td.FK_ESCALAO
+    INNER JOIN FK2_TB_CATEGORIA_DOCENTE cd  ON cd.CODIGO  = td.TB_CATEGORIA_DOCENTE
+    INNER JOIN FK2_MGD_TB_CANDIDATURA   ccc ON ccc.CODIGO = td.FK_CANDIDATURA
+    INNER JOIN FK2_TB_GRAU_ACADEMICO    ga  ON ga.CODIGO  = ccc.GRAU_ACADEMICO
+    WHERE td.CODIGO = :id
+  `;
+
+  const result = await this.dataSource.query(query, [codigo]);
+
+  if (!result || result.length === 0) {
+    throw new NotFoundException(`Docente com id ${codigo} não encontrado`);
+  }
+
+  return toLowerCaseKeys(result[0]);
+}
 }
