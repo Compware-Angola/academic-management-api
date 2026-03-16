@@ -26,7 +26,9 @@ import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CreateAfectacaoDTO } from './dto/create-afectaco.dto';
 
+
 @ApiTags('docente-gestao')
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('docente-gestao')
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 export class DocenteGestaoController {
