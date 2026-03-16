@@ -339,10 +339,8 @@ export class ExamesDeAcessoService {
     }
 
     if (filtros.dataRealizacao) {
-      const [dd, mm, yyyy] = filtros.dataRealizacao.split('/');
-      condicoes.push(
-        `FK2_TB_HORARIO_PROVA.DATA_REALIZACAO = TO_DATE('${dd}/${mm}/${yyyy}', 'DD/MM/YYYY')`,
-      );
+      condicoes.push(`FK2_TB_HORARIO_PROVA.DATA_REALIZACAO = TO_DATE(:${paramIndex++}, 'DD/MM/YYYY')`);
+      params.push(filtros.dataRealizacao);
     }
 
     if (filtros.horaInicio) {
