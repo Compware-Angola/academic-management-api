@@ -12,17 +12,9 @@ import { FindParametrosDocenteTO } from './dto/find-parametros-docente.dto';
 import { FindAfectacaoDTO } from './dto/find-afectacao.dto';
 import { UpdateAfectacaoDTO } from './dto/update-afectacao.dto';
 import { FindDocenteAfectacaoDTO } from './dto/find-docente-afectacao.dto';
-<<<<<<< HEAD
-
-import { FilterDocenteDto } from './dto/filter-docente.dto';
-import { FilterDocenteRegenteDto } from './dto/filter-docente-regente.dto';
-
-import { CreateAfectacaoDTO } from './dto/create-afectaco.dto';
-=======
 import { CreateAfectacaoDTO } from './dto/create-afectaco.dto';
 import { FilterDocenteRegenteDto } from './dto/filter-docente-regente.dto';
 import { FilterDocenteDto } from './dto/filter-docente.dto';
->>>>>>> 96d5fe3 (feat: conflict solved)
 
 @Injectable()
 export class DocenteGestaoService {
@@ -754,11 +746,7 @@ export class DocenteGestaoService {
   }
 
 
-<<<<<<< HEAD
-async listDocentes(filter: FilterDocenteDto) {
-=======
   async listDocentes(filter: FilterDocenteDto) {
->>>>>>> 96d5fe3 (feat: conflict solved)
   const { page = 1, limit = 25, area, search } = filter;
   const offset = (page - 1) * limit;
 
