@@ -476,51 +476,29 @@ export class SolicitacaoService {
     page = 1,
     estadoSolicitacao,
     tipoServicoSelecionado,
-    userId,
   } = params;
 
   const safePage = Number(page) > 0 ? Number(page) : 1;
   const safeLimit = Number(limit) > 0 ? Number(limit) : 10;
   const offset = (safePage - 1) * safeLimit;
 
-  const grupos = await this.buscarCodigosGrupoDoUtilizador(userId);
-  const destinos = this.resolverDestinosPorGrupo(grupos);
-
-  if (destinos.length === 0) {
-    return {
-      data: [],
-      total: 0,
-      page: safePage,
-      limit: safeLimit,
-      totalPages: 0,
-    };
-  }
+  const destinos = ['Reitoria', 'Tesouraria'];
 
   const queryParams: any = {
     estadoSolicitacao,
     tipoServicoSelecionado,
-    offset,
-    limit: safeLimit,
+    destino0: destinos[0],
+    destino1: destinos[1],
   };
-
-  const destinoConditions = destinos
-    .map((_, index) => {
-      const key = `destino${index}`;
-      queryParams[key] = destinos[index];
-      return `FK_TB_S.DESTINO = :${key}`;
-    })
-    .join(' OR ');
 
   const sql = `
     SELECT
       FK_TB_S.ID                   AS CODIGO_SOLICITACAO,
-      USRS.NAME                    AS NOME,
-      SER.DESCRICAO                AS DESCRICAO_SERVICO,
       FK_TB_S.CODIGO_MATRICULA     AS MATRICULA,
-      FK_TB_S.DATA_SOLICITACAO     AS DATA_DE_SOLICITACAO,
+      USRS.NAME                    AS NOME,
       C.DESIGNACAO                 AS CURSO,
-      FK_TB_S.STATUS_              AS ESTADO,
-      FK_TB_S.DESTINO              AS DESTINO
+      SER.DESCRICAO                AS SERVICO,
+      FK_TB_S.DATA_SOLICITACAO     AS DATA_SOLICITACAO
     FROM FK2_TB_SOLICITACAO_UMA FK_TB_S
       INNER JOIN FK2_USERS USRS
         ON FK_TB_S.USER_ID = USRS.ID
@@ -531,7 +509,7 @@ export class SolicitacaoService {
       LEFT JOIN FK2_TB_TIPO_SERVICOS SER
         ON SER.CODIGO = FK_TB_S.CODIGOTIPOSERVICO
     WHERE
-      (${destinoConditions})
+      (FK_TB_S.DESTINO = :destino0 OR FK_TB_S.DESTINO = :destino1)
       AND FK_TB_S.STATUS_ = :estadoSolicitacao
       AND (
         FK_TB_S.CODIGOTIPOSERVICO = :tipoServicoSelecionado
@@ -546,7 +524,7 @@ export class SolicitacaoService {
     SELECT COUNT(*) AS TOTAL
     FROM FK2_TB_SOLICITACAO_UMA FK_TB_S
     WHERE
-      (${destinoConditions})
+      (FK_TB_S.DESTINO = :destino0 OR FK_TB_S.DESTINO = :destino1)
       AND FK_TB_S.STATUS_ = :estadoSolicitacao
       AND (
         FK_TB_S.CODIGOTIPOSERVICO = :tipoServicoSelecionado
@@ -571,47 +549,6 @@ export class SolicitacaoService {
     totalPages,
   };
 }
-
-private resolverDestinosPorGrupo(grupos: number[]): string[] {
-    const grupoSet = new Set(grupos);
-
-    const podeVerReitoria =
-      grupoSet.has(1) ||
-      grupoSet.has(4375) ||
-      grupoSet.has(17) ||
-      grupoSet.has(4453);
-
-    const podeVerTesouraria =
-      grupoSet.has(1) ||
-      grupoSet.has(4375) ||
-      grupoSet.has(9) ||
-      grupoSet.has(14) ||
-      grupoSet.has(4453);
-
-    const destinos: string[] = [];
-
-    if (podeVerReitoria) {
-      destinos.push('Reitoria');
-    }
-
-    if (podeVerTesouraria) {
-      destinos.push('Tesouraria');
-    }
-
-    return destinos;
-  }
-
-  private async buscarCodigosGrupoDoUtilizador(userId: number): Promise<number[]> {
-    const sql = `
-      SELECT CODIGO_GRUPO
-      FROM FK2_MCA_TB_GRUPO_UTILIZADOR
-      WHERE CODIGO_UTILIZADOR = :userId
-    `;
-
-    const result = await this.dataSource.query(sql, { userId } as any);
-
-    return result.map((item: any) => Number(item.CODIGO_GRUPO));
-  }
 
 async listarAvisos(
   params?: { limit?: number; page?: number },
