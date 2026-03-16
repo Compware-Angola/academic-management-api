@@ -14,20 +14,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { DocenteGestaoService } from './docente_gestao.service';
-
 import { FindParametrosDocenteTO } from './dto/find-parametros-docente.dto';
-
-
 import { ApiOperation, ApiTags, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
-
 import { UpdateAfectacaoDTO } from './dto/update-afectacao.dto';
 import { FindAfectacaoDTO } from './dto/find-afectacao.dto';
 import { FindDocenteAfectacaoDTO } from './dto/find-docente-afectacao.dto';
 import { UpdateDocenteDto } from './dto/update-docente.dto';
-
 import { FilterDocenteDto } from './dto/filter-docente.dto';
 import { FilterDocenteRegenteDto } from './dto/filter-docente-regente.dto';
-
 import { CreateAfectacaoDTO } from './dto/create-afectaco.dto';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
