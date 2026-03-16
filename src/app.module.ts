@@ -28,6 +28,7 @@ import { DocenteGestaoModule } from './modules/docente_gestao/docente_gestao.mod
 import { PlanoEstudoModule } from './modules/plano_estudo/plano_estudo.module';
 import { DropdownFiltersModule } from './modules/shared/dropdown_filters/dropdown_filters.module';
 import { ExamesDeAcessoModule } from './modules/exames-de-acesso/exames-de-acesso.module';
+import { StatisticsReportsModule } from './modules/shared/statistics-reports/statistics-reports.module';
 
 
 @Module({
@@ -95,6 +96,7 @@ import { ExamesDeAcessoModule } from './modules/exames-de-acesso/exames-de-acess
     PlanoEstudoModule,
     DropdownFiltersModule,
     ExamesDeAcessoModule,
+    StatisticsReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService],
