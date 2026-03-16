@@ -9,6 +9,8 @@ import {
   Patch,
   Param,
   ParseIntPipe,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { DisciplineService } from './discipline.service';
 
@@ -23,11 +25,15 @@ import { FindDisciplinaAlunoDTO } from './dto/find-disciplina-aluno.dto';
 import { FindDisciplinasDto } from './dto/find-disciplinas.dto';
 import { CreateDisciplinaDto } from './dto/create-discipline.dto';
 import { UpdateDisciplinaDto } from './dto/update-discipline.dto';
+import { FindGradeCurricularDto } from './dto/FindGradeCurricularDto';
+import { CreateUnidadeCurricularDto } from './dto/create-unidade-curricular.plano.dto';
+import { CreateUnidadeCurricularDepartamentoDto } from './dto/create-unidade-curricular-departamento.dto';
+import { FindUnidadeCurricularDeptDto } from './dto/find-unidade-curricular-dept.dto';
 
 @ApiTags('DISCIPLINAS')
 @Controller('discipline')
 export class DisciplineController {
-  constructor(private readonly disciplineService: DisciplineService) {}
+  constructor(private readonly disciplineService: DisciplineService) { }
 
   @Post()
   @ApiOperation({
@@ -47,14 +53,14 @@ export class DisciplineController {
     const pkUtilizador = 1;
     return this.disciplineService.createDisciplina(dto, pkUtilizador);
   }
-@Patch(':codigo')
-async updateDisciplina(
-  @Param('codigo', ParseIntPipe) codigo: number,
-  @Body() dto: UpdateDisciplinaDto,
-) {
-   const pkUtilizador = 1;
-  return this.disciplineService.updateDisciplina(codigo, dto,pkUtilizador);
-}
+  @Patch(':codigo')
+  async updateDisciplina(
+    @Param('codigo', ParseIntPipe) codigo: number,
+    @Body() dto: UpdateDisciplinaDto,
+  ) {
+    const pkUtilizador = 1;
+    return this.disciplineService.updateDisciplina(codigo, dto, pkUtilizador);
+  }
   @Get()
   @ApiOperation({
     summary: 'Listar disciplinas matriculadas do aluno',
@@ -84,4 +90,45 @@ async updateDisciplina(
   async findDisciplinas(@Query() dto: FindDisciplinasDto) {
     return this.disciplineService.findDisciplinas(dto);
   }
+
+  @Get('grade-curricular')
+  @ApiOperation({
+    summary: 'Listar  UC no plano',
+    description: 'Retorna lista dos uc.',
+  })
+  async findGradeCurricular(@Query() dto: FindGradeCurricularDto) {
+    return this.disciplineService.findGradeCurricular(dto);
+  }
+  @Post('plano-curricular')
+   @ApiOperation({
+    summary: 'add uc no plano',
+    description: 'Adiciona UC ao plano.',
+  })
+  @HttpCode(HttpStatus.CREATED)
+  async adicionarUnidadeCurricularNoPlano(
+    @Body() dto: CreateUnidadeCurricularDto,
+  ) {
+    const codigoUtilizador= 1
+    return this.disciplineService.adicionarUnidadeCurricularNoPlano(dto,codigoUtilizador);
+  }
+
+  @Post('departamento')
+     @ApiOperation({
+    summary: 'add uc no Departamento',
+    description: 'Adiciona UC ao departamento.',
+  })
+@HttpCode(HttpStatus.CREATED)
+async adicionarUnidadeCurricularNoDepartamento(
+  @Body() dto: CreateUnidadeCurricularDepartamentoDto,
+) {
+  return this.disciplineService.adicionarUnidadeCurricularNoDepartamento(dto);
+}
+@Get('departamento')
+ @ApiOperation({
+    summary: 'Listar  UC no departamento',
+    description: 'Retorna lista de uc no departamento.',
+  })
+async listarUnidadeCurricularDept(@Query() dto: FindUnidadeCurricularDeptDto) {
+  return this.disciplineService.listarUnidadeCurricularDept(dto);
+}
 }

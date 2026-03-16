@@ -11,23 +11,33 @@ import {
   Put,
   Req,
   ValidationPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { DocenteGestaoService } from './docente_gestao.service';
-import { CreateDocenteGestaoDto } from './dto/create-docente_gestao.dto';
 
 import { FindParametrosDocenteTO } from './dto/find-parametros-docente.dto';
-import { ApiOperation, ApiTags, ApiResponse, ApiQuery } from '@nestjs/swagger';
+
+
+import { ApiOperation, ApiTags, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
+
 import { UpdateAfectacaoDTO } from './dto/update-afectacao.dto';
 import { FindAfectacaoDTO } from './dto/find-afectacao.dto';
 import { FindDocenteAfectacaoDTO } from './dto/find-docente-afectacao.dto';
 import { UpdateDocenteDto } from './dto/update-docente.dto';
+
 import { FilterDocenteDto } from './dto/filter-docente.dto';
 import { FilterDocenteRegenteDto } from './dto/filter-docente-regente.dto';
 
+import { CreateAfectacaoDTO } from './dto/create-afectaco.dto';
+import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../common/secret/permissions.guard';
+
+
 @ApiTags('docente-gestao')
 @Controller('docente-gestao')
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 export class DocenteGestaoController {
-  constructor(private readonly service: DocenteGestaoService) { }
+  constructor(private readonly service: DocenteGestaoService) {}
   @Get('/parametros')
   @ApiOperation({
     summary: 'Listar parametros',
@@ -49,6 +59,21 @@ export class DocenteGestaoController {
   })
   findAfectacao(@Query(ValidationPipe) query: FindAfectacaoDTO) {
     return this.service.findAfectacao(query);
+  }
+  @Post('/afectacao')
+  //@RequiredPermissions(PermissionTypeDetails.LANCAMENTO_PROGRAMA_UC.sigla)
+  @ApiOperation({ summary: 'Cria uma afectação' })
+  @ApiBody({ type: CreateAfectacaoDTO })
+  @ApiResponse({
+    status: 200,
+    description: 'Cria uma afectação',
+  })
+  async createProgramaUC(
+    @Body(ValidationPipe) body: CreateAfectacaoDTO,
+    @Req() req: any,
+  ) {
+    const user = req.user;
+    return this.service.createAfectacao(user.sub, body);
   }
   @Put('/afectacao/:codigo/status')
   //@RequiredPermissions(PermissionTypeDetails.GESTAO_AFETACOES.sigla!)
@@ -80,6 +105,7 @@ export class DocenteGestaoController {
     return this.service.updateDocente(codigo, dto);
   }
 
+
 @Get('docentes')
 @ApiOperation({ summary: 'Listar todos os professores por área de formação' })
 @ApiResponse({ status: 200 })
@@ -109,4 +135,14 @@ async listDocentesRegentes(@Query() dto: FilterDocenteRegenteDto) {
     return this.service.listAreaFormacao();
   }
   
+  @Get('docente/:codigo')
+  @ApiOperation({
+    summary: 'Obter o docente pelo Id',
+  })
+  async findByIdDocente(
+    @Param('codigo', ParseIntPipe) codigo: number,
+  ): Promise<any> {
+    return this.service.findByIdDocente(codigo);
+  }
+
 }
