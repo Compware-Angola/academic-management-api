@@ -11,6 +11,7 @@ import {
   Put,
   Req,
   ValidationPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { DocenteGestaoService } from './docente_gestao.service';
 import { CreateDocenteGestaoDto } from './dto/create-docente_gestao.dto';
@@ -21,8 +22,11 @@ import { UpdateAfectacaoDTO } from './dto/update-afectacao.dto';
 import { FindAfectacaoDTO } from './dto/find-afectacao.dto';
 import { FindDocenteAfectacaoDTO } from './dto/find-docente-afectacao.dto';
 import { UpdateDocenteDto } from './dto/update-docente.dto';
+import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../common/secret/permissions.guard';
 
 @ApiTags('docente-gestao')
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('docente-gestao')
 export class DocenteGestaoController {
   constructor(private readonly service: DocenteGestaoService) { }
