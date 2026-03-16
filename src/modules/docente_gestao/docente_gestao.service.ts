@@ -747,32 +747,31 @@ export class DocenteGestaoService {
     return toLowerCaseKeys(result[0]);
   }
 
+  async listDocentes(filter: FilterDocenteDto) {
+    const { page = 1, limit = 25, area, search } = filter;
+    const offset = (page - 1) * limit;
 
-async listDocentes(filter: FilterDocenteDto) {
-  const { page = 1, limit = 25, area, search } = filter;
-  const offset = (page - 1) * limit;
+    const params: Record<string, any> = {
+      offset,
+      limit_plus_offset: offset + limit,
+    };
 
-  const params: Record<string, any> = {
-    offset,
-    limit_plus_offset: offset + limit,
-  };
+    const countParams: Record<string, any> = {};
 
-  const countParams: Record<string, any> = {};
+    let whereClause = 'WHERE 1 = 1';
 
-  let whereClause = 'WHERE 1 = 1';
+    // filtro por área de formação
+    if (area !== undefined && area !== null && area !== 0) {
+      whereClause += ' AND fa.AREA_FORMACAO_ID = :area';
+      params.area = area;
+      countParams.area = area;
+    }
 
-  // filtro por área de formação
-  if (area !== undefined && area !== null && area !== 0) {
-    whereClause += ' AND fa.AREA_FORMACAO_ID = :area';
-    params.area = area;
-    countParams.area = area;
-  }
+    // filtro de pesquisa
+    if (search && search.trim()) {
+      const term = `%${search.trim().toUpperCase()}%`;
 
-  // filtro de pesquisa
-  if (search && search.trim()) {
-    const term = `%${search.trim().toUpperCase()}%`;
-
-    whereClause += `
+      whereClause += `
       AND (
         UPPER(u.NOME) LIKE :search
         OR UPPER(u.EMAIL) LIKE :search
@@ -783,11 +782,11 @@ async listDocentes(filter: FilterDocenteDto) {
       )
     `;
 
-    params.search = term;
-    countParams.search = term;
-  }
+      params.search = term;
+      countParams.search = term;
+    }
 
-  const countSql = `
+    const countSql = `
     SELECT COUNT(DISTINCT d.CODIGO) AS total
     FROM FK2_MGD_TB_DOCENTE d
     LEFT JOIN FK2_MGD_TB_CANDIDATURA c
@@ -805,10 +804,13 @@ async listDocentes(filter: FilterDocenteDto) {
     ${whereClause}
   `;
 
-  const countResult = await this.dataSource.query(countSql, countParams as any);
-  const total = Number(countResult[0]?.TOTAL ?? 0);
+    const countResult = await this.dataSource.query(
+      countSql,
+      countParams as any,
+    );
+    const total = Number(countResult[0]?.TOTAL ?? 0);
 
-  const dataSql = `
+    const dataSql = `
     SELECT *
     FROM (
       SELECT
@@ -816,8 +818,19 @@ async listDocentes(filter: FilterDocenteDto) {
         d.N_MECANOGRAFICO AS numero_mec,
         u.NOME AS nome,
         u.EMAIL AS email,
+        d.FACULDADE    As faculdadeId,
+        d.TOTAL_ANO_EXPERIENCIA as ano_experiencia,
+        d.PROPOSTA_DE_CONTRATACAO  as proposta_contratacao,
+        d.VALORHORA                as valor_hora,
+        d.COD_CONTRATO             as codigo_contrato,
+        d.DATAINICIODOCENCIA       as data_inicio_docencia,
+        d.APRECIACAO               as apreciacao,
+        d.CODIGO_VALIDACAO         as codigo_validacao,
+        d.FK_CANDIDATURA           as candidaturaId,
         esc.DESIGNACAO AS escalao,
+        esc.CODIGO     As escalaoId,
         cat.DESIGNACAO AS categoria,
+        cat.CODIGO     As categoriaId,
         grau."Designacao" AS grau_academico,
         fa.AREA_FORMACAO_ID AS area_formacao_id,
         ROW_NUMBER() OVER (ORDER BY u.NOME ASC) AS rn
@@ -840,88 +853,88 @@ async listDocentes(filter: FilterDocenteDto) {
     ORDER BY rn
   `;
 
-  const result = await this.dataSource.query(dataSql, params as any);
+    const result = await this.dataSource.query(dataSql, params as any);
 
-  const data = result.map((row: any) => {
-    const { RN, ...item } = row;
-    return item;
-  });
+    const data = result.map((row: any) => {
+      const { RN, ...item } = row;
+      return item;
+    });
 
-  return {
-    data: await toLowerCaseKeys(data),
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
-  };
-}
+    return {
+      data: await toLowerCaseKeys(data),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
 
-async listDocentesRegentes(filter: FilterDocenteRegenteDto) {
-  const {
-    page = 1,
-    limit = 25,
-    ano_lectivo,
-    curso,
-    classe,
-    semestre,
-    estado = 0,
-    search,
-  } = filter;
+  async listDocentesRegentes(filter: FilterDocenteRegenteDto) {
+    const {
+      page = 1,
+      limit = 25,
+      ano_lectivo,
+      curso,
+      classe,
+      semestre,
+      estado = 0,
+      search,
+    } = filter;
 
-  const offset = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-  const params: Record<string, any> = {
-    offset,
-    limit_plus_offset: offset + limit,
-  };
+    const params: Record<string, any> = {
+      offset,
+      limit_plus_offset: offset + limit,
+    };
 
-  const countParams: Record<string, any> = {};
+    const countParams: Record<string, any> = {};
 
-  const anoLectivo = ano_lectivo ?? null;
-params.ano_lectivo = anoLectivo;
-countParams.ano_lectivo = anoLectivo;
+    const anoLectivo = ano_lectivo ?? null;
+    params.ano_lectivo = anoLectivo;
+    countParams.ano_lectivo = anoLectivo;
 
-  let whereClause = `WHERE g.STATUS_ NOT IN (0, 3)`;
+    let whereClause = `WHERE g.STATUS_ NOT IN (0, 3)`;
 
-  // ano lectivo
-  //if (ano_lectivo !== undefined && ano_lectivo !== null) {
+    // ano lectivo
+    //if (ano_lectivo !== undefined && ano_lectivo !== null) {
     //whereClause += ` AND a.FK_ANO_LECTIVO = :ano_lectivo`;
     //params.ano_lectivo = ano_lectivo;
     //countParams.ano_lectivo = ano_lectivo;
-  //}
+    //}
 
-  // curso
-  if (curso !== undefined && curso !== null && curso !== 0) {
-    whereClause += ` AND g.CODIGO_CURSO = :curso`;
-    params.curso = curso;
-    countParams.curso = curso;
-  }
+    // curso
+    if (curso !== undefined && curso !== null && curso !== 0) {
+      whereClause += ` AND g.CODIGO_CURSO = :curso`;
+      params.curso = curso;
+      countParams.curso = curso;
+    }
 
-  // classe / ano curricular
-  if (classe !== undefined && classe !== null && classe !== 0) {
-    whereClause += ` AND g.CODIGO_CLASSE = :classe`;
-    params.classe = classe;
-    countParams.classe = classe;
-  }
+    // classe / ano curricular
+    if (classe !== undefined && classe !== null && classe !== 0) {
+      whereClause += ` AND g.CODIGO_CLASSE = :classe`;
+      params.classe = classe;
+      countParams.classe = classe;
+    }
 
-  // semestre
-  if (semestre !== undefined && semestre !== null && semestre !== 0) {
-    whereClause += ` AND g.CODIGO_SEMESTRE = :semestre`;
-    params.semestre = semestre;
-    countParams.semestre = semestre;
-  }
+    // semestre
+    if (semestre !== undefined && semestre !== null && semestre !== 0) {
+      whereClause += ` AND g.CODIGO_SEMESTRE = :semestre`;
+      params.semestre = semestre;
+      countParams.semestre = semestre;
+    }
 
-  // estado
-  if (estado === 1) {
-    whereClause += ` AND a.PK_AFECTACAO IS NULL`;
-  } else if (estado === 2) {
-    whereClause += ` AND a.PK_AFECTACAO IS NOT NULL`;
-  }
+    // estado
+    if (estado === 1) {
+      whereClause += ` AND a.PK_AFECTACAO IS NULL`;
+    } else if (estado === 2) {
+      whereClause += ` AND a.PK_AFECTACAO IS NOT NULL`;
+    }
 
-  // search
-  if (search && search.trim()) {
-    const term = `%${search.trim().toUpperCase()}%`;
-    whereClause += `
+    // search
+    if (search && search.trim()) {
+      const term = `%${search.trim().toUpperCase()}%`;
+      whereClause += `
       AND (
         UPPER(NVL(u.NOME, 'N/A')) LIKE :search
         OR UPPER(dsc.DESIGNACAO) LIKE :search
@@ -930,11 +943,11 @@ countParams.ano_lectivo = anoLectivo;
         OR UPPER(c.DESIGNACAO) LIKE :search
       )
     `;
-    params.search = term;
-    countParams.search = term;
-  }
+      params.search = term;
+      countParams.search = term;
+    }
 
-  const countSql = `
+    const countSql = `
     SELECT COUNT(*) AS total
     FROM FK2_TB_GRADE_CURRICULAR g
     LEFT JOIN FK2_TB_CURSOS c
@@ -959,10 +972,13 @@ countParams.ano_lectivo = anoLectivo;
     ${whereClause}
   `;
 
-  const countResult = await this.dataSource.query(countSql, countParams as any);
-  const total = Number(countResult[0]?.TOTAL ?? 0);
+    const countResult = await this.dataSource.query(
+      countSql,
+      countParams as any,
+    );
+    const total = Number(countResult[0]?.TOTAL ?? 0);
 
-  const dataSql = `
+    const dataSql = `
     SELECT *
     FROM (
       SELECT
@@ -999,23 +1015,23 @@ countParams.ano_lectivo = anoLectivo;
     ORDER BY rn
   `;
 
-  const result = await this.dataSource.query(dataSql, params as any);
+    const result = await this.dataSource.query(dataSql, params as any);
 
-  const data = result.map((row: any) => {
-    const { RN, ...item } = row;
-    return item;
-  });
+    const data = result.map((row: any) => {
+      const { RN, ...item } = row;
+      return item;
+    });
 
-  return {
-    data: await toLowerCaseKeys(data),
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
-  };
-}
+    return {
+      data: await toLowerCaseKeys(data),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
 
-async listAreaFormacao(): Promise<any[]> {
+  async listAreaFormacao(): Promise<any[]> {
     const result = await this.dataSource.query(`
       SELECT
         CODIGO,
@@ -1025,5 +1041,4 @@ async listAreaFormacao(): Promise<any[]> {
 
     return await toLowerCaseKeys(result);
   }
-
 }
