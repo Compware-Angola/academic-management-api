@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { FilterCandidatoDto } from './dto/filter-candidato.dto';
 import { DataSource } from 'typeorm';
 import { UpdateCandidatoDto } from './dto/update-candidato.dto';
-import { createHash } from 'node:crypto';
+
 import { FilterCandidatoProvaDto } from './dto/filter-candidato-prova.dto';
 import { FilterProvaHoraDto } from './dto/filter-prova-hora.dto';
 import { FilterProvaResultadoDto } from './dto/filter-prova-resultado.dto';
@@ -10,7 +10,7 @@ import { FilterProvaMarcacaoDto } from './dto/filter-prova-marcacao.dto';
 
 @Injectable()
 export class ExamesDeAcessoService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   async buscaCandidatos(filtros: FilterCandidatoDto) {
     const condicoes: string[] = [];
@@ -146,13 +146,13 @@ export class ExamesDeAcessoService {
       documentos: documentosPorCandidato.get(candidato.NUMERO_INSCRICAO) ?? [],
     }));
 
-    return {
+    return this.toLower({
       data: dataComDocumentos,
       total: Number(total[0].TOTAL),
       page,
       limit,
       totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
-    };
+    });
   }
 
   private async buscaDocumentosDeCandidatos(ids: number[]) {
@@ -164,7 +164,7 @@ export class ExamesDeAcessoService {
     SELECT FK2_DOCUMENTOS_ADMISSAO.ID
          , FK2_DOCUMENTOS_ADMISSAO.TIPO_DOCUMENTO_ID            CODIGO_DOCUMENTO
          , FK2_TB_TIPO_DOCUMENTOS.DESIGNACAO                    TIPO_DOCUMENTO
-         , 'https://portal.mutue.net/storage/documentos/' || FK2_DOCUMENTOS_ADMISSAO.NOME_ARQUIVO               LINK
+         , FK2_DOCUMENTOS_ADMISSAO.NOME_ARQUIVO                 LINK
       FROM FK2_DOCUMENTOS_ADMISSAO
          , FK2_TB_TIPO_DOCUMENTOS
      WHERE FK2_DOCUMENTOS_ADMISSAO.TIPO_DOCUMENTO_ID = FK2_TB_TIPO_DOCUMENTOS.CODIGO
@@ -174,7 +174,7 @@ export class ExamesDeAcessoService {
     return this.dataSource.query(sql, ids);
   }
 
-  async atualizaCandidato(dto: UpdateCandidatoDto) {
+  async atualizaCandidato(dto: UpdateCandidatoDto, codigoCandidato: number) {
     const campos: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -254,8 +254,8 @@ export class ExamesDeAcessoService {
       params.push(dto.codigoTipoCandidatura);
     }
 
-    if (dto.atualizarSenha) {
-      await this.atualizarSenhaSeAnoLetivoAtivo(dto);
+    if (dto.senha) {
+      await this.atualizarSenhaSeAnoLetivoAtivo(dto, codigoCandidato);
     }
 
     if (campos.length === 0) {
@@ -263,7 +263,7 @@ export class ExamesDeAcessoService {
     }
 
     const whereIndex = paramIndex++;
-    params.push(dto.codigoCandidato);
+    params.push(codigoCandidato);
 
     const sql = `
     UPDATE FK2_TB_PREINSCRICAO
@@ -273,14 +273,13 @@ export class ExamesDeAcessoService {
 
     await this.dataSource.query(sql, params);
 
-    return this.buscaCandidatos({ codigoCandidato: dto.codigoCandidato, page: 1, limit: 1 });
+    return this.buscaCandidatos({ codigoCandidato, page: 1, limit: 1 });
   }
 
-  private async atualizarSenhaSeAnoLetivoAtivo(dto: UpdateCandidatoDto) {
+  private async atualizarSenhaSeAnoLetivoAtivo(dto: UpdateCandidatoDto, codigoCandidato: number) {
     const sqlSelect = `
-    SELECT FK2_TB_PREINSCRICAO.USER_ID          AS USER_ID
-         , FK2_TB_PREINSCRICAO.CONTACTOS_TELEFONICOS AS SENHA
-         , FK2_TB_ANO_LECTIVO.STATUS_           AS ESTADO_ANO_LECTIVO
+    SELECT FK2_TB_PREINSCRICAO.USER_ID AS USER_ID
+         , FK2_TB_ANO_LECTIVO.STATUS_  AS ESTADO_ANO_LECTIVO
       FROM FK2_TB_PREINSCRICAO
          , FK2_USERS
          , FK2_TB_ANO_LECTIVO
@@ -290,20 +289,20 @@ export class ExamesDeAcessoService {
   `;
 
     const rows = await this.dataSource.query(sqlSelect, [
-      dto.codigoCandidato,
+      codigoCandidato,
     ]);
 
     if (!rows.length) {
       return;
     }
 
-    const { USER_ID, SENHA, ESTADO_ANO_LECTIVO } = rows[0];
+    const { USER_ID, ESTADO_ANO_LECTIVO } = rows[0];
 
-    if (ESTADO_ANO_LECTIVO !== 1) {
-      return;
-    }
+    // if (ESTADO_ANO_LECTIVO !== 1) {
+    //   return;
+    // }
 
-    const senhaHash = this.md5(SENHA?.toString() ?? '');
+    const senhaHash = await this.hashSenha(dto.senha ?? '');
 
     const sqlUpdate = `
     UPDATE FK2_USERS
@@ -314,8 +313,14 @@ export class ExamesDeAcessoService {
     await this.dataSource.query(sqlUpdate, [senhaHash, USER_ID]);
   }
 
-  private md5(value: string): string {
-    return createHash('md5').update(value).digest('hex');
+  private async hashSenha(valor: string): Promise<string> {
+    const response = await fetch('http://192.168.30.45:3003/api/hash', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texto: valor }),
+    });
+    const data = await response.json();
+    return data.hash;
   }
 
   async buscaCandidatosProvas(filtros: FilterCandidatoProvaDto) {
@@ -409,13 +414,13 @@ export class ExamesDeAcessoService {
       this.dataSource.query(sqlCount, params.slice(0, -2)),
     ]);
 
-    return {
+    return this.toLower({
       data,
       total: Number(total[0].TOTAL),
       page,
       limit,
       totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
-    };
+    });
   }
 
   async buscaProvaHorarios(filtros: FilterProvaHoraDto) {
@@ -496,13 +501,13 @@ export class ExamesDeAcessoService {
       this.dataSource.query(sqlCount, params.slice(0, -2)),
     ]);
 
-    return {
+    return this.toLower({
       data,
       total: Number(total[0].TOTAL),
       page,
       limit,
       totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
-    };
+    });
   }
 
   async buscaProvaResultados(filtros: FilterProvaResultadoDto) {
@@ -626,13 +631,13 @@ export class ExamesDeAcessoService {
       this.dataSource.query(sqlCount, params.slice(0, -2)),
     ]);
 
-    return {
+    return this.toLower({
       data,
       total: Number(total[0].TOTAL),
       page,
       limit,
       totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
-    };
+    });
   }
 
   async buscaProvaMarcacoes(filtros: FilterProvaMarcacaoDto) {
@@ -769,12 +774,27 @@ export class ExamesDeAcessoService {
       this.dataSource.query(sqlCount, params.slice(0, -2)),
     ]);
 
-    return {
+    return this.toLower({
       data,
       total: Number(total[0].TOTAL),
       page,
       limit,
       totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
-    };
+    });
+  }
+
+  private toLower(data: any): any {
+    if (Array.isArray(data)) {
+      return data.map((item) => this.toLower(item));
+    }
+    if (data !== null && typeof data === 'object') {
+      return Object.fromEntries(
+        Object.entries(data).map(([key, value]) => [
+          key.toLowerCase(),
+          this.toLower(value),
+        ]),
+      );
+    }
+    return data;
   }
 }

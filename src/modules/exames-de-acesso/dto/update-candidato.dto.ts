@@ -1,5 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class UpdateCandidatoDto {
   @ApiPropertyOptional({
@@ -122,18 +122,12 @@ export class UpdateCandidatoDto {
   @IsNumber()
   codigoTipoCandidatura?: number;
 
-  @ApiProperty({
-    description: 'Código do candidato (FK2_TB_PREINSCRICAO.CODIGO)',
-    example: 12345,
-  })
-  @IsNumber()
-  codigoCandidato?: number;
 
-  @ApiProperty({
-    description: 'Atualizar a senha para o número de telefone do candidato',
-    example: true,
+  @ApiPropertyOptional({
+    description: 'Nova senha do candidato',
+    example: 'NovaSenha@123',
   })
   @IsOptional()
-  @IsBoolean()
-  atualizarSenha?: boolean;
+  @IsString()
+  senha?: string;
 }
