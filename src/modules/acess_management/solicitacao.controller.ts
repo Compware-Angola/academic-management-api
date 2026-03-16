@@ -14,6 +14,7 @@ import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { FetchServicosSolicDTO } from './dto/listar-servicos-solicitacao.dto';
 import { CreateAvisoUmaDto } from './dto/create.aviso.dto';
+import { ListAllSolicitacoesDto } from './dto/listar-solicitacao.dto';
 
 @ApiTags('solicitacao')
 @Controller('solicitacoa')
@@ -72,19 +73,13 @@ export class SolicitacaoController {
     );
   }
 
-  @Get('all-solicitacoes')
-  @RequiredPermissions(PermissionTypeDetails.LISTAR_SOLICITACOES.sigla)
-  @ApiOperation({ summary: 'Listar todas as solicitações' })
-  @ApiResponse({ status: 200 })
-  async findAllSolicitacoes(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-  ) {
-    return this.solicitacaoService.listarOnlySolicitacoes({
-      page: Number(page),
-      limit: Number(limit),
-    });
-  }
+@Get('all-solicitacoes')
+@RequiredPermissions(PermissionTypeDetails.LISTAR_SOLICITACOES.sigla)
+@ApiOperation({ summary: 'Listar todas as solicitações' })
+@ApiResponse({ status: 200 })
+async findAllSolicitacoes(@Query() query: ListAllSolicitacoesDto) {
+  return this.solicitacaoService.listarOnlySolicitacoes(query);
+}
 
   @Get('avisos')
   @ApiOperation({ summary: 'Listar avisos com paginação' })
@@ -114,10 +109,11 @@ export class SolicitacaoController {
     @Req() req: any,
   ) {
     const userId = req.user?.userId
-    return this.solicitacaoService.createAvisoUma({
-      ...dto,
-      userId
-    });
+    //console.log("ID USER", userId)
+    console.log("Backend: ", dto.userId)
+    return this.solicitacaoService.createAvisoUma(
+      dto
+    );
   }
 
   @Get('roles')

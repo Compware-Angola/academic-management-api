@@ -836,4 +836,15 @@ countParams.ano_lectivo = anoLectivo;
   };
 }
 
+async listAreaFormacao(): Promise<any[]> {
+    const result = await this.dataSource.query(`
+      SELECT
+        CODIGO,
+        DESIGNACAO
+      FROM FK2_TB_AREA_FORMACAO
+    `);
+
+    return await toLowerCaseKeys(result);
+  }
+
 }

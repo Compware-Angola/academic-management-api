@@ -101,5 +101,12 @@ async listDocentes(@Query() dto: FilterDocenteDto) {
 async listDocentesRegentes(@Query() dto: FilterDocenteRegenteDto) {
   return this.service.listDocentesRegentes(dto);
 }
+
+  @Get('area-formacao-all')
+  @ApiOperation({ summary: 'Listar todas as áreas de formação ativas' })
+  @ApiResponse({ status: 200 })
+  async areaFormacao() {
+    return this.service.listAreaFormacao();
+  }
   
 }

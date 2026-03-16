@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
   IsNotEmpty,
@@ -10,18 +11,33 @@ export class CreateAvisoUmaDto {
 
   @IsString()
   @IsNotEmpty()
+  @ApiPropertyOptional({
+      description: 'Assunto',
+      example: "Todos os estudantes devem pagar as propinas, caso contrário não farão prova",
+    })
   assunto: string;
 
   @IsDateString()
   @IsOptional()
+  @ApiPropertyOptional({
+    description: 'Data de expiração do aviso'
+  })
   date_expiracao?: Date;
 
   @IsNumber()
   @IsOptional()
+  @ApiPropertyOptional({
+    description: 'Utilizador que criou o aviso',
+    example: 146,
+  })
   userId?: number;
 
   @IsString()
   @IsNotEmpty()
+  @ApiPropertyOptional({
+    description: 'Descrição do aviso',
+    example: "É importante que levem a sério este aviso",
+  })
   descricao: string;
 
   @IsString()
