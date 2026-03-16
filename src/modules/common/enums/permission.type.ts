@@ -230,7 +230,7 @@ export const PermissionTypeDetails = {
   FULL_ACCESS: { designacao: 'Todos os acesso', sigla: 'full.access' },
   ATRIBUIR_PROVA: { designacao: "Atribuir Prova", sigla: "mgea_atp" },
   LANCAMENTO_NOTAS_AVALIACOES: { designacao: "Lançamento de Notas de Avaliações", sigla: "mga_a_lan" },
-  TESTE: { designacao: "teste", sigla: "d" },
+  VALIDACAO_HORARIO: { designacao: "Validação de Horário", sigla: "mga_h_val" },
   ESTATISTICA_CANDIDATOS_INSCRITOS: { designacao: "Estatistica De Candidatos Inscritos", sigla: "mgea_e" },
   ESTATISTICA_CANDIDATOS_POR_DIA: { designacao: "Estatistica De Candidatos Inscritos Por Dia", sigla: "mgea_ed" },
   MOVIMENTAR_ESTUDANTES_POR_HORARIO: { designacao: "Movimentar Estudantes Por Horário", sigla: "mgim_a_meph" },

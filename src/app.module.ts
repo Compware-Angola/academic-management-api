@@ -27,6 +27,8 @@ import { BullConfigModule } from './modules/bull/bull.module';
 import { DocenteGestaoModule } from './modules/docente_gestao/docente_gestao.module';
 import { PlanoEstudoModule } from './modules/plano_estudo/plano_estudo.module';
 import { DropdownFiltersModule } from './modules/shared/dropdown_filters/dropdown_filters.module';
+import { ExamesDeAcessoModule } from './modules/exames-de-acesso/exames-de-acesso.module';
+import { StatisticsReportsModule } from './modules/shared/statistics-reports/statistics-reports.module';
 
 
 @Module({
@@ -93,6 +95,8 @@ import { DropdownFiltersModule } from './modules/shared/dropdown_filters/dropdow
     DocenteGestaoModule,
     PlanoEstudoModule,
     DropdownFiltersModule,
+    ExamesDeAcessoModule,
+    StatisticsReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService],
