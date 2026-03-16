@@ -27,7 +27,9 @@ import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 
 
+
 @ApiTags('docente-gestao')
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('docente-gestao')
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 export class DocenteGestaoController {
