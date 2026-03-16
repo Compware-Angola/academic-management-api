@@ -15,17 +15,28 @@ import {
 } from '@nestjs/common';
 import { DocenteGestaoService } from './docente_gestao.service';
 import { FindParametrosDocenteTO } from './dto/find-parametros-docente.dto';
+<<<<<<< HEAD
 import { ApiOperation, ApiTags, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
+=======
+
+>>>>>>> 96d5fe3 (feat: conflict solved)
 import { UpdateAfectacaoDTO } from './dto/update-afectacao.dto';
 import { FindAfectacaoDTO } from './dto/find-afectacao.dto';
 import { FindDocenteAfectacaoDTO } from './dto/find-docente-afectacao.dto';
 import { UpdateDocenteDto } from './dto/update-docente.dto';
 import { FilterDocenteDto } from './dto/filter-docente.dto';
 import { FilterDocenteRegenteDto } from './dto/filter-docente-regente.dto';
+<<<<<<< HEAD
 import { CreateAfectacaoDTO } from './dto/create-afectaco.dto';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 
+=======
+import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { CreateAfectacaoDTO } from './dto/create-afectaco.dto';
+>>>>>>> 96d5fe3 (feat: conflict solved)
 
 @ApiTags('docente-gestao')
 @Controller('docente-gestao')
@@ -98,7 +109,10 @@ export class DocenteGestaoController {
   ) {
     return this.service.updateDocente(codigo, dto);
   }
+<<<<<<< HEAD
 
+=======
+>>>>>>> 96d5fe3 (feat: conflict solved)
 
 @Get('docentes')
 @ApiOperation({ summary: 'Listar todos os professores por área de formação' })
@@ -129,6 +143,7 @@ async listDocentesRegentes(@Query() dto: FilterDocenteRegenteDto) {
     return this.service.listAreaFormacao();
   }
   
+<<<<<<< HEAD
   @Get('docente/:codigo')
   @ApiOperation({
     summary: 'Obter o docente pelo Id',
@@ -139,4 +154,7 @@ async listDocentesRegentes(@Query() dto: FilterDocenteRegenteDto) {
     return this.service.findByIdDocente(codigo);
   }
 
+=======
+  
+>>>>>>> 96d5fe3 (feat: conflict solved)
 }
