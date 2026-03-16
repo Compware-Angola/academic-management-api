@@ -145,6 +145,7 @@ export class DefenseManagementTfcService {
         AND (TO_NUMBER(JSON_VALUE(o.REF_ANO_LECTIVO, '$.pk')) = :anoId OR :anoId IS NULL)
         AND (TO_NUMBER(JSON_VALUE(o.REF_CURSO, '$.pk')) = :cursoId OR :cursoId IS NULL)
         AND (o.ESTADO_ORIENTADOR = :estado OR :estado IS NULL)
+        AND (o.DELETED_AT IS NULL)
     `;
 
     const sql = `
