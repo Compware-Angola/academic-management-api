@@ -107,7 +107,7 @@ async listDocentes(@Query() dto: FilterDocenteDto) {
   return this.service.listDocentes(dto);
 }
 
-@Get('docentes-regentes')
+@Get('regentes')
 @ApiOperation({ summary: 'Listar docentes regentes com filtros' })
 @ApiResponse({ status: 200 })
 @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
