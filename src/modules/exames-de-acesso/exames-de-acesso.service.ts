@@ -7,6 +7,7 @@ import { FilterCandidatoProvaDto } from './dto/filter-candidato-prova.dto';
 import { FilterProvaHoraDto } from './dto/filter-prova-hora.dto';
 import { FilterProvaResultadoDto } from './dto/filter-prova-resultado.dto';
 import { FilterProvaMarcacaoDto } from './dto/filter-prova-marcacao.dto';
+import { gerarHashExterno } from '../util/hash.util';
 
 @Injectable()
 export class ExamesDeAcessoService {
@@ -314,13 +315,7 @@ export class ExamesDeAcessoService {
   }
 
   private async hashSenha(valor: string): Promise<string> {
-    const response = await fetch('http://192.168.30.45:3003/api/hash', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texto: valor }),
-    });
-    const data = await response.json();
-    return data.hash;
+    return gerarHashExterno(valor);
   }
 
   async buscaCandidatosProvas(filtros: FilterCandidatoProvaDto) {
