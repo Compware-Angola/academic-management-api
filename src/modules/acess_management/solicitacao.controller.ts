@@ -1,9 +1,9 @@
 // src/users/referencias.controller.ts
 
-import {  BadRequestException, Param, Put, Req } from '@nestjs/common';
+import {  BadRequestException, Param, ParseIntPipe, Patch, Put, Req } from '@nestjs/common';
 
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SolicitacaoService } from './solicitacao.service';
 import { FetchEncaminhamentoSolicitacaoDTO } from './dto/fetch-encaminhamento-solicitacao.dto';
 import { RejectarEncaminhamentoSolicitacaoDTO } from './dto/rejectar-encaminhamento-solicitacao.dto';
@@ -166,5 +166,41 @@ async uploadAvisoImagem(
   ) {
     return this.solicitacaoService.updateAvisoUma(Number(id), dto);
   }
+
+@Get('avisos-por-grupo')
+@ApiOperation({ summary: 'Listar avisos por grupo' })
+@ApiQuery({ name: 'grupoId', required: true, type: Number })
+@ApiQuery({ name: 'curso', required: false, type: Number })
+@ApiQuery({ name: 'periodo', required: false, type: Number })
+async listarAvisosPorGrupo(
+  @Query('grupoId') grupoId: number,
+  @Query('curso') curso?: number,
+  @Query('periodo') periodo?: number,
+) {
+  return this.solicitacaoService.listarAvisosPorGrupo({
+    grupoId: Number(grupoId),
+    curso: curso ? Number(curso) : undefined,
+    periodo: periodo ? Number(periodo) : undefined,
+  });
+}
+
+@Patch('aviso/:id/status')
+@ApiOperation({ summary: 'Ativar ou desativar aviso' })
+@ApiParam({ name: 'id', type: Number, example: 1 })
+@ApiBody({
+  schema: {
+    type: 'object',
+    properties: {
+      status: { type: 'number', example: 1 },
+    },
+    required: ['status'],
+  },
+})
+async alterarStatusAviso(
+  @Param('id', ParseIntPipe) id: number,
+  @Body('status') status: number,
+) {
+  return this.solicitacaoService.alterarStatusAviso(id, status);
+}
 
 }

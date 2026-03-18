@@ -1,5 +1,5 @@
 // src/users/referencias.service.ts
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FetchEncaminhamentoSolicitacaoDTO } from './dto/fetch-encaminhamento-solicitacao.dto';
@@ -560,6 +560,7 @@ async listarAvisos(
     SELECT 
       AVS.ID AS CODIGO,
       AVS.ASSUNTO,
+      AVS.STATUS_,
       AVS.DESCRICAO,
       U.NOME,
       C.DESIGNACAO AS CURSO,
@@ -778,5 +779,92 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
 
     return { message: 'Aviso atualizado com sucesso' };
   }
+
+  async listarAvisosPorGrupo(params: {
+  grupoId: number;
+  curso?: number;
+  periodo?: number;
+}) {
+  const { grupoId, curso, periodo } = params;
+
+  let whereClause = `WHERE AVS.STATUS_ = 1 AND AVS.DESTINO = :grupoId`;
+  const queryParams: Record<string, any> = { grupoId };
+
+  if (curso && curso !== 0) {
+    whereClause += ` AND (AVS.CURSO = :curso OR AVS.CURSO = 0 OR AVS.CURSO IS NULL)`;
+    queryParams.curso = curso;
+  }
+
+  if (periodo && periodo !== 0) {
+    whereClause += ` AND (AVS.PERIODO = :periodo OR AVS.PERIODO = 0 OR AVS.PERIODO IS NULL)`;
+    queryParams.periodo = periodo;
+  }
+
+  const sql = `
+    SELECT
+      AVS.ID AS CODIGO,
+      AVS.ASSUNTO,
+      AVS.DESCRICAO,
+      AVS.FILE_NAME,
+      AVS.DATE_EXPIRACAO,
+      AVS.DESTINO,
+      AVS.CURSO,
+      AVS.PERIODO,
+      U.NOME AS AUTOR,
+      C.DESIGNACAO AS CURSO_NOME,
+      R.NAME AS DESTINO_NOME
+    FROM FK2_TB_AVISO_UMA AVS
+    LEFT JOIN FK2_MCA_TB_UTILIZADOR U
+      ON AVS.USER_ID = U.PK_UTILIZADOR
+    LEFT JOIN FK2_TB_CURSOS C
+      ON AVS.CURSO = C.CODIGO
+    LEFT JOIN FK2_ROLES R
+      ON R.ID = AVS.DESTINO
+    ${whereClause}
+    ORDER BY AVS.ID DESC
+  `;
+
+  const result = await this.dataSource.query(sql, queryParams as any);
+  return result;
+}
+
+async alterarStatusAviso(
+  id: number,
+  status: number,
+): Promise<{ message: string }> {
+  if (status !== 0 && status !== 1) {
+    throw new BadRequestException('O status deve ser 0 ou 1');
+  }
+
+  const exists = await this.dataSource.query(
+    `
+    SELECT ID, STATUS_
+    FROM FK2_TB_AVISO_UMA
+    WHERE ID = :id
+    `,
+    { id } as any,
+  );
+
+  if (!exists.length) {
+    throw new NotFoundException(`Aviso com ID ${id} não encontrado`);
+  }
+
+  await this.dataSource.query(
+    `
+    UPDATE FK2_TB_AVISO_UMA
+    SET STATUS_ = :status,
+        UPDATED_AT = SYSDATE
+    WHERE ID = :id
+    `,
+    { id, status } as any,
+  );
+
+  return {
+    message:
+      status === 1
+        ? 'Aviso ativado com sucesso'
+        : 'Aviso desativado com sucesso',
+  };
+}
 
 }
