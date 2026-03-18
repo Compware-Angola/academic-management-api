@@ -464,56 +464,154 @@ export class SolicitacaoService {
   return result;
 }
 
-  async listarOnlySolicitacoes(params?: { limit?: number; page?: number },) {
-    const { limit = 10, page = 1 } = params || {};
-  const offset = (page - 1) * limit;
+  async listarOnlySolicitacoes(params: {
+  limit?: number;
+  page?: number;
+  estadoSolicitacao: string;
+  tipoServicoSelecionado: number;
+  userId: number;
+}) {
+  const {
+    limit = 10,
+    page = 1,
+    estadoSolicitacao,
+    tipoServicoSelecionado,
+    userId,
+  } = params;
+
+  const safePage = Number(page) > 0 ? Number(page) : 1;
+  const safeLimit = Number(limit) > 0 ? Number(limit) : 10;
+  const offset = (safePage - 1) * safeLimit;
+
+  const grupos = await this.buscarCodigosGrupoDoUtilizador(userId);
+  const destinos = this.resolverDestinosPorGrupo(grupos);
+
+  if (destinos.length === 0) {
+    return {
+      data: [],
+      total: 0,
+      page: safePage,
+      limit: safeLimit,
+      totalPages: 0,
+    };
+  }
+
+  const queryParams: any = {
+    estadoSolicitacao,
+    tipoServicoSelecionado,
+    offset,
+    limit: safeLimit,
+  };
+
+  const destinoConditions = destinos
+    .map((_, index) => {
+      const key = `destino${index}`;
+      queryParams[key] = destinos[index];
+      return `FK_TB_S.DESTINO = :${key}`;
+    })
+    .join(' OR ');
 
   const sql = `
-    SELECT 
-      NAME, 
-      SER.DESCRICAO               AS DESCRICAO_SERVICO, 
-      FK_TB_S.CODIGO_MATRICULA    AS MATRICULA, 
-      FK_TB_S.DATA_SOLICITACAO    AS DATA_DE_SOLICITACAO,
-      C.DESIGNACAO                AS CURSO
+    SELECT
+      FK_TB_S.ID                   AS CODIGO_SOLICITACAO,
+      USRS.NAME                    AS NOME,
+      SER.DESCRICAO                AS DESCRICAO_SERVICO,
+      FK_TB_S.CODIGO_MATRICULA     AS MATRICULA,
+      FK_TB_S.DATA_SOLICITACAO     AS DATA_DE_SOLICITACAO,
+      C.DESIGNACAO                 AS CURSO,
+      FK_TB_S.STATUS_              AS ESTADO,
+      FK_TB_S.DESTINO              AS DESTINO
     FROM FK2_TB_SOLICITACAO_UMA FK_TB_S
-
       INNER JOIN FK2_USERS USRS
         ON FK_TB_S.USER_ID = USRS.ID
-
       LEFT JOIN FK2_TB_MATRICULAS M
-        ON M.CODIGO_ALUNO = USRS.ID
-
+        ON M.CODIGO = FK_TB_S.CODIGO_MATRICULA
       LEFT JOIN FK2_TB_CURSOS C
         ON C.CODIGO = M.CODIGO_CURSO
-
       LEFT JOIN FK2_TB_TIPO_SERVICOS SER
         ON SER.CODIGO = FK_TB_S.CODIGOTIPOSERVICO
-
+    WHERE
+      (${destinoConditions})
+      AND FK_TB_S.STATUS_ = :estadoSolicitacao
+      AND (
+        FK_TB_S.CODIGOTIPOSERVICO = :tipoServicoSelecionado
+        OR :tipoServicoSelecionado = 404
+      )
+      AND FK_TB_S.CODIGOTIPOSERVICO IS NOT NULL
     ORDER BY FK_TB_S.DATA_SOLICITACAO DESC
-    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+    OFFSET ${offset} ROWS FETCH NEXT ${safeLimit} ROWS ONLY
   `;
 
   const sqlCount = `
     SELECT COUNT(*) AS TOTAL
-    FROM FK2_TB_SOLICITACAO_UMA
+    FROM FK2_TB_SOLICITACAO_UMA FK_TB_S
+    WHERE
+      (${destinoConditions})
+      AND FK_TB_S.STATUS_ = :estadoSolicitacao
+      AND (
+        FK_TB_S.CODIGOTIPOSERVICO = :tipoServicoSelecionado
+        OR :tipoServicoSelecionado = 404
+      )
+      AND FK_TB_S.CODIGOTIPOSERVICO IS NOT NULL
   `;
 
   const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql),
-    this.dataSource.query(sqlCount),
+    this.dataSource.query(sql, queryParams),
+    this.dataSource.query(sqlCount, queryParams),
   ]);
 
-  const total = Number(countResult[0].TOTAL);
-  const totalPages = Math.ceil(total / limit);
+  const total = Number(countResult[0]?.TOTAL ?? 0);
+  const totalPages = Math.ceil(total / safeLimit);
 
   return {
-    data: result,
+    data: await toLowerCaseKeys(result),
     total,
-    page,
-    limit,
+    page: safePage,
+    limit: safeLimit,
     totalPages,
   };
 }
+
+private resolverDestinosPorGrupo(grupos: number[]): string[] {
+    const grupoSet = new Set(grupos);
+
+    const podeVerReitoria =
+      grupoSet.has(1) ||
+      grupoSet.has(4375) ||
+      grupoSet.has(17) ||
+      grupoSet.has(4453);
+
+    const podeVerTesouraria =
+      grupoSet.has(1) ||
+      grupoSet.has(4375) ||
+      grupoSet.has(9) ||
+      grupoSet.has(14) ||
+      grupoSet.has(4453);
+
+    const destinos: string[] = [];
+
+    if (podeVerReitoria) {
+      destinos.push('Reitoria');
+    }
+
+    if (podeVerTesouraria) {
+      destinos.push('Tesouraria');
+    }
+
+    return destinos;
+  }
+
+  private async buscarCodigosGrupoDoUtilizador(userId: number): Promise<number[]> {
+    const sql = `
+      SELECT CODIGO_GRUPO
+      FROM FK2_MCA_TB_GRUPO_UTILIZADOR
+      WHERE CODIGO_UTILIZADOR = :userId
+    `;
+
+    const result = await this.dataSource.query(sql, { userId } as any);
+
+    return result.map((item: any) => Number(item.CODIGO_GRUPO));
+  }
 
 async listarAvisos(
   params?: { limit?: number; page?: number },
@@ -523,17 +621,24 @@ async listarAvisos(
 
   const sql = `
     SELECT 
+      AVS.ID AS CODIGO,
       AVS.ASSUNTO,
       AVS.DESCRICAO,
-      USRS.NAME,
-      C.DESIGNACAO AS CURSO
+      U.NOME,
+      C.DESIGNACAO AS CURSO,
+      R.NAME AS DESTINO,
+      AVS.PERIODO,
+      AVS.DATE_EXPIRACAO
     FROM FK2_TB_AVISO_UMA AVS
 
-      LEFT JOIN FK2_USERS USRS
-        ON AVS.USER_ID = USRS.ID
+      LEFT JOIN FK2_MCA_TB_UTILIZADOR U
+        ON AVS.USER_ID = U.PK_UTILIZADOR
 
       LEFT JOIN FK2_TB_CURSOS C
         ON AVS.CURSO = C.CODIGO
+
+      LEFT JOIN FK2_ROLES R
+        ON R.ID = AVS.DESTINO
 
     ORDER BY AVS.ID DESC
     OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
@@ -562,62 +667,73 @@ async listarAvisos(
 }
 
 async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
-  await this.dataSource.query(
-    `
-    INSERT INTO FK2_TB_AVISO_UMA (
-      ASSUNTO,
-      DATE_EXPIRACAO,
-      USER_ID,
-      DESCRICAO,
-      SIGLA,
-      FILE_NAME,
-      DESTINO,
-      CURSO,
-      PERIODO,
-      CREATED_AT,
-      UPDATED_AT,
-      CANAL,
-      STATUS_,
-      ORIGEM
-    )
-    VALUES (
-      :assunto,
-      :dateExpiracao,
-      :userId,
-      :descricao,
-      :sigla,
-      :fileName,
-      :destino,
-      :curso,
-      :periodo,
-      SYSDATE,
-      SYSDATE,
-      :canal,
-      :status,
-      :origem
-    )
-    `,
-    {
-      assunto: dto.assunto.trim(),
-      dateExpiracao: dto.date_expiracao
-      ? new Date(dto.date_expiracao)
-      : null,
-      userId: dto.userId ?? null,
-      descricao: dto.descricao.trim(),
-      sigla: dto.sigla ?? null,
-      fileName: dto.fileName ?? null,
-      destino: dto.destino ?? null,
-      curso: dto.curso ?? null,
-      periodo: dto.periodo ?? null,
-      canal: dto.canal ?? null,
-      status: dto.status ?? 1,
-      origem: dto.origem ?? null,
-    } as any,
-  );
+    // aceita date_expiracao ou dateExpiracao
+    const rawDateExpiracao: any =
+      (dto as any).date_expiracao ?? (dto as any).dateExpiracao ?? null;
+    const dateExpiracaoParam = rawDateExpiracao
+      ? new Date(rawDateExpiracao)
+      : null;
 
-  return { message: 'Aviso criado com sucesso' };
-}
+    // aceita userId, user_id ou authorId
+    const userIdParam =
+      (dto as any).userId ??
+      (dto as any).user_id ??
+      (dto as any).authorId ??
+      null;
 
+    await this.dataSource.query(
+      `
+      INSERT INTO FK2_TB_AVISO_UMA (
+        ASSUNTO,
+        DATE_EXPIRACAO,
+        USER_ID,
+        DESCRICAO,
+        SIGLA,
+        FILE_NAME,
+        DESTINO,
+        CURSO,
+        PERIODO,
+        CREATED_AT,
+        UPDATED_AT,
+        CANAL,
+        STATUS_,
+        ORIGEM
+      )
+      VALUES (
+        :assunto,
+        :dateExpiracao,
+        :userId,
+        :descricao,
+        :sigla,
+        :fileName,
+        :destino,
+        :curso,
+        :periodo,
+        SYSDATE,
+        SYSDATE,
+        :canal,
+        :status,
+        :origem
+      )
+      `,
+      {
+        assunto: dto.assunto.trim(),
+        dateExpiracao: dateExpiracaoParam,
+        userId: dto.userId ?? null,
+        descricao: dto.descricao.trim(),
+        sigla: dto.sigla ?? null,
+        fileName: dto.fileName ?? null,
+        destino: dto.destino ?? null,
+        curso: dto.curso ?? null,
+        periodo: dto.periodo ?? null,
+        canal: dto.canal ?? null,
+        status: dto.status ?? 1,
+        origem: dto.origem ?? null,
+      } as any,
+    );
+
+    return { message: 'Aviso criado com sucesso' };
+  }
 
     async listarRoles(): Promise<any[]> {
     const sql = `
@@ -670,5 +786,60 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
 
   return result[0].FILE_NAME;
 }
+
+ async updateAvisoUma(
+    id: number,
+    dto: CreateAvisoUmaDto,
+  ): Promise<{ message: string }> {
+    const rawDateExpiracao: any =
+      (dto as any).date_expiracao ?? (dto as any).dateExpiracao ?? null;
+    const dateExpiracaoParam = rawDateExpiracao
+      ? new Date(rawDateExpiracao)
+      : null;
+
+    const userIdParam =
+      (dto as any).userId ??
+      (dto as any).user_id ??
+      (dto as any).authorId ??
+      null;
+
+    await this.dataSource.query(
+      `
+      UPDATE FK2_TB_AVISO_UMA
+      SET
+        ASSUNTO = :assunto,
+        DATE_EXPIRACAO = :dateExpiracao,
+        USER_ID = :userId,
+        DESCRICAO = :descricao,
+        SIGLA = :sigla,
+        FILE_NAME = :fileName,
+        DESTINO = :destino,
+        CURSO = :curso,
+        PERIODO = :periodo,
+        UPDATED_AT = SYSDATE,
+        CANAL = :canal,
+        STATUS_ = :status,
+        ORIGEM = :origem
+      WHERE ID = :id
+      `,
+      {
+        id,
+        assunto: dto.assunto?.trim(),
+        dateExpiracao: dateExpiracaoParam,
+        userId: userIdParam,
+        descricao: dto.descricao?.trim(),
+        sigla: dto.sigla ?? null,
+        fileName: dto.fileName ?? null,
+        destino: dto.destino ?? null,
+        curso: dto.curso ?? null,
+        periodo: dto.periodo ?? null,
+        canal: dto.canal ?? null,
+        status: dto.status ?? 1,
+        origem: dto.origem ?? null,
+      } as any,
+    );
+
+    return { message: 'Aviso atualizado com sucesso' };
+  }
 
 }

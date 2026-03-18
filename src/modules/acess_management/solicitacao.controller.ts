@@ -1,6 +1,6 @@
 // src/users/referencias.controller.ts
 
-import {  BadRequestException } from '@nestjs/common';
+import {  BadRequestException, Param, Put, Req } from '@nestjs/common';
 
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -14,6 +14,7 @@ import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { FetchServicosSolicDTO } from './dto/listar-servicos-solicitacao.dto';
 import { CreateAvisoUmaDto } from './dto/create.aviso.dto';
+import { ListAllSolicitacoesDto } from './dto/listar-solicitacao.dto';
 
 @ApiTags('solicitacao')
 @Controller('solicitacoa')
@@ -72,19 +73,13 @@ export class SolicitacaoController {
     );
   }
 
-  @Get('all-solicitacoes')
-  @RequiredPermissions(PermissionTypeDetails.LISTAR_SOLICITACOES.sigla)
-  @ApiOperation({ summary: 'Listar todas as solicitações' })
-  @ApiResponse({ status: 200 })
-  async findAllSolicitacoes(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-  ) {
-    return this.solicitacaoService.listarOnlySolicitacoes({
-      page: Number(page),
-      limit: Number(limit),
-    });
-  }
+@Get('all-solicitacoes')
+@RequiredPermissions(PermissionTypeDetails.LISTAR_SOLICITACOES.sigla)
+@ApiOperation({ summary: 'Listar todas as solicitações' })
+@ApiResponse({ status: 200 })
+async findAllSolicitacoes(@Query() query: ListAllSolicitacoesDto) {
+  return this.solicitacaoService.listarOnlySolicitacoes(query);
+}
 
   @Get('avisos')
   @ApiOperation({ summary: 'Listar avisos com paginação' })
@@ -109,8 +104,16 @@ export class SolicitacaoController {
     status: 400,
     description: 'Dados inválidos',
   })
-  async criarAviso(@Body() dto: CreateAvisoUmaDto) {
-    return this.solicitacaoService.createAvisoUma(dto);
+  async criarAviso(
+    @Body() dto: CreateAvisoUmaDto,
+    @Req() req: any,
+  ) {
+    const userId = req.user?.userId
+    //console.log("ID USER", userId)
+    console.log("Backend: ", dto.userId)
+    return this.solicitacaoService.createAvisoUma(
+      dto
+    );
   }
 
   @Get('roles')
@@ -153,5 +156,15 @@ async uploadAvisoImagem(
         filename: fileName,
       };
     }
+
+  @Put('aviso/:id')
+  @ApiOperation({ summary: 'Editar aviso existente' })
+  @ApiResponse({ status: 200, description: 'Aviso atualizado com sucesso' })
+  async editarAviso(
+    @Param('id') id: number,
+    @Body() dto: CreateAvisoUmaDto,
+  ) {
+    return this.solicitacaoService.updateAvisoUma(Number(id), dto);
+  }
 
 }
