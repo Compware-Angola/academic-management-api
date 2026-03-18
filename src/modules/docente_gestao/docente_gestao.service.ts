@@ -749,16 +749,10 @@ export class DocenteGestaoService {
     const { page = 1, limit = 25, area, search } = filter;
     const offset = (page - 1) * limit;
 
-<<<<<<< HEAD
-  async listDocentes(filter: FilterDocenteDto) {
-  const { page = 1, limit = 25, area, search } = filter;
-  const offset = (page - 1) * limit;
-=======
     const params: Record<string, any> = {
       offset,
       limit_plus_offset: offset + limit,
     };
->>>>>>> b4142b4d93f16b15f4427e0d1d030ca8a920d466
 
     const countParams: Record<string, any> = {};
 
@@ -1045,10 +1039,4 @@ export class DocenteGestaoService {
 
     return await toLowerCaseKeys(result);
   }
-<<<<<<< HEAD
-
-   
-
-=======
->>>>>>> b4142b4d93f16b15f4427e0d1d030ca8a920d466
 }
