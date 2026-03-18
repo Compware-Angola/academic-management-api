@@ -120,3 +120,24 @@ export class FiltroOrientadorDto {
   @Type(() => Number)
   limit?: number;
 }
+
+export class CreateOrientadorDto {
+  @ApiProperty({ description: 'Código do docente', example: 1 })
+  @IsInt()
+  @Type(() => Number)
+  docenteId: number;
+
+  @ApiProperty({ description: 'Código do curso', example: 10 })
+  @IsInt()
+  @Type(() => Number)
+  cursoId: number;
+
+  @ApiProperty({ description: 'Código do ano letivo', example: 21 })
+  @IsInt()
+  @Type(() => Number)
+  anoLectivoId: number;
+
+  @ApiProperty({ description: 'Estado do orientador', example: 'activo' })
+  @IsString()
+  estado: string;
+}

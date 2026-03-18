@@ -1,7 +1,7 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
-import { FiltroOrientadorDto } from './dto';
+import { CreateOrientadorDto, FiltroOrientadorDto } from './dto';
 
 @Injectable()
 export class DefenseManagementTfcService {
@@ -140,21 +140,24 @@ export class DefenseManagementTfcService {
       FROM FK2_MGTFC_TB_ORIENTADOR o
       LEFT JOIN FK2_TB_CURSOS c ON c.CODIGO = TO_NUMBER(JSON_VALUE(o.REF_CURSO, '$.pk'))
       LEFT JOIN FK2_TB_ANO_LECTIVO al ON al.CODIGO = TO_NUMBER(JSON_VALUE(o.REF_ANO_LECTIVO, '$.pk'))
-      LEFT JOIN FK2_TB_UTILIZADORES u ON u.CODIGO = TO_NUMBER(JSON_VALUE(o.REF_UTILIZADOR, '$.pk'))
-      WHERE 1=1
-        AND (TO_NUMBER(JSON_VALUE(o.REF_ANO_LECTIVO, '$.pk')) = :anoId OR :anoId IS NULL)
+      LEFT JOIN FK2_MCA_TB_UTILIZADOR u ON u.PK_UTILIZADOR = TO_NUMBER(JSON_VALUE(o.REF_UTILIZADOR, '$.pk'))
+      LEFT JOIN FK2_MGD_TB_DOCENTE d ON d.CODIGO = TO_NUMBER(JSON_VALUE(o.REF_DOCENTE, '$.pk'))
+      LEFT JOIN FK2_MCA_TB_UTILIZADOR doc_utili ON doc_utili.PK_UTILIZADOR = TO_NUMBER(JSON_VALUE(d.CODIGO_UTILIZADOR, '$.pk'))
+      WHERE (TO_NUMBER(JSON_VALUE(o.REF_ANO_LECTIVO, '$.pk')) = :anoId OR :anoId IS NULL)
         AND (TO_NUMBER(JSON_VALUE(o.REF_CURSO, '$.pk')) = :cursoId OR :cursoId IS NULL)
         AND (o.ESTADO_ORIENTADOR = :estado OR :estado IS NULL)
+        AND (O.DELETED_AT IS NULL)
     `;
 
     const sql = `
       SELECT 
         o.PK_ORIENTADOR AS "codigo",
         c.DESIGNACAO AS "curso",
+        doc_utili.NOME AS "nome_orientador",
         o.NUMERO_ORIENTADOS AS "numero_orientados",
         al.DESIGNACAO AS "ano_lectivo",
         o.ESTADO_ORIENTADOR AS "estado",
-        u.NOME AS "utilizador",
+        u.NOME AS "criado_por",
         TO_CHAR(o.CREATED_AT, 'DD/MM/YYYY') AS "data_cadastro"
       ${baseQuery}
       ORDER BY o.CREATED_AT DESC
@@ -191,5 +194,62 @@ export class DefenseManagementTfcService {
       limit
     };
   }
-  
-}
+  async createOrientador(data: CreateOrientadorDto, user: string) {
+    const { docenteId, cursoId, anoLectivoId, estado } = data;
+    const queryBuilder = this.dataSource.createQueryBuilder();
+  const docenteQuery =  queryBuilder
+    .select('D.CODIGO', 'codigo') 
+    .from("FK2_MGD_TB_DOCENTE", 'D')
+    .where('D.CODIGO = :docenteId', { docenteId })
+    .getRawOne(); 
+
+  const cursoQuery =  queryBuilder
+    .select('C.CODIGO', 'codigo') 
+    .from("FK2_TB_CURSOS", 'C')
+    .where('C.CODIGO = :cursoId', { cursoId })
+    .getRawOne(); 
+
+  const [docente, curso] = await Promise.all([
+    docenteQuery,
+   cursoQuery,
+ 
+  ]);
+
+  if (!docente) throw new NotFoundException(`Docente não encontrado.`);
+  if (!curso) throw new NotFoundException(`Curso não encontrado.`);
+  const jaExiste = await this.dataSource.query(`
+    SELECT 1 FROM FK2_MGTFC_TB_ORIENTADOR 
+    WHERE TO_NUMBER(JSON_VALUE(REF_DOCENTE, '$.pk')) = :docenteId
+    AND TO_NUMBER(JSON_VALUE(REF_ANO_LECTIVO, '$.pk')) = :anoLectivoId
+    AND DELETED_AT IS NULL
+  `, [docenteId, anoLectivoId]);
+
+  if (jaExiste.length > 0) {
+    throw new BadRequestException('Este docente já está cadastrado como orientador neste ano lectivo.');
+  }
+
+
+  const refDocente = JSON.stringify({ pk: docenteId });
+  const refCurso = JSON.stringify({ pk: cursoId });
+  const refAnoLectivo = JSON.stringify({ pk: anoLectivoId });
+  const refUtilizador = JSON.stringify({ pk: user });
+
+  const insertQuery = this.dataSource.createQueryBuilder()
+    .insert()
+    .into("FK2_MGTFC_TB_ORIENTADOR")
+    .values({
+      REF_DOCENTE: refDocente,
+      REF_CURSO: refCurso,
+      REF_ANO_LECTIVO: refAnoLectivo,
+      REF_UTILIZADOR: refUtilizador,
+      ESTADO_ORIENTADOR: estado,
+      NUMERO_ORIENTADOS: 0,
+      CREATED_AT: new Date(),
+      UPDATED_AT: new Date()
+    })
+    .execute();
+
+    return insertQuery;
+
+  }
+} 
