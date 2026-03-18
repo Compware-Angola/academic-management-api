@@ -39,6 +39,15 @@ export class ExamesDeAcessoService {
       condicoes.push(`FK2_TB_PREINSCRICAO.CODIGO_TURNO = :${paramIndex++}`);
       params.push(filtros.codigoTurno);
     }
+    if (filtros.search) {
+      const searchIndex1 = paramIndex++;
+      const searchIndex2 = paramIndex++;
+      condicoes.push(
+        `(UPPER(FK2_TB_PREINSCRICAO.NOME_COMPLETO) LIKE UPPER(:${searchIndex1}) OR UPPER(FK2_TB_PREINSCRICAO.BILHETE_IDENTIDADE) LIKE UPPER(:${searchIndex2}))`,
+      );
+      params.push(`%${filtros.search}%`);
+      params.push(`%${filtros.search}%`);
+    }
 
     const extraWhere =
       condicoes.length > 0 ? condicoes.map((c) => ` AND ${c}`).join('') : '';
