@@ -143,7 +143,7 @@ export class ExamesDeAcessoService {
     const documentos = await this.buscaDocumentosDeCandidatos(
       data.map((c) => c.NUMERO_INSCRICAO),
     );
-
+    
     const documentosPorCandidato = new Map<number, any[]>();
     for (const doc of documentos) {
       const lista = documentosPorCandidato.get(doc.CANDIDATO_ID) ?? [];
@@ -175,6 +175,7 @@ export class ExamesDeAcessoService {
          , FK2_DOCUMENTOS_ADMISSAO.TIPO_DOCUMENTO_ID            CODIGO_DOCUMENTO
          , FK2_TB_TIPO_DOCUMENTOS.DESIGNACAO                    TIPO_DOCUMENTO
          , FK2_DOCUMENTOS_ADMISSAO.NOME_ARQUIVO                 LINK
+        , FK2_DOCUMENTOS_ADMISSAO.CANDIDATO_ID                 CANDIDATO_ID
       FROM FK2_DOCUMENTOS_ADMISSAO
          , FK2_TB_TIPO_DOCUMENTOS
      WHERE FK2_DOCUMENTOS_ADMISSAO.TIPO_DOCUMENTO_ID = FK2_TB_TIPO_DOCUMENTOS.CODIGO
