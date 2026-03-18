@@ -24,6 +24,7 @@ export class FilterCandidatoProvaDto {
     description: 'Formato dd/mm/yyyy (converte para mm/dd/yyyy interno)',
     example: '19/02/2020',
   })
+  @IsOptional()
   @IsString()
   dataRealizacao?: string;
 
@@ -31,6 +32,7 @@ export class FilterCandidatoProvaDto {
     description: 'Formato hh:mm:ss (converte para nanosegundos)',
     example: '14:30:00',
   })
+  @IsOptional()
   @IsString()
   horaInicio?: string;
 
