@@ -11,6 +11,7 @@ import { Type } from 'class-transformer';
 export class FilterProvaResultadoDto {
   @ApiPropertyOptional({ example: 5 })
   @IsNumber()
+    @IsOptional()
   @Type(() => Number)
   codigoAnoLetivo?: number;
 
@@ -45,13 +46,15 @@ export class FilterProvaResultadoDto {
   @Type(() => Number)
   resultado?: number; // 0 ou 1
 
-  @ApiProperty({ example: '01/03/2026' })
+  @ApiProperty({ example: '01/03/2026',required:false })
   @IsNotEmpty()
+    @IsOptional()
   @IsString()
   dataInicio: string;
 
-  @ApiProperty({ example: '31/03/2026' })
+  @ApiProperty({ example: '31/03/2026',required:false })
   @IsNotEmpty()
+    @IsOptional()
   @IsString()
   dataFim: string;
 

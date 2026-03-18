@@ -6,6 +6,7 @@ export class FilterProvaHoraDto {
   @ApiPropertyOptional({ example: 5 })
   @IsNumber()
   @Type(() => Number)
+    @IsOptional()
   codigoAnoLetivo?: number;
 
   @ApiPropertyOptional({ example: 10 })
