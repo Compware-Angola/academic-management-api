@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
-import { AtribuirOrientadorTemaDto, CreateOrientadorDto, FiltroOrientadorDto, ListarAlunosPorOrientadorDto, ListFinalistStudentsQueryDto } from './dto';
+import { AtribuirOrientadorTemaDto, CreateOrientadorDto, FiltroListagemGeralDto, FiltroOrientadorDto, ListarAlunosPorOrientadorDto, ListFinalistStudentsQueryDto } from './dto';
 
 @Injectable()
 export class DefenseManagementTfcService {
@@ -412,14 +412,7 @@ async listarAlunosPorOrientador(data:ListarAlunosPorOrientadorDto) {
     throw new InternalServerErrorException('Erro ao listar alunos orientados.');
   }
 }
-async listarOrientacoesGeral(filtros: { 
-  anoLectivoId: number; 
-  orientadorId?: number; 
-  cursoId?: number; 
-  search?: string; 
-  page?: number; 
-  limit?: number; 
-}) {
+async listarOrientacoesGeral(filtros: FiltroListagemGeralDto) {
   const { anoLectivoId, orientadorId, cursoId, search, page = 1, limit = 10 } = filtros;
   const offset = (page - 1) * limit;
 
@@ -465,7 +458,7 @@ async listarOrientacoesGeral(filtros: {
     limit
   };
 
-  try {
+ 
     const [data, countRes] = await Promise.all([
       this.dataSource.query(sqlData, [params.anoId, params.orientadorId, params.orientadorId, params.cursoId, params.cursoId, params.search, params.search, params.offset, params.limit]),
       this.dataSource.query(sqlCount, [params.anoId, params.orientadorId, params.orientadorId, params.cursoId, params.cursoId, params.search, params.search])
@@ -480,10 +473,7 @@ async listarOrientacoesGeral(filtros: {
       limit,
       totalPages: Math.ceil(total / limit)
     };
-  } catch (error) {
-    console.error('Erro na listagem geral de orientações:', error);
-    throw new InternalServerErrorException('Erro ao buscar lista de orientações.');
-  }
+ 
 }
 
 private async verificarSeAlunoEFinalista(matricula: number, anoLectivo: number): Promise<boolean> {
