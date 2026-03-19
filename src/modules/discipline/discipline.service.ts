@@ -616,14 +616,7 @@ WHERE ${whereClause}
 
                 if (Number(existPlanoResult?.[0]?.TOTAL) > 0) {
                         // Grade já está no plano — reativar
-                        await this.dataSource.query(
-                                `
-      UPDATE FK2_TB_GRADE_CURRICULAR
-      SET STATUS_ = 1
-      WHERE CODIGO = :codigoGrade
-      `,
-                                { codigoGrade } as any
-                        );
+                       await this.ativegrade(codigoGrade)
 
                         return {
                                 message: 'Grade curricular reativada com sucesso.',
@@ -632,6 +625,7 @@ WHERE ${whereClause}
                 }
 
                 // 6a. Não está no plano — adicionar ao plano
+                await this.ativegrade(codigoGrade)
                 await this.adicionarPlano(codigoUtilizador, codigoGrade, codigoPlanoCurso);
 
         } else {
@@ -791,6 +785,19 @@ WHERE ${whereClause}
                 };
         }
         // ─── Helpers privados ───────────────────────────────────────────────────────
+
+
+        private async ativegrade(codigoGrade:number){
+
+                      await this.dataSource.query(
+                                `
+      UPDATE FK2_TB_GRADE_CURRICULAR
+      SET STATUS_ = 1
+      WHERE CODIGO = :codigoGrade
+      `,
+                                { codigoGrade } as any
+                        );
+        }
 
         private async criarGradeCurricular(params: {
                 codigoDisciplina: number;
