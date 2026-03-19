@@ -362,7 +362,8 @@ export class DisciplineService {
 
                 const sql = `
     SELECT
-      plc.Codigo       AS codigo,
+      plc.Codigo       AS codigo_plano_curricular,
+      gc.Codigo         AS codigo_grade_curricular,
       dd.CODIGO         AS codigo_disciplina,
       dd.DESIGNACAO     AS descricao_disciplina,
       cc.DESIGNACAO     AS descricao_curso,
@@ -668,7 +669,7 @@ WHERE ${whereClause}
     await this.inativegrade(codigoGrade);
 
     return {
-        message: 'Disciplina removida da grade com sucesso.',
+        message: 'UC Removida Com Sucesso',
         codigo: codigoGrade,
     };
 }
