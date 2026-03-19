@@ -781,30 +781,38 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
   }
 
   async listarAvisosPorGrupo(params: {
-  grupoId: number;
+  grupoId?: number;
   curso?: number;
   periodo?: number;
 }) {
   const { grupoId, curso, periodo } = params;
 
-  let whereClause = `WHERE AVS.STATUS_ = 1 AND AVS.DESTINO = :grupoId`;
-  const queryParams: Record<string, any> = { grupoId };
+  const conditions: string[] = [`AVS.STATUS_ = 1`];
+  const queryParams: Record<string, any> = {};
 
-  if (curso && curso !== 0) {
-    whereClause += ` AND (AVS.CURSO = :curso OR AVS.CURSO = 0 OR AVS.CURSO IS NULL)`;
+  if (grupoId !== undefined && grupoId !== 0) {
+    conditions.push(`AVS.DESTINO = :grupoId`);
+    queryParams.grupoId = grupoId;
+  }
+
+  if (curso !== undefined && curso !== 0) {
+    conditions.push(`(AVS.CURSO = :curso OR AVS.CURSO = 0 OR AVS.CURSO IS NULL)`);
     queryParams.curso = curso;
   }
 
-  if (periodo && periodo !== 0) {
-    whereClause += ` AND (AVS.PERIODO = :periodo OR AVS.PERIODO = 0 OR AVS.PERIODO IS NULL)`;
+  if (periodo !== undefined && periodo !== 0) {
+    conditions.push(`(AVS.PERIODO = :periodo OR AVS.PERIODO = 0 OR AVS.PERIODO IS NULL)`);
     queryParams.periodo = periodo;
   }
+
+  const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
   const sql = `
     SELECT
       AVS.ID AS CODIGO,
       AVS.ASSUNTO,
       AVS.DESCRICAO,
+      AVS.STATUS_ AS STATUS,
       AVS.FILE_NAME,
       AVS.DATE_EXPIRACAO,
       AVS.DESTINO,

@@ -169,16 +169,16 @@ async uploadAvisoImagem(
 
 @Get('avisos-por-grupo')
 @ApiOperation({ summary: 'Listar avisos por grupo' })
-@ApiQuery({ name: 'grupoId', required: true, type: Number })
+@ApiQuery({ name: 'grupoId', required: false, type: Number })
 @ApiQuery({ name: 'curso', required: false, type: Number })
 @ApiQuery({ name: 'periodo', required: false, type: Number })
 async listarAvisosPorGrupo(
-  @Query('grupoId') grupoId: number,
+  @Query('grupoId') grupoId?: number,
   @Query('curso') curso?: number,
   @Query('periodo') periodo?: number,
 ) {
   return this.solicitacaoService.listarAvisosPorGrupo({
-    grupoId: Number(grupoId),
+    grupoId: grupoId ? Number(grupoId) : undefined,
     curso: curso ? Number(curso) : undefined,
     periodo: periodo ? Number(periodo) : undefined,
   });
