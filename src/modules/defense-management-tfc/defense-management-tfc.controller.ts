@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { DefenseManagementTfcService } from './defense-management-tfc.service';
-import { ApiTags, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
-import {  CreateOrientadorDto, FiltroOrientadorDto, ListFinalistStudentsQueryDto, ListFinalistStudentsResponseDto } from './dto';
+import { ApiTags, ApiOkResponse } from '@nestjs/swagger';
+import {  AtribuirOrientadorTemaDto, CreateOrientadorDto, FiltroListagemGeralDto, FiltroOrientadorDto, ListarAlunosPorOrientadorDto, ListFinalistStudentsQueryDto, ListFinalistStudentsResponseDto } from './dto';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
@@ -54,5 +54,40 @@ export class DefenseManagementTfcController {
           ip: ip,
         });
     return {message: 'Orientador criado com sucesso'};
+  }
+
+  @RequiredPermissions(
+    PermissionTypeDetails.DEFESA.sigla,
+  )
+  @Post('orientacoes')
+  async atribuirOrientadorETemaAoAluno(@Body() orientador: AtribuirOrientadorTemaDto,@Req() req: any,) {
+    const user = req.user;
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    await this.defenseManagementTfcService.atribuirOrientadorETemaAoAluno(orientador,'2433');
+    AccessLogHelper.logAccess(this.httpService, {
+          descricao: `Utilizador ${user?.nome} Atribuiu Orientador e Tema ao Aluno`,
+          fkUtilizadorResponsavel: user.sub,
+          ip: ip,
+        });
+    return {message: 'Orientador e Tema atribuídos com sucesso'};
+  }
+
+  @RequiredPermissions(
+    PermissionTypeDetails.DEFESA.sigla,
+  )
+  @Get('orientadores/:orientadorId/alunos')
+  async listarAlunosPorOrientador(
+    @Param('orientadorId', ParseIntPipe) orientadorId: number,
+    @Query('anoLectivoId', ParseIntPipe) anoLectivoId: number) {
+    return this.defenseManagementTfcService.listarAlunosPorOrientador({
+      orientadorId:orientadorId,
+      anoLectivoId:anoLectivoId,
+      });
+  }
+
+  @Get('orientacoes')
+  @RequiredPermissions(PermissionTypeDetails.DEFESA.sigla)
+  async listarOrientacoesGeral(@Query() filtros: FiltroListagemGeralDto) {
+    return this.defenseManagementTfcService.listarOrientacoesGeral(filtros);
   }
 }
