@@ -620,7 +620,7 @@ WHERE ${whereClause}
                         if (Number(existPlanoResult?.[0]?.TOTAL) > 0) {
                                 await this.dataSource.query(
                                         `
-  UPDATE FK2_TB_PLANO_CURRICULAR_GRADE
+  UPDATE FK2_TB_GRADE_CURRICULAR
   SET STATUS_ = 1
   WHERE CODIGO_GRADE_CURRICULAR = :codigoGrade
   `,
