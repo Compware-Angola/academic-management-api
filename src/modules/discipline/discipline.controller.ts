@@ -11,6 +11,7 @@ import {
   ParseIntPipe,
   HttpCode,
   HttpStatus,
+  Delete,
 } from '@nestjs/common';
 import { DisciplineService } from './discipline.service';
 
@@ -100,7 +101,7 @@ export class DisciplineController {
     return this.disciplineService.findGradeCurricular(dto);
   }
   @Post('plano-curricular')
-   @ApiOperation({
+  @ApiOperation({
     summary: 'add uc no plano',
     description: 'Adiciona UC ao plano.',
   })
@@ -108,27 +109,38 @@ export class DisciplineController {
   async adicionarUnidadeCurricularNoPlano(
     @Body() dto: CreateUnidadeCurricularDto,
   ) {
-    const codigoUtilizador= 1
-    return this.disciplineService.adicionarUnidadeCurricularNoPlano(dto,codigoUtilizador);
+    const codigoUtilizador = 1
+    return this.disciplineService.adicionarUnidadeCurricularNoPlano(dto, codigoUtilizador);
+  }
+  @Delete('plano-curricular/:codigoGrade')
+  @ApiOperation({
+    summary: 'Remover UC do plano',
+    description: 'Remove UC do plano curricular.',
+  })
+  @HttpCode(HttpStatus.OK)
+  async removerUnidadeCurricularDoPlano(
+    @Param('codigoGrade') codigoGrade: number,
+  ) {
+    return this.disciplineService.removerUnidadeCurricularDoPlano(codigoGrade);
   }
 
   @Post('departamento')
-     @ApiOperation({
+  @ApiOperation({
     summary: 'add uc no Departamento',
     description: 'Adiciona UC ao departamento.',
   })
-@HttpCode(HttpStatus.CREATED)
-async adicionarUnidadeCurricularNoDepartamento(
-  @Body() dto: CreateUnidadeCurricularDepartamentoDto,
-) {
-  return this.disciplineService.adicionarUnidadeCurricularNoDepartamento(dto);
-}
-@Get('departamento')
- @ApiOperation({
+  @HttpCode(HttpStatus.CREATED)
+  async adicionarUnidadeCurricularNoDepartamento(
+    @Body() dto: CreateUnidadeCurricularDepartamentoDto,
+  ) {
+    return this.disciplineService.adicionarUnidadeCurricularNoDepartamento(dto);
+  }
+  @Get('departamento')
+  @ApiOperation({
     summary: 'Listar  UC no departamento',
     description: 'Retorna lista de uc no departamento.',
   })
-async listarUnidadeCurricularDept(@Query() dto: FindUnidadeCurricularDeptDto) {
-  return this.disciplineService.listarUnidadeCurricularDept(dto);
-}
+  async listarUnidadeCurricularDept(@Query() dto: FindUnidadeCurricularDeptDto) {
+    return this.disciplineService.listarUnidadeCurricularDept(dto);
+  }
 }
