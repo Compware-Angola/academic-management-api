@@ -829,7 +829,7 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
     LEFT JOIN FK2_ROLES R
       ON R.ID = AVS.DESTINO
     ${whereClause}
-    ORDER BY AVS.ID DESC
+    ORDER BY AVS.CREATED_AT DESC
   `;
 
   const result = await this.dataSource.query(sql, queryParams as any);
