@@ -362,7 +362,8 @@ export class DisciplineService {
 
                 const sql = `
     SELECT
-      plc.Codigo       AS codigo,
+      plc.Codigo       AS codigo_plano_curricular,
+      gc.Codigo         AS codigo_grade_curricular,
       dd.CODIGO         AS codigo_disciplina,
       dd.DESIGNACAO     AS descricao_disciplina,
       cc.DESIGNACAO     AS descricao_curso,
@@ -653,6 +654,25 @@ WHERE ${whereClause}
                         codigo: codigoGrade,
                 };
         }
+        async removerUnidadeCurricularDoPlano(codigoGrade: number) {
+    // 1. Verificar se a grade existe
+    const gradeResult = await this.dataSource.query(
+        `SELECT COUNT(*) AS total FROM FK2_TB_GRADE_CURRICULAR WHERE CODIGO = :codigoGrade`,
+        { codigoGrade } as any
+    );
+
+    if (Number(gradeResult?.[0]?.TOTAL) === 0) {
+        throw new NotFoundException('Grade curricular não encontrada.');
+    }
+
+    // 2. Desativar a grade
+    await this.inativegrade(codigoGrade);
+
+    return {
+        message: 'UC Removida Com Sucesso',
+        codigo: codigoGrade,
+    };
+}
 
         async adicionarUnidadeCurricularNoDepartamento(
                 dto: CreateUnidadeCurricularDepartamentoDto,
@@ -799,6 +819,17 @@ WHERE ${whereClause}
                         `
       UPDATE FK2_TB_GRADE_CURRICULAR
       SET STATUS_ = 1
+      WHERE CODIGO = :codigoGrade
+      `,
+                        { codigoGrade } as any
+                );
+        }
+         private async inativegrade(codigoGrade: number) {
+
+                await this.dataSource.query(
+                        `
+      UPDATE FK2_TB_GRADE_CURRICULAR
+      SET STATUS_ = 0
       WHERE CODIGO = :codigoGrade
       `,
                         { codigoGrade } as any

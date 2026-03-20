@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
-import { AtribuirOrientadorTemaDto, CreateOrientadorDto, FiltroListagemGeralDto, FiltroOrientadorDto, ListarAlunosPorOrientadorDto, ListFinalistStudentsQueryDto } from './dto';
+import { VincularOrientadorTemaDto, CreateOrientadorDto, FiltroVinculosDto, FiltroOrientadorDto, ListarAlunosPorOrientadorDto, ListFinalistStudentsQueryDto, ListDocenteQueryDto } from './dto';
 
 @Injectable()
 export class DefenseManagementTfcService {
@@ -13,13 +13,14 @@ async listFinalistStudents(query: ListFinalistStudentsQueryDto) {
       tipoCandidatura = 0, 
       curso = 0,           
       page = 1, 
-      limit = 10 
+      limit = 10,
+      search
     } = query;
     
     const qtdCadeiras = 5; 
     const offset = (page - 1) * limit;
-   
-    const commonCTEs = `
+   const searchTerm = search ? `%${search.toUpperCase()}%` : null;
+  const commonCTEs = `
       WITH total_cadeiras AS (
           SELECT tpcc.codigo_curso, COUNT(tpcg.codigo_grade_curricular) AS total
           FROM FK2_TB_PLANO_CURRICULAR_GRADE tpcg
@@ -49,10 +50,11 @@ async listFinalistStudents(query: ListFinalistStudentsQueryDto) {
       )
     `;
 
-    const whereClause = `
+const whereClause = `
       WHERE (:3 = 0 OR tc.tipo_candidatura = :4)
         AND (:5 = 0 OR tc.Codigo = :6)
         AND (NVL(tc1.total, 0) + NVL(tc2.total, 0) - NVL(cc.concluidas, 0)) = :7
+        AND (:8 IS NULL OR UPPER(tp.Nome_Completo) LIKE :9)
         AND EXISTS (
             SELECT 1
             FROM FK2_TB_GRADE_CURRICULAR_ALUNO gca
@@ -61,7 +63,7 @@ async listFinalistStudents(query: ListFinalistStudentsQueryDto) {
             INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pcg ON pcg.CODIGO_GRADE_CURRICULAR = gc.CODIGO
             INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pcc ON pcc.CODIGO = pcg.CODIGO_PLANO_CURRICULAR_CURSO
             WHERE gca.CODIGO_MATRICULA = tm.Codigo
-              AND pcc.CODIGO_ANO_LECTIVO = :8
+              AND pcc.CODIGO_ANO_LECTIVO = :10
               AND (UPPER(d.NOME_ABREVIATURA) LIKE '%TFC%' OR UPPER(d.DESIGNACAO) LIKE '%TFC%')
         )
     `;
@@ -108,7 +110,9 @@ async listFinalistStudents(query: ListFinalistStudentsQueryDto) {
       curso,             // :5
       curso,             // :6
       qtdCadeiras,       // :7
-      anoLectivo         // :8 (Filtro TFC)
+      searchTerm,        // :8 (Verificação se é nulo)
+      searchTerm,        // :9 (O valor do LIKE)
+      anoLectivo         // :10 (Filtro TFC)
     ];
 
     try {
@@ -292,7 +296,7 @@ const docenteQuery = this.dataSource
   return result;
 }
 
-async atribuirOrientadorETemaAoAluno(data: AtribuirOrientadorTemaDto, userContext: string) {
+async vincularOrientadorAoAluno(data: VincularOrientadorTemaDto, userContext: string) {
   const { codigoMatricula, codigoOrientador, tema, anoLectivoId } = data;
 
 
@@ -412,7 +416,7 @@ async listarAlunosPorOrientador(data:ListarAlunosPorOrientadorDto) {
     throw new InternalServerErrorException('Erro ao listar alunos orientados.');
   }
 }
-async listarOrientacoesGeral(filtros: FiltroListagemGeralDto) {
+async listarVinculos(filtros: FiltroVinculosDto) {
   const { anoLectivoId, orientadorId, cursoId, search, page = 1, limit = 10 } = filtros;
   const offset = (page - 1) * limit;
 
@@ -441,7 +445,7 @@ async listarOrientacoesGeral(filtros: FiltroListagemGeralDto) {
         tc.Designacao AS "curso",
         oa.TEMA AS "tema",
         u_doc.NOME AS "nome_orientador",
-        TO_CHAR(oa.CREATED_AT, 'DD/MM/YYYY') AS "data_vínculo"
+        TO_CHAR(oa.CREATED_AT, 'DD/MM/YYYY') AS "data_cadastro"
     ${baseQuery}
     ORDER BY tp.Nome_Completo ASC
     OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
@@ -475,7 +479,62 @@ async listarOrientacoesGeral(filtros: FiltroListagemGeralDto) {
     };
  
 }
+async listarDocentes(query: ListDocenteQueryDto) {
+  const { faculdadeId, search, page = 1, limit = 10 } = query;
+  const skip = (page - 1) * limit;
 
+  const queryBuilder = this.dataSource
+    .createQueryBuilder()
+    .select('D.CODIGO', 'codigo')
+    .addSelect('U.NOME', 'nome')
+    .from('FK2_MGD_TB_DOCENTE', 'D')
+    .leftJoin(
+      'FK2_MCA_TB_UTILIZADOR', 
+      'U', 
+      'U.PK_UTILIZADOR = TO_NUMBER(JSON_VALUE(D.CODIGO_UTILIZADOR, \'$.pk\'))'
+    );
+
+  if (faculdadeId) {
+    queryBuilder.andWhere('D.FACULDADE = :facId', { facId: faculdadeId });
+  }
+
+  if (search) {
+    queryBuilder.andWhere('UPPER(U.NOME) LIKE :searchTerm', { 
+      searchTerm: `%${search.toUpperCase()}%` 
+    });
+  }
+
+  const totalQuery = queryBuilder.clone()
+    .select('COUNT(*)', 'TOTAL')
+    .orderBy() 
+    .offset(undefined) 
+    .limit(undefined); 
+
+  queryBuilder
+    .orderBy('U.NOME', 'ASC')
+    .offset(skip)
+    .limit(limit);
+
+  try {
+    const [data, countRes] = await Promise.all([
+      queryBuilder.getRawMany(),
+      totalQuery.getRawOne()
+    ]);
+
+    const total = Number(countRes?.TOTAL || 0);
+
+    return {
+      data: toLowerCaseKeys(data),
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(total / limit),
+    };
+  } catch (error) {
+    console.error('Erro ao listar docentes:', error.message);
+    throw new InternalServerErrorException('Erro ao buscar lista de docentes.');
+  }
+}
 private async verificarSeAlunoEFinalista(matricula: number, anoLectivo: number): Promise<boolean> {
   const limiteCadeirasEmFalta = 5;
   const sql = `
