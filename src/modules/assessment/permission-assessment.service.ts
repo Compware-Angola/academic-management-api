@@ -291,7 +291,7 @@ export class PermissionAssessmentsService {
         p.ACTIVE_STATE                                as active_state,
         p.TIPOAVALIAÇÃO                               as tipoAvaliacao
       FROM FK2_MAV_PERMICAO_LANCAMENTO p
-      inner join FK2_MGD_TB_DOCENTE doc on doc.codigo = json_value(p.REF_DOCENTE, '$.pk')
+      LEFT JOIN FK2_MGD_TB_DOCENTE doc on doc.codigo = json_value(p.REF_DOCENTE, '$.pk')
       inner join FK2_MCA_TB_UTILIZADOR ut on ut.PK_UTILIZADOR   = json_value(doc.CODIGO_UTILIZADOR,'$.pk')
       WHERE ut.PK_UTILIZADOR = :utilizadorId
       AND json_value(p.REF_ANO_LECTIVO, '$.pk') = :anoLectivo
@@ -339,7 +339,7 @@ export class PermissionAssessmentsService {
         ml.DATA_FIM                                  AS DATA_FIM,
         ml.CREATED_AT                                AS CREATED_AT
     FROM FK2_MAV_PERMICAO_LANCAMENTO ml
-        INNER JOIN FK2_MGD_TB_DOCENTE dc_doc
+        LEFT JOIN FK2_MGD_TB_DOCENTE dc_doc
                 ON dc_doc.CODIGO = json_value(ml.REF_DOCENTE,'$.pk')
         INNER JOIN FK2_TB_ANO_LECTIVO al
                 ON al.CODIGO = json_value(ml.REF_ANO_LECTIVO,'$.pk')
