@@ -6,20 +6,19 @@ import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../common/enums/permission.type';
-import {type Request } from 'express';
 import { HttpService } from '@nestjs/axios';
 import { AccessLogHelper } from '../common/helpers/access-log.helper';
 
 
 @ApiTags('defense-management-tfc')
-//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('defense-management-tfc')
 
 export class DefenseManagementTfcController {
   constructor(private readonly defenseManagementTfcService: DefenseManagementTfcService,private httpService: HttpService) {}
-  //@RequiredPermissions(
-    //PermissionTypeDetails.DEFESA.sigla,
-  //)
+  @RequiredPermissions(
+    PermissionTypeDetails.DEFESA.sigla,
+  )
   @Get('students')
   @ApiOkResponse({ type:ListFinalistStudentsResponseDto, description: 'Lista de estudantes finalistas' })
   async listFinalistStudents(@Query() query: ListFinalistStudentsQueryDto) {
