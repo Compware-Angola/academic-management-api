@@ -2,15 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { FilterCandidatoDto } from './dto/filter-candidato.dto';
 import { DataSource } from 'typeorm';
 import { UpdateCandidatoDto } from './dto/update-candidato.dto';
-import { createHash } from 'node:crypto';
+
 import { FilterCandidatoProvaDto } from './dto/filter-candidato-prova.dto';
 import { FilterProvaHoraDto } from './dto/filter-prova-hora.dto';
 import { FilterProvaResultadoDto } from './dto/filter-prova-resultado.dto';
 import { FilterProvaMarcacaoDto } from './dto/filter-prova-marcacao.dto';
+import { gerarHashExterno } from '../util/hash.util';
 
 @Injectable()
 export class ExamesDeAcessoService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   async buscaCandidatos(filtros: FilterCandidatoDto) {
     const condicoes: string[] = [];
@@ -37,6 +38,15 @@ export class ExamesDeAcessoService {
     if (filtros.codigoTurno) {
       condicoes.push(`FK2_TB_PREINSCRICAO.CODIGO_TURNO = :${paramIndex++}`);
       params.push(filtros.codigoTurno);
+    }
+    if (filtros.search) {
+      const searchIndex1 = paramIndex++;
+      const searchIndex2 = paramIndex++;
+      condicoes.push(
+        `(UPPER(FK2_TB_PREINSCRICAO.NOME_COMPLETO) LIKE UPPER(:${searchIndex1}) OR UPPER(FK2_TB_PREINSCRICAO.BILHETE_IDENTIDADE) LIKE UPPER(:${searchIndex2}))`,
+      );
+      params.push(`%${filtros.search}%`);
+      params.push(`%${filtros.search}%`);
     }
 
     const extraWhere =
@@ -146,13 +156,13 @@ export class ExamesDeAcessoService {
       documentos: documentosPorCandidato.get(candidato.NUMERO_INSCRICAO) ?? [],
     }));
 
-    return {
+    return this.toLower({
       data: dataComDocumentos,
       total: Number(total[0].TOTAL),
       page,
       limit,
       totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
-    };
+    });
   }
 
   private async buscaDocumentosDeCandidatos(ids: number[]) {
@@ -164,7 +174,8 @@ export class ExamesDeAcessoService {
     SELECT FK2_DOCUMENTOS_ADMISSAO.ID
          , FK2_DOCUMENTOS_ADMISSAO.TIPO_DOCUMENTO_ID            CODIGO_DOCUMENTO
          , FK2_TB_TIPO_DOCUMENTOS.DESIGNACAO                    TIPO_DOCUMENTO
-         , 'https://portal.mutue.net/storage/documentos/' || FK2_DOCUMENTOS_ADMISSAO.NOME_ARQUIVO               LINK
+         , FK2_DOCUMENTOS_ADMISSAO.NOME_ARQUIVO                 LINK
+        , FK2_DOCUMENTOS_ADMISSAO.CANDIDATO_ID                 CANDIDATO_ID
       FROM FK2_DOCUMENTOS_ADMISSAO
          , FK2_TB_TIPO_DOCUMENTOS
      WHERE FK2_DOCUMENTOS_ADMISSAO.TIPO_DOCUMENTO_ID = FK2_TB_TIPO_DOCUMENTOS.CODIGO
@@ -174,7 +185,7 @@ export class ExamesDeAcessoService {
     return this.dataSource.query(sql, ids);
   }
 
-  async atualizaCandidato(dto: UpdateCandidatoDto) {
+  async atualizaCandidato(dto: UpdateCandidatoDto, codigoCandidato: number) {
     const campos: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -254,8 +265,8 @@ export class ExamesDeAcessoService {
       params.push(dto.codigoTipoCandidatura);
     }
 
-    if (dto.atualizarSenha) {
-      await this.atualizarSenhaSeAnoLetivoAtivo(dto);
+    if (dto.senha) {
+      await this.atualizarSenhaSeAnoLetivoAtivo(dto, codigoCandidato);
     }
 
     if (campos.length === 0) {
@@ -263,7 +274,7 @@ export class ExamesDeAcessoService {
     }
 
     const whereIndex = paramIndex++;
-    params.push(dto.codigoCandidato);
+    params.push(codigoCandidato);
 
     const sql = `
     UPDATE FK2_TB_PREINSCRICAO
@@ -273,14 +284,13 @@ export class ExamesDeAcessoService {
 
     await this.dataSource.query(sql, params);
 
-    return this.buscaCandidatos({ codigoCandidato: dto.codigoCandidato, page: 1, limit: 1 });
+    return this.buscaCandidatos({ codigoCandidato, page: 1, limit: 1 });
   }
 
-  private async atualizarSenhaSeAnoLetivoAtivo(dto: UpdateCandidatoDto) {
+  private async atualizarSenhaSeAnoLetivoAtivo(dto: UpdateCandidatoDto, codigoCandidato: number) {
     const sqlSelect = `
-    SELECT FK2_TB_PREINSCRICAO.USER_ID          AS USER_ID
-         , FK2_TB_PREINSCRICAO.CONTACTOS_TELEFONICOS AS SENHA
-         , FK2_TB_ANO_LECTIVO.STATUS_           AS ESTADO_ANO_LECTIVO
+    SELECT FK2_TB_PREINSCRICAO.USER_ID AS USER_ID
+         , FK2_TB_ANO_LECTIVO.STATUS_  AS ESTADO_ANO_LECTIVO
       FROM FK2_TB_PREINSCRICAO
          , FK2_USERS
          , FK2_TB_ANO_LECTIVO
@@ -290,20 +300,20 @@ export class ExamesDeAcessoService {
   `;
 
     const rows = await this.dataSource.query(sqlSelect, [
-      dto.codigoCandidato,
+      codigoCandidato,
     ]);
 
     if (!rows.length) {
       return;
     }
 
-    const { USER_ID, SENHA, ESTADO_ANO_LECTIVO } = rows[0];
+    const { USER_ID, ESTADO_ANO_LECTIVO } = rows[0];
 
-    if (ESTADO_ANO_LECTIVO !== 1) {
-      return;
-    }
+    // if (ESTADO_ANO_LECTIVO !== 1) {
+    //   return;
+    // }
 
-    const senhaHash = this.md5(SENHA?.toString() ?? '');
+    const senhaHash = await this.hashSenha(dto.senha ?? '');
 
     const sqlUpdate = `
     UPDATE FK2_USERS
@@ -314,8 +324,8 @@ export class ExamesDeAcessoService {
     await this.dataSource.query(sqlUpdate, [senhaHash, USER_ID]);
   }
 
-  private md5(value: string): string {
-    return createHash('md5').update(value).digest('hex');
+  private async hashSenha(valor: string): Promise<string> {
+    return gerarHashExterno(valor);
   }
 
   async buscaCandidatosProvas(filtros: FilterCandidatoProvaDto) {
@@ -334,10 +344,8 @@ export class ExamesDeAcessoService {
     }
 
     if (filtros.dataRealizacao) {
-      const [dd, mm, yyyy] = filtros.dataRealizacao.split('/');
-      condicoes.push(
-        `FK2_TB_HORARIO_PROVA.DATA_REALIZACAO = TO_DATE('${dd}/${mm}/${yyyy}', 'DD/MM/YYYY')`,
-      );
+      condicoes.push(`FK2_TB_HORARIO_PROVA.DATA_REALIZACAO = TO_DATE(:${paramIndex++}, 'DD/MM/YYYY')`);
+      params.push(filtros.dataRealizacao);
     }
 
     if (filtros.horaInicio) {
@@ -409,13 +417,13 @@ export class ExamesDeAcessoService {
       this.dataSource.query(sqlCount, params.slice(0, -2)),
     ]);
 
-    return {
+    return this.toLower({
       data,
       total: Number(total[0].TOTAL),
       page,
       limit,
       totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
-    };
+    });
   }
 
   async buscaProvaHorarios(filtros: FilterProvaHoraDto) {
@@ -424,8 +432,11 @@ export class ExamesDeAcessoService {
     let paramIndex = 1;
 
     // obrigatório
-    condicoes.push(`FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID = :${paramIndex++}`);
-    params.push(filtros.codigoAnoLetivo);
+    if (filtros.codigoAnoLetivo) {
+      condicoes.push(`FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID = :${paramIndex++}`);
+      params.push(filtros.codigoAnoLetivo);
+    }
+
 
     if (filtros.codigoCurso) {
       condicoes.push(`FK2_TB_HORARIO_PROVA.CURSO_ID = :${paramIndex++}`);
@@ -496,13 +507,13 @@ export class ExamesDeAcessoService {
       this.dataSource.query(sqlCount, params.slice(0, -2)),
     ]);
 
-    return {
+    return this.toLower({
       data,
       total: Number(total[0].TOTAL),
       page,
       limit,
       totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
-    };
+    });
   }
 
   async buscaProvaResultados(filtros: FilterProvaResultadoDto) {
@@ -510,16 +521,20 @@ export class ExamesDeAcessoService {
     const params: any[] = [];
     let paramIndex = 1;
 
-    // obrigatórios
-    condicoes.push(`FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID = :${paramIndex++}`);
-    params.push(filtros.codigoAnoLetivo);
+ 
 
-    const [dd1, mm1, yyyy1] = filtros.dataInicio.split('/');
-    const [dd2, mm2, yyyy2] = filtros.dataFim.split('/');
-    condicoes.push(
-      `FK2_TB_HORARIO_PROVA.DATA_REALIZACAO BETWEEN TO_DATE('${dd1}/${mm1}/${yyyy1}', 'DD/MM/YYYY') AND TO_DATE('${dd2}/${mm2}/${yyyy2}', 'DD/MM/YYYY')`,
-    );
+  if (filtros.codigoAnoLetivo) {
+  condicoes.push(`FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID = :${paramIndex++}`);
+  params.push(filtros.codigoAnoLetivo);
+}
 
+if (filtros.dataInicio && filtros.dataFim) {
+  const [dd1, mm1, yyyy1] = filtros.dataInicio.split('/');
+  const [dd2, mm2, yyyy2] = filtros.dataFim.split('/');
+  condicoes.push(
+    `FK2_TB_HORARIO_PROVA.DATA_REALIZACAO BETWEEN TO_DATE('${dd1}/${mm1}/${yyyy1}', 'DD/MM/YYYY') AND TO_DATE('${dd2}/${mm2}/${yyyy2}', 'DD/MM/YYYY')`,
+  );
+}
     // opcionais
     if (filtros.codigoFaculdade) {
       condicoes.push(`FK2_TB_CURSOS.FACULDADE_ID = :${paramIndex++}`);
@@ -626,22 +641,24 @@ export class ExamesDeAcessoService {
       this.dataSource.query(sqlCount, params.slice(0, -2)),
     ]);
 
-    return {
+    return this.toLower({
       data,
       total: Number(total[0].TOTAL),
       page,
       limit,
       totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
-    };
+    });
   }
 
   async buscaProvaMarcacoes(filtros: FilterProvaMarcacaoDto) {
     const condicoes: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
-
-    condicoes.push(`FK2_USERS.ANO_LECTIVO_ID = :${paramIndex++}`);
+  if(filtros.codigoAnoLetivo){
+ condicoes.push(`FK2_USERS.ANO_LECTIVO_ID = :${paramIndex++}`);
     params.push(filtros.codigoAnoLetivo);
+  }
+   
 
     if (filtros.codigoGrau) {
       condicoes.push(`FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA = :${paramIndex++}`);
@@ -769,12 +786,27 @@ export class ExamesDeAcessoService {
       this.dataSource.query(sqlCount, params.slice(0, -2)),
     ]);
 
-    return {
+    return this.toLower({
       data,
       total: Number(total[0].TOTAL),
       page,
       limit,
       totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
-    };
+    });
+  }
+
+  private toLower(data: any): any {
+    if (Array.isArray(data)) {
+      return data.map((item) => this.toLower(item));
+    }
+    if (data !== null && typeof data === 'object') {
+      return Object.fromEntries(
+        Object.entries(data).map(([key, value]) => [
+          key.toLowerCase(),
+          this.toLower(value),
+        ]),
+      );
+    }
+    return data;
   }
 }

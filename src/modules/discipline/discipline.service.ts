@@ -338,6 +338,7 @@ export class DisciplineService {
                 const offset = (page - 1) * limit;
                 const conditions: string[] = ['1=1'];
                 const params: Record<string, any> = {};
+                conditions.push('gc.STATUS_ = 1');
 
                 if (classe) {
                         conditions.push('gc.CODIGO_CLASSE = :classe');
@@ -361,7 +362,8 @@ export class DisciplineService {
 
                 const sql = `
     SELECT
-      plc.Codigo       AS codigo,
+      plc.Codigo       AS codigo_plano_curricular,
+      gc.Codigo         AS codigo_grade_curricular,
       dd.CODIGO         AS codigo_disciplina,
       dd.DESIGNACAO     AS descricao_disciplina,
       cc.DESIGNACAO     AS descricao_curso,
@@ -429,7 +431,7 @@ WHERE ${whereClause}
                         departamento,
                         classe,
                         semestre,
-                        estado,
+                        estado=1,
                         search,
                         page = 1,
                         limit = 25,
@@ -528,7 +530,6 @@ WHERE ${whereClause}
                         codigoSemestre,
                         codigoClasse,
                         codigoCurso,
-
                 } = dto;
 
                 // 1. Verificar se a disciplina existe
@@ -544,13 +545,11 @@ WHERE ${whereClause}
                 // 2. Verificar se existe plano do curso
                 let codigoPlanoCurso: number;
                 try {
-                        codigoPlanoCurso = await this.getPlanoCurso(codigoCurso, codigoAnoLectivo)
-
+                        codigoPlanoCurso = await this.getPlanoCurso(codigoCurso, codigoAnoLectivo);
 
                         if (!codigoPlanoCurso || codigoPlanoCurso < 0) {
                                 throw new NotFoundException('Não foi encontrado plano do curso.');
                         }
-
                 } catch (error) {
                         if (error instanceof NotFoundException) throw error;
                         throw new NotFoundException('Não foi encontrado plano do curso.');
@@ -617,13 +616,19 @@ WHERE ${whereClause}
                         );
 
                         if (Number(existPlanoResult?.[0]?.TOTAL) > 0) {
-                                throw new BadRequestException(
-                                        'Esta grade curricular já faz parte deste plano selecionado!'
-                                );
+                                // Grade já está no plano — reativar
+                                await this.ativegrade(codigoGrade)
+
+                                return {
+                                        message: 'Grade curricular reativada com sucesso.',
+                                        codigo: codigoGrade,
+                                };
                         }
 
-                        // 6a. Adicionar ao plano
+                        // 6a. Não está no plano — adicionar ao plano
+                        await this.ativegrade(codigoGrade)
                         await this.adicionarPlano(codigoUtilizador, codigoGrade, codigoPlanoCurso);
+
                 } else {
                         // 4b. Grade não existe — criar grade curricular
                         codigoGrade = await this.criarGradeCurricular({
@@ -649,6 +654,25 @@ WHERE ${whereClause}
                         codigo: codigoGrade,
                 };
         }
+        async removerUnidadeCurricularDoPlano(codigoGrade: number) {
+    // 1. Verificar se a grade existe
+    const gradeResult = await this.dataSource.query(
+        `SELECT COUNT(*) AS total FROM FK2_TB_GRADE_CURRICULAR WHERE CODIGO = :codigoGrade`,
+        { codigoGrade } as any
+    );
+
+    if (Number(gradeResult?.[0]?.TOTAL) === 0) {
+        throw new NotFoundException('Grade curricular não encontrada.');
+    }
+
+    // 2. Desativar a grade
+    await this.inativegrade(codigoGrade);
+
+    return {
+        message: 'UC Removida Com Sucesso',
+        codigo: codigoGrade,
+    };
+}
 
         async adicionarUnidadeCurricularNoDepartamento(
                 dto: CreateUnidadeCurricularDepartamentoDto,
@@ -687,7 +711,7 @@ WHERE ${whereClause}
                                 // 2a. Verificar se a disciplina já está no plano do curso
                                 const existPlanoResult = await this.dataSource.query(
                                         `
-        SELECT COUNT(*) AS total
+        SELECT gc.CODIGO
         FROM FK2_TB_PLANO_CURRICULAR_GRADE p
         JOIN FK2_TB_PLANO_CURRICULAR_CURSO pc ON pc.CODIGO = p.CODIGO_PLANO_CURRICULAR_CURSO
         JOIN FK2_TB_CURSOS c                  ON c.CODIGO  = pc.CODIGO_CURSO
@@ -697,13 +721,19 @@ WHERE ${whereClause}
         WHERE d.CODIGO  = :codigoDisciplina
           AND al.CODIGO = :codigoAnoLectivo
           AND c.CODIGO  = :codigoCurso
+        FETCH FIRST 1 ROWS ONLY
         `,
                                         { codigoDisciplina, codigoAnoLectivo, codigoCurso } as any
                                 );
 
-                                if (Number(existPlanoResult?.[0]?.TOTAL) > 0) {
+                                if (existPlanoResult?.length > 0) {
+                                        // Já está no plano — reativar por precaução
+                                        const codigoGradeExistente = Number(existPlanoResult[0].CODIGO);
+
+                                        await this.ativegrade(codigoGradeExistente)
+
                                         resultado.status = 'ignorado';
-                                        resultado.mensagem = 'Esta grade já está vinculada ao plano do curso.';
+                                        resultado.mensagem = 'Esta grade já está vinculada ao plano do curso. Reativada por precaução.';
                                         resultados.push(resultado);
                                         continue;
                                 }
@@ -751,13 +781,13 @@ WHERE ${whereClause}
                                                 departamento: codigoDepartamento,
                                         });
 
-                                        // pegar id do plano do curso
-                                        const codigoPlanoCurso = await this.getPlanoCurso(codigoCurso, codigoAnoLectivo)
-                                        // ADICIONAR NO PLANO
+                                        // Pegar id do plano do curso
+                                        const codigoPlanoCurso = await this.getPlanoCurso(codigoCurso, codigoAnoLectivo);
+
+                                        // Adicionar no plano
                                         await this.adicionarPlano(codigoUtilizador, codigoGrade, codigoPlanoCurso);
                                         resultado.mensagem = 'Grade criada no departamento.';
                                 }
-
 
                         } catch (error) {
                                 resultado.status = 'erro';
@@ -781,6 +811,30 @@ WHERE ${whereClause}
                 };
         }
         // ─── Helpers privados ───────────────────────────────────────────────────────
+
+
+        private async ativegrade(codigoGrade: number) {
+
+                await this.dataSource.query(
+                        `
+      UPDATE FK2_TB_GRADE_CURRICULAR
+      SET STATUS_ = 1
+      WHERE CODIGO = :codigoGrade
+      `,
+                        { codigoGrade } as any
+                );
+        }
+         private async inativegrade(codigoGrade: number) {
+
+                await this.dataSource.query(
+                        `
+      UPDATE FK2_TB_GRADE_CURRICULAR
+      SET STATUS_ = 0
+      WHERE CODIGO = :codigoGrade
+      `,
+                        { codigoGrade } as any
+                );
+        }
 
         private async criarGradeCurricular(params: {
                 codigoDisciplina: number;

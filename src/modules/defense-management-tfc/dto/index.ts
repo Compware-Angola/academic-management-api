@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class ListFinalistStudentsQueryDto {
   @ApiPropertyOptional({ description: 'Ano letivo', example: 21 })
@@ -21,12 +21,18 @@ export class ListFinalistStudentsQueryDto {
   @Type(() => Number)
   curso?: number;
 
+  @ApiPropertyOptional({ description: 'Pesquisa', example: 'José' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
   @ApiPropertyOptional({ description: 'Número da página', example: 1 })
   @IsOptional()
   @IsInt()
   @Min(1)
   @Type(() => Number)
   page?: number;
+
 
   @ApiPropertyOptional({ description: 'Número de registros por página', example: 10 })
   @IsOptional()
@@ -120,3 +126,125 @@ export class FiltroOrientadorDto {
   @Type(() => Number)
   limit?: number;
 }
+
+export class CreateOrientadorDto {
+  @ApiProperty({ description: 'Código do docente', example: 1 })
+  @IsInt()
+  @Type(() => Number)
+  docenteId: number;
+
+  @ApiProperty({ description: 'Código do curso', example: 10 })
+  @IsInt()
+  @Type(() => Number)
+  cursoId: number;
+
+  @ApiProperty({ description: 'Código do ano letivo', example: 21 })
+  @IsInt()
+  @Type(() => Number)
+  anoLectivoId: number;
+
+  @ApiProperty({ description: 'Estado do orientador', example: 'activo' })
+  @IsString()
+  estado: string;
+}
+
+export class VincularOrientadorTemaDto {
+  @ApiProperty({ description: 'Código da matrícula do aluno', example: 12345 })
+  @IsInt()
+  @Type(() => Number)
+  codigoMatricula: number;
+
+  @ApiProperty({ description: 'Código do orientador', example: 1 })
+  @IsInt()
+  @Type(() => Number)
+  codigoOrientador: number;
+
+  @ApiProperty({ description: 'Código do tema', example: 'Tema 1' })
+  @IsString()
+  tema: string;
+
+  @ApiProperty({ description: 'Código do ano letivo', example: 21 })
+  @IsInt()
+  @Type(() => Number)
+  anoLectivoId: number;
+}
+
+
+
+export class ListarAlunosPorOrientadorDto {
+  @ApiProperty({ description: 'Código do orientador', example: 1 })
+  @IsInt()
+  @Type(() => Number)
+  orientadorId: number;
+
+  @ApiProperty({ description: 'Código do ano letivo', example: 21 })
+  @IsInt()
+  @Type(() => Number)
+  anoLectivoId: number;
+}
+
+
+
+
+export class FiltroVinculosDto {
+  @ApiProperty({ description: 'Código do ano letivo', example: 23 })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  anoLectivoId: number;
+
+  @ApiPropertyOptional({ description: 'Código do orientador', example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  orientadorId?: number;
+
+  @ApiPropertyOptional({ description: 'Código do curso', example: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  cursoId?: number;
+
+  @ApiPropertyOptional({ description: 'Pesquisa', example: 'José' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ description: 'Número da página', example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ description: 'Número de registros por página', example: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  limit?: number = 10;
+}
+
+export class ListDocenteQueryDto {
+  @ApiPropertyOptional({ description: 'Código da faculdade', example: 1 })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  faculdadeId?: number;
+
+  @ApiPropertyOptional({ description: 'Pesquisa por nome', example: 'João' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ description: 'Número da página', example: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ description: 'Número de registros por página', example: 10 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  limit?: number = 10;
+}
+

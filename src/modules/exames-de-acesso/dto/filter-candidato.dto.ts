@@ -1,8 +1,14 @@
-import { IsOptional, IsNumber, Min } from 'class-validator';
+import { IsOptional, IsNumber, Min, IsString } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class FilterCandidatoDto {
+  @ApiPropertyOptional({ description: 'Busca por nome ou documento' })
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => value?.trim())
+  search?: string;
+
   @IsOptional()
   @IsNumber()
   @Type(() => Number)

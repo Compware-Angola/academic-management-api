@@ -9,7 +9,8 @@ import { AcademicYear } from '../shared/entities/academic.year.entity';
 import { BullModule } from '@nestjs/bullmq';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AcademicYear]), HttpModule.register({
+  imports: [TypeOrmModule.forFeature([AcademicYear]),
+   HttpModule.register({
     timeout: 5000,
     maxRedirects: 5
   }),

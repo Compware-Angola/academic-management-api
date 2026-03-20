@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Query } from '@nestjs/common';
 import { FilterCandidatoDto } from './dto/filter-candidato.dto';
 import { ExamesDeAcessoService } from './exames-de-acesso.service';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -24,11 +24,14 @@ export class ExamesDeAcessoController {
     return this.examesAcessoService.buscaCandidatos(filtros);
   }
 
-  @Patch('candidato')
+  @Patch('candidato/:codigoCandidato')
   @ApiOperation({ summary: 'Atualiza candidato' })
   @ApiResponse({ status: 200, description: 'Retorna lista de candidatos' })
-  atualizaCandidato(@Body() dto: UpdateCandidatoDto) {
-    return this.examesAcessoService.atualizaCandidato(dto);
+  atualizaCandidato(
+    @Param('codigoCandidato', ParseIntPipe) codigoCandidato: number,
+    @Body() dto: UpdateCandidatoDto,
+  ) {
+    return this.examesAcessoService.atualizaCandidato(dto, codigoCandidato);
   }
 
   @Get('candidatos/prova')
