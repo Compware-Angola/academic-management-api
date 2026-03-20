@@ -5,6 +5,7 @@ import { Type } from 'class-transformer';
 export class FilterCandidatoProvaDto {
   @ApiPropertyOptional({ example: 5 })
   @IsNumber()
+  @IsOptional()
   @Type(() => Number)
   codigoAnoLetivo?: number;
 

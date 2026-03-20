@@ -1,12 +1,11 @@
-import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { DefenseManagementTfcService } from './defense-management-tfc.service';
-import { ApiTags, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
-import {  CreateOrientadorDto, FiltroOrientadorDto, ListFinalistStudentsQueryDto, ListFinalistStudentsResponseDto } from './dto';
+import { ApiTags, ApiOkResponse } from '@nestjs/swagger';
+import {  VincularOrientadorTemaDto, CreateOrientadorDto, FiltroVinculosDto, FiltroOrientadorDto, ListarAlunosPorOrientadorDto, ListFinalistStudentsQueryDto, ListFinalistStudentsResponseDto, ListDocenteQueryDto } from './dto';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../common/enums/permission.type';
-import {type Request } from 'express';
 import { HttpService } from '@nestjs/axios';
 import { AccessLogHelper } from '../common/helpers/access-log.helper';
 
@@ -54,5 +53,45 @@ export class DefenseManagementTfcController {
           ip: ip,
         });
     return {message: 'Orientador criado com sucesso'};
+  }
+
+  @RequiredPermissions(
+    PermissionTypeDetails.DEFESA.sigla,
+  )
+  @Post('vinculos')
+  async vincularOrientadorAoAluno(@Body() orientador: VincularOrientadorTemaDto,@Req() req: any,) {
+    const user = req.user;
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    await this.defenseManagementTfcService.vincularOrientadorAoAluno(orientador,user.sub as string);
+    AccessLogHelper.logAccess(this.httpService, {
+          descricao: `Utilizador ${user?.nome} Vinculou Orientador e Tema ao Aluno`,
+          fkUtilizadorResponsavel: user.sub,
+          ip: ip,
+        });
+    return {message: 'Orientador e Tema vinculados com sucesso'};
+  }
+
+  @RequiredPermissions(
+    PermissionTypeDetails.DEFESA.sigla,
+  )
+  @Get('orientadores/:orientadorId/alunos')
+  async listarAlunosPorOrientador(
+    @Param('orientadorId', ParseIntPipe) orientadorId: number,
+    @Query('anoLectivoId', ParseIntPipe) anoLectivoId: number) {
+    return this.defenseManagementTfcService.listarAlunosPorOrientador({
+      orientadorId:orientadorId,
+      anoLectivoId:anoLectivoId,
+      });
+  }
+
+  @Get('vinculos')
+  @RequiredPermissions(PermissionTypeDetails.DEFESA.sigla)
+  async listarVinculos(@Query() filtros: FiltroVinculosDto) {
+    return this.defenseManagementTfcService.listarVinculos(filtros);
+  }
+
+  @Get('docentes')
+  async listarDocentes(@Query() query: ListDocenteQueryDto) {
+    return this.defenseManagementTfcService.listarDocentes(query);
   }
 }

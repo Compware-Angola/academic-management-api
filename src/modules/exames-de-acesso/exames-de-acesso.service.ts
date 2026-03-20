@@ -175,6 +175,7 @@ export class ExamesDeAcessoService {
          , FK2_DOCUMENTOS_ADMISSAO.TIPO_DOCUMENTO_ID            CODIGO_DOCUMENTO
          , FK2_TB_TIPO_DOCUMENTOS.DESIGNACAO                    TIPO_DOCUMENTO
          , FK2_DOCUMENTOS_ADMISSAO.NOME_ARQUIVO                 LINK
+        , FK2_DOCUMENTOS_ADMISSAO.CANDIDATO_ID                 CANDIDATO_ID
       FROM FK2_DOCUMENTOS_ADMISSAO
          , FK2_TB_TIPO_DOCUMENTOS
      WHERE FK2_DOCUMENTOS_ADMISSAO.TIPO_DOCUMENTO_ID = FK2_TB_TIPO_DOCUMENTOS.CODIGO
@@ -431,8 +432,11 @@ export class ExamesDeAcessoService {
     let paramIndex = 1;
 
     // obrigatório
-    condicoes.push(`FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID = :${paramIndex++}`);
-    params.push(filtros.codigoAnoLetivo);
+    if (filtros.codigoAnoLetivo) {
+      condicoes.push(`FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID = :${paramIndex++}`);
+      params.push(filtros.codigoAnoLetivo);
+    }
+
 
     if (filtros.codigoCurso) {
       condicoes.push(`FK2_TB_HORARIO_PROVA.CURSO_ID = :${paramIndex++}`);
@@ -517,16 +521,20 @@ export class ExamesDeAcessoService {
     const params: any[] = [];
     let paramIndex = 1;
 
-    // obrigatórios
-    condicoes.push(`FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID = :${paramIndex++}`);
-    params.push(filtros.codigoAnoLetivo);
+ 
 
-    const [dd1, mm1, yyyy1] = filtros.dataInicio.split('/');
-    const [dd2, mm2, yyyy2] = filtros.dataFim.split('/');
-    condicoes.push(
-      `FK2_TB_HORARIO_PROVA.DATA_REALIZACAO BETWEEN TO_DATE('${dd1}/${mm1}/${yyyy1}', 'DD/MM/YYYY') AND TO_DATE('${dd2}/${mm2}/${yyyy2}', 'DD/MM/YYYY')`,
-    );
+  if (filtros.codigoAnoLetivo) {
+  condicoes.push(`FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID = :${paramIndex++}`);
+  params.push(filtros.codigoAnoLetivo);
+}
 
+if (filtros.dataInicio && filtros.dataFim) {
+  const [dd1, mm1, yyyy1] = filtros.dataInicio.split('/');
+  const [dd2, mm2, yyyy2] = filtros.dataFim.split('/');
+  condicoes.push(
+    `FK2_TB_HORARIO_PROVA.DATA_REALIZACAO BETWEEN TO_DATE('${dd1}/${mm1}/${yyyy1}', 'DD/MM/YYYY') AND TO_DATE('${dd2}/${mm2}/${yyyy2}', 'DD/MM/YYYY')`,
+  );
+}
     // opcionais
     if (filtros.codigoFaculdade) {
       condicoes.push(`FK2_TB_CURSOS.FACULDADE_ID = :${paramIndex++}`);
@@ -646,9 +654,11 @@ export class ExamesDeAcessoService {
     const condicoes: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
-
-    condicoes.push(`FK2_USERS.ANO_LECTIVO_ID = :${paramIndex++}`);
+  if(filtros.codigoAnoLetivo){
+ condicoes.push(`FK2_USERS.ANO_LECTIVO_ID = :${paramIndex++}`);
     params.push(filtros.codigoAnoLetivo);
+  }
+   
 
     if (filtros.codigoGrau) {
       condicoes.push(`FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA = :${paramIndex++}`);
