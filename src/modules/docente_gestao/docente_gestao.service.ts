@@ -12,11 +12,9 @@ import { FindParametrosDocenteTO } from './dto/find-parametros-docente.dto';
 import { FindAfectacaoDTO } from './dto/find-afectacao.dto';
 import { UpdateAfectacaoDTO } from './dto/update-afectacao.dto';
 import { FindDocenteAfectacaoDTO } from './dto/find-docente-afectacao.dto';
-
-import { FilterDocenteDto } from './dto/filter-docente.dto';
-import { FilterDocenteRegenteDto } from './dto/filter-docente-regente.dto';
-
 import { CreateAfectacaoDTO } from './dto/create-afectaco.dto';
+import { FilterDocenteRegenteDto } from './dto/filter-docente-regente.dto';
+import { FilterDocenteDto } from './dto/filter-docente.dto';
 
 @Injectable()
 export class DocenteGestaoService {
