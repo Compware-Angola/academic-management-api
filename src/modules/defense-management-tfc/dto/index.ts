@@ -220,3 +220,31 @@ export class FiltroVinculosDto {
   @Type(() => Number)
   limit?: number = 10;
 }
+
+export class ListDocenteQueryDto {
+  @ApiPropertyOptional({ description: 'Código da faculdade', example: 1 })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  faculdadeId?: number;
+
+  @ApiPropertyOptional({ description: 'Pesquisa por nome', example: 'João' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ description: 'Número da página', example: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  page?: number = 1;
+
+  @ApiPropertyOptional({ description: 'Número de registros por página', example: 10 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  limit?: number = 10;
+}
+

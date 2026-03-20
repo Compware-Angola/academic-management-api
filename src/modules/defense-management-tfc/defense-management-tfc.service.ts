@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
-import { VincularOrientadorTemaDto, CreateOrientadorDto, FiltroVinculosDto, FiltroOrientadorDto, ListarAlunosPorOrientadorDto, ListFinalistStudentsQueryDto } from './dto';
+import { VincularOrientadorTemaDto, CreateOrientadorDto, FiltroVinculosDto, FiltroOrientadorDto, ListarAlunosPorOrientadorDto, ListFinalistStudentsQueryDto, ListDocenteQueryDto } from './dto';
 
 @Injectable()
 export class DefenseManagementTfcService {
@@ -479,7 +479,62 @@ async listarVinculos(filtros: FiltroVinculosDto) {
     };
  
 }
+async listarDocentes(query: ListDocenteQueryDto) {
+  const { faculdadeId, search, page = 1, limit = 10 } = query;
+  const skip = (page - 1) * limit;
 
+  const queryBuilder = this.dataSource
+    .createQueryBuilder()
+    .select('D.CODIGO', 'codigo')
+    .addSelect('U.NOME', 'nome')
+    .from('FK2_MGD_TB_DOCENTE', 'D')
+    .leftJoin(
+      'FK2_MCA_TB_UTILIZADOR', 
+      'U', 
+      'U.PK_UTILIZADOR = TO_NUMBER(JSON_VALUE(D.CODIGO_UTILIZADOR, \'$.pk\'))'
+    );
+
+  if (faculdadeId) {
+    queryBuilder.andWhere('D.FACULDADE = :facId', { facId: faculdadeId });
+  }
+
+  if (search) {
+    queryBuilder.andWhere('UPPER(U.NOME) LIKE :searchTerm', { 
+      searchTerm: `%${search.toUpperCase()}%` 
+    });
+  }
+
+  const totalQuery = queryBuilder.clone()
+    .select('COUNT(*)', 'TOTAL')
+    .orderBy() 
+    .offset(undefined) 
+    .limit(undefined); 
+
+  queryBuilder
+    .orderBy('U.NOME', 'ASC')
+    .offset(skip)
+    .limit(limit);
+
+  try {
+    const [data, countRes] = await Promise.all([
+      queryBuilder.getRawMany(),
+      totalQuery.getRawOne()
+    ]);
+
+    const total = Number(countRes?.TOTAL || 0);
+
+    return {
+      data: toLowerCaseKeys(data),
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(total / limit),
+    };
+  } catch (error) {
+    console.error('Erro ao listar docentes:', error.message);
+    throw new InternalServerErrorException('Erro ao buscar lista de docentes.');
+  }
+}
 private async verificarSeAlunoEFinalista(matricula: number, anoLectivo: number): Promise<boolean> {
   const limiteCadeirasEmFalta = 5;
   const sql = `
