@@ -1267,12 +1267,11 @@ ${whereClause}
   `);
       whereParams.search = `%${search}%`;
     }
-    if (dataInicial && dataFinal) {
-      conditions.push('aa.DATA_AULA BETWEEN :dataInicial AND :dataFinal');
-      whereParams.dataInicial = dataInicial;
-      whereParams.dataFinal = dataFinal;
-    }
-
+  if (dataInicial && dataFinal) {
+  conditions.push(`aa.DATA_AULA BETWEEN TO_DATE(:dataInicial, 'YYYY-MM-DD') AND TO_DATE(:dataFinal, 'YYYY-MM-DD')`);
+  whereParams.dataInicial = dataInicial;
+  whereParams.dataFinal = dataFinal;
+}
     if (anoLectivo !== 0) {
       conditions.push('h.FK_ANO_LECTIVO = :anoLectivo');
       whereParams.anoLectivo = anoLectivo;
@@ -1298,9 +1297,9 @@ ${whereClause}
       conditions.push('s.PK_TB_SUMARIO IS NOT NULL');
     }
 
-    // Exigir Sumários Válidos — só aulas com sumário validado (estado 2)
+    // Exigir Sumários Válidos — só aulas com sumário validado (estado 4)
     if (exigirSumariosValidos) {
-      conditions.push('s.FK_ESTADO_SUMARIO = 2');
+      conditions.push('s.FK_ESTADO_SUMARIO = 4');
     }
 
     const whereClause = conditions.length > 0
@@ -1367,7 +1366,7 @@ ${whereClause}
     WHEN ${presencaCondition}
     THEN (CAST(al.HORA_TERMINO AS DATE) - CAST(al.HORA_INICIO AS DATE)) * 24
     ELSE 0 END
-  ), 2
+  ), 0
 ) AS total_horas_efetivas,
 
       -- Total para cálculo salarial
