@@ -787,23 +787,33 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
 }) {
   const { grupoId, curso, periodo } = params;
 
+  const temGrupo = grupoId !== undefined && grupoId !== 0;
+  const temCurso = curso !== undefined && curso !== 0;
+  const temPeriodo = periodo !== undefined && periodo !== 0;
+
+  if (!temGrupo && !temCurso && !temPeriodo) {
+    return [];
+  }
+
   const conditions: string[] = [`AVS.STATUS_ = 1`];
   const queryParams: Record<string, any> = {};
 
-  if (grupoId !== undefined && grupoId !== 0) {
+   if (temGrupo) {
     conditions.push(`AVS.DESTINO = :grupoId`);
     queryParams.grupoId = grupoId;
   }
 
-  if (curso !== undefined && curso !== 0) {
+  if (temCurso) {
     conditions.push(`(AVS.CURSO = :curso OR AVS.CURSO = 0 OR AVS.CURSO IS NULL)`);
     queryParams.curso = curso;
   }
 
-  if (periodo !== undefined && periodo !== 0) {
+  if (temPeriodo) {
     conditions.push(`(AVS.PERIODO = :periodo OR AVS.PERIODO = 0 OR AVS.PERIODO IS NULL)`);
     queryParams.periodo = periodo;
   }
+
+   conditions.push(`(AVS.DATE_EXPIRACAO IS NULL OR AVS.DATE_EXPIRACAO >= SYSDATE)`);
 
   const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
@@ -829,6 +839,60 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
     LEFT JOIN FK2_ROLES R
       ON R.ID = AVS.DESTINO
     ${whereClause}
+    ORDER BY AVS.CREATED_AT DESC
+  `;
+
+  const result = await this.dataSource.query(sql, queryParams as any);
+  return result;
+}
+
+async listarAvisosPorGrupos(params: { grupoIds?: number[] }) {
+  const { grupoIds } = params;
+
+  const grupoIdsValidos =
+    grupoIds?.filter((id) => id !== undefined && id !== null && id !== 0) ?? [];
+
+  if (grupoIdsValidos.length === 0) {
+    return [];
+  }
+
+  const placeholders = grupoIdsValidos
+    .map((_, index) => `:grupoId${index}`)
+    .join(", ");
+
+  const queryParams: Record<string, any> = {};
+
+  grupoIdsValidos.forEach((id, index) => {
+    queryParams[`grupoId${index}`] = id;
+  });
+
+  const sql = `
+    SELECT
+      AVS.ID AS CODIGO,
+      AVS.ASSUNTO,
+      AVS.DESCRICAO,
+      AVS.STATUS_ AS STATUS,
+      AVS.FILE_NAME,
+      AVS.DATE_EXPIRACAO,
+      AVS.DESTINO,
+      AVS.CURSO,
+      AVS.PERIODO,
+      U.NOME AS AUTOR,
+      C.DESIGNACAO AS CURSO_NOME,
+      R.NAME AS DESTINO_NOME
+    FROM FK2_TB_AVISO_UMA AVS
+    LEFT JOIN FK2_MCA_TB_UTILIZADOR U
+      ON AVS.USER_ID = U.PK_UTILIZADOR
+    LEFT JOIN FK2_TB_CURSOS C
+      ON AVS.CURSO = C.CODIGO
+    LEFT JOIN FK2_ROLES R
+      ON R.ID = AVS.DESTINO
+    WHERE AVS.STATUS_ = 1
+      AND AVS.DESTINO IN (${placeholders})
+      AND (
+        AVS.DATE_EXPIRACAO IS NULL
+        OR AVS.DATE_EXPIRACAO >= SYSDATE
+      )
     ORDER BY AVS.CREATED_AT DESC
   `;
 
