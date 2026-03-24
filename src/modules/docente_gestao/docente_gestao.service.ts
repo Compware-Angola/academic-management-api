@@ -180,7 +180,7 @@ export class DocenteGestaoService {
   INNER JOIN FK2_TB_GRADE_CURRICULAR g
     ON g.codigo = af.fk_cadeira
 
-  INNER JOIN FK2_MGD_TB_DOCENTE d
+  LEFT JOIN FK2_MGD_TB_DOCENTE d
     ON d.codigo = af.fk_docente
 
   INNER JOIN FK2_TB_CLASSES a
@@ -221,7 +221,7 @@ export class DocenteGestaoService {
   INNER JOIN FK2_TB_GRADE_CURRICULAR g
     ON g.codigo = af.fk_cadeira
 
-  INNER JOIN FK2_MGD_TB_DOCENTE d
+  LEFT JOIN FK2_MGD_TB_DOCENTE d
     ON d.codigo = af.fk_docente
 
   INNER JOIN FK2_TB_CLASSES a
@@ -388,7 +388,7 @@ export class DocenteGestaoService {
 
       FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
 
-      INNER JOIN FK2_MGD_TB_DOCENTE d
+      LEFT JOIN FK2_MGD_TB_DOCENTE d
         ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
 
       INNER JOIN FK2_TB_ANO_LECTIVO l
@@ -408,7 +408,7 @@ export class DocenteGestaoService {
 
         FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
 
-        INNER JOIN FK2_MGD_TB_DOCENTE d
+        LEFT JOIN FK2_MGD_TB_DOCENTE d
           ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
 
         INNER JOIN FK2_TB_ANO_LECTIVO l
@@ -430,7 +430,7 @@ export class DocenteGestaoService {
       and d.codigo not in (
                     select  d.codigo
                     from FK2_MGD_TB_DOCENTE_AFECTACAO a
-                    inner join FK2_MGD_TB_DOCENTE     d on d.codigo        = json_value(a.REF_DOCENTE,'$.pk')
+                    LEFT JOIN FK2_MGD_TB_DOCENTE     d on d.codigo        = json_value(a.REF_DOCENTE,'$.pk')
                     inner join FK2_TB_ANO_LECTIVO     l on l.codigo        = json_value(a.REF_ANO_LECTIVO,'$.pk')
                     inner join FK2_MCAL_TB_SEMESTRE   s on s.PK_SEMESTRE   = a.SEMESTRE
                     where ${whereClause}
@@ -446,7 +446,7 @@ export class DocenteGestaoService {
         AND d.codigo NOT IN (
               SELECT d.codigo
               FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
-              INNER JOIN FK2_MGD_TB_DOCENTE d
+              LEFT JOIN FK2_MGD_TB_DOCENTE d
                   ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
               INNER JOIN FK2_TB_ANO_LECTIVO l
                   ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
