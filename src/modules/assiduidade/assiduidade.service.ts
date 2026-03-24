@@ -889,8 +889,6 @@ ${whereClause}
   }
 
 
-  // Assiduidade da prova
-
   private async attendanceTest(dto: FindAttendanceTestDto) {
     const {
       docente = 0,
@@ -1043,7 +1041,6 @@ ${whereClause}
       throw new Error(`Falha ao consultar assiduidade: ${error.message}`);
     }
   }
-
 
   async generalAttendanceByDocenteCalendar(dto: GeneralAttendanceCalendarDto) {
 
@@ -1237,90 +1234,101 @@ ${whereClause}
     }
   }
 
-async getEstatisticaAssiduidadeDocente(dto: FindEstatisticaAssiduidadeDocenteDto) {
-  const {
-    anoLectivo = 0,
-    semestre = 0,
-    curso = 0,
-    docente = 0,
-    dataInicial,
-    dataFinal,
-    naoCobrarFaltas = false,
-    exigirPresencasConfirmadas = false,
-    exigirSumariosInseridos = false,
-    exigirSumariosValidos = false,
-    page = 1,
-    limit = 20,
-  } = dto;
-  console.log(dto);
-  
+  async getEstatisticaAssiduidadeDocente(dto: FindEstatisticaAssiduidadeDocenteDto) {
+    const {
+      anoLectivo = 0,
+      semestre = 0,
+      curso = 0,
+      docente = 0,
+      dataInicial,
+      dataFinal,
+      naoCobrarFaltas = false,
+      exigirPresencasConfirmadas = false,
+      exigirSumariosInseridos = false,
+      exigirSumariosValidos = false,
+      search,
+      page = 1,
+      limit = 20,
+    } = dto;
 
-  const offset = (page - 1) * limit;
-  const whereParams: Record<string, any> = {};
-  const conditions: string[] = ['aa.ACTIVE_STATE = 1'];
+    const offset = (page - 1) * limit;
+    const whereParams: Record<string, any> = {};
+    const conditions: string[] = ['aa.ACTIVE_STATE = 1'];
+    if (search) {
+      conditions.push(`
+    (
+      LOWER(d2.N_MECANOGRAFICO) LIKE LOWER(:search)
+      OR LOWER((
+        SELECT u.NOME 
+        FROM FK2_MCA_TB_UTILIZADOR u
+        WHERE u.PK_UTILIZADOR = json_value(d2.CODIGO_UTILIZADOR, '$.pk')
+      )) LIKE LOWER(:search)
+    )
+  `);
+      whereParams.search = `%${search}%`;
+    }
+    if (dataInicial && dataFinal) {
+      conditions.push('aa.DATA_AULA BETWEEN :dataInicial AND :dataFinal');
+      whereParams.dataInicial = dataInicial;
+      whereParams.dataFinal = dataFinal;
+    }
 
-  if (dataInicial && dataFinal) {
-    conditions.push('aa.DATA_AULA BETWEEN :dataInicial AND :dataFinal');
-    whereParams.dataInicial = dataInicial;
-    whereParams.dataFinal = dataFinal;
-  }
+    if (anoLectivo !== 0) {
+      conditions.push('h.FK_ANO_LECTIVO = :anoLectivo');
+      whereParams.anoLectivo = anoLectivo;
+    }
 
-  if (anoLectivo !== 0) {
-    conditions.push('h.FK_ANO_LECTIVO = :anoLectivo');
-    whereParams.anoLectivo = anoLectivo;
-  }
+    if (semestre !== 0) {
+      conditions.push('h.FK_SEMESTRE = :semestre');
+      whereParams.semestre = semestre;
+    }
 
-  if (semestre !== 0) {
-    conditions.push('h.FK_SEMESTRE = :semestre');
-    whereParams.semestre = semestre;
-  }
+    if (curso !== 0) {
+      conditions.push('gc.CODIGO_CURSO = :curso');
+      whereParams.curso = curso;
+    }
 
-  if (curso !== 0) {
-    conditions.push('gc.CODIGO_CURSO = :curso');
-    whereParams.curso = curso;
-  }
+    if (docente !== 0) {
+      conditions.push("JSON_VALUE(aa.REF_AULA, '$.pkDocente') = :docente");
+      whereParams.docente = docente;
+    }
 
-  if (docente !== 0) {
-    conditions.push("JSON_VALUE(aa.REF_AULA, '$.pkDocente') = :docente");
-    whereParams.docente = docente;
-  }
+    // Exigir Sumários Inseridos — só aulas que têm sumário
+    if (exigirSumariosInseridos) {
+      conditions.push('s.PK_TB_SUMARIO IS NOT NULL');
+    }
 
-  // Exigir Sumários Inseridos — só aulas que têm sumário
-  if (exigirSumariosInseridos) {
-    conditions.push('s.PK_TB_SUMARIO IS NOT NULL');
-  }
+    // Exigir Sumários Válidos — só aulas com sumário validado (estado 2)
+    if (exigirSumariosValidos) {
+      conditions.push('s.FK_ESTADO_SUMARIO = 2');
+    }
 
-  // Exigir Sumários Válidos — só aulas com sumário validado (estado 2)
-  if (exigirSumariosValidos) {
-    conditions.push('s.FK_ESTADO_SUMARIO = 2');
-  }
+    const whereClause = conditions.length > 0
+      ? 'WHERE ' + conditions.join(' AND ')
+      : '';
 
-  const whereClause = conditions.length > 0
-    ? 'WHERE ' + conditions.join(' AND ')
-    : '';
+    // ─────────────────────────────────────────────────────────────
+    // Lógica das flags aplicada nos CASE WHEN de contagem:
+    //
+    // naoCobrarFaltas          → faltas não entram no total salarial
+    // exigirPresencasConfirmadas → só conta presenças com sumário inserido e válido
+    // ─────────────────────────────────────────────────────────────
 
-  // ─────────────────────────────────────────────────────────────
-  // Lógica das flags aplicada nos CASE WHEN de contagem:
-  //
-  // naoCobrarFaltas          → faltas não entram no total salarial
-  // exigirPresencasConfirmadas → só conta presenças com sumário inserido e válido
-  // ─────────────────────────────────────────────────────────────
-
-  // Condição base para "presença válida"
-  // PK_ESTADO_AGENDAMENTO = 3 → Realizada
-  // PK_ESTADO_AGENDAMENTO = 2 → Falta
-  const presencaCondition = exigirPresencasConfirmadas
-    ? `est.PK_ESTADO_AGENDAMENTO = 3
+    // Condição base para "presença válida"
+    // PK_ESTADO_AGENDAMENTO = 3 → Realizada
+    // PK_ESTADO_AGENDAMENTO = 2 → Falta
+    const presencaCondition = exigirPresencasConfirmadas
+      ? `est.PK_ESTADO_AGENDAMENTO = 3
        AND s.PK_TB_SUMARIO IS NOT NULL
        AND s.FK_ESTADO_SUMARIO = 2`
-    : `est.PK_ESTADO_AGENDAMENTO = 3`;
+      : `est.PK_ESTADO_AGENDAMENTO = 3`;
 
-  // Para o total salarial: se naoCobrarFaltas, só conta presenças; caso contrário conta tudo
-  const totalSalarialCondition = naoCobrarFaltas
-    ? presencaCondition
-    : `est.PK_ESTADO_AGENDAMENTO IN (2, 3)`; // faltas + presenças
+    // Para o total salarial: se naoCobrarFaltas, só conta presenças; caso contrário conta tudo
+    const totalSalarialCondition = naoCobrarFaltas
+      ? presencaCondition
+      : `est.PK_ESTADO_AGENDAMENTO IN (2, 3)`;
 
-  const sql = `
+    const sql = `
     SELECT
       d2.N_MECANOGRAFICO                                          AS n_mecanografico,
       tu.NOME                                                     AS nome,
@@ -1354,10 +1362,13 @@ async getEstatisticaAssiduidadeDocente(dto: FindEstatisticaAssiduidadeDocenteDto
 
       -- Total Horas Efetivas
       -- Conta apenas presenças válidas (respeita exigirPresencasConfirmadas)
-      SUM(CASE
-        WHEN ${presencaCondition}
-        THEN (CAST(al.HORA_TERMINO AS DATE) - CAST(al.HORA_INICIO AS DATE)) * 24
-        ELSE 0 END)                                               AS total_horas_efetivas,
+   ROUND(
+  SUM(CASE
+    WHEN ${presencaCondition}
+    THEN (CAST(al.HORA_TERMINO AS DATE) - CAST(al.HORA_INICIO AS DATE)) * 24
+    ELSE 0 END
+  ), 2
+) AS total_horas_efetivas,
 
       -- Total para cálculo salarial
       -- Se naoCobrarFaltas = true → só presenças válidas
@@ -1489,7 +1500,7 @@ async getEstatisticaAssiduidadeDocente(dto: FindEstatisticaAssiduidadeDocenteDto
     FETCH NEXT :limit ROWS ONLY
   `;
 
-  const countSql = `
+    const countSql = `
     SELECT COUNT(*) AS total FROM (
       SELECT d2.CODIGO
       FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
@@ -1512,27 +1523,27 @@ async getEstatisticaAssiduidadeDocente(dto: FindEstatisticaAssiduidadeDocenteDto
     )
   `;
 
-  const sqlParams = { ...whereParams, offset, limit };
+    const sqlParams = { ...whereParams, offset, limit };
 
-  try {
-    const [records, countResult] = await Promise.all([
-      this.dataSource.query(sql, sqlParams as any),
-      this.dataSource.query(countSql, whereParams as any),
-    ]);
+    try {
+      const [records, countResult] = await Promise.all([
+        this.dataSource.query(sql, sqlParams as any),
+        this.dataSource.query(countSql, whereParams as any),
+      ]);
 
-    const total = Number(countResult?.[0]?.TOTAL ?? 0);
+      const total = Number(countResult?.[0]?.TOTAL ?? 0);
 
-    return {
-      data: toLowerCaseKeys(records),
-      total,
-      page,
-      limit,
-      totalPages: total > 0 ? Math.ceil(total / limit) : 1,
-    };
-  } catch (error) {
-    console.error('Erro ao buscar estatística de assiduidade:', error);
-    throw new Error(`Falha ao consultar estatística: ${error.message}`);
+      return {
+        data: toLowerCaseKeys(records),
+        total,
+        page,
+        limit,
+        totalPages: total > 0 ? Math.ceil(total / limit) : 1,
+      };
+    } catch (error) {
+      console.error('Erro ao buscar estatística de assiduidade:', error);
+      throw new Error(`Falha ao consultar estatística: ${error.message}`);
+    }
   }
-}
 
 }
