@@ -66,6 +66,16 @@ export class AtendanceControlling {
   semestre?: number;
 
   @ApiProperty({
+  description: 'Grade Curricular',
+  example: 10,
+  required: false,
+})
+@IsOptional()
+@IsInt()
+@Type(() => Number)
+gradeCurricular?: number;
+
+  @ApiProperty({
     description: 'Número da página (começa em 1)',
     example: 1,
     default: 1,
