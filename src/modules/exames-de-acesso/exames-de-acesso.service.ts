@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import * as oracledb from 'oracledb';
 import { FilterCandidatoDto } from './dto/filter-candidato.dto';
 import { DataSource } from 'typeorm';
 import { UpdateCandidatoDto } from './dto/update-candidato.dto';
@@ -17,6 +18,11 @@ export class ExamesDeAcessoService {
     const condicoes: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
+
+    if (filtros.codigoFaculdade) {
+      condicoes.push(`FK2_TB_CURSOS.FACULDADE_ID = :${paramIndex++}`);
+      params.push(filtros.codigoFaculdade);
+    }
 
     if (filtros.codigoAnoLetivo) {
       condicoes.push(`FK2_USERS.ANO_LECTIVO_ID = :${paramIndex++}`);
@@ -106,12 +112,14 @@ export class ExamesDeAcessoService {
            , FK2_TB_NACIONALIDADES
            , FK2_USERS
            , FK2_TB_TIPO_CANDIDATURA 
+           , FK2_TB_FACULDADE
        WHERE FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA       = FK2_TB_CURSOS.CODIGO
          AND FK2_TB_PREINSCRICAO.CODIGO_NACIONALIDADE    = FK2_TB_NACIONALIDADES.CODIGO
          AND FK2_TB_PREINSCRICAO.USER_ID                 = FK2_USERS.ID
          AND FK2_USERS.ANO_LECTIVO_ID                    = FK2_TB_ANO_LECTIVO.CODIGO
          AND FK2_TB_PREINSCRICAO.CODIGO_TURNO            = FK2_TB_PERIODOS.CODIGO
          AND FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA = FK2_TB_TIPO_CANDIDATURA.ID
+         AND FK2_TB_CURSOS.FACULDADE_ID                  = FK2_TB_FACULDADE.CODIGO
          ${extraWhere}
        ORDER BY FK2_TB_PREINSCRICAO.NOME_COMPLETO
        OFFSET :${offsetIndex} ROWS
@@ -521,20 +529,28 @@ export class ExamesDeAcessoService {
     const params: any[] = [];
     let paramIndex = 1;
 
- 
+    if (filtros.search) {
+      const searchIndex1 = paramIndex++;
+      const searchIndex2 = paramIndex++;
+      condicoes.push(
+        `(UPPER(FK2_TB_PREINSCRICAO.NOME_COMPLETO) LIKE UPPER(:${searchIndex1}) OR UPPER(FK2_TB_PREINSCRICAO.BILHETE_IDENTIDADE) LIKE UPPER(:${searchIndex2}))`,
+      );
+      params.push(`%${filtros.search}%`);
+      params.push(`%${filtros.search}%`);
+    }
 
-  if (filtros.codigoAnoLetivo) {
-  condicoes.push(`FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID = :${paramIndex++}`);
-  params.push(filtros.codigoAnoLetivo);
-}
+    if (filtros.codigoAnoLetivo) {
+      condicoes.push(`FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID = :${paramIndex++}`);
+      params.push(filtros.codigoAnoLetivo);
+    }
 
-if (filtros.dataInicio && filtros.dataFim) {
-  const [dd1, mm1, yyyy1] = filtros.dataInicio.split('/');
-  const [dd2, mm2, yyyy2] = filtros.dataFim.split('/');
-  condicoes.push(
-    `FK2_TB_HORARIO_PROVA.DATA_REALIZACAO BETWEEN TO_DATE('${dd1}/${mm1}/${yyyy1}', 'DD/MM/YYYY') AND TO_DATE('${dd2}/${mm2}/${yyyy2}', 'DD/MM/YYYY')`,
-  );
-}
+    if (filtros.dataInicio && filtros.dataFim) {
+      const [dd1, mm1, yyyy1] = filtros.dataInicio.split('/');
+      const [dd2, mm2, yyyy2] = filtros.dataFim.split('/');
+      condicoes.push(
+        `FK2_TB_HORARIO_PROVA.DATA_REALIZACAO BETWEEN TO_DATE('${dd1}/${mm1}/${yyyy1}', 'DD/MM/YYYY') AND TO_DATE('${dd2}/${mm2}/${yyyy2}', 'DD/MM/YYYY')`,
+      );
+    }
     // opcionais
     if (filtros.codigoFaculdade) {
       condicoes.push(`FK2_TB_CURSOS.FACULDADE_ID = :${paramIndex++}`);
@@ -654,11 +670,11 @@ if (filtros.dataInicio && filtros.dataFim) {
     const condicoes: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
-  if(filtros.codigoAnoLetivo){
- condicoes.push(`FK2_USERS.ANO_LECTIVO_ID = :${paramIndex++}`);
-    params.push(filtros.codigoAnoLetivo);
-  }
-   
+    if (filtros.codigoAnoLetivo) {
+      condicoes.push(`FK2_USERS.ANO_LECTIVO_ID = :${paramIndex++}`);
+      params.push(filtros.codigoAnoLetivo);
+    }
+
 
     if (filtros.codigoGrau) {
       condicoes.push(`FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA = :${paramIndex++}`);
@@ -793,6 +809,389 @@ if (filtros.dataInicio && filtros.dataFim) {
       limit,
       totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
     });
+  }
+
+  async atribuirProva(codigoCandidato: number) {
+    return await this.dataSource.transaction(async (manager) => {
+      // VALIDAR
+      // SELECT p FROM TbPagamentos p where p.codigoPreInscricao.codigo=:codigoPreinscricao and  p.codigoFactura.codigoDescricao.id=9 and p.estado=1 and p.codigoFactura.estado=1
+
+      const sqlCandidate = `
+        SELECT FK2_TB_PREINSCRICAO.CODIGO
+             , FK2_USERS.ANO_LECTIVO_ID
+             , FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA
+             , FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA
+             , FK2_TB_PREINSCRICAO.CODIGO_TURNO
+          FROM FK2_TB_PREINSCRICAO
+             , FK2_TB_TIPO_CANDIDATURA
+             , FK2_USERS
+             , FK2_TB_ANO_LECTIVO
+             , FK2_TB_CURSOS
+             , FK2_TB_PERIODOS
+         WHERE FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA = FK2_TB_TIPO_CANDIDATURA.ID
+           AND FK2_TB_PREINSCRICAO.USER_ID                 = FK2_USERS.ID
+           AND FK2_USERS.ANO_LECTIVO_ID                    = FK2_TB_ANO_LECTIVO.CODIGO
+           AND FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA       = FK2_TB_CURSOS.CODIGO
+           AND FK2_TB_PREINSCRICAO.CODIGO_TURNO            = FK2_TB_PERIODOS.CODIGO
+           AND FK2_TB_PREINSCRICAO.CODIGO             NOT IN (SELECT CANDIDATO_ID FROM FK2_CANDIDATO_PROVAS)
+           AND FK2_TB_PREINSCRICAO.CODIGO = :1
+      `;
+
+      const candidates = await manager.query(sqlCandidate, [codigoCandidato]);
+      if (candidates.length === 0) {
+        throw new HttpException(
+          'Candidato não encontrado ou já possui prova atribuída.',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      const candidate = candidates[0];
+
+      const sqlExams = `
+        SELECT FK2_PROVAS.ID
+          FROM FK2_PROVAS
+         WHERE JSON_EXISTS(cursos, '$[*]?(@ == $curso)' PASSING :1 AS "curso")
+           AND FK2_PROVAS.ANO_LECTIVO_ID = :2
+      `;
+      const exams = await manager.query(sqlExams, [
+        String(candidate.CURSO_CANDIDATURA),
+        candidate.ANO_LECTIVO_ID,
+      ]);
+      if (exams.length === 0) {
+        throw new HttpException(
+          'Nenhuma prova encontrada para o curso e ano lectivo do candidato.',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      const randomExam = exams[Math.floor(Math.random() * exams.length)];
+
+      const sqlSchedules = `
+        SELECT FK2_TB_HORARIO_PROVA.ID
+             , DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1) AS HORA_INICIO
+             , DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_FIM, 4000, 1) AS HORA_FIM
+             , FK2_TB_HORARIO_PROVA.DATA_REALIZACAO
+             , FK2_TB_HORARIO_PROVA.SALA_ID
+             , FK2_TB_HORARIO_PROVA.CURSO_ID
+             , FK2_TB_SALAS.CAPACIDADEEXAMEACESSOPROVA
+          FROM FK2_TB_HORARIO_PROVA
+             , FK2_TB_SALAS
+         WHERE FK2_TB_HORARIO_PROVA.SALA_ID            =  FK2_TB_SALAS.CODIGO
+           AND FK2_TB_SALAS.CAPACIDADEEXAMEACESSOPROVA > 0
+           --AND FK2_TB_HORARIO_PROVA.DATA_REALIZACAO    > TRUNC(SYSDATE) -- DESCOMENTAR PARA PRD
+           AND FK2_TB_HORARIO_PROVA.PERIODO_ID         = :1
+           AND FK2_TB_HORARIO_PROVA.CURSO_ID           = :2
+         ORDER BY FK2_TB_HORARIO_PROVA.DATA_REALIZACAO
+                , TO_NUMBER(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1))
+      `;
+
+      const schedules = (await manager.query(sqlSchedules, [
+        candidate.CODIGO_TURNO,
+        candidate.CURSO_CANDIDATURA,
+      ])) as any[];
+
+      let selectedSchedule: any = null;
+      for (const schedule of schedules) {
+        const sqlCount = `
+          SELECT COUNT(*) AS QUANTIDADE_CANDIDATOS
+            FROM FK2_CANDIDATO_PROVAS 
+           WHERE FK2_CANDIDATO_PROVAS.HORARIO_PROVA_ID = :1
+        `;
+        const countRes = await manager.query(sqlCount, [schedule.ID]);
+        const currentCount = Number(countRes[0].QUANTIDADE_CANDIDATOS);
+
+        if (schedule.CAPACIDADEEXAMEACESSOPROVA > currentCount) {
+          selectedSchedule = schedule;
+          break;
+        }
+      }
+
+      if (!selectedSchedule) {
+        throw new HttpException(
+          'Não há horários disponíveis com capacidade para este candidato.',
+          HttpStatus.CONFLICT,
+        );
+      }
+
+      const sqlInsertExame = `
+        INSERT INTO FK2_TB_EXAME_ADMISSAO (CANAL, HORA_INICIO, HORA_FIM, DATA_PROVA, CODIGO_SALA, CODIGO_DISCIPLINA, CODIGO_PREINSCRICAO) 
+        VALUES (1, :1, :2, :3, :4, :5, :6)
+      `;
+      await manager.query(sqlInsertExame, [
+        selectedSchedule.HORA_INICIO,
+        selectedSchedule.HORA_FIM,
+        selectedSchedule.DATA_REALIZACAO,
+        selectedSchedule.SALA_ID,
+        randomExam.ID,
+        codigoCandidato,
+      ]);
+
+      const sqlInsertCandidatoProva = `
+        INSERT INTO FK2_CANDIDATO_PROVAS (CANDIDATO_ID, STATUS_, CANAL, HORARIO_PROVA_ID, PROVA_ID, CREATED_AT) 
+        VALUES (:1, 0, 1, :2, :3, SYSDATE)
+      `;
+      await manager.query(sqlInsertCandidatoProva, [
+        codigoCandidato,
+        selectedSchedule.ID,
+        randomExam.ID,
+      ]);
+
+      return {
+        message: 'Prova atribuída com sucesso.',
+        candidatoId: codigoCandidato,
+      };
+    });
+  }
+
+  async admitirCandidatoAoPublico(codigoCandidato: number, nota: number) {
+    return await this.dataSource.transaction(async (manager) => {
+      const sqlCheck = `
+        SELECT FK2_TB_PREINSCRICAO.CODIGO
+             , FK2_TB_PREINSCRICAO.NOME_COMPLETO
+             , FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA
+             , FK2_TB_PREINSCRICAO.CONTACTOS_TELEFONICOS AS CONTATO
+             , (SELECT 1 FROM FK2_TB_ADMISSAO WHERE FK2_TB_ADMISSAO.PRE_INCRICAO = FK2_TB_PREINSCRICAO.CODIGO AND ROWNUM = 1) AS ADMISSAO
+          FROM FK2_TB_PREINSCRICAO
+         WHERE FK2_TB_PREINSCRICAO.CODIGO = :1
+      `;
+      const candidates = await manager.query(sqlCheck, [codigoCandidato]);
+      if (candidates.length === 0) {
+        throw new HttpException(
+          'Candidato não encontrado.',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      const candidate = candidates[0];
+
+      if (candidate.ADMISSAO) {
+        throw new HttpException(
+          'Candidato já possui admissão.',
+          HttpStatus.CONFLICT,
+        );
+      }
+
+      if (nota === null || Number(nota) < 10) {
+        throw new HttpException(
+          `Candidato não possui nota suficiente (${nota ?? 0}).`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const sqlInsertAdmissao = `
+        INSERT INTO FK2_TB_ADMISSAO (PRE_INCRICAO, MEDIAFINAL, DATA, RESULTADO, CANAL, POLO_ID) 
+        VALUES (:candidatoId, :nota, SYSDATE, 'Admitido(a)', 1, 1)
+        RETURNING CODIGO INTO :outId
+      `;
+
+      const resAdmissao = await manager.query(sqlInsertAdmissao, {
+        candidatoId: codigoCandidato,
+        nota: nota,
+        outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+      } as any);
+
+      const codigoAdmissao = resAdmissao.outId[0];
+
+      const sqlInsertHistorico = `
+        INSERT INTO FK2_TB_ADMISSAO_HISTORICO (FK_ADMISSAO, LOCAL_EXAME, CREATED_BY, CREATED_AT) 
+        VALUES (:1, 'Universidade Pública', 1, SYSDATE)
+      `;
+      await manager.query(sqlInsertHistorico, [codigoAdmissao]);
+
+      return {
+        message: 'Candidato admitido com sucesso.',
+        codigoAdmissao,
+      };
+    });
+  }
+
+  async lancarNotaArquitectura(codigoCandidato: number, notaPratica: number) {
+    return await this.dataSource.transaction(async (manager) => {
+      const sqlFetch = `
+        SELECT FK2_TB_PREINSCRICAO.CODIGO
+             , FK2_CANDIDATO_PROVAS.NOTA AS NOTA_TEORICA
+             , FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA
+          FROM FK2_CANDIDATO_PROVAS
+             , FK2_TB_PREINSCRICAO
+             , FK2_TB_HORARIO_PROVA
+         WHERE FK2_CANDIDATO_PROVAS.CANDIDATO_ID = FK2_TB_PREINSCRICAO.CODIGO
+           AND FK2_CANDIDATO_PROVAS.HORARIO_PROVA_ID = FK2_TB_HORARIO_PROVA.ID
+           AND FK2_TB_PREINSCRICAO.CODIGO = :1
+           AND FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA = 7
+      `;
+      const rows = await manager.query(sqlFetch, [codigoCandidato]);
+      if (rows.length === 0) {
+        throw new HttpException(
+          'Candidato de Arquitectura não encontrado ou sem prova atribuída.',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      const { NOTA_TEORICA } = rows[0];
+      const media = Number(NOTA_TEORICA) * 0.3 + Number(notaPratica);
+
+      const sqlUpdateGrade = `
+        UPDATE FK2_CANDIDATO_PROVAS
+           SET NOTA = :1
+         WHERE CANDIDATO_ID = :2
+      `;
+      await manager.query(sqlUpdateGrade, [media, codigoCandidato]);
+
+      if (media >= 10) {
+        const sqlInsertAdmissao = `
+          INSERT INTO FK2_TB_ADMISSAO (PRE_INCRICAO, MEDIAFINAL, DATA, RESULTADO, CANAL, POLO_ID) 
+          VALUES (:candidatoId, :nota, SYSDATE, 'Admitido(a)', 1, 1)
+          RETURNING CODIGO INTO :outId
+        `;
+
+        const resAdmissao = await manager.query(sqlInsertAdmissao, {
+          candidatoId: codigoCandidato,
+          nota: media,
+          outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+        } as any);
+
+        const codigoAdmissao = resAdmissao.outId[0];
+
+        const sqlInsertHistorico = `
+          INSERT INTO FK2_TB_ADMISSAO_HISTORICO (FK_ADMISSAO, LOCAL_EXAME, CREATED_BY, CREATED_AT) 
+          VALUES (:1, 'Universidade Metódista de Angola', 1, SYSDATE)
+        `;
+        await manager.query(sqlInsertHistorico, [codigoAdmissao]);
+
+        return {
+          message: 'Nota lançada e candidato admitido com sucesso.',
+          media,
+          codigoAdmissao,
+        };
+      }
+
+      return {
+        message:
+          'Nota lançada com sucesso (candidato não atingiu média para admissão).',
+        media,
+      };
+    });
+  }
+
+  async buscaListaCandidatosProvas(filtros: FilterCandidatoDto) {
+    const {
+      codigoAnoLetivo,
+      codigoFaculdade,
+      codigoCurso,
+      codigoTurno,
+      search,
+      page = 1,
+      limit = 10,
+    } = filtros;
+
+    const offset = (page - 1) * limit;
+
+    let sql = `
+      SELECT FK2_TB_PREINSCRICAO.CODIGO AS NUMERO_INSCRICAO
+           , FK2_TB_PREINSCRICAO.NOME_COMPLETO AS NOME
+           , FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID AS CODIGO_ANO_LECTIVO
+           , FK2_TB_ANO_LECTIVO.DESIGNACAO AS ANO_LECTIVO
+           , FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA AS CODIGO_CURSO
+           , FK2_TB_CURSOS.DESIGNACAO AS CURSO
+           , FK2_TB_HORARIO_PROVA.PERIODO_ID AS CODIGO_PERIODO
+           , FK2_TB_PERIODOS.DESIGNACAO AS PERIODO
+           , FK2_TB_CURSOS.FACULDADE_ID AS CODIGO_FACULDADE 
+           , FK2_TB_FACULDADE.DESIGNACAO AS FACULDADE
+           , FK2_PROVAS.DESCRICAO AS LISTA_DE_PROVAS
+        FROM FK2_TB_PREINSCRICAO
+           , FK2_TB_HORARIO_PROVA
+           , FK2_TB_ANO_LECTIVO
+           , FK2_TB_CURSOS
+           , FK2_TB_PERIODOS
+           , FK2_TB_FACULDADE
+           , FK2_CANDIDATO_PROVAS
+           , FK2_PROVAS
+       WHERE FK2_TB_PREINSCRICAO.CODIGO            = FK2_CANDIDATO_PROVAS.CANDIDATO_ID
+         AND FK2_CANDIDATO_PROVAS.HORARIO_PROVA_ID = FK2_TB_HORARIO_PROVA.ID
+         AND FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID   = FK2_TB_ANO_LECTIVO.CODIGO
+         AND FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA = FK2_TB_CURSOS.CODIGO
+         AND FK2_TB_HORARIO_PROVA.PERIODO_ID       = FK2_TB_PERIODOS.CODIGO
+         AND FK2_TB_CURSOS.FACULDADE_ID            = FK2_TB_FACULDADE.CODIGO
+         AND FK2_CANDIDATO_PROVAS.PROVA_ID         = FK2_PROVAS.ID
+    `;
+
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (codigoAnoLetivo) {
+      sql += ` AND FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID = :${paramIndex++}`;
+      params.push(codigoAnoLetivo);
+    }
+
+    if (codigoFaculdade) {
+      sql += ` AND FK2_TB_CURSOS.FACULDADE_ID = :${paramIndex++}`;
+      params.push(codigoFaculdade);
+    }
+
+    if (codigoCurso) {
+      sql += ` AND FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA = :${paramIndex++}`;
+      params.push(codigoCurso);
+    }
+
+    if (codigoTurno) {
+      sql += ` AND FK2_TB_HORARIO_PROVA.PERIODO_ID = :${paramIndex++}`;
+      params.push(codigoTurno);
+    }
+
+    if (search) {
+      sql += ` AND (UPPER(FK2_TB_PREINSCRICAO.NOME_COMPLETO) LIKE UPPER(:${paramIndex++}) OR FK2_TB_PREINSCRICAO.CODIGO = :${paramIndex++})`;
+      params.push(`%${search}%`);
+      params.push(isNaN(Number(search)) ? -1 : Number(search));
+    }
+
+    const sqlCount = `SELECT COUNT(*) AS TOTAL FROM (${sql})`;
+    const totalResult = await this.dataSource.query(sqlCount, params);
+    const total = totalResult[0].TOTAL;
+
+    sql += ` OFFSET :${paramIndex++} ROWS FETCH NEXT :${paramIndex++} ROWS ONLY`;
+    params.push(offset);
+    params.push(limit);
+
+    const rows = await this.dataSource.query(sql, params);
+
+    const data = rows.map((row: any) => {
+      const listaProvas = row.LISTA_DE_PROVAS
+        ? row.LISTA_DE_PROVAS.replace(/^Prova de\\s*/i, '')
+          .split(/<br>/i)[0]
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0)
+        : [];
+
+      return {
+        ...this.toLower(row),
+        lista_de_provas: listaProvas,
+      };
+    });
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async resetarProva(codigoCandidato: number) {
+    const sql = `
+      UPDATE FK2_CANDIDATO_PROVAS
+         SET STATUS_     = 0
+           , NOTA        = 0
+           , TEMPO       = NULL
+           , PROVAFEITA  = NULL  
+       WHERE CANDIDATO_ID = :1
+    `;
+    const result = await this.dataSource.query(sql, [codigoCandidato]);
+
+    return {
+      message: 'Prova resetada com sucesso.',
+      candidatoId: codigoCandidato,
+    };
   }
 
   private toLower(data: any): any {
