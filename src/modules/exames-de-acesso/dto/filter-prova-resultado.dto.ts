@@ -64,10 +64,7 @@ export class FilterProvaResultadoDto {
   @IsString()
   dataFim: string;
 
-  @ApiPropertyOptional({ example: 'João Silva', description: 'Pesquisa por nome ' })
-  @IsOptional()
-  @IsString()
-  search?: string;
+
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
