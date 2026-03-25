@@ -194,19 +194,19 @@ export class NoteReleaseService {
         ON AVA.GRADE_CURRICULAR_ALUNO = GCA.CODIGO
        AND AVA.TIPO_DE_PROVA = :tipoProvaId
        AND AVA.TIPO_AVALIACAO= :tipoAvaliacao
-    INNER JOIN FK2_TB_MATRICULAS MAT 
+    LEFT JOIN FK2_TB_MATRICULAS MAT 
         ON MAT.CODIGO = GCA.CODIGO_MATRICULA
-    INNER JOIN FK2_TB_ADMISSAO ADM 
+    LEFT JOIN FK2_TB_ADMISSAO ADM 
         ON ADM.CODIGO = MAT.CODIGO_ALUNO
-    INNER JOIN FK2_TB_PREINSCRICAO PRE 
+    LEFT JOIN FK2_TB_PREINSCRICAO PRE 
         ON PRE.CODIGO = ADM.PRE_INCRICAO
-    INNER JOIN FK2_TB_CONFIRMACOES CONF 
+    LEFT JOIN FK2_TB_CONFIRMACOES CONF 
         ON CONF.CODIGO = GCA.CODIGO_CONFIRMACAO
     WHERE
         MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
         AND GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
         AND JSON_VALUE(GCA.REF_HORARIO, '$.pk')= :horarioId
-        AND GCA.CODIGO_STATUS_GRADE_CURRICULAR IN (2,3)
+        -- AND GCA.CODIGO_STATUS_GRADE_CURRICULAR IN (2,3)
         AND CONF.CLASSE = :classe
         AND PRE.CODIGO_TURNO  =:turno
     GROUP BY 
@@ -263,7 +263,7 @@ export class NoteReleaseService {
         MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
         AND GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
         AND JSON_VALUE(GCA.REF_HORARIO, '$.pk')= :horarioId
-        AND GCA.CODIGO_STATUS_GRADE_CURRICULAR NOT IN (5,4)
+      --  AND GCA.CODIGO_STATUS_GRADE_CURRICULAR NOT IN (5,4)
         AND CONF.CLASSE = :classe
         AND PRE.CODIGO_TURNO  =:turno
     GROUP BY 
@@ -320,7 +320,7 @@ export class NoteReleaseService {
         MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
         AND GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
         AND JSON_VALUE(GCA.REF_HORARIO, '$.pk')= :horarioId
-        AND GCA.CODIGO_STATUS_GRADE_CURRICULAR IN (2,3)
+        -- AND GCA.CODIGO_STATUS_GRADE_CURRICULAR IN (2,3)
         AND CONF.CLASSE = :classe
         AND PRE.CODIGO_TURNO  =:turno
             AND GCA.CODIGO NOT IN (
