@@ -50,7 +50,7 @@ export class FilterProvaResultadoDto {
   @IsNumber()
   @IsIn([0, 1])
   @Type(() => Number)
-  resultado?: number; // 0 ou 1
+  resultado?: number;
 
   @ApiProperty({ example: '01/03/2026', required: false })
   @IsNotEmpty()
@@ -63,6 +63,11 @@ export class FilterProvaResultadoDto {
   @IsOptional()
   @IsString()
   dataFim: string;
+
+  @ApiPropertyOptional({ example: 'João Silva', description: 'Pesquisa por nome ' })
+  @IsOptional()
+  @IsString()
+  search?: string;
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()

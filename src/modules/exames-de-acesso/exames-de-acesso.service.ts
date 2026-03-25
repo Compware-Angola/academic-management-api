@@ -552,15 +552,26 @@ export class ExamesDeAcessoService {
       );
     }
     // opcionais
+    if (filtros.codigoAnoLetivo) {
+      condicoes.push(`FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID = :${paramIndex++}`);
+      params.push(filtros.codigoAnoLetivo);
+    }
+
+    if (filtros.dataInicio && filtros.dataFim) {
+      const [dd1, mm1, yyyy1] = filtros.dataInicio.split('/');
+      const [dd2, mm2, yyyy2] = filtros.dataFim.split('/');
+      condicoes.push(
+        `FK2_TB_HORARIO_PROVA.DATA_REALIZACAO BETWEEN TO_DATE('${dd1}/${mm1}/${yyyy1}', 'DD/MM/YYYY') AND TO_DATE('${dd2}/${mm2}/${yyyy2}', 'DD/MM/YYYY')`,
+      );
+    }
+
     if (filtros.codigoFaculdade) {
       condicoes.push(`FK2_TB_CURSOS.FACULDADE_ID = :${paramIndex++}`);
       params.push(filtros.codigoFaculdade);
     }
 
     if (filtros.codigoCurso) {
-      condicoes.push(
-        `FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA = :${paramIndex++}`,
-      );
+      condicoes.push(`FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA = :${paramIndex++}`);
       params.push(filtros.codigoCurso);
     }
 
@@ -572,6 +583,12 @@ export class ExamesDeAcessoService {
     if (filtros.codigoSala) {
       condicoes.push(`FK2_TB_HORARIO_PROVA.SALA_ID = :${paramIndex++}`);
       params.push(filtros.codigoSala);
+    }
+    if (filtros.search) {
+      condicoes.push(
+        `(UPPER(DBMS_LOB.SUBSTR(FK2_TB_PREINSCRICAO.NOME_COMPLETO, 4000, 1)) LIKE UPPER(:${paramIndex++}) OR UPPER(DBMS_LOB.SUBSTR(FK2_TB_PREINSCRICAO.BILHETE_IDENTIDADE, 4000, 1)) LIKE UPPER(:${paramIndex++}))`,
+      );
+      params.push(`%${filtros.search}%`, `%${filtros.search}%`);
     }
 
     const where = condicoes.map((c) => `AND ${c}`).join('\n');
@@ -665,7 +682,6 @@ export class ExamesDeAcessoService {
       totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
     });
   }
-
   async buscaProvaMarcacoes(filtros: FilterProvaMarcacaoDto) {
     const condicoes: string[] = [];
     const params: any[] = [];

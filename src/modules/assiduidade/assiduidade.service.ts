@@ -8,6 +8,7 @@ import { MarkAttendanceDto } from './dto/MarkAttendanceDto';
 import { GeneralAttendanceCalendarDto } from './dto/GeneralAttendanceCalendarDto';
 import { addDays, parseISODateOrToday, startOfMonth, startOfNextMonth, startOfWeekMonday, toISODate } from '../common/helpers/parseISODateOrToday';
 import { FindTeacherClassCalendarDto } from './dto/FindTeacherClassCalendarDto';
+import { FindEstatisticaAssiduidadeDocenteDto } from './dto/FindEstatisticaAssiduidadeDocenteDto';
 
 @Injectable()
 export class AssiduidadeService {
@@ -200,7 +201,7 @@ FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
 INNER JOIN FK2_MGH_TB_AULA al
   ON JSON_VALUE(aa.REF_AULA, '$.pkAula') = al.PK_AULA
 
-  INNER JOIN FK2_MGD_TB_DOCENTE d2
+  LEFT JOIN FK2_MGD_TB_DOCENTE d2
   ON JSON_VALUE(aa.REF_AULA, '$.pkDocente') = d2.CODIGO
 INNER JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO est
   ON aa.FK_ESTADO_AGENDAMENTO = est.PK_ESTADO_AGENDAMENTO
@@ -888,8 +889,6 @@ ${whereClause}
   }
 
 
-  // Assiduidade da prova
-
   private async attendanceTest(dto: FindAttendanceTestDto) {
     const {
       docente = 0,
@@ -1042,7 +1041,6 @@ ${whereClause}
       throw new Error(`Falha ao consultar assiduidade: ${error.message}`);
     }
   }
-
 
   async generalAttendanceByDocenteCalendar(dto: GeneralAttendanceCalendarDto) {
 
@@ -1233,6 +1231,317 @@ ${whereClause}
     } catch (error) {
       console.error('Erro ao buscar calendário de aulas do docente:', error);
       throw new Error(`Falha ao consultar calendário de aulas: ${error.message}`);
+    }
+  }
+
+  async getEstatisticaAssiduidadeDocente(dto: FindEstatisticaAssiduidadeDocenteDto) {
+    const {
+      anoLectivo = 0,
+      semestre = 0,
+      curso = 0,
+      docente = 0,
+      dataInicial,
+      dataFinal,
+      naoCobrarFaltas = false,
+      exigirPresencasConfirmadas = false,
+      exigirSumariosInseridos = false,
+      exigirSumariosValidos = false,
+      search,
+      page = 1,
+      limit = 20,
+    } = dto;
+
+    const offset = (page - 1) * limit;
+    const whereParams: Record<string, any> = {};
+    const conditions: string[] = ['aa.ACTIVE_STATE = 1'];
+    if (search) {
+      conditions.push(`
+    (
+      LOWER(d2.N_MECANOGRAFICO) LIKE LOWER(:search)
+      OR LOWER((
+        SELECT u.NOME 
+        FROM FK2_MCA_TB_UTILIZADOR u
+        WHERE u.PK_UTILIZADOR = json_value(d2.CODIGO_UTILIZADOR, '$.pk')
+      )) LIKE LOWER(:search)
+    )
+  `);
+      whereParams.search = `%${search}%`;
+    }
+  if (dataInicial && dataFinal) {
+  conditions.push(`aa.DATA_AULA BETWEEN TO_DATE(:dataInicial, 'YYYY-MM-DD') AND TO_DATE(:dataFinal, 'YYYY-MM-DD')`);
+  whereParams.dataInicial = dataInicial;
+  whereParams.dataFinal = dataFinal;
+}
+    if (anoLectivo !== 0) {
+      conditions.push('h.FK_ANO_LECTIVO = :anoLectivo');
+      whereParams.anoLectivo = anoLectivo;
+    }
+
+    if (semestre !== 0) {
+      conditions.push('h.FK_SEMESTRE = :semestre');
+      whereParams.semestre = semestre;
+    }
+
+    if (curso !== 0) {
+      conditions.push('gc.CODIGO_CURSO = :curso');
+      whereParams.curso = curso;
+    }
+
+    if (docente !== 0) {
+      conditions.push("JSON_VALUE(aa.REF_AULA, '$.pkDocente') = :docente");
+      whereParams.docente = docente;
+    }
+
+    // Exigir Sumários Inseridos — só aulas que têm sumário
+    if (exigirSumariosInseridos) {
+      conditions.push('s.PK_TB_SUMARIO IS NOT NULL');
+    }
+
+    // Exigir Sumários Válidos — só aulas com sumário validado (estado 4)
+    if (exigirSumariosValidos) {
+      conditions.push('s.FK_ESTADO_SUMARIO = 4');
+    }
+
+    const whereClause = conditions.length > 0
+      ? 'WHERE ' + conditions.join(' AND ')
+      : '';
+
+    // ─────────────────────────────────────────────────────────────
+    // Lógica das flags aplicada nos CASE WHEN de contagem:
+    //
+    // naoCobrarFaltas          → faltas não entram no total salarial
+    // exigirPresencasConfirmadas → só conta presenças com sumário inserido e válido
+    // ─────────────────────────────────────────────────────────────
+
+    // Condição base para "presença válida"
+    // PK_ESTADO_AGENDAMENTO = 3 → Realizada
+    // PK_ESTADO_AGENDAMENTO = 2 → Falta
+    const presencaCondition = exigirPresencasConfirmadas
+      ? `est.PK_ESTADO_AGENDAMENTO = 3
+       AND s.PK_TB_SUMARIO IS NOT NULL
+       AND s.FK_ESTADO_SUMARIO = 2`
+      : `est.PK_ESTADO_AGENDAMENTO = 3`;
+
+    // Para o total salarial: se naoCobrarFaltas, só conta presenças; caso contrário conta tudo
+    const totalSalarialCondition = naoCobrarFaltas
+      ? presencaCondition
+      : `est.PK_ESTADO_AGENDAMENTO IN (2, 3)`;
+
+    const sql = `
+    SELECT
+      d2.N_MECANOGRAFICO                                          AS n_mecanografico,
+      tu.NOME                                                     AS nome,
+      ga.DESIGNACAO                                               AS grau_academico,
+      ed.DESIGNACAO                                               AS escalao,
+      cd.DESIGNACAO                                               AS categoria,
+
+      -- Total aulas previstas
+      COUNT(DISTINCT aa.PK_AGENDAMENTO_AULA)                      AS total_aulas_previstas,
+
+      -- Aulas semanais (semana actual)
+      COUNT(DISTINCT CASE
+        WHEN TRUNC(aa.DATA_AULA, 'IW') = TRUNC(SYSDATE, 'IW')
+        THEN aa.PK_AGENDAMENTO_AULA END)                          AS aulas_semanais,
+
+      -- Aulas mensais (mês actual)
+      COUNT(DISTINCT CASE
+        WHEN TRUNC(aa.DATA_AULA, 'MM') = TRUNC(SYSDATE, 'MM')
+        THEN aa.PK_AGENDAMENTO_AULA END)                          AS aulas_mensais,
+
+      -- TM - Total Mensal
+      COUNT(DISTINCT CASE
+        WHEN TO_CHAR(aa.DATA_AULA, 'MM/YYYY') = TO_CHAR(SYSDATE, 'MM/YYYY')
+        THEN aa.PK_AGENDAMENTO_AULA END)                          AS tm,
+
+      -- TS - Total Semestral
+      COUNT(DISTINCT aa.PK_AGENDAMENTO_AULA)                      AS ts,
+
+      -- TA - Total Anual
+      COUNT(DISTINCT aa.PK_AGENDAMENTO_AULA)                      AS ta,
+
+      -- Total Horas Efetivas
+      -- Conta apenas presenças válidas (respeita exigirPresencasConfirmadas)
+   ROUND(
+  SUM(CASE
+    WHEN ${presencaCondition}
+    THEN (CAST(al.HORA_TERMINO AS DATE) - CAST(al.HORA_INICIO AS DATE)) * 24
+    ELSE 0 END
+  ), 0
+) AS total_horas_efetivas,
+
+      -- Total para cálculo salarial
+      -- Se naoCobrarFaltas = true → só presenças válidas
+      -- Se naoCobrarFaltas = false → presenças + faltas
+      COUNT(DISTINCT CASE
+        WHEN ${totalSalarialCondition}
+        THEN aa.PK_AGENDAMENTO_AULA END)                          AS total_horas_salarial,
+
+      -- Total Faltas (independente das flags — sempre informativo)
+      COUNT(DISTINCT CASE
+        WHEN est.PK_ESTADO_AGENDAMENTO = 2
+        THEN aa.PK_AGENDAMENTO_AULA END)                          AS total_faltas,
+
+      -- ── PRESENCIAIS (AP) ──────────────────────────────────────
+
+      -- AP Total previsto
+      COUNT(DISTINCT CASE
+        WHEN m.PK_MODALIDADE = 1
+        THEN aa.PK_AGENDAMENTO_AULA END)                          AS ap_total,
+
+      -- AP Presenças (respeita exigirPresencasConfirmadas)
+      COUNT(DISTINCT CASE
+        WHEN m.PK_MODALIDADE = 1
+          AND ${presencaCondition}
+        THEN aa.PK_AGENDAMENTO_AULA END)                          AS ap_presenca,
+
+      -- AP Faltas
+      -- Se naoCobrarFaltas = true → retorna 0 (não cobrar)
+      -- Se naoCobrarFaltas = false → retorna as faltas reais
+      COUNT(DISTINCT CASE
+        WHEN m.PK_MODALIDADE = 1
+          AND est.PK_ESTADO_AGENDAMENTO = 2
+          AND ${naoCobrarFaltas ? '1 = 2' : '1 = 1'}
+        THEN aa.PK_AGENDAMENTO_AULA END)                          AS ap_falta,
+
+      -- ── VIRTUAIS (AV) ─────────────────────────────────────────
+
+      -- AV Total previsto
+      COUNT(DISTINCT CASE
+        WHEN m.PK_MODALIDADE = 2
+        THEN aa.PK_AGENDAMENTO_AULA END)                          AS av_total,
+
+      -- AV Presenças (respeita exigirPresencasConfirmadas)
+      COUNT(DISTINCT CASE
+        WHEN m.PK_MODALIDADE = 2
+          AND ${presencaCondition}
+        THEN aa.PK_AGENDAMENTO_AULA END)                          AS av_presenca,
+
+      -- AV Faltas
+      COUNT(DISTINCT CASE
+        WHEN m.PK_MODALIDADE = 2
+          AND est.PK_ESTADO_AGENDAMENTO = 2
+          AND ${naoCobrarFaltas ? '1 = 2' : '1 = 1'}
+        THEN aa.PK_AGENDAMENTO_AULA END)                          AS av_falta,
+
+      -- ── TOTAIS GERAIS ─────────────────────────────────────────
+
+      -- Total Presenças válidas (AP + AV)
+      COUNT(DISTINCT CASE
+        WHEN ${presencaCondition}
+        THEN aa.PK_AGENDAMENTO_AULA END)                          AS total_presencas,
+
+      -- Total Faltas Geral (AP + AV)
+      COUNT(DISTINCT CASE
+        WHEN est.PK_ESTADO_AGENDAMENTO = 2
+          AND ${naoCobrarFaltas ? '1 = 2' : '1 = 1'}
+        THEN aa.PK_AGENDAMENTO_AULA END)                          AS total_faltas_geral,
+
+      -- Total Geral previsto
+      COUNT(DISTINCT aa.PK_AGENDAMENTO_AULA)                      AS total_geral
+
+    FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
+
+    INNER JOIN FK2_MGH_TB_AULA al
+      ON JSON_VALUE(aa.REF_AULA, '$.pkAula') = al.PK_AULA
+
+    INNER JOIN FK2_MGD_TB_DOCENTE d2
+      ON JSON_VALUE(aa.REF_AULA, '$.pkDocente') = d2.CODIGO
+
+    INNER JOIN FK2_MCA_TB_UTILIZADOR tu
+      ON json_value(d2.CODIGO_UTILIZADOR, '$.pk') = tu.PK_UTILIZADOR
+
+    INNER JOIN FK2_TB_ESCALAO_DOCENTE ed
+      ON ed.CODIGO = d2.FK_ESCALAO
+
+    INNER JOIN FK2_TB_CATEGORIA_DOCENTE cd
+      ON cd.CODIGO = d2.TB_CATEGORIA_DOCENTE
+
+    INNER JOIN FK2_MGD_TB_CANDIDATURA cand
+      ON cand.CODIGO = d2.FK_CANDIDATURA
+
+    INNER JOIN FK2_TB_GRAU_ACADEMICO ga
+      ON ga.CODIGO = cand.GRAU_ACADEMICO
+
+    INNER JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO est
+      ON aa.FK_ESTADO_AGENDAMENTO = est.PK_ESTADO_AGENDAMENTO
+
+    INNER JOIN FK2_MGH_TB_HORARIO h
+      ON al.FK_HORARIO = h.PK_HORARIO
+
+    INNER JOIN FK2_TB_GRADE_CURRICULAR gc
+      ON aa.FK_GRADE_CURRICULAR = gc.CODIGO
+
+    INNER JOIN FK2_MGH_TB_MODALIDADE m
+      ON m.PK_MODALIDADE = al.FK_MODALIDADE
+
+    LEFT JOIN FK2_TB_CURSOS c2
+      ON gc.CODIGO_CURSO = c2.CODIGO
+
+    -- LEFT JOIN sempre presente para as flags de sumário funcionarem
+    LEFT JOIN FK2_MSA_TB_SUMARIO s
+      ON s.FK_AGENDAMENTO_AULA = aa.PK_AGENDAMENTO_AULA
+
+    LEFT JOIN FK2_TB_ESTADO_SUMARIO es
+      ON s.FK_ESTADO_SUMARIO = es.CODIGO
+
+    ${whereClause}
+
+    GROUP BY
+      d2.CODIGO,
+      d2.N_MECANOGRAFICO,
+      tu.NOME,
+      ga.DESIGNACAO,
+      ed.DESIGNACAO,
+      cd.DESIGNACAO
+
+    ORDER BY tu.NOME ASC
+    OFFSET :offset ROWS
+    FETCH NEXT :limit ROWS ONLY
+  `;
+
+    const countSql = `
+    SELECT COUNT(*) AS total FROM (
+      SELECT d2.CODIGO
+      FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
+      INNER JOIN FK2_MGH_TB_AULA al
+        ON JSON_VALUE(aa.REF_AULA, '$.pkAula') = al.PK_AULA
+      INNER JOIN FK2_MGD_TB_DOCENTE d2
+        ON JSON_VALUE(aa.REF_AULA, '$.pkDocente') = d2.CODIGO
+      INNER JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO est
+        ON aa.FK_ESTADO_AGENDAMENTO = est.PK_ESTADO_AGENDAMENTO
+      INNER JOIN FK2_MGH_TB_HORARIO h
+        ON al.FK_HORARIO = h.PK_HORARIO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR gc
+        ON aa.FK_GRADE_CURRICULAR = gc.CODIGO
+      INNER JOIN FK2_MGH_TB_MODALIDADE m
+        ON m.PK_MODALIDADE = al.FK_MODALIDADE
+      LEFT JOIN FK2_MSA_TB_SUMARIO s
+        ON s.FK_AGENDAMENTO_AULA = aa.PK_AGENDAMENTO_AULA
+      ${whereClause}
+      GROUP BY d2.CODIGO
+    )
+  `;
+
+    const sqlParams = { ...whereParams, offset, limit };
+
+    try {
+      const [records, countResult] = await Promise.all([
+        this.dataSource.query(sql, sqlParams as any),
+        this.dataSource.query(countSql, whereParams as any),
+      ]);
+
+      const total = Number(countResult?.[0]?.TOTAL ?? 0);
+
+      return {
+        data: toLowerCaseKeys(records),
+        total,
+        page,
+        limit,
+        totalPages: total > 0 ? Math.ceil(total / limit) : 1,
+      };
+    } catch (error) {
+      console.error('Erro ao buscar estatística de assiduidade:', error);
+      throw new Error(`Falha ao consultar estatística: ${error.message}`);
     }
   }
 

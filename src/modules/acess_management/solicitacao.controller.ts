@@ -1,9 +1,9 @@
 // src/users/referencias.controller.ts
 
-import {  BadRequestException, Param, Put, Req } from '@nestjs/common';
+import {  BadRequestException, Param, ParseIntPipe, Patch, Put, Req } from '@nestjs/common';
 
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SolicitacaoService } from './solicitacao.service';
 import { FetchEncaminhamentoSolicitacaoDTO } from './dto/fetch-encaminhamento-solicitacao.dto';
 import { RejectarEncaminhamentoSolicitacaoDTO } from './dto/rejectar-encaminhamento-solicitacao.dto';
@@ -15,6 +15,7 @@ import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { FetchServicosSolicDTO } from './dto/listar-servicos-solicitacao.dto';
 import { CreateAvisoUmaDto } from './dto/create.aviso.dto';
 import { ListAllSolicitacoesDto } from './dto/listar-solicitacao.dto';
+import { ListarAvisosPorGruposDto } from './dto/listar-avisos-por-grupos.dto';
 
 @ApiTags('solicitacao')
 @Controller('solicitacoa')
@@ -82,17 +83,22 @@ async findAllSolicitacoes(@Query() query: ListAllSolicitacoesDto) {
 }
 
   @Get('avisos')
-  @ApiOperation({ summary: 'Listar avisos com paginação' })
-  @ApiResponse({ status: 200 })
-  async listarAvisos(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-  ) {
-    return this.solicitacaoService.listarAvisos({
-      page: Number(page),
-      limit: Number(limit),
-    });
-  }
+@ApiOperation({ summary: 'Listar avisos com paginação e filtro por assunto' })
+@ApiResponse({ status: 200 })
+@ApiQuery({ name: 'page', required: false, type: Number })
+@ApiQuery({ name: 'limit', required: false, type: Number })
+@ApiQuery({ name: 'assunto', required: false, type: String })
+async listarAvisos(
+  @Query('page') page: number = 1,
+  @Query('limit') limit: number = 10,
+  @Query('assunto') assunto?: string,
+) {
+  return this.solicitacaoService.listarAvisos({
+    page: Number(page),
+    limit: Number(limit),
+    assunto,
+  });
+}
 
   @Post('aviso')
   @ApiOperation({ summary: 'Criar novo aviso' })
@@ -166,5 +172,48 @@ async uploadAvisoImagem(
   ) {
     return this.solicitacaoService.updateAvisoUma(Number(id), dto);
   }
+
+@Get('avisos-por-grupo')
+@ApiOperation({ summary: 'Listar avisos por grupo' })
+@ApiQuery({ name: 'sigla', required: false, type: String })
+@ApiQuery({ name: 'curso', required: false, type: Number })
+@ApiQuery({ name: 'periodo', required: false, type: Number })
+async listarAvisosPorGrupo(
+  @Query('sigla') sigla?: string,
+  @Query('curso') curso?: number,
+  @Query('periodo') periodo?: number,
+) {
+  return this.solicitacaoService.listarAvisosPorGrupo({
+    sigla: sigla?.trim() || undefined,
+    curso: curso ? Number(curso) : undefined,
+    periodo: periodo ? Number(periodo) : undefined,
+  });
+}
+
+@Post('avisos-por-grupos')
+@ApiOperation({ summary: 'Listar avisos por múltiplos grupos' })
+ @ApiBody({ type: ListarAvisosPorGruposDto })
+listarAvisosPorGrupos(@Body() body: { grupoIds?: number[] }) {
+  return this.solicitacaoService.listarAvisosPorGrupos(body);
+}
+
+@Patch('aviso/:id/status')
+@ApiOperation({ summary: 'Ativar ou desativar aviso' })
+@ApiParam({ name: 'id', type: Number, example: 1 })
+@ApiBody({
+  schema: {
+    type: 'object',
+    properties: {
+      status: { type: 'number', example: 1 },
+    },
+    required: ['status'],
+  },
+})
+async alterarStatusAviso(
+  @Param('id', ParseIntPipe) id: number,
+  @Body('status') status: number,
+) {
+  return this.solicitacaoService.alterarStatusAviso(id, status);
+}
 
 }

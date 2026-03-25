@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { DefenseManagementTfcService } from './defense-management-tfc.service';
 import { ApiTags, ApiOkResponse } from '@nestjs/swagger';
-import {  VincularOrientadorTemaDto, CreateOrientadorDto, FiltroVinculosDto, FiltroOrientadorDto, ListarAlunosPorOrientadorDto, ListFinalistStudentsQueryDto, ListFinalistStudentsResponseDto } from './dto';
+import {  VincularOrientadorTemaDto, CreateOrientadorDto, FiltroVinculosDto, FiltroOrientadorDto, ListarAlunosPorOrientadorDto, ListFinalistStudentsQueryDto, ListFinalistStudentsResponseDto, ListDocenteQueryDto } from './dto';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
@@ -88,5 +88,54 @@ export class DefenseManagementTfcController {
   @RequiredPermissions(PermissionTypeDetails.DEFESA.sigla)
   async listarVinculos(@Query() filtros: FiltroVinculosDto) {
     return this.defenseManagementTfcService.listarVinculos(filtros);
+  }
+
+  @Get('docentes')
+  async listarDocentes(@Query() query: ListDocenteQueryDto) {
+    return this.defenseManagementTfcService.listarDocentes(query);
+  }
+
+  @Delete('orientadores/:codigo')
+  @RequiredPermissions(PermissionTypeDetails.DEFESA.sigla)
+  async apagarOrientador(
+    @Param('codigo', ParseIntPipe) codigo: number,
+    @Body('anoLectivoId', ParseIntPipe) anoLectivoId: number,
+    @Req() req: any,
+  ) {
+    const user = req.user;
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+
+    await this.defenseManagementTfcService.apagarOrientador({
+      codigo: Number(codigo),
+      anoLectivoId: Number(anoLectivoId),
+    });
+
+    AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} removeu Orientador TFC e seus vínculos`,
+      fkUtilizadorResponsavel: user.sub,
+      ip: ip,
+    });
+
+    return { message: 'Orientador e vínculos removidos com sucesso.' };
+  }
+
+  @Delete('vinculos/:codigo')
+  @RequiredPermissions(PermissionTypeDetails.DEFESA.sigla)
+  async apagarVinculo(
+    @Param('codigo', ParseIntPipe) codigo: number,
+    @Req() req: any,
+  ) {
+    const user = req.user;
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+
+    await this.defenseManagementTfcService.removerVinculo(codigo);
+
+    AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} removeu Vínculo de Orientador TFC`,
+      fkUtilizadorResponsavel: user.sub,
+      ip: ip,
+    });
+
+    return { message: 'Vínculo removido com sucesso.' };
   }
 }
