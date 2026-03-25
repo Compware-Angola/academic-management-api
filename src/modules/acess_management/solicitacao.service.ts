@@ -575,7 +575,7 @@ async listarAvisos(
       AVS.DESCRICAO,
       U.NOME,
       C.DESIGNACAO AS CURSO,
-      R.NAME AS DESTINO,
+      G.DESIGNACAO AS DESTINO,
       AVS.PERIODO,
       AVS.DATE_EXPIRACAO
     FROM FK2_TB_AVISO_UMA AVS
@@ -583,8 +583,8 @@ async listarAvisos(
         ON AVS.USER_ID = U.PK_UTILIZADOR
       LEFT JOIN FK2_TB_CURSOS C
         ON AVS.CURSO = C.CODIGO
-      LEFT JOIN FK2_ROLES R
-        ON R.ID = AVS.DESTINO
+      LEFT JOIN FK2_MCA_TB_GRUPO G
+        ON G.PK_GRUPO = AVS.DESTINO
     ${whereClause}
     ORDER BY AVS.ID DESC
     OFFSET :${countParams.length + 1} ROWS
