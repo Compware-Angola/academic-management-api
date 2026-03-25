@@ -793,26 +793,30 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
   }
 
   async listarAvisosPorGrupo(params: {
-  grupoId?: number;
+  sigla?: string;
   curso?: number;
   periodo?: number;
 }) {
-  const { grupoId, curso, periodo } = params;
+  const { sigla, curso, periodo } = params;
 
-  const temGrupo = grupoId !== undefined && grupoId !== 0;
+  const temSigla = !!sigla && sigla.trim() !== '';
   const temCurso = curso !== undefined && curso !== 0;
   const temPeriodo = periodo !== undefined && periodo !== 0;
 
-  if (!temGrupo && !temCurso && !temPeriodo) {
+  if (!temSigla && !temCurso && !temPeriodo) {
     return [];
   }
 
-  const conditions: string[] = [`AVS.STATUS_ = 1`];
+  const conditions: string[] = [
+    `AVS.STATUS_ = 1`,
+    `(AVS.DATE_EXPIRACAO IS NULL OR AVS.DATE_EXPIRACAO >= SYSDATE)`
+  ];
+
   const queryParams: Record<string, any> = {};
 
-   if (temGrupo) {
-    conditions.push(`AVS.DESTINO = :grupoId`);
-    queryParams.grupoId = grupoId;
+  if (temSigla) {
+    conditions.push(`G.SIGLA = :sigla`);
+    queryParams.sigla = sigla.trim();
   }
 
   if (temCurso) {
@@ -824,8 +828,6 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
     conditions.push(`(AVS.PERIODO = :periodo OR AVS.PERIODO = 0 OR AVS.PERIODO IS NULL)`);
     queryParams.periodo = periodo;
   }
-
-   conditions.push(`(AVS.DATE_EXPIRACAO IS NULL OR AVS.DATE_EXPIRACAO >= SYSDATE)`);
 
   const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
@@ -842,14 +844,15 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
       AVS.PERIODO,
       U.NOME AS AUTOR,
       C.DESIGNACAO AS CURSO_NOME,
-      R.NAME AS DESTINO_NOME
+      G.DESIGNACAO AS DESTINO_NOME,
+      G.SIGLA AS DESTINO_SIGLA
     FROM FK2_TB_AVISO_UMA AVS
     LEFT JOIN FK2_MCA_TB_UTILIZADOR U
       ON AVS.USER_ID = U.PK_UTILIZADOR
     LEFT JOIN FK2_TB_CURSOS C
       ON AVS.CURSO = C.CODIGO
-    LEFT JOIN FK2_ROLES R
-      ON R.ID = AVS.DESTINO
+    LEFT JOIN FK2_MCA_TB_GRUPO G
+      ON G.PK_GRUPO = AVS.DESTINO
     ${whereClause}
     ORDER BY AVS.CREATED_AT DESC
   `;
@@ -891,14 +894,14 @@ async listarAvisosPorGrupos(params: { grupoIds?: number[] }) {
       AVS.PERIODO,
       U.NOME AS AUTOR,
       C.DESIGNACAO AS CURSO_NOME,
-      R.NAME AS DESTINO_NOME
+      G.DESIGNACAO AS DESTINO_NOME
     FROM FK2_TB_AVISO_UMA AVS
     LEFT JOIN FK2_MCA_TB_UTILIZADOR U
       ON AVS.USER_ID = U.PK_UTILIZADOR
     LEFT JOIN FK2_TB_CURSOS C
       ON AVS.CURSO = C.CODIGO
-    LEFT JOIN FK2_ROLES R
-      ON R.ID = AVS.DESTINO
+    LEFT JOIN FK2_MCA_TB_GRUPO G
+      ON G.PK_GRUPO = AVS.DESTINO
     WHERE AVS.STATUS_ = 1
       AND AVS.DESTINO IN (${placeholders})
       AND (

@@ -112,6 +112,11 @@ export class FiltroOrientadorDto {
   @IsString()
   estado?: string;
 
+  @ApiPropertyOptional({ description: 'Pesquisa por nome do orientador', example: 'João' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
   @ApiPropertyOptional({ description: 'Número da página', example: 1 })
   @IsOptional()
   @IsInt()
@@ -248,3 +253,14 @@ export class ListDocenteQueryDto {
   limit?: number = 10;
 }
 
+export class ApagarOrientadorDto {
+  @ApiProperty({ description: 'Código do orientador', example: 1 })
+  @IsInt()
+  @Type(() => Number)
+  codigo: number;
+
+  @ApiProperty({ description: 'Código do ano letivo', example: 21 })
+  @IsInt()
+  @Type(() => Number)
+  anoLectivoId: number;
+}
