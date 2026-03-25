@@ -6,9 +6,15 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export class FilterProvaResultadoDto {
+  @ApiPropertyOptional({ description: 'Busca por nome ou documento' })
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => value?.trim())
+  search?: string;
+
   @ApiPropertyOptional({ example: 5 })
   @IsNumber()
   @IsOptional()
