@@ -551,10 +551,21 @@ export class SolicitacaoService {
 }
 
 async listarAvisos(
-  params?: { limit?: number; page?: number },
+  params?: { limit?: number; page?: number; assunto?: string },
 ) {
-  const { limit = 10, page = 1 } = params || {};
+  const { limit = 10, page = 1, assunto } = params || {};
   const offset = (page - 1) * limit;
+
+  const conditions: string[] = [];
+  const countParams: any[] = [];
+
+  if (assunto?.trim()) {
+    conditions.push(`UPPER(AVS.ASSUNTO) LIKE UPPER(:1)`);
+    countParams.push(`%${assunto.trim()}%`);
+  }
+
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const sql = `
     SELECT 
@@ -564,35 +575,36 @@ async listarAvisos(
       AVS.DESCRICAO,
       U.NOME,
       C.DESIGNACAO AS CURSO,
-      R.NAME AS DESTINO,
+      G.DESIGNACAO AS DESTINO,
       AVS.PERIODO,
       AVS.DATE_EXPIRACAO
     FROM FK2_TB_AVISO_UMA AVS
-
       LEFT JOIN FK2_MCA_TB_UTILIZADOR U
         ON AVS.USER_ID = U.PK_UTILIZADOR
-
       LEFT JOIN FK2_TB_CURSOS C
         ON AVS.CURSO = C.CODIGO
-
-      LEFT JOIN FK2_ROLES R
-        ON R.ID = AVS.DESTINO
-
+      LEFT JOIN FK2_MCA_TB_GRUPO G
+        ON G.PK_GRUPO = AVS.DESTINO
+    ${whereClause}
     ORDER BY AVS.ID DESC
-    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+    OFFSET :${countParams.length + 1} ROWS
+    FETCH NEXT :${countParams.length + 2} ROWS ONLY
   `;
 
   const sqlCount = `
     SELECT COUNT(*) AS TOTAL
-    FROM FK2_TB_AVISO_UMA
+    FROM FK2_TB_AVISO_UMA AVS
+    ${whereClause}
   `;
 
+  const dataParams = [...countParams, offset, limit];
+
   const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql),
-    this.dataSource.query(sqlCount),
+    this.dataSource.query(sql, dataParams),
+    this.dataSource.query(sqlCount, countParams),
   ]);
 
-  const total = Number(countResult[0].TOTAL);
+  const total = Number(countResult[0].TOTAL ?? 0);
   const totalPages = Math.ceil(total / limit);
 
   return {
