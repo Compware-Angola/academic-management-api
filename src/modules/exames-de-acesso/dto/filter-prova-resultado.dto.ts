@@ -6,12 +6,18 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export class FilterProvaResultadoDto {
+  @ApiPropertyOptional({ description: 'Busca por nome ou documento' })
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => value?.trim())
+  search?: string;
+
   @ApiPropertyOptional({ example: 5 })
   @IsNumber()
-    @IsOptional()
+  @IsOptional()
   @Type(() => Number)
   codigoAnoLetivo?: number;
 
@@ -44,19 +50,21 @@ export class FilterProvaResultadoDto {
   @IsNumber()
   @IsIn([0, 1])
   @Type(() => Number)
-  resultado?: number; // 0 ou 1
+  resultado?: number;
 
-  @ApiProperty({ example: '01/03/2026',required:false })
+  @ApiProperty({ example: '01/03/2026', required: false })
   @IsNotEmpty()
-    @IsOptional()
+  @IsOptional()
   @IsString()
   dataInicio: string;
 
-  @ApiProperty({ example: '31/03/2026',required:false })
+  @ApiProperty({ example: '31/03/2026', required: false })
   @IsNotEmpty()
-    @IsOptional()
+  @IsOptional()
   @IsString()
   dataFim: string;
+
+
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
