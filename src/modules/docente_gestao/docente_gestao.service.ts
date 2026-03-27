@@ -15,6 +15,7 @@ import { FindDocenteAfectacaoDTO } from './dto/find-docente-afectacao.dto';
 import { CreateAfectacaoDTO } from './dto/create-afectaco.dto';
 import { FilterDocenteRegenteDto } from './dto/filter-docente-regente.dto';
 import { FilterDocenteDto } from './dto/filter-docente.dto';
+import { FilterDocenteContratoDto } from './dto/filter-docente-contrato.dto';
 
 @Injectable()
 export class DocenteGestaoService {
@@ -1039,4 +1040,163 @@ export class DocenteGestaoService {
 
     return await toLowerCaseKeys(result);
   }
+
+
+  async listarDocentesComContrato(filter: FilterDocenteContratoDto) {
+  const {
+    page = 1,
+    limit = 10,
+    curso = 0,
+    grau = 0,
+    genero = 0,
+    data_inicio,
+    data_fim,
+    search,
+  } = filter;
+
+  const offset = (page - 1) * limit;
+
+  let whereClause = `
+    WHERE d.PROPOSTA_DE_CONTRATACAO IS NOT NULL
+      AND (fa.CURSO_AREA_FORMACAO_ID = :curso OR :curso_zero = 0)
+      AND (c.GRAU_ACADEMICO = :grau OR :grau_zero = 0)
+      AND (p.FK_GENERO = :genero OR :genero_zero = 0)
+  `;
+
+  // parâmetros base (sem paginação)
+  const baseParams: Record<string, any> = {
+    curso,
+    curso_zero: curso,
+    grau,
+    grau_zero: grau,
+    genero,
+    genero_zero: genero,
+  };
+
+  if (data_inicio && data_fim) {
+    whereClause += `
+      AND c.DATA_CANDIDATURA BETWEEN
+          TO_DATE(:data_inicio, 'YYYY-MM-DD')
+          AND TO_DATE(:data_fim, 'YYYY-MM-DD')
+    `;
+    baseParams.data_inicio = data_inicio;
+    baseParams.data_fim = data_fim;
+  }
+
+  if (search && search.trim()) {
+    whereClause += `
+      AND (
+        UPPER(NVL(u.NOME, JSON_VALUE(d.CODIGO_UTILIZADOR, '$.desc'))) LIKE :search
+        OR UPPER(NVL(u.EMAIL, '-')) LIKE :search
+      )
+    `;
+    baseParams.search = `%${search.trim().toUpperCase()}%`;
+  }
+
+  const baseFrom = `
+    FROM FK2_MGD_TB_DOCENTE d
+    LEFT JOIN FK2_MCA_TB_UTILIZADOR u
+      ON u.PK_UTILIZADOR = JSON_VALUE(d.CODIGO_UTILIZADOR, '$.pk')
+    LEFT JOIN FK2_MGD_TB_CANDIDATURA c
+      ON c.CODIGO = d.FK_CANDIDATURA
+    LEFT JOIN FK2_TB_PESSOA p
+      ON p.PK_PESSOA = JSON_VALUE(c.FK_PESSOA, '$.pk_pessoa')
+    LEFT JOIN FK2_TB_SEXO s
+      ON s.CODIGO = p.FK_GENERO
+    LEFT JOIN FK2_MGD_TB_FORMACAO_ACADEMICA fa
+      ON fa.FK_CANDIDATURA = c.CODIGO
+    LEFT JOIN FK2_TB_CURSO_AREA_FORMACOES caf
+      ON caf.CODIGO = fa.CURSO_AREA_FORMACAO_ID
+    LEFT JOIN FK2_TB_ESTADO_CANDIDATURA ec
+      ON ec.CODIGO = c.FK_ESTADO_CANDIDATURA
+  `;
+
+  const sql = `
+    SELECT *
+    FROM (
+      SELECT
+        d.CODIGO AS CODIGO,
+        NVL(u.NOME, JSON_VALUE(d.CODIGO_UTILIZADOR, '$.desc')) AS NOME,
+        NVL(u.EMAIL, '-') AS EMAIL,
+        s.DESIGNACAO AS GENERO,
+        caf.DESIGNACAO AS CURSO,
+        c.DATA_CANDIDATURA AS DATA_CANDIDATURA,
+        ec.DESCRICAO AS ESTADO,
+        p.DATA_DE_NASCIMENTO AS DATA_NASCIMENTO,
+        d.UPDATED_AT AS UPDATED_AT,
+        ROW_NUMBER() OVER (
+          ORDER BY d.UPDATED_AT DESC, d.CODIGO DESC
+        ) AS RN
+      ${baseFrom}
+      ${whereClause}
+    ) t
+    WHERE t.RN BETWEEN :offset + 1 AND :offset + :limit
+    ORDER BY t.RN
+  `;
+
+  const countSql = `
+    SELECT COUNT(*) AS TOTAL
+    ${baseFrom}
+    ${whereClause}
+  `;
+
+  // parâmetros da query principal
+  const dataParams: Record<string, any> = {
+    ...baseParams,
+    offset,
+    limit,
+  };
+
+  // parâmetros da count query
+  const countParams: Record<string, any> = {
+    ...baseParams,
+  };
+
+  const [result, countResult] = await Promise.all([
+    this.dataSource.query(sql, dataParams as any),
+    this.dataSource.query(countSql, countParams as any),
+  ]);
+
+  const total = Number(countResult[0]?.TOTAL ?? 0);
+
+  const data = result.map((row: any, index: number) => {
+    const nascimento = row.DATA_NASCIMENTO
+      ? new Date(row.DATA_NASCIMENTO)
+      : null;
+
+    let idade: number | null = null;
+
+    if (nascimento) {
+      const hoje = new Date();
+      idade = hoje.getFullYear() - nascimento.getFullYear();
+
+      const mes = hoje.getMonth() - nascimento.getMonth();
+      if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) {
+        idade--;
+      }
+    }
+
+    return {
+      numero: offset + index + 1,
+      codigo: row.CODIGO,
+      nome: row.NOME,
+      genero: row.GENERO ?? '-',
+      curso: row.CURSO ?? '-',
+      idade: idade ?? '-',
+      email: row.EMAIL ?? '-',
+      data_candidatura: row.DATA_CANDIDATURA,
+      estado: row.ESTADO ?? '-',
+      ultima_actualizacao: row.UPDATED_AT,
+    };
+  });
+
+  return {
+    data,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit) || 1,
+  };
+}
+  
 }
