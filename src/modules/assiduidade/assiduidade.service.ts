@@ -583,6 +583,7 @@ FETCH NEXT :limit ROWS ONLY
       estado = 0,
       anoLectivo = 0,
       semestre = 0,
+      gradeCurricular = 0,
       page = 1,
       limit = 20,
     } = dto;
@@ -622,6 +623,12 @@ FETCH NEXT :limit ROWS ONLY
     if (semestre !== 0) {
       conditions.push('gc.CODIGO_SEMESTRE = :semestre');
       whereParams.semestre = semestre;
+    }
+
+    // Grade Curricular
+    if (gradeCurricular !== 0) {
+      conditions.push('gc.CODIGO = :gradeCurricular');
+      whereParams.gradeCurricular = gradeCurricular;
     }
 
     const whereClause =
