@@ -1,10 +1,11 @@
 
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBody } from '@nestjs/swagger';
+import { Controller, Post, Body, HttpCode, HttpStatus, Get, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { EnrollmentService } from './enrollment.service';
 import { EnrollmentDto } from './dto/create-enrollment.dto';
 import { EnrollmentRegistrationsUCService } from './registrations.at.UC.service';
 import { EnrollmentRegistrationsUCDto } from './dto/registrations.at.UC.dto';
+import { FilterListagemGeralEstudantesDto } from './dto/filter-listagem-geral-de-estudantes.dto';
 
 @ApiTags('enrollment') 
 @Controller('enrollment')
@@ -27,6 +28,15 @@ export class EnrollmentController {
     const response = await this.enrollmentService.enrollment(enrollmentDto);
     return response;
   }
+
+@Get('listagem-geral-estudantes')
+@ApiOperation({ summary: 'Listagem geral de estudantes' })
+@ApiResponse({ status: 200 })
+async listarGeralEstudantes(
+  @Query() filter: FilterListagemGeralEstudantesDto,
+) {
+  return this.enrollmentService.listarGeralEstudantes(filter);
+}
 
 
 
