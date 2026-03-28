@@ -16,6 +16,7 @@ import { CreateAfectacaoDTO } from './dto/create-afectaco.dto';
 import { FilterDocenteRegenteDto } from './dto/filter-docente-regente.dto';
 import { FilterDocenteDto } from './dto/filter-docente.dto';
 import { FilterDocenteContratoDto } from './dto/filter-docente-contrato.dto';
+import { DefinirRegenteDto } from './dto/definir-regente.dto';
 
 @Injectable()
 export class DocenteGestaoService {
@@ -1198,5 +1199,203 @@ export class DocenteGestaoService {
     totalPages: Math.ceil(total / limit) || 1,
   };
 }
+
+async definirRegente(dto: DefinirRegenteDto) {
+    const { anoLectivo, gradeCurricular, docente, semestre, createdBy } = dto;
+
+    // 1. Buscar docente
+    const docenteResult = await this.dataSource.query(
+      `
+      SELECT
+        d.CODIGO,
+        JSON_VALUE(d.CODIGO_UTILIZADOR, '$.desc') AS NOME_DOCENTE
+      FROM FK2_MGD_TB_DOCENTE d
+      WHERE d.CODIGO = :docente
+      `,
+      { docente } as any,
+    );
+
+    if (!docenteResult.length) {
+      throw new NotFoundException('Docente não encontrado');
+    }
+
+    const docenteNome = docenteResult[0]?.NOME_DOCENTE ?? 'Docente';
+
+    // 2. Buscar grade curricular / disciplina
+    const gradeResult = await this.dataSource.query(
+      `
+      SELECT
+        gc.CODIGO,
+        d.DESIGNACAO AS NOME_DISCIPLINA
+      FROM FK2_TB_GRADE_CURRICULAR gc
+      LEFT JOIN FK2_TB_DISCIPLINAS d
+        ON d.CODIGO = gc.CODIGO_DISCIPLINA
+      WHERE gc.CODIGO = :gradeCurricular
+      `,
+      { gradeCurricular } as any,
+    );
+
+    if (!gradeResult.length) {
+      throw new NotFoundException('Grade curricular não encontrada');
+    }
+
+    const disciplinaNome = gradeResult[0]?.NOME_DISCIPLINA ?? 'UC';
+
+    // 3. Buscar ano letivo
+    const anoResult = await this.dataSource.query(
+      `
+      SELECT
+        CODIGO,
+        DESIGNACAO
+      FROM FK2_TB_ANO_LECTIVO
+      WHERE CODIGO = :anoLectivo
+      `,
+      { anoLectivo } as any,
+    );
+
+    if (!anoResult.length) {
+      throw new NotFoundException('Ano letivo não encontrado');
+    }
+
+    const anoNome = anoResult[0]?.DESIGNACAO ?? 'Ano letivo';
+
+    // 4. Verificar se o mesmo docente já é regente dessa UC
+    const regenteExistenteMesmoDocente = await this.dataSource.query(
+      `
+      SELECT COUNT(*) AS TOTAL
+      FROM FK2_MGD_TB_DOCENTE_AFECTACAO
+      WHERE FK_DOCENTE = :docente
+        AND FK_ANO_LECTIVO = :anoLectivo
+        AND FK_CADEIRA = :gradeCurricular
+        AND SEMESTRE = :semestre
+        AND FK_CATEGORIA = 32
+      `,
+      {
+        docente,
+        anoLectivo,
+        gradeCurricular,
+        semestre,
+      } as any,
+    );
+
+    const totalMesmoDocente = Number(
+      regenteExistenteMesmoDocente[0]?.TOTAL ?? 0,
+    );
+
+    if (totalMesmoDocente > 0) {
+      throw new BadRequestException(
+        'Este docente já está definido como regente para esta unidade curricular',
+      );
+    }
+
+    // 5. Buscar regente anterior dessa UC/ano letivo
+    const regenteAnterior = await this.dataSource.query(
+      `
+      SELECT
+        PK_AFECTACAO
+      FROM FK2_MGD_TB_DOCENTE_AFECTACAO
+      WHERE FK_ANO_LECTIVO = :anoLectivo
+        AND FK_CADEIRA = :gradeCurricular
+        AND FK_CATEGORIA = 32
+      FETCH FIRST 1 ROWS ONLY
+      `,
+      {
+        anoLectivo,
+        gradeCurricular,
+      } as any,
+    );
+
+    // 6. Montar JSON refs
+    const refAnoLectivo = JSON.stringify({
+      pk: anoLectivo,
+      desc: anoNome,
+    });
+
+    const refCadeira = JSON.stringify({
+      pk: gradeCurricular,
+      desc: disciplinaNome,
+    });
+
+    const refDocente = JSON.stringify({
+      pk: docente,
+      desc: docenteNome,
+    });
+
+    // 7. Transação
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // 7.1 Se existe regente anterior, tira categoria 32 e volta para 31
+      if (regenteAnterior.length) {
+        await queryRunner.query(
+          `
+          UPDATE FK2_MGD_TB_DOCENTE_AFECTACAO
+          SET FK_CATEGORIA = 31
+          WHERE PK_AFECTACAO = :pkAfectacao
+          `,
+          {
+            pkAfectacao: regenteAnterior[0].PK_AFECTACAO,
+          } as any,
+        );
+      }
+
+      // 7.2 Inserir novo regente
+      await queryRunner.query(
+        `
+        INSERT INTO FK2_MGD_TB_DOCENTE_AFECTACAO (
+          FK_CATEGORIA,
+          CREATED_AT,
+          OBS,
+          REF_ANO_LECTIVO,
+          REF_CADEIRA,
+          REF_DOCENTE,
+          ACTIVE_STATE,
+          CREATED_BY,
+          SEMESTRE,
+          FK_ANO_LECTIVO,
+          FK_CADEIRA,
+          FK_DOCENTE
+        ) VALUES (
+          32,
+          SYSDATE,
+          'defenido na alteracao da categoria',
+          :refAnoLectivo,
+          :refCadeira,
+          :refDocente,
+          1,
+          :createdBy,
+          :semestre,
+          :anoLectivo,
+          :gradeCurricular,
+          :docente
+        )
+        `,
+        {
+          refAnoLectivo,
+          refCadeira,
+          refDocente,
+          createdBy,
+          semestre,
+          anoLectivo,
+          gradeCurricular,
+          docente,
+        } as any,
+      );
+
+      await queryRunner.commitTransaction();
+
+      return {
+        message: 'Regente definido com sucesso',
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
   
 }
