@@ -651,6 +651,15 @@ export class ExamesDeAcessoService {
              THEN 0
              ELSE 1
            END AS RESULTADO
+         , SUBSTR(TO_CHAR(NUMTODSINTERVAL(
+             TO_NUMBER(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1)) / 86400000000000,
+             'DAY'
+           )), 12, 5) AS HORA_INICIO
+         , SUBSTR(TO_CHAR(NUMTODSINTERVAL(
+             TO_NUMBER(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_FIM, 4000, 1)) / 86400000000000,
+             'DAY'
+           )), 12, 5) AS HORA_FIM
+         , FK2_CANDIDATO_PROVAS.STATUS_ AS STATUS_PROVA
     ${sqlBase}
   `;
 
