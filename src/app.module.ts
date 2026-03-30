@@ -29,6 +29,7 @@ import { PlanoEstudoModule } from './modules/plano_estudo/plano_estudo.module';
 import { DropdownFiltersModule } from './modules/shared/dropdown_filters/dropdown_filters.module';
 import { ExamesDeAcessoModule } from './modules/exames-de-acesso/exames-de-acesso.module';
 import { StatisticsReportsModule } from './modules/shared/statistics-reports/statistics-reports.module';
+import { RegistrationModule } from './modules/registration/registration.module';
 
 
 @Module({
@@ -97,6 +98,7 @@ import { StatisticsReportsModule } from './modules/shared/statistics-reports/sta
     DropdownFiltersModule,
     ExamesDeAcessoModule,
     StatisticsReportsModule,
+    RegistrationModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService],
