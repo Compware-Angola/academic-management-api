@@ -8,6 +8,8 @@ import { DataSource } from 'typeorm';
 import { FindInscricaoSemUCDTO } from './dto/find-inscricao-sem-ucDTO';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FilterListagemGeralEstudantesDto } from './dto/filter-listagem-geral-de-estudantes.dto';
+import { FilterInscritosPorUcDto } from './dto/filtrar-inscritos-por-uc.dto';
+import { FilterHorariosPorUcDto } from './dto/filter-horarios-por-uc.dto';
 import { FindEstudanteMatriculadoDTO } from './dto/find-studantes-matriculadoDTO';
 @Injectable()
 export class RegistrationService {
@@ -463,5 +465,190 @@ export class RegistrationService {
       totalPages: Math.ceil(total / limit) || 1,
     };
   }
+
+  async listarInscritosPorUc(filter: FilterInscritosPorUcDto) {
+  const {
+    page = 1,
+    limit = 10,
+    anoLectivo = 0,
+    curso = 0,
+    anoCurricular = 0,
+    semestre = 0,
+    periodo = 0,
+    cadeira = 0,
+    estado = '0',
+    search,
+  } = filter;
+
+  const offset = (page - 1) * limit;
+
+  const estadoMap: Record<string, string | null> = {
+    '0': null,
+    '1': 'Em curso',
+    '2': 'Pendente',
+  };
+
+  const estadoNome = estadoMap[String(estado)] ?? null;
+
+  const baseParams: Record<string, any> = {
+    anoLectivo,
+    anoLectivo_zero: anoLectivo,
+    curso,
+    curso_zero: curso,
+    anoCurricular,
+    anoCurricular_zero: anoCurricular,
+    semestre,
+    semestre_zero: semestre,
+    periodo,
+    periodo_zero: periodo,
+    cadeira,
+    cadeira_zero: cadeira,
+  };
+
+  let whereClause = `
+    WHERE (tgc.CODIGO = :cadeira OR :cadeira_zero = 0)
+      AND (tc.CODIGO = :curso OR :curso_zero = 0)
+      AND (tgc.CODIGO_CLASSE = :anoCurricular OR :anoCurricular_zero = 0)
+      AND (tgc.CODIGO_SEMESTRE = :semestre OR :semestre_zero = 0)
+      AND (tal.CODIGO = :anoLectivo OR :anoLectivo_zero = 0)
+      AND (tpd.CODIGO = :periodo OR :periodo_zero = 0)
+  `;
+
+  if (estadoNome) {
+    whereClause += `
+      AND UPPER(tsgc.DESIGNACAO) = :estadoNome
+    `;
+    baseParams.estadoNome = estadoNome.toUpperCase();
+  }
+
+  if (search && search.trim()) {
+    whereClause += `
+      AND (
+        UPPER(tp.NOME_COMPLETO) LIKE :search
+        OR TO_CHAR(tm.CODIGO) LIKE :search
+        OR TO_CHAR(NVL(tm.NUMEROALUNO, tm.CODIGO_ALUNO)) LIKE :search
+      )
+    `;
+    baseParams.search = `%${search.trim().toUpperCase()}%`;
+  }
+
+  const baseFrom = `
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+    INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+      ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
+    INNER JOIN FK2_TB_MATRICULAS tm
+      ON tm.CODIGO = tgca.CODIGO_MATRICULA
+    INNER JOIN FK2_TB_ADMISSAO ta
+      ON ta.CODIGO = tm.CODIGO_ALUNO
+    INNER JOIN FK2_TB_PREINSCRICAO tp
+      ON tp.CODIGO = ta.PRE_INCRICAO
+    INNER JOIN FK2_TB_CURSOS tc
+      ON tc.CODIGO = tm.CODIGO_CURSO
+    INNER JOIN FK2_TB_STATUS_GRADE_CURRICULAR tsgc
+      ON tsgc.CODIGO = tgca.CODIGO_STATUS_GRADE_CURRICULAR
+    INNER JOIN FK2_TB_CONFIRMACOES tcf
+      ON tcf.CODIGO_MATRICULA = tm.CODIGO
+    INNER JOIN FK2_TB_ANO_LECTIVO tal
+      ON tal.CODIGO = tcf.CODIGO_ANO_LECTIVO
+    INNER JOIN FK2_TB_PERIODOS tpd
+      ON tpd.CODIGO = tm.CANAL
+  `;
+
+  const sql = `
+    SELECT *
+    FROM (
+      SELECT
+        q.*,
+        ROW_NUMBER() OVER (ORDER BY q.NOME ASC) AS RN
+      FROM (
+        SELECT DISTINCT
+          tm.CODIGO AS MATRICULA,
+          tp.NOME_COMPLETO AS NOME,
+          '-' AS TIPO_ALUNO,
+          tc.DESIGNACAO AS CURSO,
+          tsgc.DESIGNACAO AS ESTADO
+        ${baseFrom}
+        ${whereClause}
+      ) q
+    ) t
+    WHERE t.RN BETWEEN :offset + 1 AND :offset + :limit
+    ORDER BY t.RN
+  `;
+
+  const countSql = `
+    SELECT COUNT(*) AS TOTAL
+    FROM (
+      SELECT DISTINCT
+        tm.CODIGO AS MATRICULA,
+        tp.NOME_COMPLETO AS NOME,
+        tc.DESIGNACAO AS CURSO,
+        tsgc.DESIGNACAO AS ESTADO
+      ${baseFrom}
+      ${whereClause}
+    ) x
+  `;
+
+  const dataParams = {
+    ...baseParams,
+    offset,
+    limit,
+  };
+
+  const countParams = {
+    ...baseParams,
+  };
+
+  const [result, countResult] = await Promise.all([
+    this.dataSource.query(sql, dataParams as any),
+    this.dataSource.query(countSql, countParams as any),
+  ]);
+
+  const total = Number(countResult[0]?.TOTAL ?? 0);
+
+  const data = result.map((row: any, index: number) => ({
+    numero: offset + index + 1,
+    matricula: row.MATRICULA,
+    nome: row.NOME,
+    tipo_aluno: row.TIPO_ALUNO,
+    curso: row.CURSO,
+    estado: row.ESTADO,
+  }));
+
+  return {
+    data,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit) || 1,
+  };
+}
+
+async listarHorariosPorUc(filter: FilterHorariosPorUcDto) {
+  const {
+    anoLectivo = 0,
+    semestre = 0,
+    periodo = 0,
+    cadeira = 0,
+  } = filter;
+
+  const sql = `
+    SELECT
+      PK_HORARIO AS CODIGO,
+      DESIGNACAO
+    FROM FK2_MGH_TB_HORARIO
+    WHERE (FK_GRADE_CURRICULAR = :cadeira OR :cadeira = 0)
+      AND (FK_ANO_LECTIVO = :anoLectivo OR :anoLectivo = 0)
+      AND (FK_SEMESTRE = :semestre OR :semestre = 0)
+      AND (FK_PERIODO = :periodo OR :periodo = 0)
+    ORDER BY DESIGNACAO ASC
+  `;
+
+  return await this.dataSource.query(sql, {
+    cadeira,
+    anoLectivo,
+    semestre,
+    periodo,
+  } as any);
+}
 
 }
