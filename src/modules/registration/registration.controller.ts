@@ -8,6 +8,7 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RegistrationService } from './registration.service';
 import { FindInscricaoSemUCDTO } from './dto/FindInscricaoSemUcDTO';
+import { FilterListagemGeralEstudantesDto } from './dto/filter-listagem-geral-de-estudantes.dto';
 
 @ApiTags('registration')
 @Controller('registration')
@@ -23,4 +24,14 @@ export class RegistrationController {
   findInscricaoSemUc(@Query(ValidationPipe) query: FindInscricaoSemUCDTO) {
     return this.registrationService.findInscricaoSemUC(query);
   }
+
+  @Get('listagem-geral-estudantes')
+  @ApiOperation({ summary: 'Listagem geral de estudantes' })
+  @ApiResponse({ status: 200 })
+  async listarGeralEstudantes(
+    @Query() filter: FilterListagemGeralEstudantesDto,
+  ) {
+    return this.registrationService.listarGeralEstudantes(filter);
+  }  
+
 }
