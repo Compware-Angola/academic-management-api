@@ -1033,7 +1033,7 @@ export class ExamesDeAcessoService {
   async lancarNotaArquitectura(codigoCandidato: number, notaPratica: number) {
     return await this.dataSource.transaction(async (manager) => {
       const sqlFetch = `
-        SELECT FK2_TB_PREINSCRICAO.CODIGO
+        SELECT DISTINCT FK2_TB_PREINSCRICAO.CODIGO
              , FK2_CANDIDATO_PROVAS.NOTA AS NOTA_TEORICA
              , FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA
           FROM FK2_CANDIDATO_PROVAS
@@ -1043,11 +1043,12 @@ export class ExamesDeAcessoService {
            AND FK2_CANDIDATO_PROVAS.HORARIO_PROVA_ID = FK2_TB_HORARIO_PROVA.ID
            AND FK2_TB_PREINSCRICAO.CODIGO = :1
            AND FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA = 7
+           AND NOT EXISTS (SELECT 1 FROM FK2_TB_ADMISSAO WHERE FK2_TB_ADMISSAO.PRE_INCRICAO = FK2_TB_PREINSCRICAO.CODIGO)
       `;
       const rows = await manager.query(sqlFetch, [codigoCandidato]);
       if (rows.length === 0) {
         throw new HttpException(
-          'Candidato de Arquitectura não encontrado ou sem prova atribuída.',
+          'Candidato de Arquitectura não encontrado ou sem prova atribuída disponivel.',
           HttpStatus.NOT_FOUND,
         );
       }
