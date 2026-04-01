@@ -8,6 +8,7 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RegistrationService } from './registration.service';
 import { FindInscricaoSemUCDTO } from './dto/FindInscricaoSemUcDTO';
+import { FindEstudanteMatriculadoDTO } from './dto/FindEstudantesMatriculadoDTO';
 
 @ApiTags('registration')
 @Controller('registration')
@@ -22,5 +23,17 @@ export class RegistrationController {
   })
   findInscricaoSemUc(@Query(ValidationPipe) query: FindInscricaoSemUCDTO) {
     return this.registrationService.findInscricaoSemUC(query);
+  }
+  @Get('/estudantes-matriculados')
+  @ApiOperation({ summary: 'Lista Estudantes Matriculados' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de cadeiras do docente no curso',
+    type: FindEstudanteMatriculadoDTO,
+  })
+  findEstudantesMatriculados(
+    @Query(ValidationPipe) query: FindEstudanteMatriculadoDTO,
+  ) {
+    return this.registrationService.findEstudantesMatriculados(query);
   }
 }
