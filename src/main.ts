@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
+import { ApiKeyGuard } from './modules/common/guard/api-key.guard';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -10,7 +11,7 @@ async function bootstrap() {
   app.enableCors({
     origin: '*', // permite todas as origens
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'], 
   });
 
   // Prefixo global
@@ -28,7 +29,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
   // === FIM DA CONFIGURAÇÃO DO SWAGGER ===
-
+  // app.useGlobalGuards(new ApiKeyGuard());
   // Validação global
   app.useGlobalPipes(
     new ValidationPipe({

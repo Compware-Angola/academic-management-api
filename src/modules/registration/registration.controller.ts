@@ -8,10 +8,14 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RegistrationService } from './registration.service';
 import { FindInscricaoSemUCDTO } from './dto/FindInscricaoSemUcDTO';
+<<<<<<< HEAD
 import { FilterListagemGeralEstudantesDto } from './dto/filter-listagem-geral-de-estudantes.dto';
 import { FilterInscritosPorUcDto } from './dto/filtrar-inscritos-por-uc.dto';
 import { FilterHorariosInscritosPorUcDto } from './dto/filter-horarios-inscritos-por-uc';
 
+=======
+import { FindEstudanteMatriculadoDTO } from './dto/FindEstudantesMatriculadoDTO';
+>>>>>>> 31b07a35c46a4fec91096e7827c78d488e507804
 
 @ApiTags('registration')
 @Controller('registration')
@@ -27,6 +31,7 @@ export class RegistrationController {
   findInscricaoSemUc(@Query(ValidationPipe) query: FindInscricaoSemUCDTO) {
     return this.registrationService.findInscricaoSemUC(query);
   }
+<<<<<<< HEAD
 
   @Get('listagem-geral-estudantes')
   @ApiOperation({ summary: 'Listagem geral de estudantes' })
@@ -55,4 +60,18 @@ async listarHorariosDisponiveisInscritosPorUc(
   return this.registrationService.listarHorariosDisponiveisInscritosPorUc(filter);
 }
 
+=======
+  @Get('/estudantes-matriculados')
+  @ApiOperation({ summary: 'Lista Estudantes Matriculados' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de cadeiras do docente no curso',
+    type: FindEstudanteMatriculadoDTO,
+  })
+  findEstudantesMatriculados(
+    @Query(ValidationPipe) query: FindEstudanteMatriculadoDTO,
+  ) {
+    return this.registrationService.findEstudantesMatriculados(query);
+  }
+>>>>>>> 31b07a35c46a4fec91096e7827c78d488e507804
 }

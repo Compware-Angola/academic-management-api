@@ -7,13 +7,176 @@ import {
 import { DataSource } from 'typeorm';
 import { FindInscricaoSemUCDTO } from './dto/FindInscricaoSemUcDTO';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
+<<<<<<< HEAD
 import { FilterListagemGeralEstudantesDto } from './dto/filter-listagem-geral-de-estudantes.dto';
 import { FilterInscritosPorUcDto } from './dto/filtrar-inscritos-por-uc.dto';
 import { FilterHorariosInscritosPorUcDto } from './dto/filter-horarios-inscritos-por-uc';
+=======
+import { FindEstudanteMatriculadoDTO } from './dto/FindEstudantesMatriculadoDTO';
+
+export interface EstudanteMatriculado {
+  codigoMatricula: number;
+  dataMatricula: Date;
+  nome: string;
+  telefone: string;
+  genero: string;
+  anoLectivo: string;
+  tipo: string | undefined;
+  curso: string;
+  periodo: string;
+  classe: string;
+}
+>>>>>>> 31b07a35c46a4fec91096e7827c78d488e507804
 
 @Injectable()
 export class RegistrationService {
   constructor(private readonly dataSource: DataSource) {}
+
+  async findEstudantesMatriculados(filters: FindEstudanteMatriculadoDTO) {
+    const enum TIPO_ESTUDANTE {
+      ANTIGO_ESTUDANTE = 0,
+      NOVO_ESTUDANTE = 1,
+    }
+    const {
+      codigoAnoLectivo,
+      codigoCurso,
+      periodo,
+      tipoEstudante,
+      anoCurricular,
+      limit = 10,
+      page = 1,
+    } = filters;
+
+    const offset = (page - 1) * limit;
+
+    const conditions: string[] = [];
+    const params: any = {};
+
+    // STATUS fixo
+    conditions.push(`g.CODIGO_STATUS_GRADE_CURRICULAR IN (2)`);
+
+    if (codigoAnoLectivo) {
+      conditions.push(`g.CODIGO_ANO_LECTIVO = :codigoAnoLectivo`);
+      params.codigoAnoLectivo = codigoAnoLectivo;
+    }
+    if (anoCurricular) {
+      conditions.push(`tg.CODIGO_CLASSE = :anoCurricular`);
+      params.anoCurricular = anoCurricular;
+    }
+
+    if (codigoCurso) {
+      conditions.push(`tc.CODIGO = :codigoCurso`);
+      params.codigoCurso = codigoCurso;
+    }
+
+    if (periodo) {
+      conditions.push(`tp2.CODIGO = :periodo`);
+      params.periodo = periodo;
+    }
+
+    if (tipoEstudante == TIPO_ESTUDANTE.ANTIGO_ESTUDANTE) {
+      conditions.push(`tp.ANOLECTIVO != :excludeAnoLectivo`);
+      params.excludeAnoLectivo = codigoAnoLectivo;
+    }
+    if (tipoEstudante == TIPO_ESTUDANTE.NOVO_ESTUDANTE) {
+      conditions.push(`tp.ANOLECTIVO = :includeAnoLectivo`);
+      params.includeAnoLectivo = codigoAnoLectivo;
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    const sql = `
+    SELECT DISTINCT
+        g.CODIGO_MATRICULA           AS codigoMatricula,
+        tm.DATA_MATRICULA            As dataMatricula,
+        tp.NOME_COMPLETO             AS nome,
+        tp.CONTACTOS_TELEFONICOS     AS telefone,
+        tp.SEXO                      AS genero,
+        tal.DESIGNACAO               AS anoLectivo,
+        tc.DESIGNACAO                AS curso,
+        tp2.DESIGNACAO               AS periodo,
+        cl.DESIGNACAO                AS classe,
+        fn_tipo_estudante(fb.codigo, i.renuncia, fb.CODIGO_TIPO_BOLSA) as tipo
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO g
+    INNER JOIN FK2_TB_GRADE_CURRICULAR tg
+        on tg.codigo = g.CODIGO_GRADE_CURRICULAR
+    INNER JOIN FK2_TB_MATRICULAS tm
+        ON g.CODIGO_MATRICULA = tm.CODIGO
+    INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+    INNER JOIN FK2_TB_ADMISSAO ta
+        ON ta.CODIGO = tm.CODIGO_ALUNO
+    INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON ta.PRE_INCRICAO = tp.CODIGO
+    INNER JOIN FK2_TB_PERIODOS tp2
+        ON tp2.CODIGO = tp.CODIGO_TURNO
+    INNER JOIN FK2_TB_ANO_LECTIVO tal
+        ON tal.CODIGO = tp.ANOLECTIVO
+    INNER JOIN FK2_TB_CLASSES cl
+        ON cl.CODIGO = tg.CODIGO_CLASSE
+
+    ---BOLSEIROS [TIPOS DE ESTUDANTES]
+     LEFT JOIN fk2_tb_bolseiros fb
+        ON  fb.CODIGO_MATRICULA  = tm.CODIGO
+        AND fb.CODIGO_ANOLECTIVO = g.CODIGO_ANO_LECTIVO
+        AND fb.SEMESTRE          = tg.CODIGO_SEMESTRE
+        AND fb.STATUS_           = 0 -- passar parametro depois
+    LEFT JOIN FK2_TB_INSTITUICAO i
+        ON i.CODIGO = fb.CODIGO_INSTITUICAO
+    ----FIM BOLSEIROS [TIPOS DE ESTUDANTES]
+
+    WHERE ${whereClause}
+    ORDER BY tp.NOME_COMPLETO ASC
+    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+  `;
+
+    const sqlParams = {
+      ...params,
+      offset,
+      limit,
+    };
+
+    const sqlCount = `
+    SELECT COUNT(DISTINCT g.CODIGO_MATRICULA) AS TOTAL
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO g
+    INNER JOIN FK2_TB_GRADE_CURRICULAR tg
+        on tg.codigo = g.CODIGO_GRADE_CURRICULAR
+    INNER JOIN FK2_TB_MATRICULAS tm
+        ON g.CODIGO_MATRICULA = tm.CODIGO
+    INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+    INNER JOIN FK2_TB_ADMISSAO ta
+        ON ta.CODIGO = tm.CODIGO_ALUNO
+    INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON ta.PRE_INCRICAO = tp.CODIGO
+    INNER JOIN FK2_TB_PERIODOS tp2
+        ON tp2.CODIGO = tp.CODIGO_TURNO
+    INNER JOIN FK2_TB_ANO_LECTIVO tal
+        ON tal.CODIGO = tp.ANOLECTIVO
+    WHERE ${whereClause}
+  `;
+
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, sqlParams),
+      this.dataSource.query(sqlCount, params),
+    ]);
+    let students = (await toLowerCaseKeys(result)) as EstudanteMatriculado[];
+    students = students.map((student) => {
+      return { ...student };
+    });
+
+    const total = Number(countResult[0].TOTAL);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: students,
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
+
   async findInscricaoSemUC(filters: FindInscricaoSemUCDTO) {
     const {
       codigoAnoLectivo,
@@ -45,7 +208,8 @@ export class RegistrationService {
     SELECT DISTINCT
         tm.CODIGO                         AS codigo,
         tp.NOME_COMPLETO                 AS nomeCompleto,
-        tc.DESIGNACAO                    AS curso
+        tc.DESIGNACAO                    AS curso,
+        fn_tipo_estudante(fb.codigo, i.renuncia, fb.CODIGO_TIPO_BOLSA) as tipo
     FROM FK2_TB_MATRICULAS tm
     INNER JOIN FK2_TB_ADMISSAO ta
         ON tm.CODIGO_ALUNO = ta.CODIGO
@@ -61,6 +225,16 @@ export class RegistrationService {
     -- JOIN fake só para reaproveitar filtros no WHERE
     LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca_filter
         ON 1 = 1
+
+    ---BOLSEIROS [TIPOS DE ESTUDANTES]
+     LEFT JOIN fk2_tb_bolseiros fb
+        ON  fb.CODIGO_MATRICULA  = tm.CODIGO
+        AND fb.CODIGO_ANOLECTIVO = :codigoAnoLectivo
+        AND fb.SEMESTRE          = tgc.CODIGO_SEMESTRE
+        AND fb.STATUS_           = 0 -- passar parametro depois
+    LEFT JOIN FK2_TB_INSTITUICAO i
+        ON i.CODIGO = fb.CODIGO_INSTITUICAO
+    ----FIM BOLSEIROS [TIPOS DE ESTUDANTES]
 
     WHERE ${whereClause}
     AND NOT EXISTS (
