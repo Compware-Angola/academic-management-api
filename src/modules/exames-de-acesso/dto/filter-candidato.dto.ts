@@ -9,16 +9,19 @@ export class FilterCandidatoDto {
   @Transform(({ value }) => value?.trim())
   search?: string;
 
+  @ApiPropertyOptional({ description: 'Código do ano letivo' })
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
   codigoAnoLetivo?: number;
 
+  @ApiPropertyOptional({ description: 'Código da faculdade' })
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
   codigoFaculdade?: number;
 
+  @ApiPropertyOptional({ description: 'Código do curso' })
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
@@ -29,6 +32,7 @@ export class FilterCandidatoDto {
   @Type(() => Number)
   codigoCandidato?: number;
 
+  @ApiPropertyOptional({ description: 'Código do turno' })
   @IsOptional()
   @IsNumber()
   @Type(() => Number)

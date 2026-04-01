@@ -29,6 +29,10 @@ import { PlanoEstudoModule } from './modules/plano_estudo/plano_estudo.module';
 import { DropdownFiltersModule } from './modules/shared/dropdown_filters/dropdown_filters.module';
 import { ExamesDeAcessoModule } from './modules/exames-de-acesso/exames-de-acesso.module';
 import { StatisticsReportsModule } from './modules/shared/statistics-reports/statistics-reports.module';
+import { RegistrationModule } from './modules/registration/registration.module';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'; 
+import { APP_GUARD } from '@nestjs/core/constants';
+import { CustomThrottlerGuard } from './modules/common/guard/Custom-Throttler.guard';
 
 
 @Module({
@@ -46,6 +50,12 @@ import { StatisticsReportsModule } from './modules/shared/statistics-reports/sta
         }
       })(),
     }),
+     ThrottlerModule.forRoot([
+      {
+        ttl: 2000, 
+        limit: 30,   
+      },
+    ]),
     HttpModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -97,8 +107,12 @@ import { StatisticsReportsModule } from './modules/shared/statistics-reports/sta
     DropdownFiltersModule,
     ExamesDeAcessoModule,
     StatisticsReportsModule,
+    RegistrationModule,
   ],
   controllers: [AppController],
-  providers: [AppService, HistoryNoteReleaseService],
+  providers: [AppService, HistoryNoteReleaseService, {
+      provide: APP_GUARD,
+      useClass: CustomThrottlerGuard, 
+    },],
 })
 export class AppModule {}
