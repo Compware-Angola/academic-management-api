@@ -1,20 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString } from 'class-validator';
+import { IsInt, IsOptional } from 'class-validator';
 
-export class FilterInscritosPorUcDto {
-  @ApiPropertyOptional({ example: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  page?: number = 1;
-
-  @ApiPropertyOptional({ example: 10 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  limit?: number = 10;
-
+export class FilterHorariosInscritosPorUcDto {
   @ApiPropertyOptional({ example: 0, description: '0 = todos' })
   @IsOptional()
   @Type(() => Number)
@@ -50,26 +38,4 @@ export class FilterInscritosPorUcDto {
   @Type(() => Number)
   @IsInt()
   cadeira?: number = 0;
-
-  @ApiPropertyOptional({ example: 0, description: '0 = todos' })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  horario?: number = 0;
-
-  @ApiPropertyOptional({
-    example: '0',
-    description: '0 = todos, 1 = Em curso, 2 = Pendente',
-  })
-  @IsOptional()
-  @IsString()
-  estado?: string = '0';
-
-  @ApiPropertyOptional({
-    example: 'joao',
-    description: 'Pesquisa por nome ou matrícula',
-  })
-  @IsOptional()
-  @IsString()
-  search?: string;
 }

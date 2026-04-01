@@ -10,7 +10,8 @@ import { RegistrationService } from './registration.service';
 import { FindInscricaoSemUCDTO } from './dto/FindInscricaoSemUcDTO';
 import { FilterListagemGeralEstudantesDto } from './dto/filter-listagem-geral-de-estudantes.dto';
 import { FilterInscritosPorUcDto } from './dto/filtrar-inscritos-por-uc.dto';
-import { FilterHorariosPorUcDto } from './dto/filter-horarios-por-uc.dto';
+import { FilterHorariosInscritosPorUcDto } from './dto/filter-horarios-inscritos-por-uc';
+
 
 @ApiTags('registration')
 @Controller('registration')
@@ -36,18 +37,22 @@ export class RegistrationController {
     return this.registrationService.listarGeralEstudantes(filter);
   }  
 
-  @Get('inscritos-por-uc')
+@Get('inscritos-por-uc')
 @ApiOperation({ summary: 'Listar inscritos por unidade curricular' })
 @ApiResponse({ status: 200 })
 async listarInscritosPorUc(@Query() filter: FilterInscritosPorUcDto) {
   return this.registrationService.listarInscritosPorUc(filter);
 }
 
-@Get('horarios-por-uc')
-@ApiOperation({ summary: 'Listar horários por unidade curricular' })
+@Get('horarios-disponiveis-inscritos-por-uc')
+@ApiOperation({
+  summary: 'Listar horários realmente disponíveis nas inscrições por UC',
+})
 @ApiResponse({ status: 200 })
-async listarHorariosPorUc(@Query() filter: FilterHorariosPorUcDto) {
-  return this.registrationService.listarHorariosPorUc(filter);
+async listarHorariosDisponiveisInscritosPorUc(
+  @Query() filter: FilterHorariosInscritosPorUcDto,
+) {
+  return this.registrationService.listarHorariosDisponiveisInscritosPorUc(filter);
 }
 
 }
