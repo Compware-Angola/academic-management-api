@@ -13,6 +13,7 @@ import { HttpService } from '@nestjs/axios';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { AccessLogHelper } from '../common/helpers/access-log.helper';
+import { ApiKeyGuard } from '../common/guard/api-key.guard';
 
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('exames-de-acesso')
