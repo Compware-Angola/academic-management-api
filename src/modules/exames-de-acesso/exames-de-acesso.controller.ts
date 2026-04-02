@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { FilterCandidatoDto } from './dto/filter-candidato.dto';
 import { ExamesDeAcessoService } from './exames-de-acesso.service';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -9,11 +9,17 @@ import { FilterProvaResultadoDto } from './dto/filter-prova-resultado.dto';
 import { FilterProvaMarcacaoDto } from './dto/filter-prova-marcacao.dto';
 import { AdmitirCandidatoPublicoDto } from './dto/admitir-candidato-publico.dto';
 import { LancarNotaArquitecturaDto } from './dto/lancar-nota-arquitectura.dto';
+import { HttpService } from '@nestjs/axios';
+import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { AccessLogHelper } from '../common/helpers/access-log.helper';
+import { ApiKeyGuard } from '../common/guard/api-key.guard';
 
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('exames-de-acesso')
 @ApiTags('Exames de acesso')
 export class ExamesDeAcessoController {
-  constructor(private readonly examesAcessoService: ExamesDeAcessoService) { }
+  constructor(private readonly examesAcessoService: ExamesDeAcessoService, private httpService: HttpService) { }
 
   @Get('candidato')
   @ApiOperation({ summary: 'Lista todos os candidatos' })
@@ -26,15 +32,26 @@ export class ExamesDeAcessoController {
   buscaCandidatos(@Query() filtros: FilterCandidatoDto) {
     return this.examesAcessoService.buscaCandidatos(filtros);
   }
-
   @Patch('candidato/:codigoCandidato')
   @ApiOperation({ summary: 'Atualiza candidato' })
   @ApiResponse({ status: 200, description: 'Retorna lista de candidatos' })
   atualizaCandidato(
     @Param('codigoCandidato', ParseIntPipe) codigoCandidato: number,
     @Body() dto: UpdateCandidatoDto,
+    @Req() req: any,
   ) {
-    return this.examesAcessoService.atualizaCandidato(dto, codigoCandidato);
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user;
+    const result = this.examesAcessoService.atualizaCandidato(dto, codigoCandidato);
+    AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Candidato ${codigoCandidato} atualizado por ${user?.username || 'unknown user'}`,
+      fkAcesso: 6,
+      fkFuncionalidade: 91,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 14,
+      ip: ip,
+    });
+    return result;
   }
 
   @Get('candidatos/prova')
@@ -81,8 +98,20 @@ export class ExamesDeAcessoController {
   @ApiResponse({ status: 200, description: 'Prova atribuída com sucesso' })
   atribuirProva(
     @Param('codigoCandidato', ParseIntPipe) codigoCandidato: number,
+    @Req() req: any,
   ) {
-    return this.examesAcessoService.atribuirProva(codigoCandidato);
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user;
+    const result = this.examesAcessoService.atribuirProva(codigoCandidato);
+    AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Prova atribuída para candidato ${codigoCandidato} por ${user?.username || 'unknown user'}`,
+      fkAcesso: 6,
+      fkFuncionalidade: 92,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 13,
+      ip: ip,
+    });
+    return result;
   }
 
   @Post('admitir-candidato-publico/:codigoCandidato')
@@ -91,11 +120,23 @@ export class ExamesDeAcessoController {
   admitirCandidatoAoPublico(
     @Param('codigoCandidato', ParseIntPipe) codigoCandidato: number,
     @Body() dto: AdmitirCandidatoPublicoDto,
+    @Req() req: any,
   ) {
-    return this.examesAcessoService.admitirCandidatoAoPublico(
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user;
+    const result = this.examesAcessoService.admitirCandidatoAoPublico(
       codigoCandidato,
       dto.nota,
     );
+    AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Candidato ${codigoCandidato} admitido por ${user?.username || 'unknown user'}`,
+      fkAcesso: 6,
+      fkFuncionalidade: 93,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 15,
+      ip: ip,
+    });
+    return result;
   }
 
   @Post('lancar-nota-arquitectura-e-urbanismo/:codigoCandidato')
@@ -104,19 +145,42 @@ export class ExamesDeAcessoController {
   lancarNotaArquitectura(
     @Param('codigoCandidato', ParseIntPipe) codigoCandidato: number,
     @Body() dto: LancarNotaArquitecturaDto,
+    @Req() req: any,
   ) {
-    return this.examesAcessoService.lancarNotaArquitectura(
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user;
+    const result = this.examesAcessoService.lancarNotaArquitectura(
       codigoCandidato,
       dto.notaPratica,
     );
+    AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Nota lançada para candidato ${codigoCandidato} por ${user?.username || 'unknown user'}`,
+      fkAcesso: 6,
+      fkFuncionalidade: 94,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 16,
+      ip: ip,
+    });
+    return result;
   }
-
   @Patch('resetar-prova/:codigoCandidato')
   @ApiOperation({ summary: 'Reseta a prova de um candidato' })
   @ApiResponse({ status: 200, description: 'Prova resetada com sucesso' })
   resetarProva(
     @Param('codigoCandidato', ParseIntPipe) codigoCandidato: number,
+    @Req() req: any,
   ) {
-    return this.examesAcessoService.resetarProva(codigoCandidato);
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user;
+    const result = this.examesAcessoService.resetarProva(codigoCandidato);
+    AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Prova resetada para candidato ${codigoCandidato} por ${user?.username || 'unknown user'}`,
+      fkAcesso: 6,
+      fkFuncionalidade: 95,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 17,
+      ip: ip,
+    });
+    return result;
   }
 }
