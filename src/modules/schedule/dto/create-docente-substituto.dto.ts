@@ -3,14 +3,15 @@ import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateDocenteSubstitutoDto {
-  @ApiProperty({
+@ApiProperty({
     example: 1,
     description: 'ID do docente original (que está sendo substituído)',
+    required: false,         
   })
-  @IsNotEmpty()
+  @IsOptional()                
   @Type(() => Number)
   @IsNumber()
-  fkDocenteOriginal: number;
+  fkDocenteOriginal?: number;  
 
   @ApiProperty({
     example: 2,

@@ -1,4 +1,4 @@
-// docente-substituto.service.ts
+
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -16,58 +16,81 @@ export class DocenteSubstitutoService {
   ) {}
 
   // ==================== CREATE ====================
-  async create(
-    userId: number = 1,
-    dto: CreateDocenteSubstitutoDto,
-  ): Promise<any> {
-    const { fkDocenteOriginal, fkDocenteSubstituto, fkHorario, dataInicio, dataTermino, obs = null } = dto;
+async create(
+  userId: number = 1,
+  dto: CreateDocenteSubstitutoDto,
+): Promise<any> {
+  const { fkDocenteOriginal, fkDocenteSubstituto, fkHorario, dataInicio, dataTermino, obs = null } = dto;
 
-    const result = await this.dataSource.query(
-      `
-      INSERT INTO CMPDEV.MGH_TB_AULA_DOCENTE_SUBSTITUTO (
-        FK_DOCENTE_ORIGINAL,
-        FK_DOCENTE_SUBSTITUTO,
-        FK_HORARIO,
-        DATA_INICIO,
-        DATA_TERMINO,
-        OBS,
-        CREATED_BY,
-        LAST_UPDATED_BY,
-        CREATED_AT,
-        UPDATED_AT,
-        ACTIVE_STATE
-      ) VALUES (
-        :fkDocenteOriginal,
-        :fkDocenteSubstituto,
-        :fkHorario,
-        TO_DATE(:dataInicio, 'YYYY-MM-DD'),
-        TO_DATE(:dataTermino, 'YYYY-MM-DD'),
-        :obs,
-        :userId,
-        :userId,
-        SYSDATE,
-        SYSDATE,
-        1
-      ) RETURNING PK_AULA_DOCENTE_SUBSTITUTO INTO :outId
-      `,
-      {
-        fkDocenteOriginal,
-        fkDocenteSubstituto,
-        fkHorario,
-        dataInicio,
-        dataTermino: dataTermino || null,
-        obs,
-        userId,
-        outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-      } as any,
+  // ====================== VERIFICAÇÃO ANTES DE INSERIR ======================
+  const checkQuery = `
+    SELECT COUNT(*) AS TOTAL 
+    FROM MGH_TB_AULA_DOCENTE_SUBSTITUTO 
+    WHERE FK_HORARIO = :fkHorario 
+      AND ACTIVE_STATE = 1
+      AND (DATA_TERMINO IS NULL OR DATA_TERMINO >= SYSDATE)
+  `;
+
+  const checkResult = await this.dataSource.query(checkQuery, {
+    fkHorario,
+  } as any);
+
+  const alreadyExists = checkResult[0]?.TOTAL > 0;
+
+  if (alreadyExists) {
+    throw new BadRequestException(
+      `Este horário (ID: ${fkHorario}) já possui uma substituição ativa. ` +
+      `Não é possível criar outra substituição para o mesmo horário.`
     );
-
-    return {
-      success: true,
-      message: 'Docente substituto criado com sucesso!',
-      id: result.outId[0],
-    };
   }
+
+  // ====================== INSERÇÃO ======================
+  const result = await this.dataSource.query(
+    `
+    INSERT INTO MGH_TB_AULA_DOCENTE_SUBSTITUTO (
+      FK_DOCENTE_ORIGINAL,
+      FK_DOCENTE_SUBSTITUTO,
+      FK_HORARIO,
+      DATA_INICIO,
+      DATA_TERMINO,
+      OBS,
+      CREATED_BY,
+      LAST_UPDATED_BY,
+      CREATED_AT,
+      UPDATED_AT,
+      ACTIVE_STATE
+    ) VALUES (
+      :fkDocenteOriginal,
+      :fkDocenteSubstituto,
+      :fkHorario,
+      TO_DATE(:dataInicio, 'YYYY-MM-DD'),
+      TO_DATE(:dataTermino, 'YYYY-MM-DD'),
+      :obs,
+      :userId,
+      :userId,
+      SYSDATE,
+      SYSDATE,
+      1
+    ) RETURNING PK_AULA_DOCENTE_SUBSTITUTO INTO :outId
+    `,
+    {
+      fkDocenteOriginal: fkDocenteOriginal || null,
+      fkDocenteSubstituto,
+      fkHorario,
+      dataInicio,
+      dataTermino: dataTermino || null,
+      obs,
+      userId,
+      outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+    } as any,
+  );
+
+  return {
+    success: true,
+    message: 'Docente substituto criado com sucesso!',
+    id: result.outId[0],
+  };
+}
 
 async findAll(filters: ListDocenteSubstitutoDto): Promise<any> {
   const {
@@ -125,7 +148,7 @@ async findAll(filters: ListDocenteSubstitutoDto): Promise<any> {
           a."HORA_TERMINO"                                            AS "HORATERMINO",
           a."FK_DIA_DA_SEMANA"                                        AS "DIASEMANA",
              json_value(a.REF_AULA, '$.pk')                      AS "CODIGOSALA",
-      json_value(a.REF_SALA, '$.desc')                    AS "DESCRICAOSALA",
+          json_value(a.REF_SALA, '$.desc')                    AS "DESCRICAOSALA",
 
           -- Grade / Unidade Curricular
           d."DESIGNACAO"                                              AS "UNIDADECURRICULAR",
@@ -143,6 +166,8 @@ async findAll(filters: ListDocenteSubstitutoDto): Promise<any> {
 
           -- Auditoria
           NVL(ut."NOME", TO_CHAR(s."CREATED_BY"))                     AS "CRIADOPOR",
+          NVL(ut_upd."NOME", TO_CHAR(s."LAST_UPDATED_BY"))           AS "ATUALIZADOPOR",
+
           TO_CHAR(s."CREATED_AT", 'DD/MM/YYYY HH24:MI')               AS "DATACRIACAO",
           TO_CHAR(s."UPDATED_AT", 'DD/MM/YYYY HH24:MI')               AS "DATAATUALIZACAO"
 
@@ -151,8 +176,8 @@ async findAll(filters: ListDocenteSubstitutoDto): Promise<any> {
         LEFT JOIN "FK2_MGH_TB_AULA" a
           ON a."PK_AULA" = s."FK_HORARIO"
 
-        LEFT JOIN "FK2_MGH_TB_HORARIO" h
-          ON h."PK_HORARIO" = a."FK_HORARIO"
+           LEFT JOIN FK2_MGH_TB_HORARIO h
+      ON h.PK_HORARIO = s.FK_HORARIO
 
         LEFT JOIN "FK2_TB_GRADE_CURRICULAR" g
           ON TO_NUMBER(NULLIF(h."FK_GRADE_CURRICULAR", '')) = g."CODIGO"
@@ -173,6 +198,10 @@ async findAll(filters: ListDocenteSubstitutoDto): Promise<any> {
         -- Utilizador que criou o registo
         LEFT JOIN "FK2_MCA_TB_UTILIZADOR" ut
           ON ut."PK_UTILIZADOR" = s."CREATED_BY"
+
+          -- Utilizador que atualizou o registo
+        LEFT JOIN "FK2_MCA_TB_UTILIZADOR" ut_upd
+          ON ut_upd."PK_UTILIZADOR" = s."LAST_UPDATED_BY"
 
         WHERE s."ACTIVE_STATE" = 1
           AND TO_NUMBER(NULLIF(h."FK_ANO_LECTIVO", '')) = :anoLectivo
@@ -396,7 +425,7 @@ async findOne(id: number): Promise<any> {
 
     await this.dataSource.query(
       `
-      UPDATE CMPDEV.MGH_TB_AULA_DOCENTE_SUBSTITUTO
+      UPDATE MGH_TB_AULA_DOCENTE_SUBSTITUTO
          SET FK_DOCENTE_ORIGINAL    = :fkDocenteOriginal,
              FK_DOCENTE_SUBSTITUTO  = :fkDocenteSubstituto,
              FK_HORARIO             = :fkHorario,
@@ -431,7 +460,7 @@ async findOne(id: number): Promise<any> {
   async remove(id: number, userId: number = 1): Promise<any> {
     await this.dataSource.query(
       `
-      UPDATE CMPDEV.MGH_TB_AULA_DOCENTE_SUBSTITUTO
+      UPDATE MGH_TB_AULA_DOCENTE_SUBSTITUTO
          SET ACTIVE_STATE    = 0,
              LAST_UPDATED_BY = :userId,
              UPDATED_AT      = SYSDATE
