@@ -470,12 +470,16 @@ export class SolicitacaoService {
   estadoSolicitacao: string;
   tipoServicoSelecionado: number;
   userId: number;
+  searchServico?: string;
 }) {
+
+  
   const {
     limit = 10,
     page = 1,
     estadoSolicitacao,
     tipoServicoSelecionado,
+    searchServico
   } = params;
 
   const safePage = Number(page) > 0 ? Number(page) : 1;
@@ -490,6 +494,15 @@ export class SolicitacaoService {
     destino0: destinos[0],
     destino1: destinos[1],
   };
+
+  let filtroServicoDescricao = "";
+
+if (searchServico && searchServico.trim() !== "") {
+  filtroServicoDescricao = `
+    AND LOWER(SER.DESCRICAO) LIKE LOWER(:searchServico)
+  `;
+  queryParams.searchServico = `%${searchServico.trim()}%`;
+}
 
   const sql = `
     SELECT
@@ -510,28 +523,41 @@ export class SolicitacaoService {
         ON SER.CODIGO = FK_TB_S.CODIGOTIPOSERVICO
     WHERE
       (FK_TB_S.DESTINO = :destino0 OR FK_TB_S.DESTINO = :destino1)
-      AND FK_TB_S.STATUS_ = :estadoSolicitacao
+      AND (
+  FK_TB_S.STATUS_ = :estadoSolicitacao
+  OR :estadoSolicitacao = 'TODOS'
+)
       AND (
         FK_TB_S.CODIGOTIPOSERVICO = :tipoServicoSelecionado
         OR :tipoServicoSelecionado = 404
       )
+      AND FK_TB_S.CODIGOTIPOSERVICO IS NOT NULL
+      ${filtroServicoDescricao}
       AND FK_TB_S.CODIGOTIPOSERVICO IS NOT NULL
     ORDER BY FK_TB_S.DATA_SOLICITACAO DESC
     OFFSET ${offset} ROWS FETCH NEXT ${safeLimit} ROWS ONLY
   `;
 
   const sqlCount = `
-    SELECT COUNT(*) AS TOTAL
-    FROM FK2_TB_SOLICITACAO_UMA FK_TB_S
-    WHERE
-      (FK_TB_S.DESTINO = :destino0 OR FK_TB_S.DESTINO = :destino1)
-      AND FK_TB_S.STATUS_ = :estadoSolicitacao
-      AND (
-        FK_TB_S.CODIGOTIPOSERVICO = :tipoServicoSelecionado
-        OR :tipoServicoSelecionado = 404
-      )
-      AND FK_TB_S.CODIGOTIPOSERVICO IS NOT NULL
-  `;
+  SELECT COUNT(*) AS TOTAL
+  FROM FK2_TB_SOLICITACAO_UMA FK_TB_S
+    LEFT JOIN FK2_TB_TIPO_SERVICOS SER
+      ON SER.CODIGO = FK_TB_S.CODIGOTIPOSERVICO
+  WHERE
+    (FK_TB_S.DESTINO = :destino0 OR FK_TB_S.DESTINO = :destino1)
+    AND (
+  FK_TB_S.STATUS_ = :estadoSolicitacao
+  OR :estadoSolicitacao = 'TODOS'
+)
+    AND (
+      FK_TB_S.CODIGOTIPOSERVICO = :tipoServicoSelecionado
+      OR :tipoServicoSelecionado = 404
+    )
+    AND FK_TB_S.CODIGOTIPOSERVICO IS NOT NULL
+    ${filtroServicoDescricao}
+`;
+
+
 
   const [result, countResult] = await Promise.all([
     this.dataSource.query(sql, queryParams),

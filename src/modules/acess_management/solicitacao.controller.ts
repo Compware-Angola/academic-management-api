@@ -79,6 +79,7 @@ export class SolicitacaoController {
 @ApiOperation({ summary: 'Listar todas as solicitações' })
 @ApiResponse({ status: 200 })
 async findAllSolicitacoes(@Query() query: ListAllSolicitacoesDto) {
+  
   return this.solicitacaoService.listarOnlySolicitacoes(query);
 }
 
