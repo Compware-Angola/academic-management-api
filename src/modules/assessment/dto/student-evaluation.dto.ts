@@ -5,31 +5,30 @@ import {
   IsOptional,
   IsNumber,
   IsString,
-  IsObject,
   ValidateNested,
   IsArray,
+  IsNotEmpty,
 } from 'class-validator';
 
 export class StudentEvaluationDto {
   @ApiProperty()
-  @Type(() => Number)
   @IsInt()
+  @Type(() => Number)
   gradeCurricularAluno: number;
 
   @ApiProperty()
-  @Type(() => Number)
   @IsInt()
+  @Type(() => Number)
   utilizador: number;
 
-  @ApiProperty({ required: false })
-  @IsOptional()
+  @ApiProperty()
   @IsNumber()
   @Type(() => Number)
-  nota?: number;
+  nota: number;                    // ← obrigatório (remove o ?)
 
   @ApiProperty()
-  @Type(() => Number)
   @IsInt()
+  @Type(() => Number)
   tipoDeProva: number;
 
   @ApiProperty()
@@ -38,14 +37,14 @@ export class StudentEvaluationDto {
   epoca: number;
 
   @ApiProperty()
-  @Type(() => Number)
   @IsInt()
-  tipoAvaliacao: number;
+  @Type(() => Number)
+  tipoAvaliacao: number;           // ← obrigatório
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
-  observacao?: string;
+  observacao?: string | null;
 
   @ApiProperty({ required: false })
   @IsOptional()
@@ -55,19 +54,21 @@ export class StudentEvaluationDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  @Type(() => Number)
   @IsNumber()
+  @Type(() => Number)
   notaAnterior?: number;
 
   @ApiProperty({ required: false })
   @IsOptional()
+  @IsInt()
   @Type(() => Number)
-  codigo_grade_avaliacao_aluno?: number;
+  codigo_grade_avaliacao_aluno?: number | null;
 }
 
 export class StudentEvaluationArrayDto {
   @ApiProperty({ type: [StudentEvaluationDto] })
   @IsArray()
+  @IsNotEmpty({ message: 'O array items não pode estar vazio' })
   @ValidateNested({ each: true })
   @Type(() => StudentEvaluationDto)
   items: StudentEvaluationDto[];

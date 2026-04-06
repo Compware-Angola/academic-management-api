@@ -113,57 +113,51 @@ export class NoteReleaseService {
         );
       } else {
         // Executa INSERT
-        // se for a segunda frenquincia procurar a primeira para meter na nota anterior
-        const result = await this.dataSource.query(
-          `SELECT MAX(CODIGO) AS MAX_CODIGO FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES`,
-        );
-        const nextCodigo = (result[0]?.MAX_CODIGO || 0) + 1;
+      
 
-        await this.dataSource.query(
-          `
-      INSERT INTO FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES (
-
-        GRADE_CURRICULAR_ALUNO,
-        UTILIZADOR,
-        NOTA,
-        TIPO_DE_PROVA,
-        EPOCA,
-        CREATED_AT,
-        UPDATE_AT,
-        TIPO_AVALIACAO,
-        OBSERVACAO,
-        STATUS_,
-        NOTA_ANTERIOR,
-        REF_UTILIZADOR
-      ) VALUES (
-
-        :gradeCurricularAluno,
-        :utilizador,
-        :nota,
-        :tipoDeProva,
-        :epoca,
-        SYSDATE,
-        SYSDATE,
-        :tipoAvaliacao,
-        :observacao,
-        :status,
-        :notaAnterior,
-        :refUtilizador
-      )
-      `,
-          {
-            gradeCurricularAluno,
-            tipoDeProva,
-            tipoAvaliacao,
-            utilizador,
-            nota,
-            epoca,
-            observacao,
-            status,
-            notaAnterior,
-            refUtilizador: JSON.stringify(refUtilizador),
-          } as any,
-        );
+      await this.dataSource.query(
+  `
+  INSERT INTO FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES (
+    GRADE_CURRICULAR_ALUNO,
+    UTILIZADOR,
+    NOTA,
+    TIPO_DE_PROVA,
+    EPOCA,
+    CREATED_AT,
+    UPDATE_AT,
+    TIPO_AVALIACAO,
+    OBSERVACAO,
+    STATUS_,
+    NOTA_ANTERIOR,
+    REF_UTILIZADOR
+  ) VALUES (
+    :gradeCurricularAluno,
+    :utilizador,
+    :nota,
+    :tipoDeProva,
+    :epoca,
+    SYSDATE,
+    SYSDATE,
+    :tipoAvaliacao,
+    :observacao,
+    :status,
+    :notaAnterior,
+    :refUtilizador
+  )
+  `,
+  {
+    gradeCurricularAluno,     // :gradeCurricularAluno
+    utilizador,               // :utilizador
+    nota,                     // :nota
+    tipoDeProva,              // :tipoDeProva
+    epoca,                    // :epoca
+    tipoAvaliacao,            // :tipoAvaliacao
+    observacao,               // :observacao
+    status,                   // :status
+    notaAnterior,             // :notaAnterior
+    refUtilizador: JSON.stringify(refUtilizador),   // :refUtilizador
+  } as any
+);
       }
     }
 

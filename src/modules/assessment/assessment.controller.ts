@@ -128,8 +128,10 @@ export class AssessmentController {
       user,
     );
     await AccessLogHelper.logAccess(this.httpService, {
-      descricao: `Lançamento/Atualização de avaliação do aluno - Código da grade Curricular do Aluno: , Tipo de Avaliação: ${dto[0].tipoAvaliacao}, Época: ${dto[0].epoca}`,
-      fkAcesso: 7,
+    descricao: `Lançamento em massa de ${dto.items.length} nota(s) 
+            | Tipo Avaliação: ${dto.items[0]?.tipoAvaliacao || '—'} 
+            | Época: ${dto.items[0]?.epoca || '—'}
+            | Total de alunos: ${dto.items.length}`, fkAcesso: 7,
       fkUtilizadorResponsavel: req.user.sub,
       ip: ip,
     });
