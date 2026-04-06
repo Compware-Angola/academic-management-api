@@ -1,8 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsNumber, IsString, IsObject } from 'class-validator';
-
-
+import {
+  IsInt,
+  IsOptional,
+  IsNumber,
+  IsString,
+  IsObject,
+  ValidateNested,
+  IsArray,
+} from 'class-validator';
 
 export class StudentEvaluationDto {
   @ApiProperty()
@@ -27,7 +33,7 @@ export class StudentEvaluationDto {
   tipoDeProva: number;
 
   @ApiProperty()
- @IsNumber()
+  @IsNumber()
   @Type(() => Number)
   epoca: number;
 
@@ -43,7 +49,7 @@ export class StudentEvaluationDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-@IsNumber()
+  @IsNumber()
   @Type(() => Number)
   status?: number;
 
@@ -53,10 +59,16 @@ export class StudentEvaluationDto {
   @IsNumber()
   notaAnterior?: number;
 
-
-
   @ApiProperty({ required: false })
   @IsOptional()
   @Type(() => Number)
   codigo_grade_avaliacao_aluno?: number;
+}
+
+export class StudentEvaluationArrayDto {
+  @ApiProperty({ type: [StudentEvaluationDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StudentEvaluationDto)
+  items: StudentEvaluationDto[];
 }

@@ -39,4 +39,10 @@ export class EnrollmentController {
   ) {
    return this.estudantesService.findEstudantes(estudanteDto);
   }
+
+  @Get("estado-matricula-dropdown")
+  @HttpCode(HttpStatus.OK)
+  async findEstadoMatricula() {
+    return this.estudantesService.estadoMatriculaDropdown();
+  }
 }
