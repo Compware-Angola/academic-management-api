@@ -226,13 +226,7 @@ export class AcessosService {
       // Converte chaves para lowercase se a função existir
       return toLowerCaseKeys ? toLowerCaseKeys(novoAcesso) : novoAcesso;
     } catch (error) {
-      this.logger.error('Erro ao criar novo acesso (Oracle)', error.stack);
-
-      // Erro de unique constraint no Oracle geralmente é ORA-00001
-      if (error.code === 'ORA-00001') {
-        throw new BadRequestException('Sigla já existe no sistema');
-      }
-
+      this.logger.error('Erro ao criar acesso', error);
       throw new InternalServerErrorException('Falha ao cadastrar acesso');
     }
   }
@@ -647,7 +641,7 @@ async adicionarGrupoAcesso(
       );
 
   
-      const pkGrupoAcesso = await this.getPkGrupoAcesso();
+   
 
       if (!grupo) {
         throw new Error(`Erro ao adicionar acesso, grupo não encontrado`);
@@ -711,7 +705,7 @@ async adicionarGrupoAcesso(
                 t.UPDATED_AT = SYSDATE
             WHEN NOT MATCHED THEN
               INSERT (
-                PK_GRUPO_ACESSO,
+               
                 FK_GRUPO,
                 FK_ACESSO,
                 ACTIVE_STATE,
@@ -721,7 +715,7 @@ async adicionarGrupoAcesso(
                 LAST_UPDATED_BY
               )
               VALUES (
-                :pkGrupoAcesso,
+            
                 :grupoId,
                 :acessoId,
                 1,
@@ -731,7 +725,7 @@ async adicionarGrupoAcesso(
                 :usuarioLogadoId
               )
             `,
-            { pkGrupoAcesso, grupoId, acessoId, usuarioLogadoId } as any,
+            {  grupoId, acessoId, usuarioLogadoId } as any,
           );
         }
       }
