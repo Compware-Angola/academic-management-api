@@ -41,7 +41,7 @@ export class AccessLogHelper {
     httpService
       .post(logUrl, finalPayload, {
         headers: { 'Content-Type': 'application/json' },
-        timeout: 4000,
+        timeout: 9000,
       })
       .subscribe({
         next: () => {
