@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FindStudentsDTO } from './dto/find-students.dto';
 import { FilterMapaAnualFinalistasDto } from './dto/filter-mapa-anual-finalista.dto';
+import { FilterRegistoPrimarioExamesAcessoDto } from './dto/filter-registo-primario-exames-acesso.dto';
 
 @Injectable()
 export class StudentsService {
@@ -388,6 +389,203 @@ WHERE m.codigo = :codigoMatricula
     trabalhador: row.TRABALHADOR,
     duracao_curso: row.DURACAO_CURSO,
     media_final: row.MEDIA_FINAL,
+  }));
+
+  return {
+    data,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit) || 1,
+  };
+}
+
+async listarRegistoPrimarioExamesAcesso(
+  filter: FilterRegistoPrimarioExamesAcessoDto,
+) {
+  const {
+    page = 1,
+    limit = 10,
+    anoLectivo = 0,
+    grau = 0,
+    search,
+  } = filter;
+
+  const offset = (page - 1) * limit;
+
+  const baseParams: Record<string, any> = {
+    anoLectivo,
+    anoLectivo_zero: anoLectivo,
+    grau,
+    grau_zero: grau,
+  };
+
+  let searchClause = '';
+  if (search && search.trim()) {
+    searchClause = `
+      AND (
+        UPPER(b.NOME_COMPLETO) LIKE :search
+        OR UPPER(NVL(b.BILHETE_IDENTIDADE, '-')) LIKE :search
+      )
+    `;
+    baseParams.search = `%${search.trim().toUpperCase()}%`;
+  }
+
+  const cte = `
+    WITH notas_candidatura AS (
+      SELECT
+        cp.CANDIDATO_ID,
+        thp.ANO_LECTIVO_ID,
+        MAX(cp.NOTA) AS NOTA
+      FROM FK2_CANDIDATO_PROVAS cp
+      INNER JOIN FK2_TB_HORARIO_PROVA thp
+        ON thp.ID = cp.HORARIO_PROVA_ID
+      WHERE cp.TEMPO IS NOT NULL
+      GROUP BY cp.CANDIDATO_ID, thp.ANO_LECTIVO_ID
+    ),
+
+    base_dados AS (
+      SELECT
+        tp.CODIGO,
+        tp.NOME_COMPLETO,
+        tp.BILHETE_IDENTIDADE,
+        tp.SEXO,
+        tp.DATA_NASCIMENTO,
+        tpr.DESIGNACAO AS PROVINCIA_RESIDENCIA,
+        tn.DESIGNACAO AS PAIS_ORIGEM,
+        tm.DESIGNACAO AS MUNICIPIO,
+        tp.CODIGO_TURNO AS PERIODO_CODIGO,
+        tc.DESIGNACAO AS CURSO,
+        tf.DESIGNACAO AS FACULDADE,
+        tp.INSTITUICAO_FORMACAO AS ESCOLA_ENSINO_MEDIO,
+        tp.CODIGO_OCUPACAO AS OCUPADO,
+        NVL(ne.DESIGNACAO, 'N/A') AS NECESSIDADE_ESPECIAL,
+        tha.DESIGNACAO AS PROVENIENCIA,
+        tp.CURSO_ENSINO_MEDIO,
+        ta.MEDIAFINAL,
+        nc.NOTA AS NOTA_CANDIDATURA
+      FROM FK2_TB_PREINSCRICAO tp
+      INNER JOIN FK2_TB_PROVINCIAS tpr
+        ON tpr.CODIGO = tp.CODIGO_PROVINCIA_RESIDENCIA_PERMANENTE
+      INNER JOIN FK2_TB_NACIONALIDADES tn
+        ON tn.CODIGO = tp.CODIGO_NACIONALIDADE
+      LEFT JOIN FK2_TB_MUNICIPIOS tm
+        ON tm.CODIGO = tp.CODIGO_MUNICIPIO
+      INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tp.CURSO_CANDIDATURA
+      INNER JOIN FK2_TB_FACULDADE tf
+        ON tf.CODIGO = tc.FACULDADE_ID
+      LEFT JOIN FK2_TB_ADMISSAO ta
+        ON ta.PRE_INCRICAO = tp.CODIGO
+      LEFT JOIN FK2_NECESSIDADE_ESPECIAIS ne
+        ON ne.ID = tp.NECESSIDADE_ESPECIAL_ID
+      LEFT JOIN FK2_TB_HABILITACAO_ANTERIOR tha
+        ON tha.CODIGO = tp.CODIGO_HABILITACAO_ANTERIOR
+      LEFT JOIN notas_candidatura nc
+        ON nc.CANDIDATO_ID = tp.CODIGO
+       AND nc.ANO_LECTIVO_ID = tp.ANOLECTIVO
+      WHERE (tp.ANOLECTIVO = :anoLectivo OR :anoLectivo_zero = 0)
+        AND (tp.CODIGO_TIPO_CANDIDATURA = :grau OR :grau_zero = 0)
+    ),
+
+    final_data AS (
+      SELECT
+        b.NOME_COMPLETO,
+        b.BILHETE_IDENTIDADE,
+        b.SEXO,
+        FLOOR(MONTHS_BETWEEN(SYSDATE, b.DATA_NASCIMENTO) / 12) AS IDADE,
+        b.DATA_NASCIMENTO,
+        b.PROVINCIA_RESIDENCIA,
+        b.PAIS_ORIGEM,
+        b.MUNICIPIO,
+        CASE
+          WHEN b.PERIODO_CODIGO = 5 THEN 'Regular'
+          ELSE 'Pós-Laboral'
+        END AS PERIODO_ESTUDO,
+        b.CURSO,
+        CASE
+          WHEN NVL(b.MEDIAFINAL, 0) > 0 THEN b.MEDIAFINAL
+          ELSE NVL(b.NOTA_CANDIDATURA, 0)
+        END AS NOTA_EXAME_ACESSO,
+        b.ESCOLA_ENSINO_MEDIO,
+        b.FACULDADE AS UNIDADE_ORGANICA,
+        b.NECESSIDADE_ESPECIAL,
+        b.PROVENIENCIA,
+        b.CURSO_ENSINO_MEDIO,
+        CASE
+          WHEN b.OCUPADO NOT IN (6, 7, 9) THEN 'Sim'
+          ELSE 'Não'
+        END AS TRABALHADOR,
+        'SIM' AS ESTUDANTE_MATRICULADO_PRIMEIRA_VEZ,
+        CASE
+          WHEN (
+            CASE
+              WHEN NVL(b.MEDIAFINAL, 0) > 0 THEN b.MEDIAFINAL
+              ELSE NVL(b.NOTA_CANDIDATURA, 0)
+            END
+          ) > 9.4 THEN 'SIM'
+          ELSE 'NÃO'
+        END AS ADMISSAO
+      FROM base_dados b
+      WHERE 1 = 1
+      ${searchClause}
+    )
+  `;
+
+  const sql = `
+    ${cte}
+    SELECT *
+    FROM (
+      SELECT
+        f.*,
+        ROW_NUMBER() OVER (ORDER BY f.NOME_COMPLETO ASC) AS RN
+      FROM final_data f
+    ) t
+    WHERE t.RN BETWEEN :offset + 1 AND :offset + :limit
+    ORDER BY t.RN
+  `;
+
+  const countSql = `
+    ${cte}
+    SELECT COUNT(*) AS TOTAL
+    FROM final_data
+  `;
+
+  const dataParams = {
+    ...baseParams,
+    offset,
+    limit,
+  };
+
+  const [result, countResult] = await Promise.all([
+    this.dataSource.query(sql, dataParams as any),
+    this.dataSource.query(countSql, baseParams as any),
+  ]);
+
+  const total = Number(countResult[0]?.TOTAL ?? 0);
+
+  const data = result.map((row: any, index: number) => ({
+    numero: offset + index + 1,
+    nome: row.NOME_COMPLETO,
+    numero_bilhete: row.BILHETE_IDENTIDADE,
+    sexo: row.SEXO,
+    idade: row.IDADE,
+    data_nascimento: row.DATA_NASCIMENTO,
+    provincia_residencia: row.PROVINCIA_RESIDENCIA,
+    pais_origem: row.PAIS_ORIGEM,
+    municipio: row.MUNICIPIO,
+    periodo_estudo: row.PERIODO_ESTUDO,
+    curso: row.CURSO,
+    nota_exame_acesso: row.NOTA_EXAME_ACESSO,
+    escola_ensino_medio: row.ESCOLA_ENSINO_MEDIO,
+    trabalhador: row.TRABALHADOR,
+    unidade_organica: row.UNIDADE_ORGANICA,
+    necessidade_especial: row.NECESSIDADE_ESPECIAL,
+    proveniencia: row.PROVENIENCIA,
+    curso_ensino_medio: row.CURSO_ENSINO_MEDIO,
+    estudante_matriculado_primeira_vez:
+      row.ESTUDANTE_MATRICULADO_PRIMEIRA_VEZ,
+    admissao: row.ADMISSAO,
   }));
 
   return {
