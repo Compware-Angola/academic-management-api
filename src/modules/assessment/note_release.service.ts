@@ -12,22 +12,22 @@ export class NoteReleaseService {
 
 
   async findstudents(filters: StudentFiltersDto) {
-    const { anoLectivoId, horarioId, tipoProvaId, classe, tipoAvaliacao, turno } = filters;
+    const { anoLectivoId, horarioId, tipoProvaId, classe, tipoAvaliacao, turno, search } = filters;
 
     let studentsFilter: any
 
     switch (tipoAvaliacao) {
       case 6:
-        studentsFilter = await this.getGeneralStudentNoteRelease2Exame(anoLectivoId, horarioId, tipoProvaId, classe, tipoAvaliacao, turno)
+        studentsFilter = await this.getGeneralStudentNoteRelease2Exame(anoLectivoId, horarioId, tipoProvaId, classe, tipoAvaliacao, turno, search)
 
         break;
 
       case 7:
-        studentsFilter = await this.getGeneralStudentNoteReleaseRecurso(anoLectivoId, horarioId, tipoProvaId, classe, tipoAvaliacao, turno)
+        studentsFilter = await this.getGeneralStudentNoteReleaseRecurso(anoLectivoId, horarioId, tipoProvaId, classe, tipoAvaliacao, turno, search)
         break
 
       default:
-        studentsFilter = await this.getGeneralStudentNoteRelease(anoLectivoId, horarioId, tipoProvaId, classe, tipoAvaliacao, turno)
+        studentsFilter = await this.getGeneralStudentNoteRelease(anoLectivoId, horarioId, tipoProvaId, classe, tipoAvaliacao, turno, search)
 
         break;
     }
@@ -169,9 +169,9 @@ export class NoteReleaseService {
 
     return { message: 'Avaliação inserida ou atualizada com sucesso' };
   }
-  private async getGeneralStudentNoteRelease(anoLectivoId: number, horarioId: number, tipoProvaId: number, classe: number, tipoAvaliacao: number, turno: number) {
+private async getGeneralStudentNoteRelease(anoLectivoId: number, horarioId: number, tipoProvaId: number, classe: number, tipoAvaliacao: number, turno: number, search?: string) {
 
-    const query = `
+  const query = `
     SELECT 
         GCA.CODIGO AS CODIGO_GRADE_ALUNO,
         MAT.CODIGO AS NUMERO_DE_MATRICULA,
@@ -207,27 +207,27 @@ export class NoteReleaseService {
         AND JSON_VALUE(GCA.REF_HORARIO, '$.pk')= :horarioId
         -- AND GCA.CODIGO_STATUS_GRADE_CURRICULAR IN (2,3)
         AND CONF.CLASSE = :classe
-        AND PRE.CODIGO_TURNO  =:turno
+        AND PRE.CODIGO_TURNO = :turno
+        AND (:search IS NULL OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search))
     GROUP BY 
         GCA.CODIGO, MAT.CODIGO, PRE.NOME_COMPLETO,
         AVA.CODIGO, AVA.STATUS_, AVA.OBSERVACAO, AVA.NOTA, CONF.CODIGO
     ORDER BY PRE.NOME_COMPLETO
   `;
 
-    return await this.dataSource.query(query, {
-      anoLectivoId,
-      horarioId,
-      tipoProvaId,
-      tipoAvaliacao,
-      classe,
-      turno
-    } as any);
+  return await this.dataSource.query(query, {
+    anoLectivoId,
+    horarioId,
+    tipoProvaId,
+    tipoAvaliacao,
+    classe,
+    turno,
+    search: search ? `%${search}%` : null,
+  } as any);
+}
+private async getGeneralStudentNoteReleaseRecurso(anoLectivoId: number, horarioId: number, tipoProvaId: number, classe: number, tipoAvaliacao: number, turno: number, search?: string) {
 
-
-  }
-  private async getGeneralStudentNoteReleaseRecurso(anoLectivoId: number, horarioId: number, tipoProvaId: number, classe: number, tipoAvaliacao: number, turno: number) {
-
-    const query = `
+  const query = `
     SELECT 
         GCA.CODIGO AS CODIGO_GRADE_ALUNO,
         MAT.CODIGO AS NUMERO_DE_MATRICULA,
@@ -263,27 +263,35 @@ export class NoteReleaseService {
         AND JSON_VALUE(GCA.REF_HORARIO, '$.pk')= :horarioId
       --  AND GCA.CODIGO_STATUS_GRADE_CURRICULAR NOT IN (5,4)
         AND CONF.CLASSE = :classe
-        AND PRE.CODIGO_TURNO  =:turno
+        AND PRE.CODIGO_TURNO = :turno
+        AND (:search IS NULL OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search))
     GROUP BY 
         GCA.CODIGO, MAT.CODIGO, PRE.NOME_COMPLETO,
         AVA.CODIGO, AVA.STATUS_, AVA.OBSERVACAO, AVA.NOTA, CONF.CODIGO
     ORDER BY PRE.NOME_COMPLETO
   `;
 
-    return await this.dataSource.query(query, {
-      anoLectivoId,
-      horarioId,
-      tipoProvaId,
-      tipoAvaliacao,
-      classe,
-      turno
-    } as any);
+  return await this.dataSource.query(query, {
+    anoLectivoId,
+    horarioId,
+    tipoProvaId,
+    tipoAvaliacao,
+    classe,
+    turno,
+    search: search ? `%${search}%` : null,
+  } as any);
+}
+private async getGeneralStudentNoteRelease2Exame(
+  anoLectivoId: number, 
+  horarioId: number, 
+  tipoProvaId: number, 
+  classe: number, 
+  tipoAvaliacao: number, 
+  turno: number,
+  search?: string  
+) {
 
-
-  }
-  private async getGeneralStudentNoteRelease2Exame(anoLectivoId: number, horarioId: number, tipoProvaId: number, classe: number, tipoAvaliacao: number, turno: number) {
-
-    const query = `
+  const query = `
     SELECT 
         GCA.CODIGO AS CODIGO_GRADE_ALUNO,
         MAT.CODIGO AS NUMERO_DE_MATRICULA,
@@ -317,41 +325,40 @@ export class NoteReleaseService {
         MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
         AND GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
         AND JSON_VALUE(GCA.REF_HORARIO, '$.pk')= :horarioId
-        -- AND GCA.CODIGO_STATUS_GRADE_CURRICULAR IN (2,3)
         AND CONF.CLASSE = :classe
-        AND PRE.CODIGO_TURNO  =:turno
-            AND GCA.CODIGO NOT IN (
-        SELECT TGCAA.GRADE_CURRICULAR_ALUNO
-        FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES TGCAA
-        INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO GCA2 
-            ON GCA2.CODIGO = TGCAA.GRADE_CURRICULAR_ALUNO
-        WHERE  JSON_VALUE(GCA.REF_HORARIO, '$.pk') = :horarioId
-          AND TGCAA.NOTA >= 8
-          AND TGCAA.TIPO_AVALIACAO = 2
-    )
-GROUP BY 
-    GCA.CODIGO,
-    MAT.CODIGO,
-    PRE.NOME_COMPLETO,
-    AVA.CODIGO,
-    AVA.STATUS_,
-    AVA.OBSERVACAO,
-    AVA.NOTA,
-    CONF.CODIGO
+        AND PRE.CODIGO_TURNO = :turno
+        AND (:search IS NULL OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search))
+        AND GCA.CODIGO NOT IN (
+            SELECT TGCAA.GRADE_CURRICULAR_ALUNO
+            FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES TGCAA
+            INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO GCA2 
+                ON GCA2.CODIGO = TGCAA.GRADE_CURRICULAR_ALUNO
+            WHERE JSON_VALUE(GCA.REF_HORARIO, '$.pk') = :horarioId
+              AND TGCAA.NOTA >= 8
+              AND TGCAA.TIPO_AVALIACAO = 2
+        )
+    GROUP BY 
+        GCA.CODIGO,
+        MAT.CODIGO,
+        PRE.NOME_COMPLETO,
+        AVA.CODIGO,
+        AVA.STATUS_,
+        AVA.OBSERVACAO,
+        AVA.NOTA,
+        CONF.CODIGO
     ORDER BY PRE.NOME_COMPLETO
   `;
 
-    return await this.dataSource.query(query, {
-      anoLectivoId,
-      horarioId,
-      tipoProvaId,
-      tipoAvaliacao,
-      classe,
-      turno
-    } as any);
-
-
-  }
+  return await this.dataSource.query(query, {
+    anoLectivoId,
+    horarioId,
+    tipoProvaId,
+    tipoAvaliacao,
+    classe,
+    turno,
+    search: search ? `%${search}%` : null,  // formata o LIKE ou passa null
+  } as any);
+}
 
 
 }
