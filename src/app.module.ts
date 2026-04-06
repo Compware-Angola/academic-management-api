@@ -53,7 +53,7 @@ import { CustomThrottlerGuard } from './modules/common/guard/Custom-Throttler.gu
      ThrottlerModule.forRoot([
       {
         ttl: 2000, 
-        limit: 30,   
+        limit: 40,   
       },
     ]),
     HttpModule,

@@ -71,7 +71,7 @@ export class AccessLogHelper {
     try {
       await lastValueFrom(
         httpService.post(this.getLogUrl(), payload, {
-          timeout: 5000,
+          timeout: 9000,
         }),
       );
     } catch (err) {
