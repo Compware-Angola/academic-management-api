@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNumber, IsString, IsOptional, Min, IsInt } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export class StudentFiltersDto {
+export class GetStudentSummaryDto {
   @ApiProperty({ description: 'Código do ano letivo', example: 18 })
   @IsNumber()
   @Type(() => Number)
@@ -39,17 +39,5 @@ export class StudentFiltersDto {
   @Type(() => Number)
   turno: number;
 
-  @ApiPropertyOptional({ example: 1, description: 'Número da página', default: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number;
 
-  @ApiPropertyOptional({ example: 25, description: 'Quantidade de registos por página', default: 25 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  limit?: number;
 }

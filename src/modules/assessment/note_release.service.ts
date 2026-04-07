@@ -8,6 +8,7 @@ import {
 } from './dto/student-evaluation.dto';
 import { DecodedUserPayload } from '../common/types/token-validation-response.interface';
 import { promptToCreateAndEditService } from '../academic_activities/prompt-to-create-and-edit.service';
+import { GetStudentSummaryDto } from './dto/GetStudentSummaryDto';
 
 @Injectable()
 export class NoteReleaseService {
@@ -16,31 +17,125 @@ export class NoteReleaseService {
     private readonly promptToCreateAndEditService: promptToCreateAndEditService,
   ) { }
 
-  async findstudents(filters: StudentFiltersDto) {
+async findstudents(filters: StudentFiltersDto) {
+  const {
+    anoLectivoId,
+    horarioId,
+    tipoProvaId,
+    classe,
+    tipoAvaliacao,
+    turno,
+    search,
+    page = 1,
+    limit = 10,
+  } = filters;
 
-    const { anoLectivoId, horarioId, tipoProvaId, classe, tipoAvaliacao, turno, search } = filters;
+  const offset = (page - 1) * limit;
+  const realLimit = limit + 1;
 
-    let studentsFilter: any;
+  let studentsFilter: any[];
 
-    switch (tipoAvaliacao) {
-      case 6:
-        studentsFilter = await this.getGeneralStudentNoteRelease2Exame(anoLectivoId, horarioId, tipoProvaId, classe, tipoAvaliacao, turno, search)
+  switch (tipoAvaliacao) {
+    case 6:
+      studentsFilter = await this.getGeneralStudentNoteRelease2Exame(
+        anoLectivoId, horarioId, tipoProvaId, classe, tipoAvaliacao, turno, search, offset, realLimit,
+      );
+      break;
 
-        break;
+    case 7:
+      studentsFilter = await this.getGeneralStudentNoteReleaseRecurso(
+        anoLectivoId, horarioId, tipoProvaId, classe, tipoAvaliacao, turno, search, offset, realLimit,
+      );
+      break;
 
-      case 7:
-        studentsFilter = await this.getGeneralStudentNoteReleaseRecurso(anoLectivoId, horarioId, tipoProvaId, classe, tipoAvaliacao, turno, search)
-        break
-
-      default:
-        studentsFilter = await this.getGeneralStudentNoteRelease(anoLectivoId, horarioId, tipoProvaId, classe, tipoAvaliacao, turno, search)
-
-        break;
-    }
-
-    return { success: true, data: await toLowerCaseKeys(studentsFilter) };
+    default:
+      studentsFilter = await this.getGeneralStudentNoteRelease(
+        anoLectivoId, horarioId, tipoProvaId, classe, tipoAvaliacao, turno, search, offset, realLimit,
+      );
+      break;
   }
 
+  const hasNextPage = studentsFilter.length > limit;
+  if (hasNextPage) studentsFilter.pop();
+
+  return {
+    success: true,
+    data: await toLowerCaseKeys(studentsFilter),
+    page,
+    limit,
+    hasNextPage,
+  };
+}
+async getStudentsSummary(filters: GetStudentSummaryDto) {
+  const { anoLectivoId, horarioId, tipoProvaId, classe, tipoAvaliacao, turno, search } = filters;
+
+  const baseWhere = `
+    MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
+    AND GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
+    AND JSON_VALUE(GCA.REF_HORARIO, '$.pk') = :horarioId
+    AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
+    AND CONF.CLASSE = :classe
+    AND PRE.CODIGO_TURNO = :turno
+    AND (
+        :search IS NULL
+        OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search)
+        OR TO_CHAR(MAT.CODIGO) LIKE :search
+    )
+  `;
+
+  const exameExtraFilter =
+    tipoAvaliacao === 6
+      ? `AND GCA.CODIGO NOT IN (
+            SELECT TGCAA.GRADE_CURRICULAR_ALUNO
+            FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES TGCAA
+            INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO GCA2
+                ON GCA2.CODIGO = TGCAA.GRADE_CURRICULAR_ALUNO
+            WHERE JSON_VALUE(GCA.REF_HORARIO, '$.pk') = :horarioId
+              AND TGCAA.NOTA >= 8
+              AND TGCAA.TIPO_AVALIACAO = 2
+        )`
+      : '';
+
+  const joinType = tipoAvaliacao === 1 ? 'LEFT' : 'INNER';
+
+  const query = `
+    SELECT
+        COUNT(DISTINCT GCA.CODIGO)                                      AS total_estudantes,
+        COUNT(DISTINCT CASE WHEN AVA.NOTA IS NOT NULL THEN GCA.CODIGO END) AS total_com_nota,
+        COUNT(DISTINCT CASE WHEN AVA.NOTA IS NULL     THEN GCA.CODIGO END) AS total_sem_nota
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO GCA
+    LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES AVA
+        ON AVA.GRADE_CURRICULAR_ALUNO = GCA.CODIGO
+       AND AVA.TIPO_DE_PROVA  = :tipoProvaId
+       AND AVA.TIPO_AVALIACAO = :tipoAvaliacao
+    ${joinType} JOIN FK2_TB_MATRICULAS MAT  ON MAT.CODIGO  = GCA.CODIGO_MATRICULA
+    ${joinType} JOIN FK2_TB_ADMISSAO ADM    ON ADM.CODIGO  = MAT.CODIGO_ALUNO
+    ${joinType} JOIN FK2_TB_PREINSCRICAO PRE ON PRE.CODIGO = ADM.PRE_INCRICAO
+    ${joinType} JOIN FK2_TB_CONFIRMACOES CONF ON CONF.CODIGO = GCA.CODIGO_CONFIRMACAO
+    WHERE ${baseWhere}
+    ${exameExtraFilter}
+  `;
+
+  const result = await this.dataSource.query(query, {
+    anoLectivoId,
+    horarioId,
+    tipoProvaId,
+    tipoAvaliacao,
+    classe,
+    turno,
+    search: search ? `%${search}%` : null,
+  } as any);
+
+  const row = result[0];
+  return {
+    success: true,
+    data: {
+      total_estudantes: Number(row.TOTAL_ESTUDANTES ?? row.total_estudantes ?? 0),
+      total_com_nota:   Number(row.TOTAL_COM_NOTA   ?? row.total_com_nota   ?? 0),
+      total_sem_nota:   Number(row.TOTAL_SEM_NOTA   ?? row.total_sem_nota   ?? 0),
+    },
+  };
+}
   async upsertStudentEvaluation(
     dto: StudentEvaluationArrayDto,
     user: DecodedUserPayload,
@@ -155,7 +250,7 @@ export class NoteReleaseService {
             observacao,               // :observacao
             status,                   // :status
             notaAnterior,             // :notaAnterior
-            refUtilizador: JSON.stringify(refUtilizador),   
+            refUtilizador: JSON.stringify(refUtilizador),
           } as any
         );
       }
@@ -164,9 +259,12 @@ export class NoteReleaseService {
     return { message: 'Avaliação inserida ou atualizada com sucesso' };
   }
 
-  private async getGeneralStudentNoteRelease(anoLectivoId: number, horarioId: number, tipoProvaId: number, classe: number, tipoAvaliacao: number, turno: number, search?: string) {
-
-    const query = `
+private async getGeneralStudentNoteRelease(
+  anoLectivoId: number, horarioId: number, tipoProvaId: number,
+  classe: number, tipoAvaliacao: number, turno: number,
+  search?: string, offset = 0, limit = 11
+) {
+  const query = `
     SELECT 
         GCA.CODIGO AS CODIGO_GRADE_ALUNO,
         MAT.CODIGO AS NUMERO_DE_MATRICULA,
@@ -176,7 +274,6 @@ export class NoteReleaseService {
         AVA.OBSERVACAO AS OBSERVACAO,
         AVA.NOTA AS NOTA,
         CONF.CODIGO AS CODIGO_CONFIRMACAO,
-        
         MIN(AVA.CREATED_AT) AS DATALANCAMENTO,
         MIN(AVA.UPDATE_AT) AS DATADEATUALIZACAO,
         TO_CHAR(MIN(AVA.UPDATE_AT), 'HH24') AS HORA,
@@ -187,46 +284,42 @@ export class NoteReleaseService {
     LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES AVA
         ON AVA.GRADE_CURRICULAR_ALUNO = GCA.CODIGO
        AND AVA.TIPO_DE_PROVA = :tipoProvaId
-       AND AVA.TIPO_AVALIACAO= :tipoAvaliacao
-    LEFT JOIN FK2_TB_MATRICULAS MAT 
-        ON MAT.CODIGO = GCA.CODIGO_MATRICULA
-    LEFT JOIN FK2_TB_ADMISSAO ADM 
-        ON ADM.CODIGO = MAT.CODIGO_ALUNO
-    LEFT JOIN FK2_TB_PREINSCRICAO PRE 
-        ON PRE.CODIGO = ADM.PRE_INCRICAO
-    LEFT JOIN FK2_TB_CONFIRMACOES CONF 
-        ON CONF.CODIGO = GCA.CODIGO_CONFIRMACAO
+       AND AVA.TIPO_AVALIACAO = :tipoAvaliacao
+    LEFT JOIN FK2_TB_MATRICULAS MAT ON MAT.CODIGO = GCA.CODIGO_MATRICULA
+    LEFT JOIN FK2_TB_ADMISSAO ADM ON ADM.CODIGO = MAT.CODIGO_ALUNO
+    LEFT JOIN FK2_TB_PREINSCRICAO PRE ON PRE.CODIGO = ADM.PRE_INCRICAO
+    LEFT JOIN FK2_TB_CONFIRMACOES CONF ON CONF.CODIGO = GCA.CODIGO_CONFIRMACAO
     WHERE
         MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
         AND GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
-        AND JSON_VALUE(GCA.REF_HORARIO, '$.pk')= :horarioId
+        AND JSON_VALUE(GCA.REF_HORARIO, '$.pk') = :horarioId
         AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
         AND CONF.CLASSE = :classe
         AND PRE.CODIGO_TURNO = :turno
-       AND (
-  :search IS NULL 
-  OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search)
-  OR TO_CHAR(MAT.CODIGO) LIKE :search
-)
+        AND (
+            :search IS NULL
+            OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search)
+            OR TO_CHAR(MAT.CODIGO) LIKE :search
+        )
     GROUP BY 
         GCA.CODIGO, MAT.CODIGO, PRE.NOME_COMPLETO,
         AVA.CODIGO, AVA.STATUS_, AVA.OBSERVACAO, AVA.NOTA, CONF.CODIGO
     ORDER BY PRE.NOME_COMPLETO
+    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
   `;
 
-    return await this.dataSource.query(query, {
-      anoLectivoId,
-      horarioId,
-      tipoProvaId,
-      tipoAvaliacao,
-      classe,
-      turno,
-      search: search ? `%${search}%` : null,
-    } as any);
-  }
-  private async getGeneralStudentNoteReleaseRecurso(anoLectivoId: number, horarioId: number, tipoProvaId: number, classe: number, tipoAvaliacao: number, turno: number, search?: string) {
+  return await this.dataSource.query(query, {
+    anoLectivoId, horarioId, tipoProvaId, tipoAvaliacao,
+    classe, turno, search: search ? `%${search}%` : null,
+  } as any);
+}
 
-    const query = `
+private async getGeneralStudentNoteReleaseRecurso(
+  anoLectivoId: number, horarioId: number, tipoProvaId: number,
+  classe: number, tipoAvaliacao: number, turno: number,
+  search?: string, offset = 0, limit = 11
+) {
+  const query = `
     SELECT 
         GCA.CODIGO AS CODIGO_GRADE_ALUNO,
         MAT.CODIGO AS NUMERO_DE_MATRICULA,
@@ -236,7 +329,6 @@ export class NoteReleaseService {
         AVA.OBSERVACAO AS OBSERVACAO,
         AVA.NOTA AS NOTA,
         CONF.CODIGO AS CODIGO_CONFIRMACAO,
-        
         MIN(AVA.CREATED_AT) AS DATALANCAMENTO,
         MIN(AVA.UPDATE_AT) AS DATADEATUALIZACAO,
         TO_CHAR(MIN(AVA.UPDATE_AT), 'HH24') AS HORA,
@@ -247,54 +339,42 @@ export class NoteReleaseService {
     LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES AVA
         ON AVA.GRADE_CURRICULAR_ALUNO = GCA.CODIGO
        AND AVA.TIPO_DE_PROVA = :tipoProvaId
-       AND AVA.TIPO_AVALIACAO= :tipoAvaliacao
-    INNER JOIN FK2_TB_MATRICULAS MAT 
-        ON MAT.CODIGO = GCA.CODIGO_MATRICULA
-    INNER JOIN FK2_TB_ADMISSAO ADM 
-        ON ADM.CODIGO = MAT.CODIGO_ALUNO
-    INNER JOIN FK2_TB_PREINSCRICAO PRE 
-        ON PRE.CODIGO = ADM.PRE_INCRICAO
-    INNER JOIN FK2_TB_CONFIRMACOES CONF 
-        ON CONF.CODIGO = GCA.CODIGO_CONFIRMACAO
+       AND AVA.TIPO_AVALIACAO = :tipoAvaliacao
+    INNER JOIN FK2_TB_MATRICULAS MAT ON MAT.CODIGO = GCA.CODIGO_MATRICULA
+    INNER JOIN FK2_TB_ADMISSAO ADM ON ADM.CODIGO = MAT.CODIGO_ALUNO
+    INNER JOIN FK2_TB_PREINSCRICAO PRE ON PRE.CODIGO = ADM.PRE_INCRICAO
+    INNER JOIN FK2_TB_CONFIRMACOES CONF ON CONF.CODIGO = GCA.CODIGO_CONFIRMACAO
     WHERE
         MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
         AND GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
-        AND JSON_VALUE(GCA.REF_HORARIO, '$.pk')= :horarioId
-     AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
+        AND JSON_VALUE(GCA.REF_HORARIO, '$.pk') = :horarioId
+        AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
         AND CONF.CLASSE = :classe
         AND PRE.CODIGO_TURNO = :turno
-       AND (
-  :search IS NULL 
-  OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search)
-  OR TO_CHAR(MAT.CODIGO) LIKE :search
-)
+        AND (
+            :search IS NULL
+            OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search)
+            OR TO_CHAR(MAT.CODIGO) LIKE :search
+        )
     GROUP BY 
         GCA.CODIGO, MAT.CODIGO, PRE.NOME_COMPLETO,
         AVA.CODIGO, AVA.STATUS_, AVA.OBSERVACAO, AVA.NOTA, CONF.CODIGO
     ORDER BY PRE.NOME_COMPLETO
+    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
   `;
 
-    return await this.dataSource.query(query, {
-      anoLectivoId,
-      horarioId,
-      tipoProvaId,
-      tipoAvaliacao,
-      classe,
-      turno,
-      search: search ? `%${search}%` : null,
-    } as any);
-  }
-  private async getGeneralStudentNoteRelease2Exame(
-    anoLectivoId: number,
-    horarioId: number,
-    tipoProvaId: number,
-    classe: number,
-    tipoAvaliacao: number,
-    turno: number,
-    search?: string
-  ) {
+  return await this.dataSource.query(query, {
+    anoLectivoId, horarioId, tipoProvaId, tipoAvaliacao,
+    classe, turno, search: search ? `%${search}%` : null,
+  } as any);
+}
 
-    const query = `
+private async getGeneralStudentNoteRelease2Exame(
+  anoLectivoId: number, horarioId: number, tipoProvaId: number,
+  classe: number, tipoAvaliacao: number, turno: number,
+  search?: string, offset = 0, limit = 11
+) {
+  const query = `
     SELECT 
         GCA.CODIGO AS CODIGO_GRADE_ALUNO,
         MAT.CODIGO AS NUMERO_DE_MATRICULA,
@@ -304,7 +384,6 @@ export class NoteReleaseService {
         AVA.OBSERVACAO AS OBSERVACAO,
         AVA.NOTA AS NOTA,
         CONF.CODIGO AS CODIGO_CONFIRMACAO,
-        
         MIN(AVA.CREATED_AT) AS DATALANCAMENTO,
         MIN(AVA.UPDATE_AT) AS DATADEATUALIZACAO,
         TO_CHAR(MIN(AVA.UPDATE_AT), 'HH24') AS HORA,
@@ -315,27 +394,23 @@ export class NoteReleaseService {
     LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES AVA
         ON AVA.GRADE_CURRICULAR_ALUNO = GCA.CODIGO
        AND AVA.TIPO_DE_PROVA = :tipoProvaId
-       AND AVA.TIPO_AVALIACAO= :tipoAvaliacao
-    INNER JOIN FK2_TB_MATRICULAS MAT 
-        ON MAT.CODIGO = GCA.CODIGO_MATRICULA
-    INNER JOIN FK2_TB_ADMISSAO ADM 
-        ON ADM.CODIGO = MAT.CODIGO_ALUNO
-    INNER JOIN FK2_TB_PREINSCRICAO PRE 
-        ON PRE.CODIGO = ADM.PRE_INCRICAO
-    INNER JOIN FK2_TB_CONFIRMACOES CONF 
-        ON CONF.CODIGO = GCA.CODIGO_CONFIRMACAO
+       AND AVA.TIPO_AVALIACAO = :tipoAvaliacao
+    INNER JOIN FK2_TB_MATRICULAS MAT ON MAT.CODIGO = GCA.CODIGO_MATRICULA
+    INNER JOIN FK2_TB_ADMISSAO ADM ON ADM.CODIGO = MAT.CODIGO_ALUNO
+    INNER JOIN FK2_TB_PREINSCRICAO PRE ON PRE.CODIGO = ADM.PRE_INCRICAO
+    INNER JOIN FK2_TB_CONFIRMACOES CONF ON CONF.CODIGO = GCA.CODIGO_CONFIRMACAO
     WHERE
         MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
         AND GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
         AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
-        AND JSON_VALUE(GCA.REF_HORARIO, '$.pk')= :horarioId
+        AND JSON_VALUE(GCA.REF_HORARIO, '$.pk') = :horarioId
         AND CONF.CLASSE = :classe
         AND PRE.CODIGO_TURNO = :turno
-       AND (
-  :search IS NULL 
-  OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search)
-  OR TO_CHAR(MAT.CODIGO) LIKE :search
-)
+        AND (
+            :search IS NULL
+            OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search)
+            OR TO_CHAR(MAT.CODIGO) LIKE :search
+        )
         AND GCA.CODIGO NOT IN (
             SELECT TGCAA.GRADE_CURRICULAR_ALUNO
             FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES TGCAA
@@ -346,29 +421,16 @@ export class NoteReleaseService {
               AND TGCAA.TIPO_AVALIACAO = 2
         )
     GROUP BY 
-        GCA.CODIGO,
-        MAT.CODIGO,
-        PRE.NOME_COMPLETO,
-        AVA.CODIGO,
-        AVA.STATUS_,
-        AVA.OBSERVACAO,
-        AVA.NOTA,
-        CONF.CODIGO
+        GCA.CODIGO, MAT.CODIGO, PRE.NOME_COMPLETO,
+        AVA.CODIGO, AVA.STATUS_, AVA.OBSERVACAO, AVA.NOTA, CONF.CODIGO
     ORDER BY PRE.NOME_COMPLETO
+    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
   `;
 
-    return await this.dataSource.query(query, {
-      anoLectivoId,
-      horarioId,
-      tipoProvaId,
-      tipoAvaliacao,
-      classe,
-      turno,
-      search: search ? `%${search}%` : null,
-    } as any);
-  }
-
-
-
+  return await this.dataSource.query(query, {
+    anoLectivoId, horarioId, tipoProvaId, tipoAvaliacao,
+    classe, turno, search: search ? `%${search}%` : null,
+  } as any);
+}
 
 }
