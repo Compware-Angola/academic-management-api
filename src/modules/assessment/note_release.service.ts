@@ -14,7 +14,7 @@ export class NoteReleaseService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly promptToCreateAndEditService: promptToCreateAndEditService,
-  ) {}
+  ) { }
 
   async findstudents(filters: StudentFiltersDto) {
 
@@ -113,10 +113,10 @@ export class NoteReleaseService {
         );
       } else {
         // Executa INSERT
-      
 
-      await this.dataSource.query(
-  `
+
+        await this.dataSource.query(
+          `
   INSERT INTO FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES (
     GRADE_CURRICULAR_ALUNO,
     UTILIZADOR,
@@ -145,28 +145,28 @@ export class NoteReleaseService {
     :refUtilizador
   )
   `,
-  {
-    gradeCurricularAluno,     // :gradeCurricularAluno
-    utilizador,               // :utilizador
-    nota,                     // :nota
-    tipoDeProva,              // :tipoDeProva
-    epoca,                    // :epoca
-    tipoAvaliacao,            // :tipoAvaliacao
-    observacao,               // :observacao
-    status,                   // :status
-    notaAnterior,             // :notaAnterior
-    refUtilizador: JSON.stringify(refUtilizador),   // :refUtilizador
-  } as any
-);
+          {
+            gradeCurricularAluno,     // :gradeCurricularAluno
+            utilizador,               // :utilizador
+            nota,                     // :nota
+            tipoDeProva,              // :tipoDeProva
+            epoca,                    // :epoca
+            tipoAvaliacao,            // :tipoAvaliacao
+            observacao,               // :observacao
+            status,                   // :status
+            notaAnterior,             // :notaAnterior
+            refUtilizador: JSON.stringify(refUtilizador),   
+          } as any
+        );
       }
     }
 
     return { message: 'Avaliação inserida ou atualizada com sucesso' };
   }
 
-private async getGeneralStudentNoteRelease(anoLectivoId: number, horarioId: number, tipoProvaId: number, classe: number, tipoAvaliacao: number, turno: number, search?: string) {
+  private async getGeneralStudentNoteRelease(anoLectivoId: number, horarioId: number, tipoProvaId: number, classe: number, tipoAvaliacao: number, turno: number, search?: string) {
 
-  const query = `
+    const query = `
     SELECT 
         GCA.CODIGO AS CODIGO_GRADE_ALUNO,
         MAT.CODIGO AS NUMERO_DE_MATRICULA,
@@ -203,26 +203,30 @@ private async getGeneralStudentNoteRelease(anoLectivoId: number, horarioId: numb
         AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
         AND CONF.CLASSE = :classe
         AND PRE.CODIGO_TURNO = :turno
-        AND (:search IS NULL OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search))
+       AND (
+  :search IS NULL 
+  OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search)
+  OR TO_CHAR(MAT.CODIGO) LIKE :search
+)
     GROUP BY 
         GCA.CODIGO, MAT.CODIGO, PRE.NOME_COMPLETO,
         AVA.CODIGO, AVA.STATUS_, AVA.OBSERVACAO, AVA.NOTA, CONF.CODIGO
     ORDER BY PRE.NOME_COMPLETO
   `;
 
-  return await this.dataSource.query(query, {
-    anoLectivoId,
-    horarioId,
-    tipoProvaId,
-    tipoAvaliacao,
-    classe,
-    turno,
-    search: search ? `%${search}%` : null,
-  } as any);
-}
-private async getGeneralStudentNoteReleaseRecurso(anoLectivoId: number, horarioId: number, tipoProvaId: number, classe: number, tipoAvaliacao: number, turno: number, search?: string) {
+    return await this.dataSource.query(query, {
+      anoLectivoId,
+      horarioId,
+      tipoProvaId,
+      tipoAvaliacao,
+      classe,
+      turno,
+      search: search ? `%${search}%` : null,
+    } as any);
+  }
+  private async getGeneralStudentNoteReleaseRecurso(anoLectivoId: number, horarioId: number, tipoProvaId: number, classe: number, tipoAvaliacao: number, turno: number, search?: string) {
 
-  const query = `
+    const query = `
     SELECT 
         GCA.CODIGO AS CODIGO_GRADE_ALUNO,
         MAT.CODIGO AS NUMERO_DE_MATRICULA,
@@ -259,34 +263,38 @@ private async getGeneralStudentNoteReleaseRecurso(anoLectivoId: number, horarioI
      AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
         AND CONF.CLASSE = :classe
         AND PRE.CODIGO_TURNO = :turno
-        AND (:search IS NULL OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search))
+       AND (
+  :search IS NULL 
+  OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search)
+  OR TO_CHAR(MAT.CODIGO) LIKE :search
+)
     GROUP BY 
         GCA.CODIGO, MAT.CODIGO, PRE.NOME_COMPLETO,
         AVA.CODIGO, AVA.STATUS_, AVA.OBSERVACAO, AVA.NOTA, CONF.CODIGO
     ORDER BY PRE.NOME_COMPLETO
   `;
 
-  return await this.dataSource.query(query, {
-    anoLectivoId,
-    horarioId,
-    tipoProvaId,
-    tipoAvaliacao,
-    classe,
-    turno,
-    search: search ? `%${search}%` : null,
-  } as any);
-}
-private async getGeneralStudentNoteRelease2Exame(
-  anoLectivoId: number, 
-  horarioId: number, 
-  tipoProvaId: number, 
-  classe: number, 
-  tipoAvaliacao: number, 
-  turno: number,
-  search?: string  
-) {
+    return await this.dataSource.query(query, {
+      anoLectivoId,
+      horarioId,
+      tipoProvaId,
+      tipoAvaliacao,
+      classe,
+      turno,
+      search: search ? `%${search}%` : null,
+    } as any);
+  }
+  private async getGeneralStudentNoteRelease2Exame(
+    anoLectivoId: number,
+    horarioId: number,
+    tipoProvaId: number,
+    classe: number,
+    tipoAvaliacao: number,
+    turno: number,
+    search?: string
+  ) {
 
-  const query = `
+    const query = `
     SELECT 
         GCA.CODIGO AS CODIGO_GRADE_ALUNO,
         MAT.CODIGO AS NUMERO_DE_MATRICULA,
@@ -323,7 +331,11 @@ private async getGeneralStudentNoteRelease2Exame(
         AND JSON_VALUE(GCA.REF_HORARIO, '$.pk')= :horarioId
         AND CONF.CLASSE = :classe
         AND PRE.CODIGO_TURNO = :turno
-        AND (:search IS NULL OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search))
+       AND (
+  :search IS NULL 
+  OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search)
+  OR TO_CHAR(MAT.CODIGO) LIKE :search
+)
         AND GCA.CODIGO NOT IN (
             SELECT TGCAA.GRADE_CURRICULAR_ALUNO
             FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES TGCAA
@@ -345,18 +357,18 @@ private async getGeneralStudentNoteRelease2Exame(
     ORDER BY PRE.NOME_COMPLETO
   `;
 
-  return await this.dataSource.query(query, {
-    anoLectivoId,
-    horarioId,
-    tipoProvaId,
-    tipoAvaliacao,
-    classe,
-    turno,
-    search: search ? `%${search}%` : null,  
-  } as any);
-}
+    return await this.dataSource.query(query, {
+      anoLectivoId,
+      horarioId,
+      tipoProvaId,
+      tipoAvaliacao,
+      classe,
+      turno,
+      search: search ? `%${search}%` : null,
+    } as any);
+  }
 
-  
+
 
 
 }
