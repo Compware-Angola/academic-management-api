@@ -50,12 +50,14 @@ import { CustomThrottlerGuard } from './modules/common/guard/Custom-Throttler.gu
         }
       })(),
     }),
+    /*
      ThrottlerModule.forRoot([
       {
         ttl: 2000, 
         limit: 40,   
       },
     ]),
+    */
     HttpModule,
    TypeOrmModule.forRootAsync({
   imports: [ConfigModule],
@@ -122,9 +124,16 @@ import { CustomThrottlerGuard } from './modules/common/guard/Custom-Throttler.gu
     RegistrationModule,
   ],
   controllers: [AppController],
-  providers: [AppService, HistoryNoteReleaseService, {
+  providers: [AppService, HistoryNoteReleaseService,
+    
+    /*
+    {
       provide: APP_GUARD,
       useClass: CustomThrottlerGuard, 
-    },],
+    },
+    */
+  
+  
+  ],
 })
 export class AppModule {}
