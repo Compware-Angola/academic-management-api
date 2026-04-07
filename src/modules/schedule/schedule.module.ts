@@ -12,16 +12,18 @@ import { DocenteSubstitutoService } from './docente-substituto.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([AcademicYear]),
-   HttpModule.register({
-    timeout: 5000,
-    maxRedirects: 5
+  HttpModule.register({
+    timeout: 8000,
+    maxRedirects: 5,
+    httpAgent: { keepAlive: true },
+    httpsAgent: { keepAlive: true },
   }),
   BullModule.registerQueue({
     name: 'schedule_service',
   }),
 
   ],
-  controllers: [ScheduleController,DocenteSubstitutoController],
-  providers: [ScheduleService, promptToCreateAndEditService, AnoLectivoUtil,DocenteSubstitutoService],
+  controllers: [ScheduleController, DocenteSubstitutoController],
+  providers: [ScheduleService, promptToCreateAndEditService, AnoLectivoUtil, DocenteSubstitutoService],
 })
 export class ScheduleModule { }
