@@ -80,6 +80,7 @@ import { buildFormulaLog } from './util/buildFormulaLog';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { PromptGetPermissionLaunchDTO } from './dto/prompt-get-permission-launch.dto';
+import { GetStudentSummaryDto } from './dto/GetStudentSummaryDto';
 
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('assessment')
@@ -297,7 +298,10 @@ export class AssessmentController {
   filtrarAlunos(@Query() filtro: StudentFiltersDto) {
     return this.noteReleaseService.findstudents(filtro);
   }
-
+@Get('summary')
+getStudentsSummary(@Query() filters: GetStudentSummaryDto) {
+  return this.noteReleaseService.getStudentsSummary(filters);
+}
   @Put('parametros-avaliacoes-attendance-list/:codigo')
   @ApiOperation({
     summary: 'Atualiza um parâmetro de avaliação (attendance list)',
