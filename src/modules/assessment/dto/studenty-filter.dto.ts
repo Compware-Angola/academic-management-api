@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber } from 'class-validator';
+import { IsNumber, IsString, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class StudentFiltersDto {
@@ -7,6 +7,12 @@ export class StudentFiltersDto {
   @IsNumber()
   @Type(() => Number)
   anoLectivoId: number;
+
+  @ApiProperty({ description: 'Nome do aluno', example: "", required: false })
+  @IsOptional()
+  @IsString()
+  @Type(() => String)
+  search?: string;
 
   @ApiProperty({ description: 'Código do Horario', example: 346 })
   @IsNumber()
@@ -18,17 +24,18 @@ export class StudentFiltersDto {
   @Type(() => Number)
   tipoProvaId: number;
 
-  @ApiProperty({description:'Tipo de Avaliação',example:2})
+  @ApiProperty({ description: 'Tipo de Avaliação', example: 2 })
   @IsNumber()
   @Type(() => Number)
-  tipoAvaliacao:number
+  tipoAvaliacao: number;
 
   @ApiProperty({ description: 'Classe do aluno', example: 2 })
   @IsNumber()
   @Type(() => Number)
   classe: number;
-@ApiProperty({ description: 'Turno do aluno', example: 5 })
+
+  @ApiProperty({ description: 'Turno do aluno', example: 5 })
   @IsNumber()
   @Type(() => Number)
-  turno:number
+  turno: number;
 }

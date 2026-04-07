@@ -651,6 +651,15 @@ export class ExamesDeAcessoService {
              THEN 0
              ELSE 1
            END AS RESULTADO
+         , SUBSTR(TO_CHAR(NUMTODSINTERVAL(
+             TO_NUMBER(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1)) / 86400000000000,
+             'DAY'
+           )), 12, 5) AS HORA_INICIO
+         , SUBSTR(TO_CHAR(NUMTODSINTERVAL(
+             TO_NUMBER(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_FIM, 4000, 1)) / 86400000000000,
+             'DAY'
+           )), 12, 5) AS HORA_FIM
+         , FK2_CANDIDATO_PROVAS.STATUS_ AS STATUS_PROVA
     ${sqlBase}
   `;
 
@@ -682,15 +691,15 @@ export class ExamesDeAcessoService {
       totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
     });
   }
-  async buscaProvaMarcacoes(filtros: FilterProvaMarcacaoDto) {
+async buscaProvaMarcacoes(filtros: FilterProvaMarcacaoDto) {
     const condicoes: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
+
     if (filtros.codigoAnoLetivo) {
       condicoes.push(`FK2_USERS.ANO_LECTIVO_ID = :${paramIndex++}`);
       params.push(filtros.codigoAnoLetivo);
     }
-
 
     if (filtros.codigoGrau) {
       condicoes.push(`FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA = :${paramIndex++}`);
@@ -763,16 +772,19 @@ export class ExamesDeAcessoService {
     const selectProva =
       filtros.filtroProva === 'com_prova'
         ? `
-         , FK2_CANDIDATO_PROVAS.CANDIDATO_ID AS CANDIDATO_PROVA_CODIGO
-         , SUBSTR(TO_CHAR(NUMTODSINTERVAL(
+         -- CORREÇÃO: MAX() nas colunas de prova garante um único registo
+         -- por candidato quando existe mais do que uma entrada em FK2_CANDIDATO_PROVAS
+         -- ou FK2_TB_HORARIO_PROVA, eliminando duplicação de linhas.
+         , MAX(FK2_CANDIDATO_PROVAS.CANDIDATO_ID) AS CANDIDATO_PROVA_CODIGO
+         , MAX(SUBSTR(TO_CHAR(NUMTODSINTERVAL(
              TO_NUMBER(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1)) / 86400000000000,
              'DAY'
-           )), 12, 5) AS HORA_INICIO
-         , SUBSTR(TO_CHAR(NUMTODSINTERVAL(
+           )), 12, 5)) AS HORA_INICIO
+         , MAX(SUBSTR(TO_CHAR(NUMTODSINTERVAL(
              TO_NUMBER(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_FIM, 4000, 1)) / 86400000000000,
              'DAY'
-           )), 12, 5) AS HORA_FIM
-         , FK2_CANDIDATO_PROVAS.STATUS_ AS STATUS_PROVA
+           )), 12, 5)) AS HORA_FIM
+         , MAX(FK2_CANDIDATO_PROVAS.STATUS_) AS STATUS_PROVA
          `
         : `
          , NULL AS CANDIDATO_PROVA_CODIGO
@@ -781,6 +793,34 @@ export class ExamesDeAcessoService {
          , NULL AS HORA_FIM
          , NULL AS STATUS_PROVA
       `;
+
+    // CORREÇÃO: GROUP BY em vez de DISTINCT.
+    // DISTINCT não funciona bem com colunas LOB (CLOB/BLOB) no Oracle —
+    // lança ORA-00932. O GROUP BY agrupa pelo identificador único do candidato
+    // e traz os restantes campos com MIN()/MAX(), produzindo exactamente
+    // uma linha por candidato sem tocar nas colunas LOB no agrupamento.
+    const groupBy =
+      filtros.filtroProva === 'com_prova'
+        ? `
+    GROUP BY
+        FK2_TB_PREINSCRICAO.CODIGO
+      , FK2_TB_PREINSCRICAO.NOME_COMPLETO
+      , FK2_TB_PREINSCRICAO.CONTACTOS_TELEFONICOS
+      , FK2_TB_PREINSCRICAO.SEXO
+      , FK2_TB_PREINSCRICAO.DATA_PREESCRINCAO
+      , FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA
+      , FK2_TB_TIPO_CANDIDATURA.DESIGNACAO
+      , FK2_TB_PREINSCRICAO.ESTADO_PREISCRICAO_CANDIDATO
+      , FK2_TB_PREINSCRICAO.USER_ID
+      , FK2_TB_ANO_LECTIVO.CODIGO
+      , FK2_TB_ANO_LECTIVO.DESIGNACAO
+      , FK2_TB_ANO_LECTIVO.ESTADO
+      , FK2_TB_CURSOS.CODIGO
+      , FK2_TB_CURSOS.DESIGNACAO
+      , FK2_TB_PREINSCRICAO.CODIGO_TURNO
+      , FK2_TB_PERIODOS.DESIGNACAO
+        `
+        : ''; // sem_prova não tem joins problemáticos, não precisa de GROUP BY
 
     const sql = `
     SELECT FK2_TB_PREINSCRICAO.CODIGO
@@ -807,11 +847,20 @@ export class ExamesDeAcessoService {
          , FK2_TB_PERIODOS.DESIGNACAO AS PERIODO
          ${selectProva}
     ${sqlBase}
+    ${groupBy}
     OFFSET :${offsetIndex} ROWS
     FETCH NEXT :${limitIndex} ROWS ONLY
   `;
 
-    const sqlCount = `SELECT COUNT(*) AS TOTAL ${sqlBase}`;
+    // COUNT também precisa de GROUP BY para não contar duplicados
+    const sqlCount = `
+      SELECT COUNT(*) AS TOTAL
+      FROM (
+        SELECT FK2_TB_PREINSCRICAO.CODIGO
+        ${sqlBase}
+        ${groupBy}
+      )
+    `;
 
     const [data, total] = await Promise.all([
       this.dataSource.query(sql, params),
@@ -1024,7 +1073,7 @@ export class ExamesDeAcessoService {
   async lancarNotaArquitectura(codigoCandidato: number, notaPratica: number) {
     return await this.dataSource.transaction(async (manager) => {
       const sqlFetch = `
-        SELECT FK2_TB_PREINSCRICAO.CODIGO
+        SELECT DISTINCT FK2_TB_PREINSCRICAO.CODIGO
              , FK2_CANDIDATO_PROVAS.NOTA AS NOTA_TEORICA
              , FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA
           FROM FK2_CANDIDATO_PROVAS
@@ -1034,11 +1083,12 @@ export class ExamesDeAcessoService {
            AND FK2_CANDIDATO_PROVAS.HORARIO_PROVA_ID = FK2_TB_HORARIO_PROVA.ID
            AND FK2_TB_PREINSCRICAO.CODIGO = :1
            AND FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA = 7
+           AND NOT EXISTS (SELECT 1 FROM FK2_TB_ADMISSAO WHERE FK2_TB_ADMISSAO.PRE_INCRICAO = FK2_TB_PREINSCRICAO.CODIGO)
       `;
       const rows = await manager.query(sqlFetch, [codigoCandidato]);
       if (rows.length === 0) {
         throw new HttpException(
-          'Candidato de Arquitectura não encontrado ou sem prova atribuída.',
+          'Candidato de Arquitectura não encontrado ou sem prova atribuída disponivel.',
           HttpStatus.NOT_FOUND,
         );
       }

@@ -65,9 +65,9 @@ export class DocenteCandidaturaService {
     // --- EXECUÇÃO ---
 
     // Clonamos o builder com os filtros já aplicados para contar o total real
-    const countQuery = queryBuilder.clone().select("COUNT(DISTINCT MTC.CODIGO)", "total");
+   const countQuery = queryBuilder.clone().select("COUNT(DISTINCT MTC.CODIGO)", "total");
 
-    const selectColumns = {
+const selectColumns = {
         codigoCandidato: "MTC.CODIGO",
         pk_pessoa: "TP.PK_PESSOA",
         nomeCandidato: "TO_CHAR(TP.NOME_COMPLETO)",
@@ -75,23 +75,32 @@ export class DocenteCandidaturaService {
         email: "TO_CHAR(TP.EMAIL)",
         dataCandidatura: "MTC.DATA_CANDIDATURA",
         estado: "TO_CHAR(TEC.DESCRICAO)",
-        areaFormacao: "TO_CHAR(TAF.DESIGNACAO)",
         sexo: "TO_CHAR(TS.DESIGNACAO)",
         estadoCivil: "TO_CHAR(TEC2.DESIGNACAO)",
         nacionalidade: "TO_CHAR(TN.DESIGNACAO)",
         numeroBI: "TO_CHAR(TP.NUM_DOC_IDENTIFICACAO)",
-        curso: "TO_CHAR(TCAF.DESIGNACAO)"
+        
+        // Usamos agregação aqui para não quebrar o GROUP BY
+        areaFormacao: "MAX(TO_CHAR(TAF.DESIGNACAO))", 
+        curso: "MAX(TO_CHAR(TCAF.DESIGNACAO))"
     };
 
-    const dataQuery = queryBuilder
+const dataQuery = queryBuilder
         .select(Object.entries(selectColumns).map(([alias, col]) => `${col} AS "${alias}"`))
         .groupBy(`
-            MTC.CODIGO, TP.PK_PESSOA, TO_CHAR(TP.NOME_COMPLETO), TP.DATA_DE_NASCIMENTO, 
-            TO_CHAR(TP.EMAIL), MTC.DATA_CANDIDATURA, TO_CHAR(TEC.DESCRICAO), 
-            TO_CHAR(TAF.DESIGNACAO), TO_CHAR(TS.DESIGNACAO), TO_CHAR(TEC2.DESIGNACAO), 
-            TO_CHAR(TN.DESIGNACAO), TO_CHAR(TP.NUM_DOC_IDENTIFICACAO), TO_CHAR(TCAF.DESIGNACAO)
+            MTC.CODIGO, 
+            TO_CHAR(TP.NOME_COMPLETO), 
+            TP.PK_PESSOA, 
+            TP.DATA_DE_NASCIMENTO, 
+            TO_CHAR(TP.EMAIL), 
+            MTC.DATA_CANDIDATURA, 
+            TO_CHAR(TEC.DESCRICAO), 
+            TO_CHAR(TS.DESIGNACAO), 
+            TO_CHAR(TEC2.DESIGNACAO), 
+            TO_CHAR(TN.DESIGNACAO), 
+            TO_CHAR(TP.NUM_DOC_IDENTIFICACAO)
         `)
-        .orderBy("TO_CHAR(TP.NOME_COMPLETO)", "ASC") // Ordenação alfabética como no Java
+        .orderBy("TO_CHAR(TP.NOME_COMPLETO)", "ASC") 
         .offset(offset)
         .limit(limit)
         .getRawMany();

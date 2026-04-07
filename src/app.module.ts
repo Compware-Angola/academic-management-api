@@ -29,6 +29,10 @@ import { PlanoEstudoModule } from './modules/plano_estudo/plano_estudo.module';
 import { DropdownFiltersModule } from './modules/shared/dropdown_filters/dropdown_filters.module';
 import { ExamesDeAcessoModule } from './modules/exames-de-acesso/exames-de-acesso.module';
 import { StatisticsReportsModule } from './modules/shared/statistics-reports/statistics-reports.module';
+import { RegistrationModule } from './modules/registration/registration.module';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'; 
+import { APP_GUARD } from '@nestjs/core/constants';
+import { CustomThrottlerGuard } from './modules/common/guard/Custom-Throttler.guard';
 
 
 @Module({
@@ -46,32 +50,50 @@ import { StatisticsReportsModule } from './modules/shared/statistics-reports/sta
         }
       })(),
     }),
-    HttpModule,
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const isSSL = config.get<string>('DB_SSL') === 'true';
-
-        return {
-          type: 'oracle' as const,
-          host: config.get<string>('DB_HOST'),
-          port: config.get<number>('DB_PORT', 1521),
-          username: config.get<string>('DB_USERNAME'),
-          password: config.get<string>('DB_PASSWORD'),
-          sid: config.get<string>('DB_SID'),
-
-          entities: [__dirname + '/**/*.entity{.ts,.js}'],
-          synchronize: false,
-          logging: ['query', 'error'],
-
-          extra: {
-            disableInsertDefaultValues: true,
-            ...(isSSL ? { ssl: { rejectUnauthorized: true } } : {}),
-          },
-        };
+     ThrottlerModule.forRoot([
+      {
+        ttl: 2000, 
+        limit: 40,   
       },
-    }),
+    ]),
+    HttpModule,
+   TypeOrmModule.forRootAsync({
+  imports: [ConfigModule],
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => {
+    const isSSL = config.get<string>('DB_SSL') === 'true';
+
+    return {
+      type: 'oracle' as const,
+      host: config.get<string>('DB_HOST'),
+      port: config.get<number>('DB_PORT', 1521),
+      username: config.get<string>('DB_USERNAME'),
+      password: config.get<string>('DB_PASSWORD'),
+      sid: config.get<string>('DB_SID'),
+
+      entities: [__dirname + '/**/*.entity{.ts,.js}'],
+      synchronize: false,
+      logging: ['error'],           // remove 'query' em produção (muito barulhento)
+
+      // ==================== CONFIGURAÇÃO DO POOL ====================
+      poolSize: 20,                 // ← Número máximo de conexões (ajusta conforme teu servidor)
+
+      extra: {
+        poolMin: 5,                 // mínimo de conexões abertas
+        poolMax: 30,                // máximo de conexões (importante!)
+        poolIncrement: 5,
+        queueTimeout: 120000,       // 120 segundos (aumentado)
+        queueMax: 100,              // máximo de requisições em espera
+        poolTimeout: 60,            // segundos que uma conexão idle pode ficar no pool
+        poolPingInterval: 60,       // verifica conexões inválidas
+        connectTimeout: 15000,      // timeout para criar nova conexão
+        // callTimeout: 30000,      // timeout para cada query (descomenta se quiseres)
+
+        ...(isSSL ? { ssl: { rejectUnauthorized: true } } : {}),
+      },
+    };
+  },
+}),
 
     AssessmentModule,
     RoonModule,
@@ -97,8 +119,12 @@ import { StatisticsReportsModule } from './modules/shared/statistics-reports/sta
     DropdownFiltersModule,
     ExamesDeAcessoModule,
     StatisticsReportsModule,
+    RegistrationModule,
   ],
   controllers: [AppController],
-  providers: [AppService, HistoryNoteReleaseService],
+  providers: [AppService, HistoryNoteReleaseService, {
+      provide: APP_GUARD,
+      useClass: CustomThrottlerGuard, 
+    },],
 })
 export class AppModule {}

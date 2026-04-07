@@ -28,4 +28,8 @@ export class ListAllSolicitacoesDto {
   @Type(() => Number)
   @IsInt()
   userId: number;
+
+  @ApiPropertyOptional({ example: 'Reembolso de valor' })
+  @IsString()
+  searchServico?: string;
 }
