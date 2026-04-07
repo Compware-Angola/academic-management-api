@@ -200,7 +200,7 @@ private async getGeneralStudentNoteRelease(anoLectivoId: number, horarioId: numb
         MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
         AND GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
         AND JSON_VALUE(GCA.REF_HORARIO, '$.pk')= :horarioId
-        -- AND GCA.CODIGO_STATUS_GRADE_CURRICULAR IN (2,3)
+       AND GCA.STATUS_GRADE_CURRICULAR <> 5
         AND CONF.CLASSE = :classe
         AND PRE.CODIGO_TURNO = :turno
         AND (:search IS NULL OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search))
@@ -256,7 +256,7 @@ private async getGeneralStudentNoteReleaseRecurso(anoLectivoId: number, horarioI
         MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
         AND GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
         AND JSON_VALUE(GCA.REF_HORARIO, '$.pk')= :horarioId
-      --  AND GCA.CODIGO_STATUS_GRADE_CURRICULAR NOT IN (5,4)
+      AND GCA.STATUS_GRADE_CURRICULAR <> 5
         AND CONF.CLASSE = :classe
         AND PRE.CODIGO_TURNO = :turno
         AND (:search IS NULL OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search))
@@ -319,6 +319,7 @@ private async getGeneralStudentNoteRelease2Exame(
     WHERE
         MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
         AND GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
+        AND GCA.STATUS_GRADE_CURRICULAR <> 5
         AND JSON_VALUE(GCA.REF_HORARIO, '$.pk')= :horarioId
         AND CONF.CLASSE = :classe
         AND PRE.CODIGO_TURNO = :turno
