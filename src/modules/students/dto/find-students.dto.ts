@@ -10,6 +10,7 @@ import {
   IsIn,
   Max,
   IsString,
+  IsNotEmpty,
 } from 'class-validator';
 
 export class FindStudentsDTO {
@@ -78,4 +79,27 @@ export class FindStudentsDTO {
   @Max(100)
   @Type(() => Number)
   limit?: number = 25;
+}
+
+
+export class ResetStudentPasswordDTO {
+  @ApiProperty({
+    description: 'Codigo da Matricula',
+    example: 1,
+    required: true,
+  })
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  codigoMatricula: number;
+
+  @ApiProperty({
+    description: 'Senha do utilizador',
+    example: '123456',
+    required: true,
+  })
+  @IsString()
+  @IsNotEmpty()
+  @Type(() => String)
+  senha: string;
 }
