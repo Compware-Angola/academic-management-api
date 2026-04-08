@@ -7,19 +7,23 @@ import { AnoLectivoUtil } from '../util/current-academic-year';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AcademicYear } from '../shared/entities/academic.year.entity';
 import { BullModule } from '@nestjs/bullmq';
+import { DocenteSubstitutoController } from './docente-substituto.controller';
+import { DocenteSubstitutoService } from './docente-substituto.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([AcademicYear]),
-   HttpModule.register({
-    timeout: 5000,
-    maxRedirects: 5
+  HttpModule.register({
+    timeout: 8000,
+    maxRedirects: 5,
+    httpAgent: { keepAlive: true },
+    httpsAgent: { keepAlive: true },
   }),
   BullModule.registerQueue({
     name: 'schedule_service',
   }),
 
   ],
-  controllers: [ScheduleController],
-  providers: [ScheduleService, promptToCreateAndEditService, AnoLectivoUtil],
+  controllers: [ScheduleController, DocenteSubstitutoController],
+  providers: [ScheduleService, promptToCreateAndEditService, AnoLectivoUtil, DocenteSubstitutoService],
 })
 export class ScheduleModule { }

@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { FindStudentsDTO } from './dto/find-students.dto';
+import { FindStudentsDTO, ResetStudentPasswordDTO } from './dto/find-students.dto';
 
 @Controller('students')
 export class StudentsController {
@@ -33,5 +33,16 @@ export class StudentsController {
   })
   findCadeiras(@Query(ValidationPipe) query: FindStudentsDTO) {
     return this.studentsService.findStudents(query);
+  }
+
+  @Patch('reset-password')
+  @ApiOperation({ summary: 'Resetar senha do estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Senha do estudante resetada com sucesso',
+    type: ResetStudentPasswordDTO,
+  })
+  resetPassword(@Body(ValidationPipe) body: ResetStudentPasswordDTO) {
+    return this.studentsService.resetPassword(body);
   }
 }
