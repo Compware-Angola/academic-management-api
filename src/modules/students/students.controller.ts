@@ -11,10 +11,10 @@ import {
 } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { FindStudentsDTO } from './dto/find-students.dto';
 import { FilterMapaAnualFinalistasDto } from './dto/filter-mapa-anual-finalista.dto';
 import { FilterRegistoPrimarioExamesAcessoDto } from './dto/filter-registo-primario-exames-acesso.dto';
 import { FilterRegistoPrimarioMatriculadosDto } from './dto/filter-registo-primario-matriculados.dto';
+import { FindStudentsDTO, ResetStudentPasswordDTO } from './dto/find-students.dto';
 
 @Controller('students')
 export class StudentsController {
@@ -65,4 +65,14 @@ async listarRegistoPrimarioMatriculados(
   return this.studentsService.listarRegistoPrimarioMatriculados(filter);
 }
 
+  @Patch('reset-password')
+  @ApiOperation({ summary: 'Resetar senha do estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Senha do estudante resetada com sucesso',
+    type: ResetStudentPasswordDTO,
+  })
+  resetPassword(@Body(ValidationPipe) body: ResetStudentPasswordDTO) {
+    return this.studentsService.resetPassword(body);
+  }
 }

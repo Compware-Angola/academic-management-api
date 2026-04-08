@@ -15,6 +15,8 @@ import { FindDocenteAfectacaoDTO } from './dto/find-docente-afectacao.dto';
 import { CreateAfectacaoDTO } from './dto/create-afectaco.dto';
 import { FilterDocenteRegenteDto } from './dto/filter-docente-regente.dto';
 import { FilterDocenteDto } from './dto/filter-docente.dto';
+import { FilterDocenteContratoDto } from './dto/filter-docente-contrato.dto';
+import { DefinirRegenteDto } from './dto/definir-regente.dto';
 
 @Injectable()
 export class DocenteGestaoService {
@@ -180,7 +182,7 @@ export class DocenteGestaoService {
   INNER JOIN FK2_TB_GRADE_CURRICULAR g
     ON g.codigo = af.fk_cadeira
 
-  INNER JOIN FK2_MGD_TB_DOCENTE d
+  LEFT JOIN FK2_MGD_TB_DOCENTE d
     ON d.codigo = af.fk_docente
 
   INNER JOIN FK2_TB_CLASSES a
@@ -221,7 +223,7 @@ export class DocenteGestaoService {
   INNER JOIN FK2_TB_GRADE_CURRICULAR g
     ON g.codigo = af.fk_cadeira
 
-  INNER JOIN FK2_MGD_TB_DOCENTE d
+  LEFT JOIN FK2_MGD_TB_DOCENTE d
     ON d.codigo = af.fk_docente
 
   INNER JOIN FK2_TB_CLASSES a
@@ -388,7 +390,7 @@ export class DocenteGestaoService {
 
       FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
 
-      INNER JOIN FK2_MGD_TB_DOCENTE d
+      LEFT JOIN FK2_MGD_TB_DOCENTE d
         ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
 
       INNER JOIN FK2_TB_ANO_LECTIVO l
@@ -408,7 +410,7 @@ export class DocenteGestaoService {
 
         FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
 
-        INNER JOIN FK2_MGD_TB_DOCENTE d
+        LEFT JOIN FK2_MGD_TB_DOCENTE d
           ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
 
         INNER JOIN FK2_TB_ANO_LECTIVO l
@@ -430,7 +432,7 @@ export class DocenteGestaoService {
       and d.codigo not in (
                     select  d.codigo
                     from FK2_MGD_TB_DOCENTE_AFECTACAO a
-                    inner join FK2_MGD_TB_DOCENTE     d on d.codigo        = json_value(a.REF_DOCENTE,'$.pk')
+                    LEFT JOIN FK2_MGD_TB_DOCENTE     d on d.codigo        = json_value(a.REF_DOCENTE,'$.pk')
                     inner join FK2_TB_ANO_LECTIVO     l on l.codigo        = json_value(a.REF_ANO_LECTIVO,'$.pk')
                     inner join FK2_MCAL_TB_SEMESTRE   s on s.PK_SEMESTRE   = a.SEMESTRE
                     where ${whereClause}
@@ -446,7 +448,7 @@ export class DocenteGestaoService {
         AND d.codigo NOT IN (
               SELECT d.codigo
               FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
-              INNER JOIN FK2_MGD_TB_DOCENTE d
+              LEFT JOIN FK2_MGD_TB_DOCENTE d
                   ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
               INNER JOIN FK2_TB_ANO_LECTIVO l
                   ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
@@ -1039,4 +1041,361 @@ export class DocenteGestaoService {
 
     return await toLowerCaseKeys(result);
   }
+
+
+  async listarDocentesComContrato(filter: FilterDocenteContratoDto) {
+  const {
+    page = 1,
+    limit = 10,
+    curso = 0,
+    grau = 0,
+    genero = 0,
+    data_inicio,
+    data_fim,
+    search,
+  } = filter;
+
+  const offset = (page - 1) * limit;
+
+  let whereClause = `
+    WHERE d.PROPOSTA_DE_CONTRATACAO IS NOT NULL
+      AND (fa.CURSO_AREA_FORMACAO_ID = :curso OR :curso_zero = 0)
+      AND (c.GRAU_ACADEMICO = :grau OR :grau_zero = 0)
+      AND (p.FK_GENERO = :genero OR :genero_zero = 0)
+  `;
+
+  // parâmetros base (sem paginação)
+  const baseParams: Record<string, any> = {
+    curso,
+    curso_zero: curso,
+    grau,
+    grau_zero: grau,
+    genero,
+    genero_zero: genero,
+  };
+
+  if (data_inicio && data_fim) {
+    whereClause += `
+      AND c.DATA_CANDIDATURA BETWEEN
+          TO_DATE(:data_inicio, 'YYYY-MM-DD')
+          AND TO_DATE(:data_fim, 'YYYY-MM-DD')
+    `;
+    baseParams.data_inicio = data_inicio;
+    baseParams.data_fim = data_fim;
+  }
+
+  if (search && search.trim()) {
+    whereClause += `
+      AND (
+        UPPER(NVL(u.NOME, JSON_VALUE(d.CODIGO_UTILIZADOR, '$.desc'))) LIKE :search
+        OR UPPER(NVL(u.EMAIL, '-')) LIKE :search
+      )
+    `;
+    baseParams.search = `%${search.trim().toUpperCase()}%`;
+  }
+
+  const baseFrom = `
+    FROM FK2_MGD_TB_DOCENTE d
+    LEFT JOIN FK2_MCA_TB_UTILIZADOR u
+      ON u.PK_UTILIZADOR = JSON_VALUE(d.CODIGO_UTILIZADOR, '$.pk')
+    LEFT JOIN FK2_MGD_TB_CANDIDATURA c
+      ON c.CODIGO = d.FK_CANDIDATURA
+    LEFT JOIN FK2_TB_PESSOA p
+      ON p.PK_PESSOA = JSON_VALUE(c.FK_PESSOA, '$.pk_pessoa')
+    LEFT JOIN FK2_TB_SEXO s
+      ON s.CODIGO = p.FK_GENERO
+    LEFT JOIN FK2_MGD_TB_FORMACAO_ACADEMICA fa
+      ON fa.FK_CANDIDATURA = c.CODIGO
+    LEFT JOIN FK2_TB_CURSO_AREA_FORMACOES caf
+      ON caf.CODIGO = fa.CURSO_AREA_FORMACAO_ID
+    LEFT JOIN FK2_TB_ESTADO_CANDIDATURA ec
+      ON ec.CODIGO = c.FK_ESTADO_CANDIDATURA
+  `;
+
+  const sql = `
+    SELECT *
+    FROM (
+      SELECT
+        d.CODIGO AS CODIGO,
+        NVL(u.NOME, JSON_VALUE(d.CODIGO_UTILIZADOR, '$.desc')) AS NOME,
+        NVL(u.EMAIL, '-') AS EMAIL,
+        s.DESIGNACAO AS GENERO,
+        caf.DESIGNACAO AS CURSO,
+        c.DATA_CANDIDATURA AS DATA_CANDIDATURA,
+        ec.DESCRICAO AS ESTADO,
+        p.DATA_DE_NASCIMENTO AS DATA_NASCIMENTO,
+        d.UPDATED_AT AS UPDATED_AT,
+        ROW_NUMBER() OVER (
+          ORDER BY d.UPDATED_AT DESC, d.CODIGO DESC
+        ) AS RN
+      ${baseFrom}
+      ${whereClause}
+    ) t
+    WHERE t.RN BETWEEN :offset + 1 AND :offset + :limit
+    ORDER BY t.RN
+  `;
+
+  const countSql = `
+    SELECT COUNT(*) AS TOTAL
+    ${baseFrom}
+    ${whereClause}
+  `;
+
+  // parâmetros da query principal
+  const dataParams: Record<string, any> = {
+    ...baseParams,
+    offset,
+    limit,
+  };
+
+  // parâmetros da count query
+  const countParams: Record<string, any> = {
+    ...baseParams,
+  };
+
+  const [result, countResult] = await Promise.all([
+    this.dataSource.query(sql, dataParams as any),
+    this.dataSource.query(countSql, countParams as any),
+  ]);
+
+  const total = Number(countResult[0]?.TOTAL ?? 0);
+
+  const data = result.map((row: any, index: number) => {
+    const nascimento = row.DATA_NASCIMENTO
+      ? new Date(row.DATA_NASCIMENTO)
+      : null;
+
+    let idade: number | null = null;
+
+    if (nascimento) {
+      const hoje = new Date();
+      idade = hoje.getFullYear() - nascimento.getFullYear();
+
+      const mes = hoje.getMonth() - nascimento.getMonth();
+      if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) {
+        idade--;
+      }
+    }
+
+    return {
+      numero: offset + index + 1,
+      codigo: row.CODIGO,
+      nome: row.NOME,
+      genero: row.GENERO ?? '-',
+      curso: row.CURSO ?? '-',
+      idade: idade ?? '-',
+      email: row.EMAIL ?? '-',
+      data_candidatura: row.DATA_CANDIDATURA,
+      estado: row.ESTADO ?? '-',
+      ultima_actualizacao: row.UPDATED_AT,
+    };
+  });
+
+  return {
+    data,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit) || 1,
+  };
+}
+
+async definirRegente(dto: DefinirRegenteDto) {
+    const { anoLectivo, gradeCurricular, docente, semestre, createdBy } = dto;
+
+    // 1. Buscar docente
+    const docenteResult = await this.dataSource.query(
+      `
+      SELECT
+        d.CODIGO,
+        JSON_VALUE(d.CODIGO_UTILIZADOR, '$.desc') AS NOME_DOCENTE
+      FROM FK2_MGD_TB_DOCENTE d
+      WHERE d.CODIGO = :docente
+      `,
+      { docente } as any,
+    );
+
+    if (!docenteResult.length) {
+      throw new NotFoundException('Docente não encontrado');
+    }
+
+    const docenteNome = docenteResult[0]?.NOME_DOCENTE ?? 'Docente';
+
+    // 2. Buscar grade curricular / disciplina
+    const gradeResult = await this.dataSource.query(
+      `
+      SELECT
+        gc.CODIGO,
+        d.DESIGNACAO AS NOME_DISCIPLINA
+      FROM FK2_TB_GRADE_CURRICULAR gc
+      LEFT JOIN FK2_TB_DISCIPLINAS d
+        ON d.CODIGO = gc.CODIGO_DISCIPLINA
+      WHERE gc.CODIGO = :gradeCurricular
+      `,
+      { gradeCurricular } as any,
+    );
+
+    if (!gradeResult.length) {
+      throw new NotFoundException('Grade curricular não encontrada');
+    }
+
+    const disciplinaNome = gradeResult[0]?.NOME_DISCIPLINA ?? 'UC';
+
+    // 3. Buscar ano letivo
+    const anoResult = await this.dataSource.query(
+      `
+      SELECT
+        CODIGO,
+        DESIGNACAO
+      FROM FK2_TB_ANO_LECTIVO
+      WHERE CODIGO = :anoLectivo
+      `,
+      { anoLectivo } as any,
+    );
+
+    if (!anoResult.length) {
+      throw new NotFoundException('Ano letivo não encontrado');
+    }
+
+    const anoNome = anoResult[0]?.DESIGNACAO ?? 'Ano letivo';
+
+    // 4. Verificar se o mesmo docente já é regente dessa UC
+    const regenteExistenteMesmoDocente = await this.dataSource.query(
+      `
+      SELECT COUNT(*) AS TOTAL
+      FROM FK2_MGD_TB_DOCENTE_AFECTACAO
+      WHERE FK_DOCENTE = :docente
+        AND FK_ANO_LECTIVO = :anoLectivo
+        AND FK_CADEIRA = :gradeCurricular
+        AND SEMESTRE = :semestre
+        AND FK_CATEGORIA = 32
+      `,
+      {
+        docente,
+        anoLectivo,
+        gradeCurricular,
+        semestre,
+      } as any,
+    );
+
+    const totalMesmoDocente = Number(
+      regenteExistenteMesmoDocente[0]?.TOTAL ?? 0,
+    );
+
+    if (totalMesmoDocente > 0) {
+      throw new BadRequestException(
+        'Este docente já está definido como regente para esta unidade curricular',
+      );
+    }
+
+    // 5. Buscar regente anterior dessa UC/ano letivo
+    const regenteAnterior = await this.dataSource.query(
+      `
+      SELECT
+        PK_AFECTACAO
+      FROM FK2_MGD_TB_DOCENTE_AFECTACAO
+      WHERE FK_ANO_LECTIVO = :anoLectivo
+        AND FK_CADEIRA = :gradeCurricular
+        AND FK_CATEGORIA = 32
+      FETCH FIRST 1 ROWS ONLY
+      `,
+      {
+        anoLectivo,
+        gradeCurricular,
+      } as any,
+    );
+
+    // 6. Montar JSON refs
+    const refAnoLectivo = JSON.stringify({
+      pk: anoLectivo,
+      desc: anoNome,
+    });
+
+    const refCadeira = JSON.stringify({
+      pk: gradeCurricular,
+      desc: disciplinaNome,
+    });
+
+    const refDocente = JSON.stringify({
+      pk: docente,
+      desc: docenteNome,
+    });
+
+    // 7. Transação
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // 7.1 Se existe regente anterior, tira categoria 32 e volta para 31
+      if (regenteAnterior.length) {
+        await queryRunner.query(
+          `
+          UPDATE FK2_MGD_TB_DOCENTE_AFECTACAO
+          SET FK_CATEGORIA = 31
+          WHERE PK_AFECTACAO = :pkAfectacao
+          `,
+          {
+            pkAfectacao: regenteAnterior[0].PK_AFECTACAO,
+          } as any,
+        );
+      }
+
+      // 7.2 Inserir novo regente
+      await queryRunner.query(
+        `
+        INSERT INTO FK2_MGD_TB_DOCENTE_AFECTACAO (
+          FK_CATEGORIA,
+          CREATED_AT,
+          OBS,
+          REF_ANO_LECTIVO,
+          REF_CADEIRA,
+          REF_DOCENTE,
+          ACTIVE_STATE,
+          CREATED_BY,
+          SEMESTRE,
+          FK_ANO_LECTIVO,
+          FK_CADEIRA,
+          FK_DOCENTE
+        ) VALUES (
+          32,
+          SYSDATE,
+          'defenido na alteracao da categoria',
+          :refAnoLectivo,
+          :refCadeira,
+          :refDocente,
+          1,
+          :createdBy,
+          :semestre,
+          :anoLectivo,
+          :gradeCurricular,
+          :docente
+        )
+        `,
+        {
+          refAnoLectivo,
+          refCadeira,
+          refDocente,
+          createdBy,
+          semestre,
+          anoLectivo,
+          gradeCurricular,
+          docente,
+        } as any,
+      );
+
+      await queryRunner.commitTransaction();
+
+      return {
+        message: 'Regente definido com sucesso',
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  
 }

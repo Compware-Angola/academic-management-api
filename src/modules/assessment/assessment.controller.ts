@@ -36,7 +36,10 @@ import { AtualizarStatusOralDto } from './dto/atualizar-status-oral.dto';
 import { BuscarDisciplinasProvaDto } from './dto/buscar-disciplinas-prova.dto';
 import { StudentFiltersDto } from './dto/studenty-filter.dto';
 import { NoteReleaseService } from './note_release.service';
-import { StudentEvaluationDto } from './dto/student-evaluation.dto';
+import {
+  StudentEvaluationArrayDto,
+  StudentEvaluationDto,
+} from './dto/student-evaluation.dto';
 import { HistoryNoteReleaseService } from './history_note_release.service';
 import { FilterCurriculumGradeAlunoDto } from './dto/filter-student-curriculum.dto';
 import { HistoryNoteReleaseDto } from './dto/history_note_release.dto';
@@ -77,6 +80,7 @@ import { buildFormulaLog } from './util/buildFormulaLog';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { PromptGetPermissionLaunchDTO } from './dto/prompt-get-permission-launch.dto';
+import { GetStudentSummaryDto } from './dto/GetStudentSummaryDto';
 
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('assessment')
@@ -114,7 +118,10 @@ export class AssessmentController {
     status: 400,
     description: 'Dados inválidos enviados.',
   })
-  async upsertEvaluation(@Body() dto: StudentEvaluationDto, @Req() req: any) {
+  async upsertEvaluation(
+    @Body() dto: StudentEvaluationArrayDto,
+    @Req() req: any,
+  ) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const user = req.user;
     const result = await this.noteReleaseService.upsertStudentEvaluation(
@@ -122,8 +129,10 @@ export class AssessmentController {
       user,
     );
     await AccessLogHelper.logAccess(this.httpService, {
-      descricao: `Lançamento/Atualização de avaliação do aluno - Código da grade Curricular do Aluno: ${dto.gradeCurricularAluno}, Tipo de Avaliação: ${dto.tipoAvaliacao}, Época: ${dto.epoca}`,
-      fkAcesso: 7,
+    descricao: `Lançamento em massa de ${dto.items.length} nota(s) 
+            | Tipo Avaliação: ${dto.items[0]?.tipoAvaliacao || '—'} 
+            | Época: ${dto.items[0]?.epoca || '—'}
+            | Total de alunos: ${dto.items.length}`, fkAcesso: 7,
       fkUtilizadorResponsavel: req.user.sub,
       ip: ip,
     });
@@ -141,9 +150,7 @@ export class AssessmentController {
   }
 
   @Get('pautas-geral')
-  @RequiredPermissions(
-    PermissionTypeDetails.PAUTA_GERAL_POR_UC.sigla,
-  )
+  @RequiredPermissions(PermissionTypeDetails.PAUTA_GERAL_POR_UC.sigla)
   async getAllPauta(@Query() query: GeneralAgendaDto) {
     return this.genaralAgendaService.findAll(query);
   }
@@ -188,9 +195,7 @@ export class AssessmentController {
     status: 400,
     description: 'Parâmetros inválidos ou combinação incorreta',
   })
-  @RequiredPermissions(
-    PermissionTypeDetails.HISTORICO_LANCAMENTO_NOTAS.sigla,
-  )
+  @RequiredPermissions(PermissionTypeDetails.HISTORICO_LANCAMENTO_NOTAS.sigla)
   async historyNoteRelease(@Query() params: HistoryNoteReleaseDto) {
     return this.historyNoteReleaseService.historyNoteRelease(params);
   }
@@ -199,9 +204,7 @@ export class AssessmentController {
   @ApiOperation({ summary: 'Obter lista de presenças/faltas com filtros' })
   @ApiResponse({ status: 200, description: 'Lista retornada com sucesso.' })
   @ApiResponse({ status: 400, description: 'Parâmetros inválidos.' })
-  @RequiredPermissions(
-    PermissionTypeDetails.LISTA_PRESENCA.sigla,
-  )
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA.sigla)
   async getAttendanceList(@Query(ValidationPipe) dto: getAttendanceListDto) {
     return this.attendanceService.getAttendanceList(dto);
   }
@@ -242,9 +245,7 @@ export class AssessmentController {
       'Pesquisa parcial (ignorando maiúsculas/minúsculas) na descrição ou observação',
     example: 'pontual',
   })
-  @RequiredPermissions(
-    PermissionTypeDetails.PARAMETROS_GERAIS_AVALIACAO.sigla,
-  )
+  @RequiredPermissions(PermissionTypeDetails.PARAMETROS_GERAIS_AVALIACAO.sigla)
   async viewNote(@Query('search') search?: string) {
     return this.generalParametersForEvaluationService.viewNote(search);
   }
@@ -257,18 +258,14 @@ export class AssessmentController {
   @Get('lancamento/pauta')
   @ApiOperation({ summary: 'Filtrar pautas lançadas' })
   @ApiResponse({ status: 200, description: 'Lista ....' })
-  @RequiredPermissions(
-    PermissionTypeDetails.LANCAMENTO_PAUTA.sigla,
-  )
+  @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_PAUTA.sigla)
   findAll(@Query() filtro: FiltroLancamentoPautaDto) {
     return this.agendaLaunch.getAll(filtro);
   }
   @Get('lancamento/uc-sem-pauta')
   @ApiOperation({ summary: 'Filtrar pautas lançadas' })
   @ApiResponse({ status: 200, description: 'Lista ....' })
-  @RequiredPermissions(
-    PermissionTypeDetails.LANCAMENTO_PAUTA.sigla,
-  )
+  @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_PAUTA.sigla)
   getAllUcSemPauta(@Query() filtro: FiltroLancamentoPautaDto) {
     return this.agendaLaunch.getAllUcSemPauta(filtro);
   }
@@ -279,9 +276,7 @@ export class AssessmentController {
   }
 
   @Post('lancamento/pauta/create')
-  @RequiredPermissions(
-    PermissionTypeDetails.LANCAMENTO_PAUTA.sigla,
-  )
+  @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_PAUTA.sigla)
   async create(@Body() createDto: CreateLancamentoPautaDto) {
     return this.agendaLaunch.create(createDto);
   }
@@ -303,7 +298,10 @@ export class AssessmentController {
   filtrarAlunos(@Query() filtro: StudentFiltersDto) {
     return this.noteReleaseService.findstudents(filtro);
   }
-
+@Get('summary')
+getStudentsSummary(@Query() filters: GetStudentSummaryDto) {
+  return this.noteReleaseService.getStudentsSummary(filters);
+}
   @Put('parametros-avaliacoes-attendance-list/:codigo')
   @ApiOperation({
     summary: 'Atualiza um parâmetro de avaliação (attendance list)',
@@ -374,9 +372,7 @@ export class AssessmentController {
   }
 
   @Get('notas')
-  @RequiredPermissions(
-    PermissionTypeDetails.LANCAMENTO_NOTAS_AVALIACOES.sigla,
-  )
+  @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_NOTAS_AVALIACOES.sigla)
   async buscarNotas(
     @Query(ValidationPipe) params: BuscarNotasDto,
   ): Promise<NotaLancadaResponseDto[]> {
@@ -467,9 +463,7 @@ export class AssessmentController {
     description: 'Estatisticas trazidas com sucesso',
   })
   @ApiResponse({ status: 400, description: 'Dados inválidos' })
-  @RequiredPermissions(
-    PermissionTypeDetails.ESTATISTICA_NOTAS_LANCADAS.sigla
-  )
+  @RequiredPermissions(PermissionTypeDetails.ESTATISTICA_NOTAS_LANCADAS.sigla)
   async buscarEstatisticaAvaliacao(
     @Body(ValidationPipe) dto: StatisticAssessmentDTO,
   ) {

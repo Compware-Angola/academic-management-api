@@ -79,21 +79,27 @@ export class SolicitacaoController {
 @ApiOperation({ summary: 'Listar todas as solicitações' })
 @ApiResponse({ status: 200 })
 async findAllSolicitacoes(@Query() query: ListAllSolicitacoesDto) {
+  
   return this.solicitacaoService.listarOnlySolicitacoes(query);
 }
 
   @Get('avisos')
-  @ApiOperation({ summary: 'Listar avisos com paginação' })
-  @ApiResponse({ status: 200 })
-  async listarAvisos(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-  ) {
-    return this.solicitacaoService.listarAvisos({
-      page: Number(page),
-      limit: Number(limit),
-    });
-  }
+@ApiOperation({ summary: 'Listar avisos com paginação e filtro por assunto' })
+@ApiResponse({ status: 200 })
+@ApiQuery({ name: 'page', required: false, type: Number })
+@ApiQuery({ name: 'limit', required: false, type: Number })
+@ApiQuery({ name: 'assunto', required: false, type: String })
+async listarAvisos(
+  @Query('page') page: number = 1,
+  @Query('limit') limit: number = 10,
+  @Query('assunto') assunto?: string,
+) {
+  return this.solicitacaoService.listarAvisos({
+    page: Number(page),
+    limit: Number(limit),
+    assunto,
+  });
+}
 
   @Post('aviso')
   @ApiOperation({ summary: 'Criar novo aviso' })
@@ -170,16 +176,16 @@ async uploadAvisoImagem(
 
 @Get('avisos-por-grupo')
 @ApiOperation({ summary: 'Listar avisos por grupo' })
-@ApiQuery({ name: 'grupoId', required: false, type: Number })
+@ApiQuery({ name: 'sigla', required: false, type: String })
 @ApiQuery({ name: 'curso', required: false, type: Number })
 @ApiQuery({ name: 'periodo', required: false, type: Number })
 async listarAvisosPorGrupo(
-  @Query('grupoId') grupoId?: number,
+  @Query('sigla') sigla?: string,
   @Query('curso') curso?: number,
   @Query('periodo') periodo?: number,
 ) {
   return this.solicitacaoService.listarAvisosPorGrupo({
-    grupoId: grupoId ? Number(grupoId) : undefined,
+    sigla: sigla?.trim() || undefined,
     curso: curso ? Number(curso) : undefined,
     periodo: periodo ? Number(periodo) : undefined,
   });

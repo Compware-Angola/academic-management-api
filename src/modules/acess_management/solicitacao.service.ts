@@ -470,12 +470,16 @@ export class SolicitacaoService {
   estadoSolicitacao: string;
   tipoServicoSelecionado: number;
   userId: number;
+  searchServico?: string;
 }) {
+
+  
   const {
     limit = 10,
     page = 1,
     estadoSolicitacao,
     tipoServicoSelecionado,
+    searchServico
   } = params;
 
   const safePage = Number(page) > 0 ? Number(page) : 1;
@@ -490,6 +494,15 @@ export class SolicitacaoService {
     destino0: destinos[0],
     destino1: destinos[1],
   };
+
+  let filtroServicoDescricao = "";
+
+if (searchServico && searchServico.trim() !== "") {
+  filtroServicoDescricao = `
+    AND LOWER(SER.DESCRICAO) LIKE LOWER(:searchServico)
+  `;
+  queryParams.searchServico = `%${searchServico.trim()}%`;
+}
 
   const sql = `
     SELECT
@@ -510,28 +523,41 @@ export class SolicitacaoService {
         ON SER.CODIGO = FK_TB_S.CODIGOTIPOSERVICO
     WHERE
       (FK_TB_S.DESTINO = :destino0 OR FK_TB_S.DESTINO = :destino1)
-      AND FK_TB_S.STATUS_ = :estadoSolicitacao
+      AND (
+  FK_TB_S.STATUS_ = :estadoSolicitacao
+  OR :estadoSolicitacao = 'TODOS'
+)
       AND (
         FK_TB_S.CODIGOTIPOSERVICO = :tipoServicoSelecionado
         OR :tipoServicoSelecionado = 404
       )
+      AND FK_TB_S.CODIGOTIPOSERVICO IS NOT NULL
+      ${filtroServicoDescricao}
       AND FK_TB_S.CODIGOTIPOSERVICO IS NOT NULL
     ORDER BY FK_TB_S.DATA_SOLICITACAO DESC
     OFFSET ${offset} ROWS FETCH NEXT ${safeLimit} ROWS ONLY
   `;
 
   const sqlCount = `
-    SELECT COUNT(*) AS TOTAL
-    FROM FK2_TB_SOLICITACAO_UMA FK_TB_S
-    WHERE
-      (FK_TB_S.DESTINO = :destino0 OR FK_TB_S.DESTINO = :destino1)
-      AND FK_TB_S.STATUS_ = :estadoSolicitacao
-      AND (
-        FK_TB_S.CODIGOTIPOSERVICO = :tipoServicoSelecionado
-        OR :tipoServicoSelecionado = 404
-      )
-      AND FK_TB_S.CODIGOTIPOSERVICO IS NOT NULL
-  `;
+  SELECT COUNT(*) AS TOTAL
+  FROM FK2_TB_SOLICITACAO_UMA FK_TB_S
+    LEFT JOIN FK2_TB_TIPO_SERVICOS SER
+      ON SER.CODIGO = FK_TB_S.CODIGOTIPOSERVICO
+  WHERE
+    (FK_TB_S.DESTINO = :destino0 OR FK_TB_S.DESTINO = :destino1)
+    AND (
+  FK_TB_S.STATUS_ = :estadoSolicitacao
+  OR :estadoSolicitacao = 'TODOS'
+)
+    AND (
+      FK_TB_S.CODIGOTIPOSERVICO = :tipoServicoSelecionado
+      OR :tipoServicoSelecionado = 404
+    )
+    AND FK_TB_S.CODIGOTIPOSERVICO IS NOT NULL
+    ${filtroServicoDescricao}
+`;
+
+
 
   const [result, countResult] = await Promise.all([
     this.dataSource.query(sql, queryParams),
@@ -551,10 +577,21 @@ export class SolicitacaoService {
 }
 
 async listarAvisos(
-  params?: { limit?: number; page?: number },
+  params?: { limit?: number; page?: number; assunto?: string },
 ) {
-  const { limit = 10, page = 1 } = params || {};
+  const { limit = 10, page = 1, assunto } = params || {};
   const offset = (page - 1) * limit;
+
+  const conditions: string[] = [];
+  const countParams: any[] = [];
+
+  if (assunto?.trim()) {
+    conditions.push(`UPPER(AVS.ASSUNTO) LIKE UPPER(:1)`);
+    countParams.push(`%${assunto.trim()}%`);
+  }
+
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const sql = `
     SELECT 
@@ -564,35 +601,36 @@ async listarAvisos(
       AVS.DESCRICAO,
       U.NOME,
       C.DESIGNACAO AS CURSO,
-      R.NAME AS DESTINO,
+      G.DESIGNACAO AS DESTINO,
       AVS.PERIODO,
       AVS.DATE_EXPIRACAO
     FROM FK2_TB_AVISO_UMA AVS
-
       LEFT JOIN FK2_MCA_TB_UTILIZADOR U
         ON AVS.USER_ID = U.PK_UTILIZADOR
-
       LEFT JOIN FK2_TB_CURSOS C
         ON AVS.CURSO = C.CODIGO
-
-      LEFT JOIN FK2_ROLES R
-        ON R.ID = AVS.DESTINO
-
+      LEFT JOIN FK2_MCA_TB_GRUPO G
+        ON G.PK_GRUPO = AVS.DESTINO
+    ${whereClause}
     ORDER BY AVS.ID DESC
-    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+    OFFSET :${countParams.length + 1} ROWS
+    FETCH NEXT :${countParams.length + 2} ROWS ONLY
   `;
 
   const sqlCount = `
     SELECT COUNT(*) AS TOTAL
-    FROM FK2_TB_AVISO_UMA
+    FROM FK2_TB_AVISO_UMA AVS
+    ${whereClause}
   `;
 
+  const dataParams = [...countParams, offset, limit];
+
   const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql),
-    this.dataSource.query(sqlCount),
+    this.dataSource.query(sql, dataParams),
+    this.dataSource.query(sqlCount, countParams),
   ]);
 
-  const total = Number(countResult[0].TOTAL);
+  const total = Number(countResult[0].TOTAL ?? 0);
   const totalPages = Math.ceil(total / limit);
 
   return {
@@ -781,26 +819,30 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
   }
 
   async listarAvisosPorGrupo(params: {
-  grupoId?: number;
+  sigla?: string;
   curso?: number;
   periodo?: number;
 }) {
-  const { grupoId, curso, periodo } = params;
+  const { sigla, curso, periodo } = params;
 
-  const temGrupo = grupoId !== undefined && grupoId !== 0;
+  const temSigla = !!sigla && sigla.trim() !== '';
   const temCurso = curso !== undefined && curso !== 0;
   const temPeriodo = periodo !== undefined && periodo !== 0;
 
-  if (!temGrupo && !temCurso && !temPeriodo) {
+  if (!temSigla && !temCurso && !temPeriodo) {
     return [];
   }
 
-  const conditions: string[] = [`AVS.STATUS_ = 1`];
+  const conditions: string[] = [
+    `AVS.STATUS_ = 1`,
+    `(AVS.DATE_EXPIRACAO IS NULL OR AVS.DATE_EXPIRACAO >= SYSDATE)`
+  ];
+
   const queryParams: Record<string, any> = {};
 
-   if (temGrupo) {
-    conditions.push(`AVS.DESTINO = :grupoId`);
-    queryParams.grupoId = grupoId;
+  if (temSigla) {
+    conditions.push(`G.SIGLA = :sigla`);
+    queryParams.sigla = sigla.trim();
   }
 
   if (temCurso) {
@@ -812,8 +854,6 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
     conditions.push(`(AVS.PERIODO = :periodo OR AVS.PERIODO = 0 OR AVS.PERIODO IS NULL)`);
     queryParams.periodo = periodo;
   }
-
-   conditions.push(`(AVS.DATE_EXPIRACAO IS NULL OR AVS.DATE_EXPIRACAO >= SYSDATE)`);
 
   const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
@@ -830,14 +870,15 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
       AVS.PERIODO,
       U.NOME AS AUTOR,
       C.DESIGNACAO AS CURSO_NOME,
-      R.NAME AS DESTINO_NOME
+      G.DESIGNACAO AS DESTINO_NOME,
+      G.SIGLA AS DESTINO_SIGLA
     FROM FK2_TB_AVISO_UMA AVS
     LEFT JOIN FK2_MCA_TB_UTILIZADOR U
       ON AVS.USER_ID = U.PK_UTILIZADOR
     LEFT JOIN FK2_TB_CURSOS C
       ON AVS.CURSO = C.CODIGO
-    LEFT JOIN FK2_ROLES R
-      ON R.ID = AVS.DESTINO
+    LEFT JOIN FK2_MCA_TB_GRUPO G
+      ON G.PK_GRUPO = AVS.DESTINO
     ${whereClause}
     ORDER BY AVS.CREATED_AT DESC
   `;
@@ -879,14 +920,14 @@ async listarAvisosPorGrupos(params: { grupoIds?: number[] }) {
       AVS.PERIODO,
       U.NOME AS AUTOR,
       C.DESIGNACAO AS CURSO_NOME,
-      R.NAME AS DESTINO_NOME
+      G.DESIGNACAO AS DESTINO_NOME
     FROM FK2_TB_AVISO_UMA AVS
     LEFT JOIN FK2_MCA_TB_UTILIZADOR U
       ON AVS.USER_ID = U.PK_UTILIZADOR
     LEFT JOIN FK2_TB_CURSOS C
       ON AVS.CURSO = C.CODIGO
-    LEFT JOIN FK2_ROLES R
-      ON R.ID = AVS.DESTINO
+    LEFT JOIN FK2_MCA_TB_GRUPO G
+      ON G.PK_GRUPO = AVS.DESTINO
     WHERE AVS.STATUS_ = 1
       AND AVS.DESTINO IN (${placeholders})
       AND (

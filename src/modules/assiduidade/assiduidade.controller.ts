@@ -7,6 +7,7 @@ import { FindAttendanceTestDto } from './dto/FindAttendanceTestDto';
 import { MarkAttendanceDto } from './dto/MarkAttendanceDto';
 import { GeneralAttendanceCalendarDto } from './dto/GeneralAttendanceCalendarDto';
 import { FindTeacherClassCalendarDto } from './dto/FindTeacherClassCalendarDto';
+import { FindEstatisticaAssiduidadeDocenteDto } from './dto/FindEstatisticaAssiduidadeDocenteDto';
 
 @ApiTags('ASSIDUIDADE')
 @ApiBearerAuth()
@@ -138,4 +139,10 @@ teacherClassCalendar(
 }
 
 
+@Get('estatistica-assiduidade-docente')
+async getEstatisticaAssiduidadeDocente(
+  @Query() dto: FindEstatisticaAssiduidadeDocenteDto,
+) {
+  return this.assiduidadeService.getEstatisticaAssiduidadeDocente(dto);
+}
 }

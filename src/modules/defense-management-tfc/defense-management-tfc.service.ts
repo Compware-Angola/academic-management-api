@@ -1,203 +1,326 @@
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
-import { VincularOrientadorTemaDto, CreateOrientadorDto, FiltroVinculosDto, FiltroOrientadorDto, ListarAlunosPorOrientadorDto, ListFinalistStudentsQueryDto, ListDocenteQueryDto } from './dto';
+import { VincularOrientadorTemaDto, CreateOrientadorDto, FiltroVinculosDto, FiltroOrientadorDto, ListarAlunosPorOrientadorDto, ListFinalistStudentsQueryDto, ListDocenteQueryDto, ApagarOrientadorDto } from './dto';
 
 @Injectable()
 export class DefenseManagementTfcService {
   constructor(private readonly dataSource: DataSource) {}
 
 async listFinalistStudents(query: ListFinalistStudentsQueryDto) {
-    const { 
-      anoLectivo, 
-      tipoCandidatura = 0, 
-      curso = 0,           
-      page = 1, 
-      limit = 10,
-      search
-    } = query;
-    
-    const qtdCadeiras = 5; 
-    const offset = (page - 1) * limit;
-   const searchTerm = search ? `%${search.toUpperCase()}%` : null;
+  const { 
+    anoLectivo, 
+    tipoCandidatura = 0, 
+    curso = 0,           
+    page = 1, 
+    limit = 10,
+    search
+  } = query;
+  
+  const qtdCadeiras = 5;
+  const offset = (page - 1) * limit;
+  const searchTerm = search ? `%${search.toUpperCase()}%` : null;
+
+  
   const commonCTEs = `
-      WITH total_cadeiras AS (
-          SELECT tpcc.codigo_curso, COUNT(tpcg.codigo_grade_curricular) AS total
-          FROM FK2_TB_PLANO_CURRICULAR_GRADE tpcg
-          INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO tpcc ON tpcg.codigo_plano_curricular_curso = tpcc.codigo
-          WHERE tpcc.codigo_ano_lectivo = :1
-          GROUP BY tpcc.codigo_curso
-      ),
-      total_cadeiras_candidatura AS (
-          SELECT tp2.Curso_Candidatura AS codigo_curso, COUNT(tpcg.codigo_grade_curricular) AS total
-          FROM FK2_TB_PREINSCRICAO tp2
-          INNER JOIN FK2_TB_ADMISSAO ta ON ta.pre_incricao = tp2.Codigo
-          INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO tpcc ON tpcc.codigo_curso = tp2.Curso_Candidatura
-          INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE tpcg ON tpcg.codigo_plano_curricular_curso = tpcc.codigo
-          WHERE tpcc.codigo_ano_lectivo = :2
-          GROUP BY tp2.Curso_Candidatura
-      ),
-      cadeiras_concluidas AS (
-          SELECT 
-              tgca.codigo_matricula, 
-              tgc.Codigo_Curso,
-              COUNT(tgca.codigo_grade_curricular) AS concluidas
-          FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
-          INNER JOIN FK2_TB_GRADE_CURRICULAR tgc ON tgc.Codigo = tgca.codigo_grade_curricular
-          WHERE tgca.Codigo_Status_Grade_Curricular = 3
-            AND tgc.status_ NOT IN (0,3)
-          GROUP BY tgca.codigo_matricula, tgc.Codigo_Curso
+    WITH total_cadeiras AS (
+        SELECT tpcc.codigo_curso, COUNT(tpcg.codigo_grade_curricular) AS total
+        FROM FK2_TB_PLANO_CURRICULAR_GRADE tpcg
+        INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO tpcc ON tpcg.codigo_plano_curricular_curso = tpcc.codigo
+        WHERE tpcc.codigo_ano_lectivo = :1
+        GROUP BY tpcc.codigo_curso
+    ),
+    total_cadeiras_candidatura AS (
+        SELECT tp2.Curso_Candidatura AS codigo_curso, COUNT(tpcg.codigo_grade_curricular) AS total
+        FROM FK2_TB_PREINSCRICAO tp2
+        INNER JOIN FK2_TB_ADMISSAO ta ON ta.pre_incricao = tp2.Codigo
+        INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO tpcc ON tpcc.codigo_curso = tp2.Curso_Candidatura
+        INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE tpcg ON tpcg.codigo_plano_curricular_curso = tpcc.codigo
+        WHERE tpcc.codigo_ano_lectivo = :2
+        GROUP BY tp2.Curso_Candidatura
+    ),
+    cadeiras_concluidas AS (
+        SELECT 
+            tgca.codigo_matricula, 
+            tgc.Codigo_Curso,
+            COUNT(tgca.codigo_grade_curricular) AS concluidas
+        FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        INNER JOIN FK2_TB_GRADE_CURRICULAR tgc ON tgc.Codigo = tgca.codigo_grade_curricular
+        WHERE tgca.Codigo_Status_Grade_Curricular = 3
+          AND tgc.status_ NOT IN (0,3)
+        GROUP BY tgca.codigo_matricula, tgc.Codigo_Curso
+    )
+  `;
+  const whereClause = `
+    WHERE (:3 = 0 OR tc.tipo_candidatura = :4)
+      AND (:5 = 0 OR tc.Codigo = :6)
+      AND (NVL(tc1.total, 0) + NVL(tc2.total, 0) - NVL(cc.concluidas, 0)) <= :7
+      AND (NVL(tc1.total, 0) + NVL(tc2.total, 0) - NVL(cc.concluidas, 0)) >= 0
+      AND (:8 IS NULL OR UPPER(tp.Nome_Completo) LIKE :9)
+      AND EXISTS (
+          SELECT 1
+          FROM FK2_TB_GRADE_CURRICULAR_ALUNO gca
+          INNER JOIN FK2_TB_GRADE_CURRICULAR gc ON gc.CODIGO = gca.CODIGO_GRADE_CURRICULAR
+          INNER JOIN FK2_TB_DISCIPLINAS d ON d.CODIGO = gc.CODIGO_DISCIPLINA
+          WHERE gca.CODIGO_MATRICULA = tm.Codigo
+            AND (UPPER(d.NOME_ABREVIATURA) LIKE '%TFC%' OR UPPER(d.DESIGNACAO) LIKE '%TFC%')
       )
-    `;
+  `;
 
-const whereClause = `
-      WHERE (:3 = 0 OR tc.tipo_candidatura = :4)
-        AND (:5 = 0 OR tc.Codigo = :6)
-        AND (NVL(tc1.total, 0) + NVL(tc2.total, 0) - NVL(cc.concluidas, 0)) = :7
-        AND (:8 IS NULL OR UPPER(tp.Nome_Completo) LIKE :9)
-        AND EXISTS (
-            SELECT 1
-            FROM FK2_TB_GRADE_CURRICULAR_ALUNO gca
-            INNER JOIN FK2_TB_GRADE_CURRICULAR gc ON gc.CODIGO = gca.CODIGO_GRADE_CURRICULAR
-            INNER JOIN FK2_TB_DISCIPLINAS d ON d.CODIGO = gc.CODIGO_DISCIPLINA
-            INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pcg ON pcg.CODIGO_GRADE_CURRICULAR = gc.CODIGO
-            INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pcc ON pcc.CODIGO = pcg.CODIGO_PLANO_CURRICULAR_CURSO
-            WHERE gca.CODIGO_MATRICULA = tm.Codigo
-              AND pcc.CODIGO_ANO_LECTIVO = :10
-              AND (UPPER(d.NOME_ABREVIATURA) LIKE '%TFC%' OR UPPER(d.DESIGNACAO) LIKE '%TFC%')
-        )
-    `;
+  const sqlData = `
+    ${commonCTEs}
+    SELECT
+        tp.Nome_Completo AS nome,
+        tp.Bilhete_Identidade AS bilhete,
+        tp.Sexo AS genero,
+        tm.Codigo AS matricula,
+        tc.Designacao AS curso,
+        (NVL(tc1.total, 0) + NVL(tc2.total, 0) - NVL(cc.concluidas, 0)) AS faltam
+    FROM FK2_TB_MATRICULAS tm
+    INNER JOIN FK2_TB_ADMISSAO ta ON ta.codigo = tm.Codigo_Aluno
+    INNER JOIN FK2_TB_PREINSCRICAO tp ON tp.Codigo = ta.pre_incricao
+    INNER JOIN FK2_TB_CURSOS tc ON tc.Codigo = tm.Codigo_Curso
+    LEFT JOIN total_cadeiras tc1 ON tc1.codigo_curso = tm.Codigo_Curso
+    LEFT JOIN total_cadeiras_candidatura tc2 ON tc2.codigo_curso = tp.Curso_Candidatura AND tp.Curso_Candidatura != tm.Codigo_Curso
+    LEFT JOIN cadeiras_concluidas cc ON (cc.codigo_matricula = tm.Codigo AND cc.Codigo_Curso = tm.Codigo_Curso)
+    ${whereClause}
+    ORDER BY tp.Nome_Completo
+    OFFSET :10 ROWS FETCH NEXT :11 ROWS ONLY
+  `;
 
-    const sqlData = `
-      ${commonCTEs}
-      SELECT
-          tp.Nome_Completo AS nome,
-          tp.Bilhete_Identidade AS bilhete,
-          tp.Sexo AS genero,
-          tm.Codigo AS matricula,
-          tc.Designacao AS curso
-      FROM FK2_TB_MATRICULAS tm
-      INNER JOIN FK2_TB_ADMISSAO ta ON ta.codigo = tm.Codigo_Aluno
-      INNER JOIN FK2_TB_PREINSCRICAO tp ON tp.Codigo = ta.pre_incricao
-      INNER JOIN FK2_TB_CURSOS tc ON tc.Codigo = tm.Codigo_Curso
-      LEFT JOIN total_cadeiras tc1 ON tc1.codigo_curso = tm.Codigo_Curso
-      LEFT JOIN total_cadeiras_candidatura tc2 ON tc2.codigo_curso = tp.Curso_Candidatura AND tp.Curso_Candidatura != tm.Codigo_Curso
-      LEFT JOIN cadeiras_concluidas cc ON (cc.codigo_matricula = tm.Codigo AND cc.Codigo_Curso = tm.Codigo_Curso)
-      ${whereClause}
-      ORDER BY tp.Nome_Completo
-      OFFSET :9 ROWS FETCH NEXT :10 ROWS ONLY
-    `;
+  const sqlCount = `
+    ${commonCTEs}
+    SELECT COUNT(*) AS total
+    FROM FK2_TB_MATRICULAS tm
+    INNER JOIN FK2_TB_ADMISSAO ta ON ta.codigo = tm.Codigo_Aluno
+    INNER JOIN FK2_TB_PREINSCRICAO tp ON tp.Codigo = ta.pre_incricao
+    INNER JOIN FK2_TB_CURSOS tc ON tc.Codigo = tm.Codigo_Curso
+    LEFT JOIN total_cadeiras tc1 ON tc1.codigo_curso = tm.Codigo_Curso
+    LEFT JOIN total_cadeiras_candidatura tc2 ON tc2.codigo_curso = tp.Curso_Candidatura AND tp.Curso_Candidatura != tm.Codigo_Curso
+    LEFT JOIN cadeiras_concluidas cc ON (cc.codigo_matricula = tm.Codigo AND cc.Codigo_Curso = tm.Codigo_Curso)
+    ${whereClause}
+  `;
 
-    const sqlCount = `
-      ${commonCTEs}
-      SELECT COUNT(*) AS total
-      FROM FK2_TB_MATRICULAS tm
-      INNER JOIN FK2_TB_ADMISSAO ta ON ta.codigo = tm.Codigo_Aluno
-      INNER JOIN FK2_TB_PREINSCRICAO tp ON tp.Codigo = ta.pre_incricao
-      INNER JOIN FK2_TB_CURSOS tc ON tc.Codigo = tm.Codigo_Curso
-      LEFT JOIN total_cadeiras tc1 ON tc1.codigo_curso = tm.Codigo_Curso
-      LEFT JOIN total_cadeiras_candidatura tc2 ON tc2.codigo_curso = tp.Curso_Candidatura AND tp.Curso_Candidatura != tm.Codigo_Curso
-      LEFT JOIN cadeiras_concluidas cc ON (cc.codigo_matricula = tm.Codigo AND cc.Codigo_Curso = tm.Codigo_Curso)
-      ${whereClause}
-    `;
+  const baseParams = [
+    anoLectivo,        // :1
+    anoLectivo,        // :2
+    tipoCandidatura,   // :3
+    tipoCandidatura,   // :4
+    curso,             // :5
+    curso,             // :6
+    qtdCadeiras,       // :7
+    searchTerm,        // :8
+    searchTerm         // :9
+  ];
 
- 
-    const params = [
-      anoLectivo,        // :1
-      anoLectivo,        // :2
-      tipoCandidatura,   // :3
-      tipoCandidatura,   // :4
-      curso,             // :5
-      curso,             // :6
-      qtdCadeiras,       // :7
-      searchTerm,        // :8 (Verificação se é nulo)
-      searchTerm,        // :9 (O valor do LIKE)
-      anoLectivo         // :10 (Filtro TFC)
-    ];
+  try {
+    const [data, countResult] = await Promise.all([
+      this.dataSource.query(sqlData, [...baseParams, offset, limit]),
+      this.dataSource.query(sqlCount, baseParams)
+    ]);
 
-    try {
-      const [data, countResult] = await Promise.all([
-        this.dataSource.query(sqlData, [...params, offset, limit]),
-        this.dataSource.query(sqlCount, params)
-      ]);
+    const total = Number(countResult[0]?.TOTAL || 0);
 
-      const total = Number(countResult[0]?.TOTAL || 0);
-
-      return {
-        data: toLowerCaseKeys(data),
-        total,
-        page: Number(page),
-        limit: Number(limit),
-        totalPages: Math.ceil(total / limit),
-      };
-    } catch (error) {
-      console.error('Erro na query de alunos TFC:', error);
-      throw new InternalServerErrorException('Erro ao buscar lista de finalistas.');
-    }
+    return {
+      data: data.map(item => {
+        const newItem = {};
+        for (let key in item) { newItem[key.toLowerCase()] = item[key]; }
+        return newItem;
+      }),
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(total / limit),
+    };
+  } catch (error) {
+    console.error('Erro na query de alunos TFC:', error);
+    throw new InternalServerErrorException('Erro ao buscar lista de finalistas.');
   }
+}
 
 async orientadoresTFC(filtros: FiltroOrientadorDto) {
-    const { anoLectivoId, cursoId, estado, page=1, limit=20 } = filtros;
-    const offset = (page - 1) * limit;
+  // 1. Extrair o campo search dos filtros
+  const { anoLectivoId, cursoId, estado, search, page = 1, limit = 20 } = filtros;
+  const offset = (page - 1) * limit;
 
-    const baseQuery = `
-      FROM FK2_MGTFC_TB_ORIENTADOR o
-      LEFT JOIN FK2_TB_CURSOS c ON c.CODIGO = TO_NUMBER(JSON_VALUE(o.REF_CURSO, '$.pk'))
-      LEFT JOIN FK2_TB_ANO_LECTIVO al ON al.CODIGO = TO_NUMBER(JSON_VALUE(o.REF_ANO_LECTIVO, '$.pk'))
-      LEFT JOIN FK2_MCA_TB_UTILIZADOR u ON u.PK_UTILIZADOR = TO_NUMBER(JSON_VALUE(o.REF_UTILIZADOR, '$.pk'))
-      LEFT JOIN FK2_MGD_TB_DOCENTE d ON d.CODIGO = TO_NUMBER(JSON_VALUE(o.REF_DOCENTE, '$.pk'))
-      LEFT JOIN FK2_MCA_TB_UTILIZADOR doc_utili ON doc_utili.PK_UTILIZADOR = TO_NUMBER(JSON_VALUE(d.CODIGO_UTILIZADOR, '$.pk'))
-      WHERE (TO_NUMBER(JSON_VALUE(o.REF_ANO_LECTIVO, '$.pk')) = :anoId OR :anoId IS NULL)
-        AND (TO_NUMBER(JSON_VALUE(o.REF_CURSO, '$.pk')) = :cursoId OR :cursoId IS NULL)
-        AND (o.ESTADO_ORIENTADOR = :estado OR :estado IS NULL)
-        AND (O.DELETED_AT IS NULL)
-    `;
+  // 2. Preparar o termo de busca para o LIKE
+  const searchTerm = search ? `%${search.toUpperCase()}%` : null;
 
-    const sql = `
-      SELECT 
-        o.PK_ORIENTADOR AS "codigo",
-        c.DESIGNACAO AS "curso",
-        doc_utili.NOME AS "nome_orientador",
-        o.NUMERO_ORIENTADOS AS "numero_orientados",
-        al.DESIGNACAO AS "ano_lectivo",
-        o.ESTADO_ORIENTADOR AS "estado",
-        u.NOME AS "criado_por",
-        TO_CHAR(o.CREATED_AT, 'DD/MM/YYYY') AS "data_cadastro"
-      ${baseQuery}
-      ORDER BY o.CREATED_AT DESC
-      OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
-    `;
+  const baseQuery = `
+    FROM FK2_MGTFC_TB_ORIENTADOR o
+    LEFT JOIN FK2_TB_CURSOS c ON c.CODIGO = TO_NUMBER(JSON_VALUE(o.REF_CURSO, '$.pk'))
+    LEFT JOIN FK2_TB_ANO_LECTIVO al ON al.CODIGO = TO_NUMBER(JSON_VALUE(o.REF_ANO_LECTIVO, '$.pk'))
+    LEFT JOIN FK2_MCA_TB_UTILIZADOR u ON u.PK_UTILIZADOR = TO_NUMBER(JSON_VALUE(o.REF_UTILIZADOR, '$.pk'))
+    LEFT JOIN FK2_MGD_TB_DOCENTE d ON d.CODIGO = TO_NUMBER(JSON_VALUE(o.REF_DOCENTE, '$.pk'))
+    LEFT JOIN FK2_MCA_TB_UTILIZADOR doc_utili ON doc_utili.PK_UTILIZADOR = TO_NUMBER(JSON_VALUE(d.CODIGO_UTILIZADOR, '$.pk'))
+    WHERE (TO_NUMBER(JSON_VALUE(o.REF_ANO_LECTIVO, '$.pk')) = :anoId OR :anoId IS NULL)
+      AND (TO_NUMBER(JSON_VALUE(o.REF_CURSO, '$.pk')) = :cursoId OR :cursoId IS NULL)
+      AND (o.ESTADO_ORIENTADOR = :estado OR :estado IS NULL)
+      AND (o.DELETED_AT IS NULL)
+      -- Nova cláusula de busca pelo nome do professor
+      AND (:searchTerm IS NULL OR UPPER(doc_utili.NOME) LIKE :searchTerm)
+  `;
 
-    const params = {
-      anoId: anoLectivoId || null,
-      cursoId: cursoId || null,
-      estado: estado || null,
+  const sql = `
+    SELECT 
+      o.PK_ORIENTADOR AS "codigo",
+      c.DESIGNACAO AS "curso",
+      doc_utili.NOME AS "nome_orientador",
+      o.NUMERO_ORIENTADOS AS "numero_orientados",
+      al.DESIGNACAO AS "ano_lectivo",
+      o.ESTADO_ORIENTADOR AS "estado",
+      u.NOME AS "criado_por",
+      TO_CHAR(o.CREATED_AT, 'DD/MM/YYYY') AS "data_cadastro"
+    ${baseQuery}
+    ORDER BY o.CREATED_AT DESC
+    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+  `;
+
+  // Organização dos parâmetros para evitar confusão na ordem
+  const params = [
+    anoLectivoId || null, anoLectivoId || null,
+    cursoId || null, cursoId || null,
+    estado || null, estado || null,
+    searchTerm, searchTerm // Parâmetros para o filtro de nome
+  ];
+
+  try {
+    const data = await this.dataSource.query(sql, [
+      ...params,
       offset,
       limit
-    };
-
-    const data = await this.dataSource.query(sql, [
-      params.anoId, params.anoId,
-      params.cursoId, params.cursoId,
-      params.estado, params.estado,
-      params.offset,
-      params.limit
     ]);
 
-    
-    const totalResult = await this.dataSource.query(`SELECT COUNT(*) as TOTAL ${baseQuery}`, [
-      params.anoId, params.anoId,
-      params.cursoId, params.cursoId,
-      params.estado, params.estado
-    ]);
+    const totalResult = await this.dataSource.query(
+      `SELECT COUNT(*) as TOTAL ${baseQuery}`, 
+      params
+    );
 
     return {
       data,
-      total: totalResult[0].TOTAL,
+      total: Number(totalResult[0]?.TOTAL || 0),
       page,
       limit
     };
+  } catch (error) {
+    console.error('Erro ao listar orientadores:', error);
+    throw new InternalServerErrorException('Erro ao buscar lista de orientadores.');
   }
+}
+
+async apagarOrientador({ codigo, anoLectivoId }: ApagarOrientadorDto) {
+const orientador = await this.dataSource.createQueryBuilder()
+    .select('O.PK_ORIENTADOR', 'codigo')
+    .from('FK2_MGTFC_TB_ORIENTADOR', 'O')
+    .where('O.PK_ORIENTADOR = :codigo', { codigo })
+    .andWhere('O.DELETED_AT IS NULL')
+    .andWhere("TO_NUMBER(JSON_VALUE(O.REF_ANO_LECTIVO, '$.pk')) = :anoLectivoId", { anoLectivoId })
+    .getRawOne();
+console.log({orientador})
+  if (!orientador) {
+    throw new NotFoundException('Orientador não encontrado para este ano lectivo.');
+  }
+  return await this.dataSource.transaction(async (transactionalEntityManager) => {
+    const agora = new Date();
+
+    try {
+     
+      await transactionalEntityManager
+        .createQueryBuilder()
+        .update('FK2_MGTFC_TB_ORIENTADOR_ALUNO')
+        .set({ 
+          DELETED_AT: agora,
+          UPDATED_AT: agora 
+        })
+        .where('FK_ORIENTADOR = :codigo', { codigo })
+        .andWhere("TO_NUMBER(JSON_VALUE(REF_ANO_LECTIVO, '$.pk')) = :anoLectivoId", { anoLectivoId })
+        .andWhere('DELETED_AT IS NULL')
+        .execute();
+
+      
+      await transactionalEntityManager
+        .createQueryBuilder()
+        .update('FK2_MGTFC_TB_ORIENTADOR')
+        .set({ 
+          DELETED_AT: agora,
+          UPDATED_AT: agora,
+          ESTADO_ORIENTADOR: 'inativo',
+          NUMERO_ORIENTADOS: 0 
+        })
+        .where('PK_ORIENTADOR = :codigo', { codigo })
+        .execute();
+
+      return { 
+        message: 'Orientador e vínculos removidos com sucesso.',
+        timestamp: agora 
+      };
+
+    } catch (error) {
+      
+      console.error('Erro na transação de remoção:', error);
+      throw new InternalServerErrorException('Não foi possível completar a remoção do orientador.');
+    }
+  });
+}
+
+async removerVinculo(codigo: number) {
+ 
+  const vinculo = await this.dataSource.createQueryBuilder()
+    .select('OA.PK_ORIENTADOR_ALUNO', 'codigoVinculo')
+    .addSelect('OA.FK_ORIENTADOR', 'orientadorId')
+    .addSelect('O.ESTADO_ORIENTADOR', 'estadoOrientador')
+    .from('FK2_MGTFC_TB_ORIENTADOR_ALUNO', 'OA')
+    
+    .innerJoin('FK2_MGTFC_TB_ORIENTADOR', 'O', 'O.PK_ORIENTADOR = OA.FK_ORIENTADOR')
+    .where('OA.PK_ORIENTADOR_ALUNO = :codigo', { codigo })
+    .andWhere('OA.DELETED_AT IS NULL') 
+    .getRawOne();
+
+  if (!vinculo) {
+    throw new NotFoundException('Vínculo não encontrado ou já removido.');
+  }
+
+  if (vinculo.estadoOrientador?.toLowerCase() !== 'activo') {
+    throw new BadRequestException('Não é possível remover este vínculo porque o orientador associado não está ativo.');
+  }
+
+
+  return await this.dataSource.transaction(async (transactionalEntityManager) => {
+    const agora = new Date();
+
+    try {
+     
+      await transactionalEntityManager
+        .createQueryBuilder()
+        .update('FK2_MGTFC_TB_ORIENTADOR_ALUNO')
+        .set({ 
+          DELETED_AT: agora,
+          UPDATED_AT: agora 
+        })
+        .where('PK_ORIENTADOR_ALUNO = :codigo', { codigo })
+        .execute();
+
+      
+      await transactionalEntityManager.query(
+        `UPDATE FK2_MGTFC_TB_ORIENTADOR 
+         SET NUMERO_ORIENTADOS = GREATEST(NVL(NUMERO_ORIENTADOS, 0) - 1, 0),
+             UPDATED_AT = :1
+         WHERE PK_ORIENTADOR = :2`,
+        [agora, vinculo.orientadorId]
+      );
+
+      return { 
+        message: 'Vínculo removido com sucesso.',
+        timestamp: agora 
+      };
+
+    } catch (error) {
+      console.error('Erro na transação ao remover vínculo:', error);
+      throw new InternalServerErrorException('Não foi possível remover o vínculo do aluno.');
+    }
+  });
+}
+
  async createOrientador(data: CreateOrientadorDto, user: string) {
   const { docenteId, cursoId, anoLectivoId, estado } = data;
 
@@ -416,6 +539,7 @@ async listarAlunosPorOrientador(data:ListarAlunosPorOrientadorDto) {
     throw new InternalServerErrorException('Erro ao listar alunos orientados.');
   }
 }
+
 async listarVinculos(filtros: FiltroVinculosDto) {
   const { anoLectivoId, orientadorId, cursoId, search, page = 1, limit = 10 } = filtros;
   const offset = (page - 1) * limit;
@@ -435,11 +559,14 @@ async listarVinculos(filtros: FiltroVinculosDto) {
       AND (:orientadorId IS NULL OR oa.FK_ORIENTADOR = :orientadorId)
       AND (:cursoId IS NULL OR tm.Codigo_Curso = :cursoId)
       AND (:search IS NULL OR UPPER(tp.Nome_Completo) LIKE UPPER(:search))
+      AND o.ESTADO_ORIENTADOR = 'activo'
+      AND o.DELETED_AT IS NULL
       AND oa.DELETED_AT IS NULL
   `;
 
   const sqlData = `
     SELECT 
+        oa.PK_ORIENTADOR_ALUNO as "codigo_vinculo",
         tp.Nome_Completo AS "nome_aluno",
         tm.Codigo AS "matricula",
         tc.Designacao AS "curso",
@@ -584,16 +711,18 @@ private async verificarSeAlunoEFinalista(matricula: number, anoLectivo: number):
   }
 }
 private async verificarSeAlunoJaTemOrientador(matricula: number, anoLectivoId: number): Promise<boolean> {
- 
   try {
     const result = await this.dataSource
       .createQueryBuilder()
-      .select('*')
-      .from('FK2_MGTFC_TB_ORIENTADOR_ALUNO', 'OA') 
+      .select('OA.FK_MATRICULA')
+      .from('FK2_MGTFC_TB_ORIENTADOR_ALUNO', 'OA')
+      .innerJoin('FK2_MGTFC_TB_ORIENTADOR', 'O', 'O.PK_ORIENTADOR = OA.FK_ORIENTADOR')
       .where('OA.FK_MATRICULA = :matricula', { matricula })
-      .andWhere("TO_NUMBER(JSON_VALUE(REF_ANO_LECTIVO, '$.pk')) = :anoId", { anoId: anoLectivoId })
+      .andWhere("TO_NUMBER(JSON_VALUE(OA.REF_ANO_LECTIVO, '$.pk')) = :anoId", { anoId: anoLectivoId })
+      .andWhere('OA.DELETED_AT IS NULL')
+      .andWhere('O.ESTADO_ORIENTADOR = :estado', { estado: 'activo' }) 
+      .andWhere('O.DELETED_AT IS NULL')
       .getRawOne();
-
     return !!result;
   } catch (error) {
     console.error('Erro ao verificar se aluno já tem orientador:', error);
