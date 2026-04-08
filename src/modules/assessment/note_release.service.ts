@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { StudentFiltersDto } from './dto/studenty-filter.dto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
@@ -203,14 +203,24 @@ export class NoteReleaseService {
       const existing = await this.dataSource.query(
         `
   SELECT 1 FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES
-  WHERE CODIGO = :codigo_grade_avaliacao_aluno
+  WHERE 1=1
+    --AND CODIGO = :codigo_grade_avaliacao_aluno
     AND TIPO_DE_PROVA = :tipoDeProva
     AND TIPO_AVALIACAO = :tipoAvaliacao
+    AND GRADE_CURRICULAR_ALUNO = :gradeCurricularAluno
   `,
-        { codigo_grade_avaliacao_aluno, tipoDeProva, tipoAvaliacao } as any,
+        { gradeCurricularAluno, tipoDeProva, tipoAvaliacao } as any,
       );
 
       if (existing.length != 0) {
+        if (
+          codigo_grade_avaliacao_aluno == null ||
+          codigo_grade_avaliacao_aluno == undefined
+        ) {
+          throw new BadRequestException(
+            'codigo_grade_avaliacao_aluno é undefined',
+          );
+        }
         // Executa UPDATE
         const updateResult = await this.dataSource.query(
           `
