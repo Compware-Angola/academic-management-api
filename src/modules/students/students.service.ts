@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FindStudentsDTO, ResetStudentPasswordDTO } from './dto/find-students.dto';
@@ -10,7 +10,7 @@ export class StudentsService {
 
   async getProfileEstatistic(codigoMatricula: number): Promise<any> {
     const sql = `
-      SELECT
+    SELECT
     m.codigo               AS codigo_matricula,
     p.BILHETE_IDENTIDADE   AS bi,
     c.designacao           AS curso,
@@ -215,7 +215,10 @@ WHERE M."CODIGO" = :codigoMatricula`
     const result = await this.dataSource.query(sql, {
       codigoMatricula: body.codigoMatricula,
     } as any);
-
+ 
+  if (!result || result.length === 0) {
+    throw new NotFoundException('Matrícula não encontrada')
+  }
     const hash = await gerarHashExterno(body.senha);
    
   await this.dataSource.query(
