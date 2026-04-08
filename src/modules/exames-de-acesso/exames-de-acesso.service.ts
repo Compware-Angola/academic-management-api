@@ -8,6 +8,9 @@ import { FilterCandidatoProvaDto } from './dto/filter-candidato-prova.dto';
 import { FilterProvaHoraDto } from './dto/filter-prova-hora.dto';
 import { FilterProvaResultadoDto } from './dto/filter-prova-resultado.dto';
 import { FilterProvaMarcacaoDto } from './dto/filter-prova-marcacao.dto';
+import { FilterCandidatoAdmitidoDto } from './dto/filter-candidato-admitido.dto';
+import { FilterResultadosFinaisDto } from './dto/filter-resultados-finais.dto';
+import { FilterEstatisticaCandidatosDto } from './dto/filter-estatistica-candidatos.dto';
 import { gerarHashExterno } from '../util/hash.util';
 
 @Injectable()
@@ -700,6 +703,15 @@ export class ExamesDeAcessoService {
       params.push(filtros.codigoAnoLetivo);
     }
 
+    if (filtros.search) {
+      const searchIndex1 = paramIndex++;
+      const searchIndex2 = paramIndex++;
+      condicoes.push(
+        `(UPPER(FK2_TB_PREINSCRICAO.NOME_COMPLETO) LIKE UPPER(:${searchIndex1}) OR UPPER(FK2_TB_PREINSCRICAO.BILHETE_IDENTIDADE) LIKE UPPER(:${searchIndex2}))`,
+      );
+      params.push(`%${filtros.search}%`);
+      params.push(`%${filtros.search}%`);
+    }
 
     if (filtros.codigoGrau) {
       condicoes.push(`FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA = :${paramIndex++}`);
@@ -1217,6 +1229,457 @@ export class ExamesDeAcessoService {
       message: 'Prova resetada com sucesso.',
       candidatoId: codigoCandidato,
     };
+  }
+
+  async buscaCandidatosAdmitidos(filtros: FilterCandidatoAdmitidoDto) {
+    const condicoes: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (filtros.codigoAnoLetivo) {
+      condicoes.push(`U.ANO_LECTIVO_ID = :${paramIndex++}`);
+      params.push(filtros.codigoAnoLetivo);
+    }
+
+    if (filtros.codigoCurso) {
+      condicoes.push(`P.CURSO_CANDIDATURA = :${paramIndex++}`);
+      params.push(filtros.codigoCurso);
+    }
+
+    if (filtros.codigoFaculdade) {
+      condicoes.push(`F.CODIGO = :${paramIndex++}`);
+      params.push(filtros.codigoFaculdade);
+    }
+
+    if (filtros.codigoTurno) {
+      condicoes.push(`P.CODIGO_TURNO = :${paramIndex++}`);
+      params.push(filtros.codigoTurno);
+    }
+
+    if (filtros.matriculado !== undefined) {
+      if (Number(filtros.matriculado) === 1) {
+        condicoes.push(`M.CODIGO_ALUNO IS NOT NULL`);
+      } else {
+        condicoes.push(`M.CODIGO_ALUNO IS NULL`);
+      }
+    }
+
+    if (filtros.localAdmissao !== undefined) {
+      if (Number(filtros.localAdmissao) === 1) {
+        condicoes.push(`AH.FK_ADMISSAO IS NOT NULL`);
+      } else {
+        condicoes.push(`AH.FK_ADMISSAO IS NULL`);
+      }
+    }
+
+    if (filtros.search) {
+      const searchParam = `%${filtros.search.toUpperCase()}%`;
+      const searchIndex1 = paramIndex++;
+      const searchIndex2 = paramIndex++;
+      condicoes.push(
+        `(UPPER(P.NOME_COMPLETO) LIKE :${searchIndex1} OR UPPER(P.BILHETE_IDENTIDADE) LIKE :${searchIndex2})`,
+      );
+      params.push(searchParam, searchParam);
+    }
+
+    const extraWhere =
+      condicoes.length > 0 ? condicoes.map((c) => ` AND ${c}`).join('') : '';
+
+    const page = filtros.page ?? 1;
+    const limit = filtros.limit ?? 10;
+    const offset = (page - 1) * limit;
+
+    const offsetIndex = paramIndex++;
+    const limitIndex = paramIndex++;
+    params.push(offset, limit);
+
+    const sqlBase = `
+      FROM FK2_TB_PREINSCRICAO     P
+         , FK2_TB_CURSOS           C
+         , FK2_USERS               U
+         , FK2_TB_FACULDADE        F
+         , FK2_TB_ADMISSAO         A
+         , FK2_TB_MATRICULAS       M
+         , FK2_TB_ADMISSAO_HISTORICO AH
+     WHERE P.CURSO_CANDIDATURA = C.CODIGO
+       AND P.USER_ID           = U.ID
+       AND C.FACULDADE_ID      = F.CODIGO
+       AND P.CODIGO            = A.PRE_INCRICAO
+       AND A.CODIGO            = M.CODIGO_ALUNO(+)
+       AND A.CODIGO            = AH.FK_ADMISSAO(+)
+       ${extraWhere}
+    `;
+
+    const sql = `
+      SELECT P.CODIGO                                     NUMERO_INSCRICAO
+           , P.NOME_COMPLETO                              NOME
+           , P.CONTACTOS_TELEFONICOS                      CONTATO
+           , P.EMAIL
+           , P.DATA_PREESCRINCAO
+           , P.BILHETE_IDENTIDADE
+           , P.CURSO_CANDIDATURA
+           , TO_CHAR(P.DATA_NASCIMENTO, 'MM/DD/YYYY')                    DATA_NASCIMENTO
+           , CASE
+              WHEN P.DATA_NASCIMENTO IS NULL THEN NULL
+              ELSE TRUNC(MONTHS_BETWEEN(SYSDATE, P.DATA_NASCIMENTO) / 12)
+             END AS IDADE 
+           , C.DESIGNACAO                                 CURSO
+           , CASE WHEN M.CODIGO_ALUNO IS NOT NULL THEN 'SIM' ELSE 'NÃO' END AS MATRICULADO
+           , CASE WHEN AH.FK_ADMISSAO IS NOT NULL THEN 'UNIVERSIDADE PÚBLICA' ELSE 'UMA' END AS LOCAL_ADMISSAO
+      ${sqlBase}
+      ORDER BY P.NOME_COMPLETO
+      OFFSET :${offsetIndex} ROWS
+      FETCH NEXT :${limitIndex} ROWS ONLY
+    `;
+
+    const sqlCount = `SELECT COUNT(*) TOTAL ${sqlBase}`;
+
+    const [data, total] = await Promise.all([
+      this.dataSource.query(sql, params),
+      this.dataSource.query(sqlCount, params.slice(0, -2)),
+    ]);
+
+    return this.toLower({
+      data,
+      total: Number(total[0].TOTAL),
+      page,
+      limit,
+      totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
+    });
+  }
+
+  async buscaResultadosFinais(filtros: FilterResultadosFinaisDto) {
+    const condicoes: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (filtros.codigoAnoLetivo) {
+      condicoes.push(`U.ANO_LECTIVO_ID = :${paramIndex++}`);
+      params.push(filtros.codigoAnoLetivo);
+    }
+
+    if (filtros.codigoCurso) {
+      condicoes.push(`P.CURSO_CANDIDATURA = :${paramIndex++}`);
+      params.push(filtros.codigoCurso);
+    }
+
+    if (filtros.codigoFaculdade) {
+      condicoes.push(`F.CODIGO = :${paramIndex++}`);
+      params.push(filtros.codigoFaculdade);
+    }
+
+    if (filtros.codigoTurno) {
+      condicoes.push(`P.CODIGO_TURNO = :${paramIndex++}`);
+      params.push(filtros.codigoTurno);
+    }
+
+    if (filtros.codigoSala) {
+      condicoes.push(`S.CODIGO = :${paramIndex++}`);
+      params.push(filtros.codigoSala);
+    }
+
+    if (filtros.codigoCandidato) {
+      condicoes.push(`P.CODIGO = :${paramIndex++}`);
+      params.push(filtros.codigoCandidato);
+    }
+
+    if (filtros.search) {
+      condicoes.push(
+        `(UPPER(DBMS_LOB.SUBSTR(P.NOME_COMPLETO, 4000, 1)) LIKE UPPER(:${paramIndex++}) OR UPPER(DBMS_LOB.SUBSTR(P.BILHETE_IDENTIDADE, 4000, 1)) LIKE UPPER(:${paramIndex++}))`,
+      );
+      params.push(`%${filtros.search}%`, `%${filtros.search}%`);
+    }
+
+    if (filtros.dataInicio && filtros.dataFim) {
+      const [dd1, mm1, yyyy1] = filtros.dataInicio.split('/');
+      const [dd2, mm2, yyyy2] = filtros.dataFim.split('/');
+      condicoes.push(`HP.DATA_REALIZACAO BETWEEN TO_DATE('${dd1}/${mm1}/${yyyy1}', 'DD/MM/YYYY') AND TO_DATE('${dd2}/${mm2}/${yyyy2}', 'DD/MM/YYYY')`);
+    }
+
+    const extraWhere = condicoes.length > 0 ? condicoes.map((c) => ` AND ${c}`).join('') : '';
+
+    const page = filtros.page ?? 1;
+    const limit = filtros.limit ?? 10;
+    const offset = (page - 1) * limit;
+
+    const offsetIndex = paramIndex++;
+    const limitIndex = paramIndex++;
+    params.push(offset, limit);
+
+    const sqlBase = `
+        FROM FK2_TB_PREINSCRICAO P
+           , FK2_TB_CURSOS C
+           , FK2_USERS U
+           , FK2_TB_FACULDADE F
+           , FK2_TB_ADMISSAO A
+           , FK2_CANDIDATO_PROVAS CP
+           , FK2_TB_HORARIO_PROVA HP
+           , FK2_TB_SALAS S
+       WHERE P.CURSO_CANDIDATURA = C.CODIGO
+         AND P.USER_ID = U.ID
+         AND C.FACULDADE_ID      = F.CODIGO
+         AND P.CODIGO            = A.PRE_INCRICAO
+         AND P.CODIGO            = CP.CANDIDATO_ID
+         AND CP.HORARIO_PROVA_ID = HP.ID
+         AND HP.SALA_ID          = S.CODIGO
+         ${extraWhere}
+    `;
+
+    const sql = `
+      SELECT P.CODIGO NUMERO_INSCRICAO
+           , DBMS_LOB.SUBSTR(P.NOME_COMPLETO, 4000, 1) NOME
+           , DBMS_LOB.SUBSTR(P.BILHETE_IDENTIDADE, 4000, 1) BILHETE_IDENTIDADE
+           , P.CURSO_CANDIDATURA
+           , C.DESIGNACAO CURSO
+           , C.FACULDADE_ID CODIGO_FACULDADE
+           , F.DESIGNACAO FACULDADE
+           , HP.SALA_ID CODIGO_SALA
+           , S.DESIGNACAO SALA
+           , CP.NOTA
+           , CP.STATUS_ RESULTADO
+           , TO_CHAR(HP.DATA_REALIZACAO, 'DD/MM/YYYY') DATA_REALIZACAO
+      ${sqlBase}
+      ORDER BY NOME
+      OFFSET :${offsetIndex} ROWS
+      FETCH NEXT :${limitIndex} ROWS ONLY
+    `;
+
+    const sqlCount = `SELECT COUNT(*) TOTAL ${sqlBase}`;
+
+    const [data, total] = await Promise.all([
+      this.dataSource.query(sql, params),
+      this.dataSource.query(sqlCount, params.slice(0, -2)),
+    ]);
+
+    return this.toLower({
+      data,
+      total: Number(total[0].TOTAL),
+      page,
+      limit,
+      totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
+    });
+  }
+
+  async buscaEstatisticaCandidatos(filtros: FilterEstatisticaCandidatosDto) {
+    const condicoes: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (filtros.codigoAnoLetivo) {
+      condicoes.push(`U.ANO_LECTIVO_ID = :${paramIndex++}`);
+      params.push(filtros.codigoAnoLetivo);
+    }
+
+    if (filtros.codigoCurso) {
+      condicoes.push(`P.CURSO_CANDIDATURA = :${paramIndex++}`);
+      params.push(filtros.codigoCurso);
+    }
+
+    if (filtros.codigoFaculdade) {
+      condicoes.push(`F.CODIGO = :${paramIndex++}`);
+      params.push(filtros.codigoFaculdade);
+    }
+
+    if (filtros.codigoTurno) {
+      condicoes.push(`P.CODIGO_TURNO = :${paramIndex++}`);
+      params.push(filtros.codigoTurno);
+    }
+
+    const extraWhere = condicoes.length > 0 ? condicoes.map((c) => ` AND ${c}`).join('') : '';
+
+    const page = filtros.page ?? 1;
+    const limit = filtros.limit ?? 10;
+    const offset = (page - 1) * limit;
+
+    const offsetIndex = paramIndex++;
+    const limitIndex = paramIndex++;
+    params.push(offset, limit);
+
+    const dateCase = `
+      CASE
+          WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{2}-\\d{2}-\\d{4}')
+              THEN TO_DATE(P.DATA_PREESCRINCAO, 'DD-MM-YYYY HH24:MI')
+          WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{4}-\\d{2}-\\d{2}')
+              THEN TO_DATE(P.DATA_PREESCRINCAO, 'YYYY-MM-DD HH24:MI:SS')
+          ELSE NULL
+      END
+    `;
+
+    const sqlInner = `
+    SELECT TO_CHAR(TRUNC(${dateCase}), 'DD/MM/YYYY') AS DATA,
+           SUM(CASE WHEN P.Codigo_Turno = 1 THEN 1 ELSE 0 END) AS qt_manha,
+           SUM(CASE WHEN P.Codigo_Turno = 2 THEN 1 ELSE 0 END) AS qt_tarde,
+           SUM(CASE WHEN P.Codigo_Turno = 3 THEN 1 ELSE 0 END) AS qt_noite,
+           SUM(CASE WHEN P.Codigo_Turno = 5 THEN 1 ELSE 0 END) AS qt_diurno,
+           SUM(CASE WHEN P.Codigo_Turno = 6 THEN 1 ELSE 0 END) AS qt_noturno,
+           COUNT(*) AS TOTAL_DIA
+      FROM FK2_TB_PREINSCRICAO P
+         , FK2_TB_CURSOS C
+         , FK2_USERS U
+         , FK2_TB_FACULDADE F
+     WHERE P.CURSO_CANDIDATURA = C.CODIGO
+       AND P.USER_ID           = U.ID
+       AND C.FACULDADE_ID      = F.CODIGO
+       ${extraWhere}
+     GROUP BY TRUNC(${dateCase})
+    `;
+
+    const sql = `
+    SELECT *
+      FROM (${sqlInner})
+     ORDER BY 1
+    OFFSET :${offsetIndex} ROWS
+    FETCH NEXT :${limitIndex} ROWS ONLY
+    `;
+
+    const sqlCount = `SELECT COUNT(*) AS TOTAL FROM (${sqlInner})`;
+
+    const [data, total] = await Promise.all([
+      this.dataSource.query(sql, params),
+      this.dataSource.query(sqlCount, params.slice(0, -2)),
+    ]);
+
+    return this.toLower({
+      data,
+      total: Number(total[0].TOTAL),
+      page,
+      limit,
+      totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
+    });
+  }
+
+  async buscaEstatisticaPorDia(filtros: FilterEstatisticaCandidatosDto) {
+    const condicoes: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (filtros.codigoAnoLetivo) {
+      condicoes.push(`U.ANO_LECTIVO_ID = :${paramIndex++}`);
+      params.push(filtros.codigoAnoLetivo);
+    }
+
+    if (filtros.codigoCurso) {
+      condicoes.push(`P.CURSO_CANDIDATURA = :${paramIndex++}`);
+      params.push(filtros.codigoCurso);
+    }
+
+    if (filtros.codigoTurno) {
+      condicoes.push(`P.CODIGO_TURNO = :${paramIndex++}`);
+      params.push(filtros.codigoTurno);
+    }
+
+    const extraWhere = condicoes.length > 0 ? condicoes.length > 0 ? condicoes.map((c) => ` AND ${c}`).join('') : '' : '';
+
+    const page = filtros.page ?? 1;
+    const limit = filtros.limit ?? 10;
+    const offset = (page - 1) * limit;
+
+    const offsetIndex = paramIndex++;
+    const limitIndex = paramIndex++;
+    params.push(offset, limit);
+
+    const dateCase = `
+      CASE
+          WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{2}-\\d{2}-\\d{4}')
+              THEN TO_DATE(P.DATA_PREESCRINCAO, 'DD-MM-YYYY HH24:MI')
+          WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{4}-\\d{2}-\\d{2}')
+              THEN TO_DATE(P.DATA_PREESCRINCAO, 'YYYY-MM-DD HH24:MI:SS')
+          ELSE NULL
+      END
+    `;
+
+    const sqlInner = `
+    SELECT TO_CHAR(TRUNC(${dateCase}), 'DD/MM/YYYY') AS DATA,
+           COUNT(*) AS SUBTOTAL,
+           TRUNC(${dateCase}) AS DATA_TRUNC
+      FROM FK2_TB_PREINSCRICAO P
+         , FK2_USERS U
+     WHERE P.USER_ID           = U.ID
+       ${extraWhere}
+     GROUP BY TRUNC(${dateCase})
+    `;
+
+    const sql = `
+    SELECT DATA, SUBTOTAL
+      FROM (${sqlInner})
+     ORDER BY DATA_TRUNC ASC
+    OFFSET :${offsetIndex} ROWS
+    FETCH NEXT :${limitIndex} ROWS ONLY
+    `;
+
+    const sqlCount = `SELECT COUNT(*) AS TOTAL, SUM(SUBTOTAL) AS TOTAL_CANDIDATOS FROM (${sqlInner})`;
+
+    const [data, counts] = await Promise.all([
+      this.dataSource.query(sql, params),
+      this.dataSource.query(sqlCount, params.slice(0, -2)),
+    ]);
+
+    return this.toLower({
+      data,
+      total: Number(counts[0].TOTAL),
+      totalGeralCandidatos: Number(counts[0].TOTAL_CANDIDATOS || 0),
+      page,
+      limit,
+      totalPages: Math.ceil(Number(counts[0].TOTAL) / limit),
+    });
+  }
+
+  async corrigirProvas() {
+    return await this.dataSource.transaction(async (manager) => {
+      const sqlSelect = `
+        SELECT CANDIDATO_ID 
+          FROM FK2_CANDIDATO_PROVAS 
+         WHERE CANAL = 13 
+           AND NOTA < 10
+      `;
+      const candidates = await manager.query(sqlSelect);
+
+      const resultados = {
+        processados: 0,
+        admitidos: 0,
+        ignorados: 0,
+        erros: 0,
+      };
+
+      for (const row of candidates) {
+        resultados.processados++;
+        const candidatoId = row.CANDIDATO_ID;
+
+        try {
+          const sqlCheck = `SELECT 1 FROM FK2_TB_ADMISSAO WHERE PRE_INCRICAO = :1 AND ROWNUM = 1`;
+          const exists = await manager.query(sqlCheck, [candidatoId]);
+
+          if (exists.length > 0) {
+            resultados.ignorados++;
+            continue;
+          }
+
+          const sqlInsertAdmissao = `
+            INSERT INTO FK2_TB_ADMISSAO (PRE_INCRICAO, MEDIAFINAL, DATA, RESULTADO, CANAL, POLO_ID) 
+            VALUES (:1, 10, SYSDATE, 'LISTA DE RESULTADOS FINAIS - Admitido(a)', 1, 1)
+          `;
+          await manager.query(sqlInsertAdmissao, [candidatoId]);
+
+          const sqlUpdateProva = `
+            UPDATE FK2_CANDIDATO_PROVAS
+               SET STATUS_ = 1
+                 , NOTA    = 10
+             WHERE CANDIDATO_ID = :1
+          `;
+          await manager.query(sqlUpdateProva, [candidatoId]);
+
+          resultados.admitidos++;
+        } catch (error) {
+          console.error(`Erro ao processar candidato ${candidatoId}:`, error);
+          resultados.erros++;
+        }
+      }
+
+      return {
+        message: 'Processamento de correção de provas concluído.',
+        ...resultados,
+      };
+    });
   }
 
   private toLower(data: any): any {
