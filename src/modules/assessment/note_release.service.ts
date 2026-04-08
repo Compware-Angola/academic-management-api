@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { StudentFiltersDto } from './dto/studenty-filter.dto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
@@ -213,6 +213,14 @@ export class NoteReleaseService {
       );
 
       if (existing.length != 0) {
+        if (
+          codigo_grade_avaliacao_aluno == null ||
+          codigo_grade_avaliacao_aluno == undefined
+        ) {
+          throw new BadRequestException(
+            'codigo_grade_avaliacao_aluno é undefined',
+          );
+        }
         // Executa UPDATE
         const updateResult = await this.dataSource.query(
           `
