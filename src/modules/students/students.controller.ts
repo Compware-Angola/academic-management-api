@@ -14,6 +14,7 @@ import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { FindStudentsDTO } from './dto/find-students.dto';
 import { FilterMapaAnualFinalistasDto } from './dto/filter-mapa-anual-finalista.dto';
 import { FilterRegistoPrimarioExamesAcessoDto } from './dto/filter-registo-primario-exames-acesso.dto';
+import { FilterRegistoPrimarioMatriculadosDto } from './dto/filter-registo-primario-matriculados.dto';
 
 @Controller('students')
 export class StudentsController {
@@ -53,6 +54,15 @@ async listarRegistoPrimarioExamesAcesso(
   @Query() filter: FilterRegistoPrimarioExamesAcessoDto,
 ) {
   return this.studentsService.listarRegistoPrimarioExamesAcesso(filter);
+}
+
+@Get('registo-primario-matriculados')
+@ApiOperation({ summary: 'Listar registo primário de matriculados' })
+@ApiResponse({ status: 200 })
+async listarRegistoPrimarioMatriculados(
+  @Query() filter: FilterRegistoPrimarioMatriculadosDto,
+) {
+  return this.studentsService.listarRegistoPrimarioMatriculados(filter);
 }
 
 }
