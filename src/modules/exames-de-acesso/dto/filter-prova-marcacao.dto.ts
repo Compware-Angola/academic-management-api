@@ -3,6 +3,13 @@ import { IsIn, IsNumber, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class FilterProvaMarcacaoDto {
+  @ApiPropertyOptional({
+    description: 'Buscar por nome completo ou bilhete de identidade',
+    example: 'João Silva',
+  })
+  @IsOptional()
+  search?: string;
+
   @ApiPropertyOptional({ example: 5 })
   @IsNumber()
   @IsOptional()
