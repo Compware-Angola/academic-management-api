@@ -103,8 +103,8 @@ export class NoteReleaseService {
     } = filters;
 
     const baseWhere = `
-    MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
-    AND GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
+   -- MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
+     GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
     AND JSON_VALUE(GCA.REF_HORARIO, '$.pk') = :horarioId
     AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
     AND CONF.CLASSE = :classe
