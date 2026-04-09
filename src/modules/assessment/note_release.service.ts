@@ -107,7 +107,7 @@ export class NoteReleaseService {
      GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
     AND JSON_VALUE(GCA.REF_HORARIO, '$.pk') = :horarioId
     AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
-    AND CONF.CLASSE = :classe
+    AND GC.CODIGO_CLASSE = :classe
     AND PRE.CODIGO_TURNO = :turno
     AND (
         :search IS NULL
@@ -145,6 +145,7 @@ export class NoteReleaseService {
     ${joinType} JOIN FK2_TB_ADMISSAO ADM    ON ADM.CODIGO  = MAT.CODIGO_ALUNO
     ${joinType} JOIN FK2_TB_PREINSCRICAO PRE ON PRE.CODIGO = ADM.PRE_INCRICAO
     ${joinType} JOIN FK2_TB_CONFIRMACOES CONF ON CONF.CODIGO = GCA.CODIGO_CONFIRMACAO
+    ${joinType} JOIN FK2_TB_GRADE_CURRICULAR GC ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
     WHERE ${baseWhere}
     ${exameExtraFilter}
   `;
