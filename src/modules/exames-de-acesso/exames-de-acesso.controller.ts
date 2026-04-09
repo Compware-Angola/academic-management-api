@@ -8,7 +8,10 @@ import { FilterProvaHoraDto } from './dto/filter-prova-hora.dto';
 import { FilterProvaResultadoDto } from './dto/filter-prova-resultado.dto';
 import { FilterProvaMarcacaoDto } from './dto/filter-prova-marcacao.dto';
 import { AdmitirCandidatoPublicoDto } from './dto/admitir-candidato-publico.dto';
+import { FilterCandidatoAdmitidoDto } from './dto/filter-candidato-admitido.dto';
 import { LancarNotaArquitecturaDto } from './dto/lancar-nota-arquitectura.dto';
+import { FilterResultadosFinaisDto } from './dto/filter-resultados-finais.dto';
+import { FilterEstatisticaCandidatosDto } from './dto/filter-estatistica-candidatos.dto';
 import { HttpService } from '@nestjs/axios';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
@@ -32,6 +35,14 @@ export class ExamesDeAcessoController {
   buscaCandidatos(@Query() filtros: FilterCandidatoDto) {
     return this.examesAcessoService.buscaCandidatos(filtros);
   }
+
+  @Get('candidatos-admitidos')
+  @ApiOperation({ summary: 'Lista candidatos admitidos paginada com filtros' })
+  @ApiResponse({ status: 200, description: 'Retorna lista de candidatos admitidos' })
+  buscaCandidatosAdmitidos(@Query() filtros: FilterCandidatoAdmitidoDto) {
+    return this.examesAcessoService.buscaCandidatosAdmitidos(filtros);
+  }
+
   @Patch('candidato/:codigoCandidato')
   @ApiOperation({ summary: 'Atualiza candidato' })
   @ApiResponse({ status: 200, description: 'Retorna lista de candidatos' })
@@ -78,6 +89,13 @@ export class ExamesDeAcessoController {
     return this.examesAcessoService.buscaProvaResultados(filtros);
   }
 
+  @Get('candidatos/resultados-finais')
+  @ApiOperation({ summary: 'Lista resultados finais' })
+  @ApiResponse({ status: 200, description: 'Lista de resultados finais' })
+  async getCandidatosResultadosFinais(@Query() filtros: FilterResultadosFinaisDto) {
+    return this.examesAcessoService.buscaResultadosFinais(filtros);
+  }
+
   @Get('candidatos/prova/marcacao')
   @ApiOperation({ summary: 'Lista marcacao da prova' })
   @ApiQuery({ name: 'page', required: false })
@@ -91,6 +109,20 @@ export class ExamesDeAcessoController {
   @ApiResponse({ status: 200, description: 'Lista de provas por candidato' })
   buscaListaCandidatosProvas(@Query() filtros: FilterCandidatoDto) {
     return this.examesAcessoService.buscaListaCandidatosProvas(filtros);
+  }
+
+  @Get('estatistica/candidatos')
+  @ApiOperation({ summary: 'Estatística de candidatos inscritos por dia e turno' })
+  @ApiResponse({ status: 200, description: 'Retorna estatísticas de candidatos' })
+  buscaEstatisticaCandidatos(@Query() filtros: FilterEstatisticaCandidatosDto) {
+    return this.examesAcessoService.buscaEstatisticaCandidatos(filtros);
+  }
+
+  @Get('estatistica/dia')
+  @ApiOperation({ summary: 'Estatística de candidatos inscritos por dia' })
+  @ApiResponse({ status: 200, description: 'Retorna estatísticas de candidatos por dia' })
+  buscaEstatisticaPorDia(@Query() filtros: FilterEstatisticaCandidatosDto) {
+    return this.examesAcessoService.buscaEstatisticaPorDia(filtros);
   }
 
   @Post('atribuir-prova/:codigoCandidato')
@@ -182,5 +214,12 @@ export class ExamesDeAcessoController {
       ip: ip,
     });
     return result;
+  }
+
+  @Post('corrigir-provas')
+  @ApiOperation({ summary: 'Corrige provas automaticamente para o canal 13' })
+  @ApiResponse({ status: 200, description: 'Provas corrigidas com sucesso' })
+  corrigirProvas() {
+    return this.examesAcessoService.corrigirProvas();
   }
 }
