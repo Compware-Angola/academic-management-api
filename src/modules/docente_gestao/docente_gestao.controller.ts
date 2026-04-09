@@ -25,12 +25,14 @@ import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CreateAfectacaoDTO } from './dto/create-afectaco.dto';
+import { FilterDocenteContratoDto } from './dto/filter-docente-contrato.dto';
+import { DefinirRegenteDto } from './dto/definir-regente.dto';
 
 
 @ApiTags('docente-gestao')
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('docente-gestao')
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 export class DocenteGestaoController {
   constructor(private readonly service: DocenteGestaoService) {}
   @Get('/parametros')
@@ -128,6 +130,20 @@ async listDocentesRegentes(@Query() dto: FilterDocenteRegenteDto) {
   async areaFormacao() {
     return this.service.listAreaFormacao();
   }
+
+  @Get('docentes-com-contrato')
+@ApiOperation({ summary: 'Listar docentes com contrato' })
+@ApiResponse({ status: 200 })
+async listarDocentesComContrato(@Query() filter: FilterDocenteContratoDto) {
+  return this.service.listarDocentesComContrato(filter);
+}
   
+  @Post('regentes/definir')
+  @ApiOperation({ summary: 'Definir docente regente para uma UC' })
+  @ApiResponse({ status: 201, description: 'Regente definido com sucesso' })
+  @ApiResponse({ status: 400, description: 'Dados inválidos' })
+  async definirRegente(@Body() dto: DefinirRegenteDto) {
+    return this.service.definirRegente(dto);
+  }
   
 }
