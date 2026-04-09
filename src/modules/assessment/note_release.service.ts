@@ -290,8 +290,8 @@ private async getGeneralStudentNoteRelease(
     LEFT JOIN FK2_TB_PREINSCRICAO PRE ON PRE.CODIGO = ADM.PRE_INCRICAO
     LEFT JOIN FK2_TB_CONFIRMACOES CONF ON CONF.CODIGO = GCA.CODIGO_CONFIRMACAO
     WHERE
-        MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
-        AND GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
+      --  MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
+         GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
         AND JSON_VALUE(GCA.REF_HORARIO, '$.pk') = :horarioId
         AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
         AND CONF.CLASSE = :classe
@@ -345,8 +345,8 @@ private async getGeneralStudentNoteReleaseRecurso(
     INNER JOIN FK2_TB_PREINSCRICAO PRE ON PRE.CODIGO = ADM.PRE_INCRICAO
     INNER JOIN FK2_TB_CONFIRMACOES CONF ON CONF.CODIGO = GCA.CODIGO_CONFIRMACAO
     WHERE
-        MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
-        AND GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
+      --  MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
+         GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
         AND JSON_VALUE(GCA.REF_HORARIO, '$.pk') = :horarioId
         AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
         AND CONF.CLASSE = :classe
@@ -400,8 +400,8 @@ private async getGeneralStudentNoteRelease2Exame(
     INNER JOIN FK2_TB_PREINSCRICAO PRE ON PRE.CODIGO = ADM.PRE_INCRICAO
     INNER JOIN FK2_TB_CONFIRMACOES CONF ON CONF.CODIGO = GCA.CODIGO_CONFIRMACAO
     WHERE
-        MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
-        AND GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
+       --  MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
+         GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
         AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
         AND JSON_VALUE(GCA.REF_HORARIO, '$.pk') = :horarioId
         AND CONF.CLASSE = :classe
