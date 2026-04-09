@@ -18,11 +18,13 @@ export class FindStudentsDTO {
     description: 'Ano letivo obrigatório',
     example: 21,
     minimum: 1,
+    required: false,
   })
   @IsNumber()
   @IsPositive()
+  @IsOptional()
   @Type(() => Number)
-  anoLectivo: number;
+  anoLectivo?: number;
 
   @ApiProperty({
     description: 'Codigo do Curso',
@@ -80,7 +82,6 @@ export class FindStudentsDTO {
   @Type(() => Number)
   limit?: number = 25;
 }
-
 
 export class ResetStudentPasswordDTO {
   @ApiProperty({

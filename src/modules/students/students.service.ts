@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
-import { FindStudentsDTO, ResetStudentPasswordDTO } from './dto/find-students.dto';
+import {
+  FindStudentsDTO,
+  ResetStudentPasswordDTO,
+} from './dto/find-students.dto';
 import { gerarHashExterno } from '../util/hash.util';
 
 @Injectable()
@@ -119,10 +122,13 @@ WHERE m.codigo = :codigoMatricula
       SELECT 1
       FROM FK2_TB_CONFIRMACOES con
       WHERE con.CODIGO_MATRICULA = m.codigo
-      AND con.CODIGO_ANO_LECTIVO = :anoLectivo
     )
   `);
-    params.anoLectivo = anoLectivo;
+
+    if (anoLectivo) {
+      conditions.push(`con.CODIGO_ANO_LECTIVO = :anoLectivo`);
+      params.anoLectivo = anoLectivo;
+    }
 
     if (codigoCurso) {
       conditions.push(`c.codigo = :codigoCurso`);
@@ -200,36 +206,35 @@ WHERE m.codigo = :codigoMatricula
   }
 
   async resetPassword(body: ResetStudentPasswordDTO) {
-    const  sql = `SELECT 
+    const sql = `SELECT
   TU."ID" as user_id
-FROM FK2_TB_MATRICULAS M 
-INNER JOIN FK2_TB_ADMISSAO TA 
+FROM FK2_TB_MATRICULAS M
+INNER JOIN FK2_TB_ADMISSAO TA
   ON TA."CODIGO" = M."CODIGO_ALUNO"
-INNER JOIN FK2_TB_PREINSCRICAO TP 
+INNER JOIN FK2_TB_PREINSCRICAO TP
   ON TP."CODIGO" = TA."PRE_INCRICAO"
-INNER JOIN FK2_USERS TU 
+INNER JOIN FK2_USERS TU
   ON TP."USER_ID" = TU."ID"
-WHERE M."CODIGO" = :codigoMatricula`
-
+WHERE M."CODIGO" = :codigoMatricula`;
 
     const result = await this.dataSource.query(sql, {
       codigoMatricula: body.codigoMatricula,
     } as any);
- 
-  if (!result || result.length === 0) {
-    throw new NotFoundException('Matrícula não encontrada')
-  }
+
+    if (!result || result.length === 0) {
+      throw new NotFoundException('Matrícula não encontrada');
+    }
     const hash = await gerarHashExterno(body.senha);
-   
-  await this.dataSource.query(
-    `
+
+    await this.dataSource.query(
+      `
     UPDATE FK2_USERS
     SET "PASSWORD" = :hash
     WHERE "ID" = :user_id
     `,
-    {hash: hash, user_id: toLowerCaseKeys(result[0]).user_id} as any,
-  )
+      { hash: hash, user_id: toLowerCaseKeys(result[0]).user_id } as any,
+    );
 
-     return { message: 'Senha atualizada com sucesso' }
+    return { message: 'Senha atualizada com sucesso' };
   }
 }
