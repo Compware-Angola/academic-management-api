@@ -4,6 +4,9 @@ import { ApiTags } from '@nestjs/swagger';
 import { CategoriaDocenteService } from './services/categoria.docente.service';
 import { TipoUCService } from './services/tipo-uc.service';
 import { MatriculaService } from './services/matricula.service';
+import { OcupacaoService } from './services/ocupacao.service';
+import { ProfissaoService } from './services/profissao.service';
+import { NacionalidadeService } from './services/nacionalidade.service';
 
 @ApiTags("DROPDOWN-FILTERS")
 @Controller('dropdown-filters')
@@ -11,7 +14,10 @@ export class DropdownFiltersController {
   constructor(private readonly dropdownFiltersEscalao: EscalaoService,
   private readonly  dropdownFiltersCategoriaDocente:CategoriaDocenteService,
 private readonly  dropdownFiltersTipoUCService :TipoUCService,
-private readonly  matriculaService:MatriculaService
+private readonly  matriculaService:MatriculaService,
+private readonly  ocupacaoService:OcupacaoService,
+private readonly  profissaoService:ProfissaoService,
+private readonly  nacionalidadeService:NacionalidadeService,
 ) {}
 
 @Get('escalao')
@@ -30,5 +36,17 @@ async getTipoUcDropdown() {
   @HttpCode(HttpStatus.OK)
   async findEstadoMatricula() {
     return this.matriculaService.estadoMatriculaDropdown();
+  }
+  @Get('ocupacao')
+  async getOcupacaoDropdown() {
+    return this.ocupacaoService.getOcupacaoDropdown();
+  }
+  @Get('profissao')
+  async getProfissaoDropdown() {
+    return this.profissaoService.getProfissaoDropdown();
+  }
+  @Get('nacionalidade')
+  async getNacionalidadeDropdown() {
+    return this.nacionalidadeService.getNacionalidades();
   }
 }
