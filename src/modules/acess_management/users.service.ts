@@ -362,7 +362,7 @@ private async telefoneExistePerson(
         message: 'Grupo adicionado ao utilizador com sucesso'
       };
 
-    } catch (error) {
+    } catch (error:any) {
       this.logger.error('Erro ao adicionar grupo ao utilizador', error.stack);
 
       // Tratamento mais específico para erro de duplicação (caso a constraint exista)
@@ -396,7 +396,7 @@ private async telefoneExistePerson(
       );
 
       return { message: 'Grupo removido do utilizador com sucesso' };
-    } catch (error) {
+    } catch (error:any) {
       this.logger.error('Erro ao remover grupo do utilizador', error.stack);
       throw new InternalServerErrorException('Erro interno ao remover grupo do utilizador. Verifique os dados e tente novamente.');
     }
@@ -624,7 +624,7 @@ const result = await queryRunner.manager.query(
 
 
       };
-    } catch (error) {
+    } catch (error:any) {
       await queryRunner.rollbackTransaction();
       this.logger.error('Erro ao criar utilizador', error.stack);
 
@@ -755,7 +755,7 @@ async editarPessoaEUtilizador(
       senhaTemporariaGerada: false,
       observacao: 'Os dados do utilizador foram atualizados com sucesso.',
     };
-  } catch (error) {
+  } catch (error:any) {
     await queryRunner.rollbackTransaction();
     this.logger.error('Erro ao atualizar utilizador', error.stack);
 

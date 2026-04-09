@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CreateTeacherDto } from './dto/create-teacher.dto';
-import { UpdateTeacherDto } from './dto/update-teacher.dto';
+
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 
@@ -14,18 +13,27 @@ export class TeacherService {
               const query = `
 SELECT
         -- Dados pessoais
+        pe.PK_PESSOA                     AS pessoaid,
         td.CODIGO                         AS codigo_docente,
         tu.EMAIL                          AS email,
         tu.USERNAME                       AS username,
         tu.nome                           AS nome,
         pe.NOME_DO_PAI                    AS nome_pai,
         pe.NOME_DA_MAE                    AS nome_mae,
-        pe.DATA_DE_NASCIMENTO             AS data_nascimento,
+        TO_CHAR(pe.DATA_DE_NASCIMENTO, 'DD/MM/YYYY')            AS data_nascimento,
         pe.NUM_DOC_IDENTIFICACAO          AS numero_documento,
         pe.DATA_DE_EMISSAO_DOCUMENTO      AS data_emissao,
         pe.ENDERECO                       AS endereco,
         pe.TELEFONE1                      AS contacto_1,
         pe.TELEFONE2                      AS contacto_2,
+     
+        
+          TO_CHAR(pe.DATA_DE_NASCIMENTO, 'DD/MM/YYYY') AS dataDeNascimento,
+      
+          pe.FK_GENERO                                  AS genero,
+          pe.FK_TIPO_DOCUMENTO_IDENTIFICACAO          AS tipoDocumentoId,
+          pe.FK_ESTADO_CIVIL                      AS estadoCivil,
+          pe.FK_NACIONALIDADE                    AS nacionalidade,
 
         -- Dados do Docente
         td.N_MECANOGRAFICO                AS n_mecanografico,

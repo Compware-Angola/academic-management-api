@@ -11,6 +11,7 @@ import {
   Max,
   IsString,
   IsNotEmpty,
+  IsDateString,
 } from 'class-validator';
 
 export class FindStudentsDTO {
@@ -18,11 +19,13 @@ export class FindStudentsDTO {
     description: 'Ano letivo obrigatório',
     example: 21,
     minimum: 1,
+    required: false,
   })
   @IsNumber()
   @IsPositive()
+  @IsOptional()
   @Type(() => Number)
-  anoLectivo: number;
+  anoLectivo?: number;
 
   @ApiProperty({
     description: 'Codigo do Curso',
@@ -81,7 +84,6 @@ export class FindStudentsDTO {
   limit?: number = 25;
 }
 
-
 export class ResetStudentPasswordDTO {
   @ApiProperty({
     description: 'Codigo da Matricula',
@@ -102,4 +104,124 @@ export class ResetStudentPasswordDTO {
   @IsNotEmpty()
   @Type(() => String)
   senha: string;
+}
+
+export class UpdateStudentContactDTO {
+  @ApiProperty({
+    description: 'Codigo da Matricula',
+    example: 1,
+    required: true,
+  })
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  codigoMatricula: number;
+
+  @ApiPropertyOptional({
+    description: 'Email do estudante',
+    example: 'estudante@email.com',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @Type(() => String)
+  email: string;
+
+  @ApiPropertyOptional({
+    description: 'Contacto do estudante',
+    example: '923456789',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @Type(() => String)
+  contacto: string;
+
+  @ApiPropertyOptional({
+    description: 'Contacto alternativo do estudante',
+    example: '923456789',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @Type(() => String)
+  contactoAlternativo: string;
+}
+
+export class UpdateStudentPersonalDataDTO {
+  @ApiProperty({
+    description: 'Codigo da Matricula',
+    example: 1,
+  })
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  codigoMatricula: number;
+
+  @ApiPropertyOptional({ description: 'Nome Completo' })
+  @IsString()
+  @IsOptional()
+  nomeCompleto?: string;
+
+  @ApiPropertyOptional({ description: 'Data de Nascimento (YYYY-MM-DD)' })
+  @IsDateString()
+  @IsOptional()
+  dataNascimento?: string;
+
+  @ApiPropertyOptional({ description: 'Gênero/Sexo' })
+  @IsString()
+  @IsOptional()
+  genero?: string;
+
+  @ApiPropertyOptional({ description: 'Número do BI' })
+  @IsString()
+  @IsOptional()
+  numeroBI?: string;
+
+  @ApiPropertyOptional({ description: 'Data de Emissão BI' })
+  @IsDateString()
+  @IsOptional()
+  dataEmissao?: string;
+
+  @ApiPropertyOptional({ description: 'Data de Validade BI' })
+  @IsDateString()
+  @IsOptional()
+  dataValidade?: string;
+
+  @ApiPropertyOptional({ description: 'Nacionalidade' })
+  @IsString()
+  @IsOptional()
+  nacionalidade?: string;
+
+  @ApiPropertyOptional({ description: 'Nome do Pai' })
+  @IsString()
+  @IsOptional()
+  nomePai?: string;
+
+  @ApiPropertyOptional({ description: 'Nome da Mãe' })
+  @IsString()
+  @IsOptional()
+  nomeMae?: string;
+
+  @ApiPropertyOptional({ description: 'Código da Profissão' })
+  @IsInt()
+  @IsOptional()
+  @Type(() => Number)
+  profissao?: number;
+
+  @ApiPropertyOptional({ description: 'Código da Ocupação' })
+  @IsInt()
+  @IsOptional()
+  @Type(() => Number)
+  ocupacao?: number;
+
+  @ApiPropertyOptional({ description: 'Naturalidade' })
+  @IsString()
+  @IsOptional()
+  naturalidade?: string;
+
+  @ApiPropertyOptional({ description: 'Morada Completa' })
+  @IsString()
+  @IsOptional()
+  morada?: string;
 }
