@@ -7,12 +7,18 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RegistrationService } from './registration.service';
+<<<<<<< HEAD
 import { FindInscricaoSemUCDTO } from './dto/FindInscricaoSemUcDTO';
 import { FilterListagemGeralEstudantesDto } from './dto/filter-listagem-geral-de-estudantes.dto';
 import { FilterInscritosPorUcDto } from './dto/filtrar-inscritos-por-uc.dto';
 import { FilterHorariosInscritosPorUcDto } from './dto/filter-horarios-inscritos-por-uc';
 
 import { FindEstudanteMatriculadoDTO } from './dto/FindEstudantesMatriculadoDTO';
+=======
+import { FindInscricaoSemUCDTO } from './dto/find-inscricao-sem-ucDTO';
+import { FindEstudanteMatriculadoDTO } from './dto/find-studantes-matriculadoDTO';
+import { FindEstudantesSemInscricaoCursoDTO } from './dto/find-estudantes-sem-Inscricao-cursoDTO';
+>>>>>>> d4cbcda45520edada18ccfc8ec0b47514c9cd033
 
 @ApiTags('registration')
 @Controller('registration')
@@ -67,5 +73,17 @@ async listarHorariosDisponiveisInscritosPorUc(
     @Query(ValidationPipe) query: FindEstudanteMatriculadoDTO,
   ) {
     return this.registrationService.findEstudantesMatriculados(query);
+  }
+  @Get('/estudantes/sem-inscricoes-curso')
+  @ApiOperation({ summary: 'Lista Estudantes Sem Inscrições no Curso' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista Estudantes Sem Inscrições no Curso',
+    type: FindEstudantesSemInscricaoCursoDTO,
+  })
+  findEstudantesSemInscricoesNoCurso(
+    @Query(ValidationPipe) query: FindEstudantesSemInscricaoCursoDTO,
+  ) {
+    return this.registrationService.findEstudantesSemInscricaoCurso(query);
   }
 }

@@ -22,17 +22,16 @@ export interface LancamentoNotaPorCursoModel {
 // src/assessment/dto/nota-lancada.response.dto.ts
 
 export class NotaLancadaResponseDto {
-  alunoId: number;
-  alunoNome: string;
+  alunoId!: number;
+  alunoNome!: string;
   numeroAluno?: string;
-  nota: number;
+  nota!: number;
   observacao?: string;
   dataLancamento?: Date;
-  // adicione mais campos conforme vierem do banco
 }
 @Injectable()
 export class AssessmentService {
-  private anoAtualPrincipal: number;
+ private anoAtualPrincipal!: number;
   constructor(private readonly dataSource: DataSource, private readonly anoLectivoUtil: AnoLectivoUtil) { this.initAnoAtual(); }
   private async initAnoAtual() {
     this.anoAtualPrincipal = await this.anoLectivoUtil.getAnoAtualId();

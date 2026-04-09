@@ -5,12 +5,15 @@ import {
 } from '@nestjs/common';
 
 import { DataSource } from 'typeorm';
-import { FindInscricaoSemUCDTO } from './dto/FindInscricaoSemUcDTO';
+import { FindInscricaoSemUCDTO } from './dto/find-inscricao-sem-ucDTO';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FilterListagemGeralEstudantesDto } from './dto/filter-listagem-geral-de-estudantes.dto';
 import { FilterInscritosPorUcDto } from './dto/filtrar-inscritos-por-uc.dto';
 import { FilterHorariosInscritosPorUcDto } from './dto/filter-horarios-inscritos-por-uc';
-import { FindEstudanteMatriculadoDTO } from './dto/FindEstudantesMatriculadoDTO';
+
+import { FindEstudanteMatriculadoDTO } from './dto/find-studantes-matriculadoDTO';
+import { FindEstudantesSemInscricaoCursoDTO } from './dto/find-estudantes-sem-Inscricao-cursoDTO';
+import { calcularSemestreByAnoLectivo } from '../util/calcular-semestre';
 
 export interface EstudanteMatriculado {
   codigoMatricula: number;
@@ -299,6 +302,7 @@ export class RegistrationService {
     };
   }
 
+<<<<<<< HEAD
   async listarGeralEstudantes(filter: FilterListagemGeralEstudantesDto) {
     const {
       page = 1,
@@ -704,4 +708,132 @@ async listarHorariosDisponiveisInscritosPorUc(
 }
 
 
+=======
+  async findEstudantesSemInscricaoCurso(
+    filters: FindEstudantesSemInscricaoCursoDTO,
+  ) {
+    const {
+      codigoAnoLectivo,
+      codigoCurso,
+      limit = 10,
+      page = 1,
+      codigoMatricula,
+      nome,
+    } = filters;
+
+    const offset = (page - 1) * limit;
+
+    const conditions: string[] = [];
+    const params: any = {};
+    const semestreCalculado = await calcularSemestreByAnoLectivo(
+      this.dataSource,
+      codigoAnoLectivo,
+    );
+    const semestre = semestreCalculado == null ? 2 : semestreCalculado;
+
+    conditions.push(`tm.ESTADO_MATRICULA = 'activo'`);
+
+    conditions.push(`tc.CODIGO = :codigoCurso`);
+    params.codigoCurso = codigoCurso;
+
+    if (codigoMatricula) {
+      conditions.push(`tm.CODIGO = :codigoMatricula`);
+      params.codigoMatricula = codigoMatricula;
+    }
+    if (nome) {
+      conditions.push(
+        `fn_remove_acentos(UPPER(tp.NOME_COMPLETO)) LIKE '%' || fn_remove_acentos(UPPER(:nome)) || '%'`,
+      );
+      params.nome = nome;
+    }
+    const whereClause = conditions.join(' AND ');
+
+    const sql = `
+    SELECT DISTINCT
+        tm.CODIGO                         AS codigo,
+        tp.NOME_COMPLETO                 AS nomeCompleto,
+        tc.DESIGNACAO                    AS curso,
+        fn_tipo_estudante(
+            fb.codigo,
+            i.renuncia,
+            fb.CODIGO_TIPO_BOLSA
+        ) AS tipo
+    FROM FK2_TB_MATRICULAS tm
+    INNER JOIN FK2_TB_ADMISSAO ta
+        ON tm.CODIGO_ALUNO = ta.CODIGO
+    INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON tp.CODIGO = ta.PRE_INCRICAO
+    INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+
+    --- BOLSEIROS
+    LEFT JOIN FK2_TB_BOLSEIROS fb
+        ON fb.CODIGO_MATRICULA  = tm.CODIGO
+        AND fb.CODIGO_ANOLECTIVO = :codigoAnoLectivo
+        AND fb.SEMESTRE          = :semestre
+        AND fb.STATUS_           = :status
+    LEFT JOIN FK2_TB_INSTITUICAO i
+        ON i.CODIGO = fb.CODIGO_INSTITUICAO
+
+    WHERE ${whereClause}
+    AND NOT EXISTS (
+        SELECT 1
+        FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        WHERE tgca.CODIGO_MATRICULA = tm.CODIGO
+          AND tgca.CODIGO_STATUS_GRADE_CURRICULAR = 2
+          AND tgca.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+    )
+    ORDER BY tm.CODIGO
+    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+  `;
+
+    const sqlParams = {
+      ...params,
+      codigoAnoLectivo,
+      semestre,
+      status: 0,
+      offset,
+      limit,
+    };
+
+    const sqlCount = `
+    SELECT COUNT(DISTINCT tm.CODIGO) AS TOTAL
+    FROM FK2_TB_MATRICULAS tm
+    INNER JOIN FK2_TB_ADMISSAO ta
+        ON tm.CODIGO_ALUNO = ta.CODIGO
+    INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON tp.CODIGO = ta.PRE_INCRICAO
+    INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+
+    WHERE ${whereClause}
+    AND NOT EXISTS (
+        SELECT 1
+        FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        WHERE tgca.CODIGO_MATRICULA = tm.CODIGO
+          AND tgca.CODIGO_STATUS_GRADE_CURRICULAR = 2
+          AND tgca.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+    )
+  `;
+
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, sqlParams),
+      this.dataSource.query(sqlCount, {
+        ...params,
+        codigoAnoLectivo,
+      }),
+    ]);
+
+    const total = Number(countResult[0].TOTAL);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: await toLowerCaseKeys(result),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
+>>>>>>> d4cbcda45520edada18ccfc8ec0b47514c9cd033
 }
