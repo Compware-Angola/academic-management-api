@@ -6,6 +6,7 @@ import { TipoUCService } from './services/tipo-uc.service';
 import { MatriculaService } from './services/matricula.service';
 import { OcupacaoService } from './services/ocupacao.service';
 import { ProfissaoService } from './services/profissao.service';
+import { NacionalidadeService } from './services/nacionalidade.service';
 
 @ApiTags("DROPDOWN-FILTERS")
 @Controller('dropdown-filters')
@@ -15,7 +16,8 @@ export class DropdownFiltersController {
 private readonly  dropdownFiltersTipoUCService :TipoUCService,
 private readonly  matriculaService:MatriculaService,
 private readonly  ocupacaoService:OcupacaoService,
-private readonly  profissaoService:ProfissaoService
+private readonly  profissaoService:ProfissaoService,
+private readonly  nacionalidadeService:NacionalidadeService,
 ) {}
 
 @Get('escalao')
@@ -42,5 +44,9 @@ async getTipoUcDropdown() {
   @Get('profissao')
   async getProfissaoDropdown() {
     return this.profissaoService.getProfissaoDropdown();
+  }
+  @Get('nacionalidade')
+  async getNacionalidadeDropdown() {
+    return this.nacionalidadeService.getNacionalidades();
   }
 }

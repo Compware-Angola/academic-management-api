@@ -1,18 +1,15 @@
 import {
   Controller,
   Get,
-  Post,
   Body,
-  Patch,
   Param,
-  Delete,
   Query,
   ValidationPipe,
   Put,
 } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { FindStudentsDTO, ResetStudentPasswordDTO, UpdateStudentContactDTO } from './dto/find-students.dto';
+import { FindStudentsDTO, ResetStudentPasswordDTO, UpdateStudentContactDTO, UpdateStudentPersonalDataDTO } from './dto/find-students.dto';
 
 @Controller('students')
 export class StudentsController {
@@ -56,5 +53,16 @@ export class StudentsController {
   })
   updateContactos(@Body(ValidationPipe) body: UpdateStudentContactDTO) {
     return this.studentsService.updateContactos(body);
+  }
+
+  @Put('personal-data')
+  @ApiOperation({ summary: 'Atualizar dados pessoais do estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Dados pessoais do estudante atualizados com sucesso',
+    type: UpdateStudentPersonalDataDTO,
+  })
+  updatePersonalData(@Body(ValidationPipe) body: UpdateStudentPersonalDataDTO) {
+    return this.studentsService.updatePersonalData(body);
   }
 }
