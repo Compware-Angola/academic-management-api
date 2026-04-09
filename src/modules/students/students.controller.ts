@@ -8,10 +8,11 @@ import {
   Delete,
   Query,
   ValidationPipe,
+  Put,
 } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { FindStudentsDTO, ResetStudentPasswordDTO } from './dto/find-students.dto';
+import { FindStudentsDTO, ResetStudentPasswordDTO, UpdateStudentContactDTO } from './dto/find-students.dto';
 
 @Controller('students')
 export class StudentsController {
@@ -35,7 +36,7 @@ export class StudentsController {
     return this.studentsService.findStudents(query);
   }
 
-  @Patch('reset-password')
+  @Put('reset-password')
   @ApiOperation({ summary: 'Resetar senha do estudante' })
   @ApiResponse({
     status: 200,
@@ -44,5 +45,16 @@ export class StudentsController {
   })
   resetPassword(@Body(ValidationPipe) body: ResetStudentPasswordDTO) {
     return this.studentsService.resetPassword(body);
+  }
+
+  @Put('contactos')
+  @ApiOperation({ summary: 'Atualizar contactos do estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Contactos do estudante atualizados com sucesso',
+    type: UpdateStudentContactDTO,
+  })
+  updateContactos(@Body(ValidationPipe) body: UpdateStudentContactDTO) {
+    return this.studentsService.updateContactos(body);
   }
 }

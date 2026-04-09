@@ -103,3 +103,45 @@ export class ResetStudentPasswordDTO {
   @Type(() => String)
   senha: string;
 }
+
+export class UpdateStudentContactDTO {
+  @ApiProperty({
+    description: 'Codigo da Matricula',
+    example: 1,
+    required: true,
+  })
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  codigoMatricula: number;
+
+  @ApiPropertyOptional({
+    description: 'Email do estudante',
+    example: 'estudante@email.com',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @Type(() => String)
+  email: string;
+
+  @ApiPropertyOptional({
+    description: 'Contacto do estudante',
+    example: '923456789',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @Type(() => String)
+  contacto: string;
+
+ @ApiPropertyOptional({
+    description: 'Contacto alternativo do estudante',
+    example: '923456789',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @Type(() => String)
+  contactoAlternativo: string;
+}
