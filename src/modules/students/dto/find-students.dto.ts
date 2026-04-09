@@ -19,11 +19,13 @@ export class FindStudentsDTO {
     description: 'Ano letivo obrigatório',
     example: 21,
     minimum: 1,
+    required: false,
   })
   @IsNumber()
   @IsPositive()
+  @IsOptional()
   @Type(() => Number)
-  anoLectivo: number;
+  anoLectivo?: number;
 
   @ApiProperty({
     description: 'Codigo do Curso',
@@ -82,7 +84,6 @@ export class FindStudentsDTO {
   limit?: number = 25;
 }
 
-
 export class ResetStudentPasswordDTO {
   @ApiProperty({
     description: 'Codigo da Matricula',
@@ -136,7 +137,7 @@ export class UpdateStudentContactDTO {
   @Type(() => String)
   contacto: string;
 
- @ApiPropertyOptional({
+  @ApiPropertyOptional({
     description: 'Contacto alternativo do estudante',
     example: '923456789',
     required: false,
@@ -146,9 +147,6 @@ export class UpdateStudentContactDTO {
   @Type(() => String)
   contactoAlternativo: string;
 }
-
-
-
 
 export class UpdateStudentPersonalDataDTO {
   @ApiProperty({
