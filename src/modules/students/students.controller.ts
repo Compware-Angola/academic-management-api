@@ -9,11 +9,21 @@ import {
 } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { FindStudentsDTO, ResetStudentPasswordDTO, UpdateStudentContactDTO, UpdateStudentPersonalDataDTO } from './dto/find-students.dto';
+import {
+  FindStudentsDTO,
+  ResetStudentPasswordDTO,
+  UpdateStudentContactDTO,
+  UpdateStudentPersonalDataDTO,
+} from './dto/find-students.dto';
+import { StudentNoteService } from './sudents-notes.service';
+import { FindStudentNoteDTO } from './dto/find-student-notes.dto';
 
 @Controller('students')
 export class StudentsController {
-  constructor(private readonly studentsService: StudentsService) {}
+  constructor(
+    private readonly studentsService: StudentsService,
+    private readonly studentNoteService: StudentNoteService,
+  ) {}
   @Get('estatistic/:codigoMatricula')
   async getProfile(@Param('codigoMatricula') codigoMatricula: number) {
     return this.studentsService.getProfileEstatistic(codigoMatricula);
@@ -64,5 +74,16 @@ export class StudentsController {
   })
   updatePersonalData(@Body(ValidationPipe) body: UpdateStudentPersonalDataDTO) {
     return this.studentsService.updatePersonalData(body);
+  }
+
+  @Get('notes')
+  @ApiOperation({ summary: 'Listar Notas de Estudantes matriculadas' })
+  @ApiResponse({
+    status: 200,
+    description: 'Listar  Notas de Estudantes matriculadas',
+    type: FindStudentsDTO,
+  })
+  findStudentNotes(@Query(ValidationPipe) query: FindStudentNoteDTO) {
+    return this.studentNoteService.findAll(query);
   }
 }
