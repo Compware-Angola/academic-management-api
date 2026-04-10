@@ -17,6 +17,7 @@ import { FindStudentsDTO, ResetStudentPasswordDTO, UpdateStudentContactDTO, Upda
 import { ActivateRegistrationDTO } from './dto/activate-registration.dto';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { AcademicHistoryDTO } from './dto/academic-history';
 
 @Controller('students')
 export class StudentsController {
@@ -97,6 +98,17 @@ export class StudentsController {
 
     const usuarioLogado = req.user
     return this.studentsService.activateRegistration(dto,usuarioLogado);
+  }
+
+  @Get('academic-history')
+  @ApiOperation({ summary: 'Obter histórico acadêmico do estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Histórico acadêmico do estudante obtido com sucesso',
+    type: AcademicHistoryDTO,
+  })
+  academicHistory(@Query(ValidationPipe) query: AcademicHistoryDTO) {
+    return this.studentsService.academicHistory(query);
   }
 
 }

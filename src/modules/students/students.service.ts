@@ -13,6 +13,7 @@ import {
 } from './dto/find-students.dto';
 import { gerarHashExterno } from '../util/hash.util';
 import { ActivateRegistrationDTO } from './dto/activate-registration.dto';
+import { AcademicHistoryDTO } from './dto/academic-history';
 
 @Injectable()
 export class StudentsService {
@@ -547,7 +548,84 @@ async activateRegistration(dto: ActivateRegistrationDTO,usuarioLogado: any) {
 
   } catch (error) {
     console.error('Erro ao ativar matrícula:', error);
-    throw new BadRequestException('Ocorreu um erro ao ativar a matrícula');
+    throw new BadRequestException(error || 'Erro ao ativar matrícula');
   }
+}
+
+async academicHistory(dto: AcademicHistoryDTO) {
+  const { anoLectivoId, matriculaId, tipoProvaId, tipoAvaliacaoId, classeId, page = 1, limit = 10 } = dto;
+
+  const offset = (page - 1) * limit;
+
+  const query = `
+    SELECT
+      c.DESIGNACAO AS curso,
+      d.DESIGNACAO AS unidade_curricular,
+      TAV.DESIGNACAO AS tipo_avaliacao,
+      ANL.DESIGNACAO AS ano_lectivo,
+      CL.DESIGNACAO AS ano_curricular,
+      AVA.NOTA_ANTERIOR AS nota_anterior,
+      tp2.NOME_COMPLETO AS utilizador,
+      AVA.OBSERVACAO AS OBSERVACAO,
+      AVA.NOTA AS NOTA,
+      MIN(AVA.CREATED_AT) AS DATALANCAMENTO,
+      MIN(AVA.UPDATE_AT) AS DATADEATUALIZACAO
+
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO GCA
+    LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES AVA
+      ON AVA.GRADE_CURRICULAR_ALUNO = GCA.CODIGO
+    LEFT JOIN FK2_TB_TIPO_AVALIACAO TAV ON TAV.CODIGO = AVA.TIPO_AVALIACAO
+    LEFT JOIN FK2_TB_ANO_LECTIVO ANL ON ANL.CODIGO = GCA.CODIGO_ANO_LECTIVO
+    LEFT JOIN FK2_MCA_TB_UTILIZADOR mtu
+      ON mtu.PK_UTILIZADOR = JSON_VALUE(AVA.REF_UTILIZADOR, '$.pk')
+    LEFT JOIN FK2_TB_PESSOA tp2 ON tp2.PK_PESSOA = JSON_VALUE(mtu.REF_PESSOA, '$.pk')
+    LEFT JOIN FK2_TB_MATRICULAS MAT ON MAT.CODIGO = GCA.CODIGO_MATRICULA
+    LEFT JOIN FK2_TB_GRADE_CURRICULAR GC ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
+    LEFT JOIN FK2_TB_CLASSES CL ON CL.CODIGO = GC.CODIGO_CLASSE
+    LEFT JOIN FK2_TB_CURSOS c ON c.CODIGO = GC.CODIGO_CURSO
+    LEFT JOIN FK2_TB_DISCIPLINAS d ON d.CODIGO = GC.CODIGO_DISCIPLINA
+    LEFT JOIN FK2_TB_ADMISSAO ADM ON ADM.CODIGO = MAT.CODIGO_ALUNO
+    LEFT JOIN FK2_TB_PREINSCRICAO PRE ON PRE.CODIGO = ADM.PRE_INCRICAO
+
+    WHERE
+      GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
+      AND MAT.CODIGO = :matriculaId
+        AND AVA.TIPO_AVALIACAO IS NOT NULL 
+      ${tipoProvaId ? 'AND AVA.TIPO_DE_PROVA = :tipoProvaId' : ''}
+      ${tipoAvaliacaoId ? 'AND AVA.TIPO_AVALIACAO = :tipoAvaliacaoId' : ''}
+      ${classeId ? 'AND GC.CODIGO_CLASSE = :classeId' : ''}
+
+    GROUP BY
+      GCA.CODIGO, MAT.CODIGO, PRE.NOME_COMPLETO,
+      AVA.CODIGO, AVA.OBSERVACAO, AVA.NOTA, c.DESIGNACAO, d.DESIGNACAO,
+      ANL.DESIGNACAO, TAV.DESIGNACAO, CL.DESIGNACAO, tp2.NOME_COMPLETO, AVA.NOTA_ANTERIOR
+
+    ORDER BY PRE.NOME_COMPLETO
+    OFFSET :offset ROWS FETCH NEXT :fetchLimit ROWS ONLY
+  `;
+
+  const params: Record<string, any> = {
+    anoLectivoId,
+    matriculaId,
+    offset,
+    fetchLimit: limit + 1,
+  };
+
+  if (tipoProvaId) params.tipoProvaId = tipoProvaId;
+  if (tipoAvaliacaoId) params.tipoAvaliacaoId = tipoAvaliacaoId;
+  if (classeId) params.classeId = classeId;
+
+  const result = await this.dataSource.query(query, params as any);
+
+  const hasNextPage = result.length > limit;
+  if (hasNextPage) result.pop();
+
+  return {
+    success: true,
+    data: await toLowerCaseKeys(result),
+    page,
+    limit,
+    hasNextPage,
+  };
 }
 }
