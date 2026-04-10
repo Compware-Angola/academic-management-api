@@ -7,18 +7,15 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RegistrationService } from './registration.service';
-<<<<<<< HEAD
-import { FindInscricaoSemUCDTO } from './dto/FindInscricaoSemUcDTO';
+
 import { FilterListagemGeralEstudantesDto } from './dto/filter-listagem-geral-de-estudantes.dto';
 import { FilterInscritosPorUcDto } from './dto/filtrar-inscritos-por-uc.dto';
 import { FilterHorariosInscritosPorUcDto } from './dto/filter-horarios-inscritos-por-uc';
 
-import { FindEstudanteMatriculadoDTO } from './dto/FindEstudantesMatriculadoDTO';
-=======
 import { FindInscricaoSemUCDTO } from './dto/find-inscricao-sem-ucDTO';
 import { FindEstudanteMatriculadoDTO } from './dto/find-studantes-matriculadoDTO';
 import { FindEstudantesSemInscricaoCursoDTO } from './dto/find-estudantes-sem-Inscricao-cursoDTO';
->>>>>>> d4cbcda45520edada18ccfc8ec0b47514c9cd033
+import { FilterEstadoMatriculaHorarioDto } from './dto/listar-estado-matricula-por-horario.dto';
 
 @ApiTags('registration')
 @Controller('registration')
@@ -86,4 +83,14 @@ async listarHorariosDisponiveisInscritosPorUc(
   ) {
     return this.registrationService.findEstudantesSemInscricaoCurso(query);
   }
+
+@Get('estado-matricula-horario')
+@ApiOperation({ summary: 'Listar estado da matrícula do estudante por horário' })
+@ApiResponse({ status: 200 })
+async listarEstadoMatriculaPorHorario(
+  @Query() filter: FilterEstadoMatriculaHorarioDto,
+) {
+  return this.registrationService.listarEstadoMatriculaPorHorario(filter);
+}
+
 }

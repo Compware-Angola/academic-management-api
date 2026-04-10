@@ -1,10 +1,6 @@
 
 import { Controller, Post, Body, HttpCode, HttpStatus, Get, Query } from '@nestjs/common';
-<<<<<<< HEAD
-import { ApiTags, ApiOperation, ApiBody, ApiResponse } from '@nestjs/swagger';
-=======
 import { ApiTags, ApiOperation, ApiBody } from '@nestjs/swagger';
->>>>>>> d4cbcda45520edada18ccfc8ec0b47514c9cd033
 import { EnrollmentService } from './enrollment.service';
 import { EnrollmentDto } from './dto/create-enrollment.dto';
 import { EstudantesService } from './estatiticas.service';
@@ -31,10 +27,6 @@ export class EnrollmentController {
     const response = await this.enrollmentService.enrollment(enrollmentDto);
     return response;
   }
-<<<<<<< HEAD
-=======
-
-
 
   @Get("estatisticas")
   @HttpCode(HttpStatus.OK)
@@ -43,5 +35,4 @@ export class EnrollmentController {
   ) {
    return this.estudantesService.findEstudantes(estudanteDto);
   }
->>>>>>> d4cbcda45520edada18ccfc8ec0b47514c9cd033
 }
