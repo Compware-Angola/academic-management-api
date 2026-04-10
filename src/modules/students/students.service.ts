@@ -383,6 +383,31 @@ async activateRegistration(dto: ActivateRegistrationDTO,usuarioLogado: any) {
   }
 
   try {
+
+    const sqlVerificarDiplomado = `
+      SELECT 
+        M."ESTADO_MATRICULA"
+      FROM FK2_TB_MATRICULAS M
+      WHERE M."CODIGO" = :codigoMatricula
+    `;
+
+    const matriculaAtual = await this.dataSource.query(sqlVerificarDiplomado, { 
+      codigoMatricula 
+    } as any);
+
+    if (matriculaAtual.length === 0) {
+      throw new NotFoundException('Matrícula não encontrada');
+    }
+
+    const status = matriculaAtual[0];
+
+    // Se já estiver diplomado, não permite ativar novamente
+    if (status.ESTADO_MATRICULA === 'Diplomado' || 
+        status.ESTADO_MATRICULA === 'diplomado' || 
+        status.ESTADO_MATRICULA === 'concluido') {
+      
+      throw new BadRequestException('Não é possível ativar esta matrícula. O aluno já está diplomado.');
+    }
     // ====================== 1. BUSCAR ISENÇÕES DE PROPINA ATIVAS ======================
     const sqlBuscarPropinas = `
       SELECT 
@@ -400,7 +425,6 @@ async activateRegistration(dto: ActivateRegistrationDTO,usuarioLogado: any) {
         AND UPPER(S.DESCRICAO) LIKE 'PROPINA%'
       ORDER BY I.CREATED_AT DESC
     `;
-
     const isencoesPropina = await this.dataSource.query(sqlBuscarPropinas, {
       codigoMatricula,
       anoLectivoId,
