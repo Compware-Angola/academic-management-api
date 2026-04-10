@@ -12,6 +12,7 @@ import {
   UpdateStudentPersonalDataDTO,
 } from './dto/find-students.dto';
 import { gerarHashExterno } from '../util/hash.util';
+import { ActivateRegistrationDTO } from './dto/activate-registration.dto';
 
 @Injectable()
 export class StudentsService {
@@ -374,4 +375,155 @@ WHERE M."CODIGO" = :codigoMatricula`;
 
     return { message: 'Dados pessoais atualizados com sucesso' };
   }
+async activateRegistration(dto: ActivateRegistrationDTO,usuarioLogado: any) {
+  const { codigoMatricula, anoLectivoId } = dto;
+
+  if (!codigoMatricula || !anoLectivoId) {
+    throw new BadRequestException('Código da matrícula e ano letivo são obrigatórios');
+  }
+
+  try {
+    // ====================== 1. BUSCAR ISENÇÕES DE PROPINA ATIVAS ======================
+    const sqlBuscarPropinas = `
+      SELECT 
+        I.CODIGO as "codigoIsencao",
+        S.DESCRICAO as "servico",
+        S.PRECO as "valor",
+        I.MES_TEMP_ID as "mesId",
+        I.OBS as "observacao"
+      FROM FK2_TB_ISENCOES I
+      INNER JOIN FK2_TB_TIPO_SERVICOS S 
+        ON S."CODIGO" = I."CODIGO_SERVICO"
+      WHERE I.CODIGO_ANOLECTIVO = :anoLectivoId
+        AND I.CODIGO_MATRICULA = :codigoMatricula
+        AND UPPER(I.ESTADO_ISENSAO) = 'ACTIVO'
+        AND UPPER(S.DESCRICAO) LIKE 'PROPINA%'
+      ORDER BY I.CREATED_AT DESC
+    `;
+
+    const isencoesPropina = await this.dataSource.query(sqlBuscarPropinas, {
+      codigoMatricula,
+      anoLectivoId,
+    } as any);
+
+    console.log('Isenções encontradas:', isencoesPropina);
+
+    // ====================== 2. DESATIVAR ISENÇÕES DE PROPINA ======================
+    let isencoesDesativadas = 0;
+
+    if (isencoesPropina.length > 0) {
+      const ref_utilizado = { pk: usuarioLogado?.sub, desc: usuarioLogado?.name, corLetra: "black", disponivel: false };
+
+      // Desativar as isenções
+      const sqlDesativarPropinas = `
+        UPDATE FK2_TB_ISENCOES I
+        SET I."ESTADO_ISENSAO" = 'Inactivo',
+            I."OBS" = 'Isenção de propina removida automaticamente durante a activação da matrícula.',
+            I."REF_UTILIZADO" = :refUtilizado,
+            I."UPDATED_AT" = SYSDATE
+        WHERE I.CODIGO_ANOLECTIVO = :anoLectivoId
+          AND I.CODIGO_MATRICULA = :codigoMatricula
+          AND UPPER(I.ESTADO_ISENSAO) = 'ACTIVO'
+          AND I."CODIGO_SERVICO" IN (
+            SELECT S."CODIGO" 
+            FROM FK2_TB_TIPO_SERVICOS S 
+            WHERE UPPER(S."DESCRICAO") LIKE 'PROPINA%'
+          )
+      `;
+
+      const result = await this.dataSource.query(sqlDesativarPropinas, {
+        codigoMatricula,
+        anoLectivoId,
+        refUtilizado: JSON.stringify(ref_utilizado),
+      } as any);
+
+      console.log(result);
+      
+
+      isencoesDesativadas = result || 0;
+
+      // ====================== 3. DESATIVAR FACTURAS E ITENS DE PROPINA ======================
+      // Atualiza os ITEMS primeiro
+      const sqlDesativarItems = `
+        UPDATE FK2_FACTURA_ITEMS fi
+        SET fi.ESTADO = 0
+        WHERE fi.MES_TEMP_ID IN (
+          SELECT I.MES_TEMP_ID 
+          FROM FK2_TB_ISENCOES I
+          WHERE I.CODIGO_ANOLECTIVO = :anoLectivoId
+            AND I.CODIGO_MATRICULA = :codigoMatricula
+            AND UPPER(I.ESTADO_ISENSAO) = 'INACTIVO' 
+            AND I."CODIGO_SERVICO" IN (
+              SELECT S."CODIGO" 
+              FROM FK2_TB_TIPO_SERVICOS S 
+              WHERE UPPER(S."DESCRICAO") LIKE 'PROPINA%'
+            )
+        )
+        AND EXISTS (
+          SELECT 1 FROM FK2_FACTURA f 
+          WHERE f.CODIGO = fi.CODIGOFACTURA
+            AND f.CODIGOMATRICULA = :codigoMatricula
+            AND f.ANO_LECTIVO = :anoLectivoId
+        )
+      `;
+
+      await this.dataSource.query(sqlDesativarItems, { codigoMatricula, anoLectivoId } as any);
+
+      // Atualiza as FACTURAS
+      const sqlDesativarFacturas = `
+        UPDATE FK2_FACTURA f
+        SET f.ESTADO = 0
+        SET f.VALORISENTO = 0
+        WHERE f.CODIGOMATRICULA = :codigoMatricula
+          AND f.ANO_LECTIVO = :anoLectivoId
+          AND EXISTS (
+            SELECT 1 FROM FK2_FACTURA_ITEMS fi 
+            WHERE fi.CODIGOFACTURA = f.CODIGO
+              AND fi.MES_TEMP_ID IN (
+                SELECT I.MES_TEMP_ID 
+                FROM FK2_TB_ISENCOES I
+                WHERE I.CODIGO_ANOLECTIVO = :anoLectivoId
+                  AND I.CODIGO_MATRICULA = :codigoMatricula
+                  AND I."CODIGO_SERVICO" IN (
+                    SELECT S."CODIGO" FROM FK2_TB_TIPO_SERVICOS S 
+                    WHERE UPPER(S."DESCRICAO") LIKE 'PROPINA%'
+                  )
+              )
+          )
+      `;
+
+      await this.dataSource.query(sqlDesativarFacturas, { codigoMatricula, anoLectivoId } as any);
+    }
+
+    // ====================== 4. ATIVAR A MATRÍCULA ======================
+    const sqlAtivarMatricula = `
+      UPDATE FK2_TB_MATRICULAS M
+      SET M."ESTADO_MATRICULA" = 'activo',
+          M."UPDATED_AT" = SYSDATE
+      WHERE M."CODIGO" = :codigoMatricula
+    `;
+
+    const resultMatricula = await this.dataSource.query(sqlAtivarMatricula, { 
+      codigoMatricula 
+    } as any);
+
+    if (resultMatricula[1] === 0) {
+      throw new NotFoundException('Matrícula não encontrada');
+    }
+
+    // ====================== RESPOSTA ======================
+    return {
+      sucesso: true,
+      mensagem: 'Matrícula ativada com sucesso',
+      isencoesDePropinaDesativadas: isencoesDesativadas,
+      detalhes: isencoesPropina.length > 0 
+        ? `${isencoesDesativadas} isenção(ões) de propina foram desativadas e as faturas relacionadas foram anuladas.` 
+        : 'Nenhuma isenção de propina ativa foi encontrada.'
+    };
+
+  } catch (error) {
+    console.error('Erro ao ativar matrícula:', error);
+    throw new BadRequestException('Ocorreu um erro ao ativar a matrícula');
+  }
+}
 }

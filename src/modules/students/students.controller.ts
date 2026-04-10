@@ -6,14 +6,21 @@ import {
   Query,
   ValidationPipe,
   Put,
+  UsePipes,
+  HttpStatus,
+  UseGuards,
+  Req,
 } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { FindStudentsDTO, ResetStudentPasswordDTO, UpdateStudentContactDTO, UpdateStudentPersonalDataDTO } from './dto/find-students.dto';
+import { ActivateRegistrationDTO } from './dto/activate-registration.dto';
+import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 
 @Controller('students')
 export class StudentsController {
-  constructor(private readonly studentsService: StudentsService) {}
+  constructor(private readonly studentsService: StudentsService) { }
   @Get('estatistic/:codigoMatricula')
   async getProfile(@Param('codigoMatricula') codigoMatricula: number) {
     return this.studentsService.getProfileEstatistic(codigoMatricula);
@@ -65,4 +72,31 @@ export class StudentsController {
   updatePersonalData(@Body(ValidationPipe) body: UpdateStudentPersonalDataDTO) {
     return this.studentsService.updatePersonalData(body);
   }
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+  @Put('active-registration')
+  @ApiOperation({
+    summary: 'Ativar matrícula de um estudante',
+    description: 'Ativa a matrícula do aluno e desativa automaticamente todas as isenções existentes.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Matrícula ativada com sucesso',
+    schema: {
+      example: {
+        mensagem: 'Estado do estudante João Silva Definido',
+        sucesso: true,
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Erro ao ativar matrícula',
+  })
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  async ativarMatricula(@Body() dto: ActivateRegistrationDTO,  @Req() req: any) {
+
+    const usuarioLogado = req.user
+    return this.studentsService.activateRegistration(dto,usuarioLogado);
+  }
+
 }
