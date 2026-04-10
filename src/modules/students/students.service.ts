@@ -553,7 +553,7 @@ async activateRegistration(dto: ActivateRegistrationDTO,usuarioLogado: any) {
 }
 
 async academicHistory(dto: AcademicHistoryDTO) {
-  const { anoLectivoId, matriculaId, tipoProvaId, tipoAvaliacaoId, classeId, page = 1, limit = 10 } = dto;
+  const { anoLectivoId, matriculaId, tipoProvaId, tipoAvaliacaoId, classeId, search, page = 1, limit = 10 } = dto;
 
   const offset = (page - 1) * limit;
 
@@ -590,10 +590,11 @@ async academicHistory(dto: AcademicHistoryDTO) {
     WHERE
       GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
       AND MAT.CODIGO = :matriculaId
-        AND AVA.TIPO_AVALIACAO IS NOT NULL 
+      AND AVA.TIPO_AVALIACAO IS NOT NULL
       ${tipoProvaId ? 'AND AVA.TIPO_DE_PROVA = :tipoProvaId' : ''}
       ${tipoAvaliacaoId ? 'AND AVA.TIPO_AVALIACAO = :tipoAvaliacaoId' : ''}
       ${classeId ? 'AND GC.CODIGO_CLASSE = :classeId' : ''}
+      ${search ? 'AND UPPER(d.DESIGNACAO) LIKE UPPER(:search)' : ''}
 
     GROUP BY
       GCA.CODIGO, MAT.CODIGO, PRE.NOME_COMPLETO,
@@ -614,6 +615,7 @@ async academicHistory(dto: AcademicHistoryDTO) {
   if (tipoProvaId) params.tipoProvaId = tipoProvaId;
   if (tipoAvaliacaoId) params.tipoAvaliacaoId = tipoAvaliacaoId;
   if (classeId) params.classeId = classeId;
+  if (search) params.search = `%${search}%`;
 
   const result = await this.dataSource.query(query, params as any);
 
