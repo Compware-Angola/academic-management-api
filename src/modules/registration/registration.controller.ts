@@ -16,6 +16,7 @@ import { FindInscricaoSemUCDTO } from './dto/find-inscricao-sem-ucDTO';
 import { FindEstudanteMatriculadoDTO } from './dto/find-studantes-matriculadoDTO';
 import { FindEstudantesSemInscricaoCursoDTO } from './dto/find-estudantes-sem-Inscricao-cursoDTO';
 import { FilterEstadoMatriculaHorarioDto } from './dto/listar-estado-matricula-por-horario.dto';
+import { FilterListarEstudantesPorEstadoMatriculaDto } from './dto/filter-listar-estudantes-por-estado-da-matricula.dto';
 
 @ApiTags('registration')
 @Controller('registration')
@@ -91,6 +92,15 @@ async listarEstadoMatriculaPorHorario(
   @Query() filter: FilterEstadoMatriculaHorarioDto,
 ) {
   return this.registrationService.listarEstadoMatriculaPorHorario(filter);
+}
+
+@Get('estudantes-por-estado-matricula')
+@ApiOperation({ summary: 'Listar estudantes por estado da matrícula' })
+@ApiResponse({ status: 200 })
+async listarEstudantesPorEstadoMatricula(
+  @Query() filter: FilterListarEstudantesPorEstadoMatriculaDto,
+) {
+  return this.registrationService.listarEstudantesPorEstadoMatricula(filter);
 }
 
 }
