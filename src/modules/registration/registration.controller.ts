@@ -22,6 +22,7 @@ import { FindEstudanteMatriculadoDTO } from './dto/find-studantes-matriculadoDTO
 import { FindEstudantesSemInscricaoCursoDTO } from './dto/find-estudantes-sem-Inscricao-cursoDTO';
 import { FilterEstadoMatriculaHorarioDto } from './dto/listar-estado-matricula-por-horario.dto';
 import { FilterListarEstudantesPorEstadoMatriculaDto } from './dto/filter-listar-estudantes-por-estado-da-matricula.dto';
+
 import { IsentarColisaoMatriculaDto } from './dto/isentar-colisao-matricula.dto';
 import { IsentarColisaoCursoDto } from './dto/isentar-colisao-curso.dto';
 import { FilterPesquisarEstudantesIsencaoDto } from './dto/filter-pesquisar-estudante-isentar-colisao.dto';
@@ -32,6 +33,7 @@ import { FilterListarColisoesIsentasPorCursoDto } from './dto/filter-listar-coli
 import { FilterListagemGeralEstudantesDto } from './dto/filter-listagem-geral-de-estudantes.dto';
 import { FilterInscritosPorUcDto } from './dto/filtrar-inscritos-por-uc.dto';
 import { FindInscricaoSemUCDTO } from './dto/find-inscricao-sem-ucDTO';
+
 
 
 
@@ -92,4 +94,37 @@ async listarHorariosDisponiveisInscritosPorUc(
   ) {
     return this.registrationService.findEstudantesMatriculados(query);
   }
+
+  @Get('/estudantes/sem-inscricoes-curso')
+  @ApiOperation({ summary: 'Lista Estudantes Sem Inscrições no Curso' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista Estudantes Sem Inscrições no Curso',
+    type: FindEstudantesSemInscricaoCursoDTO,
+  })
+  findEstudantesSemInscricoesNoCurso(
+    @Query(ValidationPipe) query: FindEstudantesSemInscricaoCursoDTO,
+  ) {
+    return this.registrationService.findEstudantesSemInscricaoCurso(query);
+  }
+
+@Get('estado-matricula-horario')
+@ApiOperation({ summary: 'Listar estado da matrícula do estudante por horário' })
+@ApiResponse({ status: 200 })
+async listarEstadoMatriculaPorHorario(
+  @Query() filter: FilterEstadoMatriculaHorarioDto,
+) {
+  return this.registrationService.listarEstadoMatriculaPorHorario(filter);
+}
+
+@Get('estudantes-por-estado-matricula')
+@ApiOperation({ summary: 'Listar estudantes por estado da matrícula' })
+@ApiResponse({ status: 200 })
+async listarEstudantesPorEstadoMatricula(
+  @Query() filter: FilterListarEstudantesPorEstadoMatriculaDto,
+) {
+  return this.registrationService.listarEstudantesPorEstadoMatricula(filter);
+}
+
+
 }

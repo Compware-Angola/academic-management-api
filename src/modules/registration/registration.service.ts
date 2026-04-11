@@ -11,6 +11,8 @@ import { FilterListagemGeralEstudantesDto } from './dto/filter-listagem-geral-de
 import { FilterInscritosPorUcDto } from './dto/filtrar-inscritos-por-uc.dto';
 import { FindEstudanteMatriculadoDTO } from './dto/find-studantes-matriculadoDTO';
 import { FilterHorariosInscritosPorUcDto } from './dto/filter-horarios-inscritos-por-uc';
+import { FindEstudantesSemInscricaoCursoDTO } from './dto/find-estudantes-sem-Inscricao-cursoDTO';
+import { calcularSemestreByAnoLectivo } from '../util/calcular-semestre';
 
 
 
@@ -705,5 +707,966 @@ async listarHorariosDisponiveisInscritosPorUc(
   } as any);
 }
 
+
+
+  async findEstudantesSemInscricaoCurso(
+    filters: FindEstudantesSemInscricaoCursoDTO,
+  ) {
+    const {
+      codigoAnoLectivo,
+      codigoCurso,
+      limit = 10,
+      page = 1,
+      codigoMatricula,
+      nome,
+    } = filters;
+
+    const offset = (page - 1) * limit;
+
+    const conditions: string[] = [];
+    const params: any = {};
+    const semestreCalculado = await calcularSemestreByAnoLectivo(
+      this.dataSource,
+      codigoAnoLectivo,
+    );
+    const semestre = semestreCalculado == null ? 2 : semestreCalculado;
+
+    conditions.push(`tm.ESTADO_MATRICULA = 'activo'`);
+
+    conditions.push(`tc.CODIGO = :codigoCurso`);
+    params.codigoCurso = codigoCurso;
+
+    if (codigoMatricula) {
+      conditions.push(`tm.CODIGO = :codigoMatricula`);
+      params.codigoMatricula = codigoMatricula;
+    }
+    if (nome) {
+      conditions.push(
+        `fn_remove_acentos(UPPER(tp.NOME_COMPLETO)) LIKE '%' || fn_remove_acentos(UPPER(:nome)) || '%'`,
+      );
+      params.nome = nome;
+    }
+    const whereClause = conditions.join(' AND ');
+
+    const sql = `
+    SELECT DISTINCT
+        tm.CODIGO                         AS codigo,
+        tp.NOME_COMPLETO                 AS nomeCompleto,
+        tc.DESIGNACAO                    AS curso,
+        fn_tipo_estudante(
+            fb.codigo,
+            i.renuncia,
+            fb.CODIGO_TIPO_BOLSA
+        ) AS tipo
+    FROM FK2_TB_MATRICULAS tm
+    INNER JOIN FK2_TB_ADMISSAO ta
+        ON tm.CODIGO_ALUNO = ta.CODIGO
+    INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON tp.CODIGO = ta.PRE_INCRICAO
+    INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+
+    --- BOLSEIROS
+    LEFT JOIN FK2_TB_BOLSEIROS fb
+        ON fb.CODIGO_MATRICULA  = tm.CODIGO
+        AND fb.CODIGO_ANOLECTIVO = :codigoAnoLectivo
+        AND fb.SEMESTRE          = :semestre
+        AND fb.STATUS_           = :status
+    LEFT JOIN FK2_TB_INSTITUICAO i
+        ON i.CODIGO = fb.CODIGO_INSTITUICAO
+
+    WHERE ${whereClause}
+    AND NOT EXISTS (
+        SELECT 1
+        FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        WHERE tgca.CODIGO_MATRICULA = tm.CODIGO
+          AND tgca.CODIGO_STATUS_GRADE_CURRICULAR = 2
+          AND tgca.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+    )
+    ORDER BY tm.CODIGO
+    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+  `;
+
+    const sqlParams = {
+      ...params,
+      codigoAnoLectivo,
+      semestre,
+      status: 0,
+      offset,
+      limit,
+    };
+
+    const sqlCount = `
+    SELECT COUNT(DISTINCT tm.CODIGO) AS TOTAL
+    FROM FK2_TB_MATRICULAS tm
+    INNER JOIN FK2_TB_ADMISSAO ta
+        ON tm.CODIGO_ALUNO = ta.CODIGO
+    INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON tp.CODIGO = ta.PRE_INCRICAO
+    INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+
+    WHERE ${whereClause}
+    AND NOT EXISTS (
+        SELECT 1
+        FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        WHERE tgca.CODIGO_MATRICULA = tm.CODIGO
+          AND tgca.CODIGO_STATUS_GRADE_CURRICULAR = 2
+          AND tgca.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+    )
+  `;
+
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, sqlParams),
+      this.dataSource.query(sqlCount, {
+        ...params,
+        codigoAnoLectivo,
+      }),
+    ]);
+
+    const total = Number(countResult[0].TOTAL);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: await toLowerCaseKeys(result),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
+
+ async listarEstadoMatriculaPorHorario(filter: any) {
+  const {
+    page = 1,
+    limit = 10,
+    anoLectivo = 0,
+    curso = 0,
+    anoCurricular = 0,
+    semestre = 0,
+    turno = 0,
+    unidadeCurricular = 0,
+    horario = 0,
+    estado = 0,
+    search,
+  } = filter;
+
+  const offset = (page - 1) * limit;
+  const calcularClasse = Number(anoCurricular) > 0;
+  const searchValue =
+    search && String(search).trim()
+      ? `%${String(search).trim().toUpperCase()}%`
+      : null;
+
+  const dataParamsSemClasse: Record<string, any> = {
+    anoLectivo_base: anoLectivo,
+    anoLectivo_bolsa: anoLectivo,
+
+    curso_base: curso,
+    curso_zero_base: curso,
+
+    semestre_base: semestre,
+    semestre_zero_base: semestre,
+
+    turno_base: turno,
+    turno_zero_base: turno,
+
+    estado_base: estado,
+    estado_zero_base: estado,
+
+    horario_base: horario,
+    horario_zero_base: horario,
+
+    unidadeCurricular_base: unidadeCurricular,
+    unidadeCurricular_zero_base: unidadeCurricular,
+
+    search_nome: searchValue,
+    search_matricula: searchValue,
+    search_curso: searchValue,
+    search_estado: searchValue,
+    search_horario: searchValue,
+
+    offset_rows: offset,
+    limit_rows: limit,
+  };
+
+  const countParamsSemClasse: Record<string, any> = {
+    anoLectivo_base: anoLectivo,
+
+    curso_base: curso,
+    curso_zero_base: curso,
+
+    semestre_base: semestre,
+    semestre_zero_base: semestre,
+
+    turno_base: turno,
+    turno_zero_base: turno,
+
+    estado_base: estado,
+    estado_zero_base: estado,
+
+    horario_base: horario,
+    horario_zero_base: horario,
+
+    unidadeCurricular_base: unidadeCurricular,
+    unidadeCurricular_zero_base: unidadeCurricular,
+
+    search_nome: searchValue,
+    search_matricula: searchValue,
+    search_curso: searchValue,
+    search_estado: searchValue,
+    search_horario: searchValue,
+  };
+
+  const dataParamsComClasse: Record<string, any> = {
+    ...dataParamsSemClasse,
+    anoLectivo_plano: anoLectivo,
+    anoCurricular_final: anoCurricular,
+  };
+
+  const countParamsComClasse: Record<string, any> = {
+    ...countParamsSemClasse,
+    anoLectivo_plano: anoLectivo,
+    anoCurricular_final: anoCurricular,
+  };
+
+  const countSqlSemClasse = `
+    SELECT COUNT(*) AS TOTAL
+    FROM (
+      SELECT DISTINCT tm.CODIGO
+      FROM FK2_MGA_TB_SITUACAO_FINANCEIRA_ALUNO mtsfa
+      INNER JOIN FK2_TB_ESTADO_MATRICULA tem
+        ON tem.CODIGO = mtsfa.FK_TB_ESTADO_MATRICULA
+      INNER JOIN FK2_TB_MATRICULAS tm
+        ON tm.CODIGO = mtsfa.FK_MATRICULA
+      INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+      INNER JOIN FK2_TB_ADMISSAO ta
+        ON ta.CODIGO = tm.CODIGO_ALUNO
+      INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON tp.CODIGO = ta.PRE_INCRICAO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        ON tgca.CODIGO_MATRICULA = tm.CODIGO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+        ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
+      INNER JOIN FK2_MGH_TB_HORARIO mth
+        ON JSON_VALUE(mth.REF_GRADE_CURRICULAR, '$.pk' RETURNING NUMBER NULL ON ERROR) = tgc.CODIGO
+      WHERE tgca.CODIGO_ANO_LECTIVO = :anoLectivo_base
+        AND tgca.CODIGO_STATUS_GRADE_CURRICULAR NOT IN (4, 5)
+        AND (tc.CODIGO = :curso_base OR :curso_zero_base = 0)
+        AND (tgc.CODIGO_SEMESTRE = :semestre_base OR :semestre_zero_base = 0)
+        AND (
+          JSON_VALUE(mth.REF_PERIODICIDADE, '$.pkPeriodo' RETURNING NUMBER NULL ON ERROR) = :turno_base
+          OR :turno_zero_base = 0
+        )
+        AND (tem.CODIGO = :estado_base OR :estado_zero_base = 0)
+        AND (mth.PK_HORARIO = :horario_base OR :horario_zero_base = 0)
+        AND mth.FK_ESTADO_HORARIO_WF = 3
+        AND (
+          JSON_VALUE(mth.REF_GRADE_CURRICULAR, '$.pk' RETURNING NUMBER NULL ON ERROR) = :unidadeCurricular_base
+          OR :unidadeCurricular_zero_base = 0
+        )
+        AND (
+          :search_nome IS NULL
+          OR UPPER(tp.NOME_COMPLETO) LIKE :search_nome
+          OR UPPER(TO_CHAR(tm.CODIGO)) LIKE :search_matricula
+          OR UPPER(NVL(tc.DESIGNACAO, '-')) LIKE :search_curso
+          OR UPPER(NVL(tem.DESIGNACAO, '-')) LIKE :search_estado
+          OR UPPER(NVL(mth.DESIGNACAO, '-')) LIKE :search_horario
+        )
+    )
+  `;
+
+  const sqlComClasse = `
+    WITH base_estudantes AS (
+      SELECT DISTINCT
+        tm.CODIGO AS MATRICULA,
+        tp.NOME_COMPLETO AS NOME,
+        tc.DESIGNACAO AS CURSO,
+        tem.DESIGNACAO AS ESTADO,
+        tem.OBS AS COR,
+        mth.PK_HORARIO AS CODIGO_HORARIO,
+        mth.DESIGNACAO AS HORARIO,
+        tm.CODIGO_CURSO AS CODIGO_CURSO,
+        NVL(fn_tipo_estudante(fb.CODIGO, i.RENUNCIA, fb.CODIGO_TIPO_BOLSA), '-') AS TIPO_ALUNO
+      FROM FK2_MGA_TB_SITUACAO_FINANCEIRA_ALUNO mtsfa
+      INNER JOIN FK2_TB_ESTADO_MATRICULA tem
+        ON tem.CODIGO = mtsfa.FK_TB_ESTADO_MATRICULA
+      INNER JOIN FK2_TB_MATRICULAS tm
+        ON tm.CODIGO = mtsfa.FK_MATRICULA
+      INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+      INNER JOIN FK2_TB_ADMISSAO ta
+        ON ta.CODIGO = tm.CODIGO_ALUNO
+      INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON tp.CODIGO = ta.PRE_INCRICAO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        ON tgca.CODIGO_MATRICULA = tm.CODIGO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+        ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
+      INNER JOIN FK2_MGH_TB_HORARIO mth
+        ON JSON_VALUE(mth.REF_GRADE_CURRICULAR, '$.pk' RETURNING NUMBER NULL ON ERROR) = tgc.CODIGO
+      LEFT JOIN FK2_TB_BOLSEIROS fb
+        ON fb.CODIGO_MATRICULA = tm.CODIGO
+        AND fb.CODIGO_ANOLECTIVO = :anoLectivo_bolsa
+        AND fb.SEMESTRE = tgc.CODIGO_SEMESTRE
+        AND fb.STATUS_ = 0
+      LEFT JOIN FK2_TB_INSTITUICAO i
+        ON i.CODIGO = fb.CODIGO_INSTITUICAO
+      WHERE tgca.CODIGO_ANO_LECTIVO = :anoLectivo_base
+        AND tgca.CODIGO_STATUS_GRADE_CURRICULAR NOT IN (4, 5)
+        AND (tc.CODIGO = :curso_base OR :curso_zero_base = 0)
+        AND (tgc.CODIGO_SEMESTRE = :semestre_base OR :semestre_zero_base = 0)
+        AND (
+          JSON_VALUE(mth.REF_PERIODICIDADE, '$.pkPeriodo' RETURNING NUMBER NULL ON ERROR) = :turno_base
+          OR :turno_zero_base = 0
+        )
+        AND (tem.CODIGO = :estado_base OR :estado_zero_base = 0)
+        AND (mth.PK_HORARIO = :horario_base OR :horario_zero_base = 0)
+        AND mth.FK_ESTADO_HORARIO_WF = 3
+        AND (
+          JSON_VALUE(mth.REF_GRADE_CURRICULAR, '$.pk' RETURNING NUMBER NULL ON ERROR) = :unidadeCurricular_base
+          OR :unidadeCurricular_zero_base = 0
+        )
+    ),
+
+    plano_por_classe AS (
+      SELECT
+        tpcc.CODIGO_CURSO,
+        tgc.CODIGO_CLASSE AS CLASSE,
+        COUNT(tpcg.CODIGO_GRADE_CURRICULAR) AS QTD_PLANO
+      FROM FK2_TB_PLANO_CURRICULAR_GRADE tpcg
+      INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO tpcc
+        ON tpcc.CODIGO = tpcg.CODIGO_PLANO_CURRICULAR_CURSO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+        ON tgc.CODIGO = tpcg.CODIGO_GRADE_CURRICULAR
+      WHERE tpcc.CODIGO_ANO_LECTIVO = :anoLectivo_plano
+      GROUP BY tpcc.CODIGO_CURSO, tgc.CODIGO_CLASSE
+    ),
+
+    feitas_por_classe AS (
+      SELECT
+        tgca.CODIGO_MATRICULA AS MATRICULA,
+        tgc.CODIGO_CLASSE AS CLASSE,
+        COUNT(tgca.CODIGO) AS QTD_FEITAS
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+        ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
+      WHERE tgca.CODIGO_STATUS_GRADE_CURRICULAR = 3
+      GROUP BY tgca.CODIGO_MATRICULA, tgc.CODIGO_CLASSE
+    ),
+
+    classes_avaliadas AS (
+      SELECT
+        b.MATRICULA,
+        b.CODIGO_CURSO,
+        p.CLASSE,
+        p.QTD_PLANO,
+        NVL(f.QTD_FEITAS, 0) AS QTD_FEITAS,
+        CASE
+          WHEN NVL(f.QTD_FEITAS, 0) > (p.QTD_PLANO / 2) THEN 1
+          ELSE 0
+        END AS SUPEROU_METADE
+      FROM (SELECT DISTINCT MATRICULA, CODIGO_CURSO FROM base_estudantes) b
+      INNER JOIN plano_por_classe p
+        ON p.CODIGO_CURSO = b.CODIGO_CURSO
+      LEFT JOIN feitas_por_classe f
+        ON f.MATRICULA = b.MATRICULA
+       AND f.CLASSE = p.CLASSE
+    ),
+
+    primeira_classe_pendente AS (
+      SELECT
+        MATRICULA,
+        MIN(CLASSE) AS ANO_CURRICULAR
+      FROM classes_avaliadas
+      WHERE SUPEROU_METADE = 0
+      GROUP BY MATRICULA
+    ),
+
+    ultima_classe AS (
+      SELECT
+        MATRICULA,
+        MAX(CLASSE) AS ULTIMA_CLASSE
+      FROM classes_avaliadas
+      GROUP BY MATRICULA
+    ),
+
+    classe_final AS (
+      SELECT
+        u.MATRICULA,
+        NVL(p.ANO_CURRICULAR, u.ULTIMA_CLASSE) AS ANO_CURRICULAR
+      FROM ultima_classe u
+      LEFT JOIN primeira_classe_pendente p
+        ON p.MATRICULA = u.MATRICULA
+    ),
+
+    final_data AS (
+      SELECT
+        b.*,
+        cf.ANO_CURRICULAR
+      FROM base_estudantes b
+      LEFT JOIN classe_final cf
+        ON cf.MATRICULA = b.MATRICULA
+      WHERE (
+        cf.ANO_CURRICULAR = :anoCurricular_final
+        OR :anoCurricular_final = 0
+      )
+        AND (
+          :search_nome IS NULL
+          OR UPPER(b.NOME) LIKE :search_nome
+          OR UPPER(TO_CHAR(b.MATRICULA)) LIKE :search_matricula
+          OR UPPER(NVL(b.CURSO, '-')) LIKE :search_curso
+          OR UPPER(NVL(b.ESTADO, '-')) LIKE :search_estado
+          OR UPPER(NVL(b.HORARIO, '-')) LIKE :search_horario
+        )
+    )
+
+    SELECT *
+    FROM (
+      SELECT
+        f.*,
+        ROW_NUMBER() OVER (ORDER BY f.NOME ASC) AS RN
+      FROM final_data f
+    ) t
+    WHERE t.RN BETWEEN :offset_rows + 1 AND :offset_rows + :limit_rows
+    ORDER BY t.RN
+  `;
+
+  const countSqlComClasse = `
+    WITH base_estudantes AS (
+      SELECT DISTINCT
+        tm.CODIGO AS MATRICULA,
+        tm.CODIGO_CURSO AS CODIGO_CURSO,
+        tp.NOME_COMPLETO AS NOME,
+        tc.DESIGNACAO AS CURSO,
+        tem.DESIGNACAO AS ESTADO,
+        mth.DESIGNACAO AS HORARIO
+      FROM FK2_MGA_TB_SITUACAO_FINANCEIRA_ALUNO mtsfa
+      INNER JOIN FK2_TB_ESTADO_MATRICULA tem
+        ON tem.CODIGO = mtsfa.FK_TB_ESTADO_MATRICULA
+      INNER JOIN FK2_TB_MATRICULAS tm
+        ON tm.CODIGO = mtsfa.FK_MATRICULA
+      INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+      INNER JOIN FK2_TB_ADMISSAO ta
+        ON ta.CODIGO = tm.CODIGO_ALUNO
+      INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON tp.CODIGO = ta.PRE_INCRICAO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        ON tgca.CODIGO_MATRICULA = tm.CODIGO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+        ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
+      INNER JOIN FK2_MGH_TB_HORARIO mth
+        ON JSON_VALUE(mth.REF_GRADE_CURRICULAR, '$.pk' RETURNING NUMBER NULL ON ERROR) = tgc.CODIGO
+      WHERE tgca.CODIGO_ANO_LECTIVO = :anoLectivo_base
+        AND tgca.CODIGO_STATUS_GRADE_CURRICULAR NOT IN (4, 5)
+        AND (tc.CODIGO = :curso_base OR :curso_zero_base = 0)
+        AND (tgc.CODIGO_SEMESTRE = :semestre_base OR :semestre_zero_base = 0)
+        AND (
+          JSON_VALUE(mth.REF_PERIODICIDADE, '$.pkPeriodo' RETURNING NUMBER NULL ON ERROR) = :turno_base
+          OR :turno_zero_base = 0
+        )
+        AND (tem.CODIGO = :estado_base OR :estado_zero_base = 0)
+        AND (mth.PK_HORARIO = :horario_base OR :horario_zero_base = 0)
+        AND mth.FK_ESTADO_HORARIO_WF = 3
+        AND (
+          JSON_VALUE(mth.REF_GRADE_CURRICULAR, '$.pk' RETURNING NUMBER NULL ON ERROR) = :unidadeCurricular_base
+          OR :unidadeCurricular_zero_base = 0
+        )
+    ),
+
+    plano_por_classe AS (
+      SELECT
+        tpcc.CODIGO_CURSO,
+        tgc.CODIGO_CLASSE AS CLASSE,
+        COUNT(tpcg.CODIGO_GRADE_CURRICULAR) AS QTD_PLANO
+      FROM FK2_TB_PLANO_CURRICULAR_GRADE tpcg
+      INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO tpcc
+        ON tpcc.CODIGO = tpcg.CODIGO_PLANO_CURRICULAR_CURSO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+        ON tgc.CODIGO = tpcg.CODIGO_GRADE_CURRICULAR
+      WHERE tpcc.CODIGO_ANO_LECTIVO = :anoLectivo_plano
+      GROUP BY tpcc.CODIGO_CURSO, tgc.CODIGO_CLASSE
+    ),
+
+    feitas_por_classe AS (
+      SELECT
+        tgca.CODIGO_MATRICULA AS MATRICULA,
+        tgc.CODIGO_CLASSE AS CLASSE,
+        COUNT(tgca.CODIGO) AS QTD_FEITAS
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+        ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
+      WHERE tgca.CODIGO_STATUS_GRADE_CURRICULAR = 3
+      GROUP BY tgca.CODIGO_MATRICULA, tgc.CODIGO_CLASSE
+    ),
+
+    classes_avaliadas AS (
+      SELECT
+        b.MATRICULA,
+        b.CODIGO_CURSO,
+        p.CLASSE,
+        p.QTD_PLANO,
+        NVL(f.QTD_FEITAS, 0) AS QTD_FEITAS,
+        CASE
+          WHEN NVL(f.QTD_FEITAS, 0) > (p.QTD_PLANO / 2) THEN 1
+          ELSE 0
+        END AS SUPEROU_METADE
+      FROM (SELECT DISTINCT MATRICULA, CODIGO_CURSO FROM base_estudantes) b
+      INNER JOIN plano_por_classe p
+        ON p.CODIGO_CURSO = b.CODIGO_CURSO
+      LEFT JOIN feitas_por_classe f
+        ON f.MATRICULA = b.MATRICULA
+       AND f.CLASSE = p.CLASSE
+    ),
+
+    primeira_classe_pendente AS (
+      SELECT
+        MATRICULA,
+        MIN(CLASSE) AS ANO_CURRICULAR
+      FROM classes_avaliadas
+      WHERE SUPEROU_METADE = 0
+      GROUP BY MATRICULA
+    ),
+
+    ultima_classe AS (
+      SELECT
+        MATRICULA,
+        MAX(CLASSE) AS ULTIMA_CLASSE
+      FROM classes_avaliadas
+      GROUP BY MATRICULA
+    ),
+
+    classe_final AS (
+      SELECT
+        u.MATRICULA,
+        NVL(p.ANO_CURRICULAR, u.ULTIMA_CLASSE) AS ANO_CURRICULAR
+      FROM ultima_classe u
+      LEFT JOIN primeira_classe_pendente p
+        ON p.MATRICULA = u.MATRICULA
+    )
+
+    SELECT COUNT(*) AS TOTAL
+    FROM (
+      SELECT DISTINCT b.MATRICULA
+      FROM base_estudantes b
+      LEFT JOIN classe_final cf
+        ON cf.MATRICULA = b.MATRICULA
+      WHERE (
+        cf.ANO_CURRICULAR = :anoCurricular_final
+        OR :anoCurricular_final = 0
+      )
+        AND (
+          :search_nome IS NULL
+          OR UPPER(b.NOME) LIKE :search_nome
+          OR UPPER(TO_CHAR(b.MATRICULA)) LIKE :search_matricula
+          OR UPPER(NVL(b.CURSO, '-')) LIKE :search_curso
+          OR UPPER(NVL(b.ESTADO, '-')) LIKE :search_estado
+          OR UPPER(NVL(b.HORARIO, '-')) LIKE :search_horario
+        )
+    )
+  `;
+
+  const sql = sqlComClasse;
+  const countSql = calcularClasse ? countSqlComClasse : countSqlSemClasse;
+  const dataParams = dataParamsComClasse;
+  const countParams = calcularClasse ? countParamsComClasse : countParamsSemClasse;
+
+  const [result, countResult] = await Promise.all([
+    this.dataSource.query(sql, dataParams as any),
+    this.dataSource.query(countSql, countParams as any),
+  ]);
+
+  const total = Number(countResult[0]?.TOTAL ?? 0);
+
+  const data = result.map((row: any, index: number) => ({
+    numero: offset + index + 1,
+    matricula: row.MATRICULA,
+    nome: row.NOME,
+    tipo_aluno: row.TIPO_ALUNO,
+    horario: row.HORARIO,
+    curso: row.CURSO,
+    estado: row.ESTADO,
+    cor: row.COR,
+    ano_curricular: row.ANO_CURRICULAR,
+  }));
+
+  return {
+    data,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit) || 1,
+  };
+}
+
+async listarEstudantesPorEstadoMatricula(filter: any) {
+  const {
+    page = 1,
+    limit = 10,
+    anoLectivo = 0,
+    curso = 0,
+    turno = 0,
+    estado = 0,
+    anoCurricular = 0,
+    search,
+  } = filter;
+
+  const offset = (page - 1) * limit;
+  const searchValue =
+    search && String(search).trim()
+      ? `%${String(search).trim().toUpperCase()}%`
+      : null;
+
+  const dataParams: Record<string, any> = {
+    anoLectivo_base: anoLectivo,
+    anoLectivo_bolsa: anoLectivo,
+    anoLectivo_plano: anoLectivo,
+
+    curso_base: curso,
+    curso_zero_base: curso,
+
+    turno_base: turno,
+    turno_zero_base: turno,
+
+    estado_base: estado,
+    estado_zero_base: estado,
+
+    anoCurricular_final: anoCurricular,
+
+    search_nome: searchValue,
+    search_matricula: searchValue,
+    search_curso: searchValue,
+    search_estado: searchValue,
+    search_telefone: searchValue,
+    search_email: searchValue,
+
+    offset_rows: offset,
+    limit_rows: limit,
+  };
+
+  const countParams: Record<string, any> = {
+    anoLectivo_base: anoLectivo,
+    anoLectivo_plano: anoLectivo,
+
+    curso_base: curso,
+    curso_zero_base: curso,
+
+    turno_base: turno,
+    turno_zero_base: turno,
+
+    estado_base: estado,
+    estado_zero_base: estado,
+
+    anoCurricular_final: anoCurricular,
+
+    search_nome: searchValue,
+    search_matricula: searchValue,
+    search_curso: searchValue,
+    search_estado: searchValue,
+    search_telefone: searchValue,
+    search_email: searchValue,
+  };
+
+  const sql = `
+    WITH base_estudantes AS (
+      SELECT DISTINCT
+        tm.CODIGO AS MATRICULA,
+        tp.NOME_COMPLETO AS NOME,
+        tp.CONTACTOS_TELEFONICOS AS TELEFONE,
+        tp.EMAIL AS EMAIL,
+        tc.DESIGNACAO AS CURSO,
+        tem.DESIGNACAO AS ESTADO,
+        tem.OBS AS COR,
+        tm.CODIGO_CURSO AS CODIGO_CURSO,
+        NVL(fn_tipo_estudante(fb.CODIGO, i.RENUNCIA, fb.CODIGO_TIPO_BOLSA), '-') AS TIPO_ALUNO
+      FROM FK2_MGA_TB_SITUACAO_FINANCEIRA_ALUNO mtsfa
+      INNER JOIN FK2_TB_ESTADO_MATRICULA tem
+        ON tem.CODIGO = mtsfa.FK_TB_ESTADO_MATRICULA
+      INNER JOIN FK2_TB_MATRICULAS tm
+        ON tm.CODIGO = mtsfa.FK_MATRICULA
+      INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+      INNER JOIN FK2_TB_ADMISSAO ta
+        ON ta.CODIGO = tm.CODIGO_ALUNO
+      INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON tp.CODIGO = ta.PRE_INCRICAO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        ON tgca.CODIGO_MATRICULA = tm.CODIGO
+      LEFT JOIN FK2_TB_BOLSEIROS fb
+        ON fb.CODIGO_MATRICULA = tm.CODIGO
+        AND fb.CODIGO_ANOLECTIVO = :anoLectivo_bolsa
+        AND fb.STATUS_ = 0
+      LEFT JOIN FK2_TB_INSTITUICAO i
+        ON i.CODIGO = fb.CODIGO_INSTITUICAO
+      WHERE tgca.CODIGO_ANO_LECTIVO = :anoLectivo_base
+        AND tgca.CODIGO_STATUS_GRADE_CURRICULAR IN (1, 2, 3)
+        AND (tc.CODIGO = :curso_base OR :curso_zero_base = 0)
+        AND (
+          tp.CODIGO_TURNO = :turno_base
+          OR :turno_zero_base = 0
+        )
+        AND (tem.CODIGO = :estado_base OR :estado_zero_base = 0)
+    ),
+
+    plano_por_classe AS (
+      SELECT
+        tpcc.CODIGO_CURSO,
+        tgc.CODIGO_CLASSE AS CLASSE,
+        COUNT(tpcg.CODIGO_GRADE_CURRICULAR) AS QTD_PLANO
+      FROM FK2_TB_PLANO_CURRICULAR_GRADE tpcg
+      INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO tpcc
+        ON tpcc.CODIGO = tpcg.CODIGO_PLANO_CURRICULAR_CURSO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+        ON tgc.CODIGO = tpcg.CODIGO_GRADE_CURRICULAR
+      WHERE tpcc.CODIGO_ANO_LECTIVO = :anoLectivo_plano
+      GROUP BY tpcc.CODIGO_CURSO, tgc.CODIGO_CLASSE
+    ),
+
+    feitas_por_classe AS (
+      SELECT
+        tgca.CODIGO_MATRICULA AS MATRICULA,
+        tgc.CODIGO_CLASSE AS CLASSE,
+        COUNT(tgca.CODIGO) AS QTD_FEITAS
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+        ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
+      WHERE tgca.CODIGO_STATUS_GRADE_CURRICULAR = 3
+      GROUP BY tgca.CODIGO_MATRICULA, tgc.CODIGO_CLASSE
+    ),
+
+    classes_avaliadas AS (
+      SELECT
+        b.MATRICULA,
+        b.CODIGO_CURSO,
+        p.CLASSE,
+        p.QTD_PLANO,
+        NVL(f.QTD_FEITAS, 0) AS QTD_FEITAS,
+        CASE
+          WHEN NVL(f.QTD_FEITAS, 0) > (p.QTD_PLANO / 2) THEN 1
+          ELSE 0
+        END AS SUPEROU_METADE
+      FROM (SELECT DISTINCT MATRICULA, CODIGO_CURSO FROM base_estudantes) b
+      INNER JOIN plano_por_classe p
+        ON p.CODIGO_CURSO = b.CODIGO_CURSO
+      LEFT JOIN feitas_por_classe f
+        ON f.MATRICULA = b.MATRICULA
+       AND f.CLASSE = p.CLASSE
+    ),
+
+    primeira_classe_pendente AS (
+      SELECT
+        MATRICULA,
+        MIN(CLASSE) AS ANO_CURRICULAR
+      FROM classes_avaliadas
+      WHERE SUPEROU_METADE = 0
+      GROUP BY MATRICULA
+    ),
+
+    ultima_classe AS (
+      SELECT
+        MATRICULA,
+        MAX(CLASSE) AS ULTIMA_CLASSE
+      FROM classes_avaliadas
+      GROUP BY MATRICULA
+    ),
+
+    classe_final AS (
+      SELECT
+        u.MATRICULA,
+        NVL(p.ANO_CURRICULAR, u.ULTIMA_CLASSE) AS ANO_CURRICULAR
+      FROM ultima_classe u
+      LEFT JOIN primeira_classe_pendente p
+        ON p.MATRICULA = u.MATRICULA
+    ),
+
+    final_data AS (
+      SELECT
+        b.*,
+        cf.ANO_CURRICULAR
+      FROM base_estudantes b
+      LEFT JOIN classe_final cf
+        ON cf.MATRICULA = b.MATRICULA
+      WHERE (
+        cf.ANO_CURRICULAR = :anoCurricular_final
+        OR :anoCurricular_final = 0
+      )
+        AND (
+          :search_nome IS NULL
+          OR UPPER(b.NOME) LIKE :search_nome
+          OR UPPER(TO_CHAR(b.MATRICULA)) LIKE :search_matricula
+          OR UPPER(NVL(b.CURSO, '-')) LIKE :search_curso
+          OR UPPER(NVL(b.ESTADO, '-')) LIKE :search_estado
+          OR UPPER(NVL(b.TELEFONE, '-')) LIKE :search_telefone
+          OR UPPER(NVL(b.EMAIL, '-')) LIKE :search_email
+        )
+    )
+
+    SELECT *
+    FROM (
+      SELECT
+        f.*,
+        ROW_NUMBER() OVER (ORDER BY f.NOME ASC) AS RN
+      FROM final_data f
+    ) t
+    WHERE t.RN BETWEEN :offset_rows + 1 AND :offset_rows + :limit_rows
+    ORDER BY t.RN
+  `;
+
+  const countSql = `
+    WITH base_estudantes AS (
+      SELECT DISTINCT
+        tm.CODIGO AS MATRICULA,
+        tm.CODIGO_CURSO AS CODIGO_CURSO,
+        tp.NOME_COMPLETO AS NOME,
+        tp.CONTACTOS_TELEFONICOS AS TELEFONE,
+        tp.EMAIL AS EMAIL,
+        tc.DESIGNACAO AS CURSO,
+        tem.DESIGNACAO AS ESTADO
+      FROM FK2_MGA_TB_SITUACAO_FINANCEIRA_ALUNO mtsfa
+      INNER JOIN FK2_TB_ESTADO_MATRICULA tem
+        ON tem.CODIGO = mtsfa.FK_TB_ESTADO_MATRICULA
+      INNER JOIN FK2_TB_MATRICULAS tm
+        ON tm.CODIGO = mtsfa.FK_MATRICULA
+      INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+      INNER JOIN FK2_TB_ADMISSAO ta
+        ON ta.CODIGO = tm.CODIGO_ALUNO
+      INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON tp.CODIGO = ta.PRE_INCRICAO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        ON tgca.CODIGO_MATRICULA = tm.CODIGO
+      WHERE tgca.CODIGO_ANO_LECTIVO = :anoLectivo_base
+        AND tgca.CODIGO_STATUS_GRADE_CURRICULAR IN (1, 2, 3)
+        AND (tc.CODIGO = :curso_base OR :curso_zero_base = 0)
+        AND (
+          tp.CODIGO_TURNO = :turno_base
+          OR :turno_zero_base = 0
+        )
+        AND (tem.CODIGO = :estado_base OR :estado_zero_base = 0)
+    ),
+
+    plano_por_classe AS (
+      SELECT
+        tpcc.CODIGO_CURSO,
+        tgc.CODIGO_CLASSE AS CLASSE,
+        COUNT(tpcg.CODIGO_GRADE_CURRICULAR) AS QTD_PLANO
+      FROM FK2_TB_PLANO_CURRICULAR_GRADE tpcg
+      INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO tpcc
+        ON tpcc.CODIGO = tpcg.CODIGO_PLANO_CURRICULAR_CURSO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+        ON tgc.CODIGO = tpcg.CODIGO_GRADE_CURRICULAR
+      WHERE tpcc.CODIGO_ANO_LECTIVO = :anoLectivo_plano
+      GROUP BY tpcc.CODIGO_CURSO, tgc.CODIGO_CLASSE
+    ),
+
+    feitas_por_classe AS (
+      SELECT
+        tgca.CODIGO_MATRICULA AS MATRICULA,
+        tgc.CODIGO_CLASSE AS CLASSE,
+        COUNT(tgca.CODIGO) AS QTD_FEITAS
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+        ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
+      WHERE tgca.CODIGO_STATUS_GRADE_CURRICULAR = 3
+      GROUP BY tgca.CODIGO_MATRICULA, tgc.CODIGO_CLASSE
+    ),
+
+    classes_avaliadas AS (
+      SELECT
+        b.MATRICULA,
+        b.CODIGO_CURSO,
+        p.CLASSE,
+        p.QTD_PLANO,
+        NVL(f.QTD_FEITAS, 0) AS QTD_FEITAS,
+        CASE
+          WHEN NVL(f.QTD_FEITAS, 0) > (p.QTD_PLANO / 2) THEN 1
+          ELSE 0
+        END AS SUPEROU_METADE
+      FROM (SELECT DISTINCT MATRICULA, CODIGO_CURSO FROM base_estudantes) b
+      INNER JOIN plano_por_classe p
+        ON p.CODIGO_CURSO = b.CODIGO_CURSO
+      LEFT JOIN feitas_por_classe f
+        ON f.MATRICULA = b.MATRICULA
+       AND f.CLASSE = p.CLASSE
+    ),
+
+    primeira_classe_pendente AS (
+      SELECT
+        MATRICULA,
+        MIN(CLASSE) AS ANO_CURRICULAR
+      FROM classes_avaliadas
+      WHERE SUPEROU_METADE = 0
+      GROUP BY MATRICULA
+    ),
+
+    ultima_classe AS (
+      SELECT
+        MATRICULA,
+        MAX(CLASSE) AS ULTIMA_CLASSE
+      FROM classes_avaliadas
+      GROUP BY MATRICULA
+    ),
+
+    classe_final AS (
+      SELECT
+        u.MATRICULA,
+        NVL(p.ANO_CURRICULAR, u.ULTIMA_CLASSE) AS ANO_CURRICULAR
+      FROM ultima_classe u
+      LEFT JOIN primeira_classe_pendente p
+        ON p.MATRICULA = u.MATRICULA
+    )
+
+    SELECT COUNT(*) AS TOTAL
+    FROM (
+      SELECT DISTINCT b.MATRICULA
+      FROM base_estudantes b
+      LEFT JOIN classe_final cf
+        ON cf.MATRICULA = b.MATRICULA
+      WHERE (
+        cf.ANO_CURRICULAR = :anoCurricular_final
+        OR :anoCurricular_final = 0
+      )
+        AND (
+          :search_nome IS NULL
+          OR UPPER(b.NOME) LIKE :search_nome
+          OR UPPER(TO_CHAR(b.MATRICULA)) LIKE :search_matricula
+          OR UPPER(NVL(b.CURSO, '-')) LIKE :search_curso
+          OR UPPER(NVL(b.ESTADO, '-')) LIKE :search_estado
+          OR UPPER(NVL(b.TELEFONE, '-')) LIKE :search_telefone
+          OR UPPER(NVL(b.EMAIL, '-')) LIKE :search_email
+        )
+    )
+  `;
+
+  const [result, countResult] = await Promise.all([
+    this.dataSource.query(sql, dataParams as any),
+    this.dataSource.query(countSql, countParams as any),
+  ]);
+
+  const total = Number(countResult[0]?.TOTAL ?? 0);
+
+  const data = result.map((row: any, index: number) => ({
+    numero: offset + index + 1,
+    matricula: row.MATRICULA,
+    nome: row.NOME,
+    tipo_aluno: row.TIPO_ALUNO,
+    telefone: row.TELEFONE,
+    email: row.EMAIL,
+    curso: row.CURSO,
+    ano_curricular: row.ANO_CURRICULAR,
+    estado: row.ESTADO,
+    cor: row.COR,
+  }));
+
+  return {
+    data,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit) || 1,
+  };
+}
 
 }
