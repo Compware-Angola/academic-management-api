@@ -31,6 +31,7 @@ export class StudentsService {
     m.codigo               AS codigo_matricula,
     p.BILHETE_IDENTIDADE   AS bi,
     c.designacao           AS curso,
+    c.codigo               AS curso_codigo,
     pe.DESIGNACAO          AS periodo,
     m.ESTADO_MATRICULA     AS estado,
     p.Nome_Completo        AS nome_completo,
