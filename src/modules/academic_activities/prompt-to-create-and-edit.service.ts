@@ -7,7 +7,11 @@ import { AnoLectivoUtil } from '../util/current-academic-year';
 @Injectable()
 export class promptToCreateAndEditService {
     private anoAtualPrincipal: number;
-  constructor(private readonly dataSource: DataSource ,private readonly anoLectivoUtil: AnoLectivoUtil) { this.initAnoAtual(); }
+  constructor(private readonly dataSource: DataSource ,private readonly anoLectivoUtil: AnoLectivoUtil) {
+    
+    
+    this.initAnoAtual();
+   }
     private async initAnoAtual() {
     this.anoAtualPrincipal = await this.anoLectivoUtil.getAnoAtualId();
   }

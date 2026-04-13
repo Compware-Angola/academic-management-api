@@ -9,7 +9,10 @@ import { TypeOrmModule } from '@nestjs/typeorm/dist/typeorm.module';
 import { IsEndDateAfterStartDate } from './util/validator/is-end-date-after-start-date.validator';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([AcademicYear]),HttpModule.register({
+    imports: [TypeOrmModule.forFeature([AcademicYear]),
+    
+    
+    HttpModule.register({
       timeout: 5000,
       maxRedirects: 5
     })],

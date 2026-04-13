@@ -75,7 +75,7 @@ import { CustomThrottlerGuard } from './modules/common/guard/Custom-Throttler.gu
 
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: false,
-      logging: ['error'],           // remove 'query' em produção (muito barulhento)
+      logging: ['query', 'error'],
 
       // ==================== CONFIGURAÇÃO DO POOL ====================
       poolSize: 20,                 // ← Número máximo de conexões (ajusta conforme teu servidor)
