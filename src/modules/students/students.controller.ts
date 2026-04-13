@@ -6,6 +6,10 @@ import {
   Query,
   ValidationPipe,
   Put,
+  UsePipes,
+  HttpStatus,
+  UseGuards,
+  Req,
 } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
@@ -15,6 +19,10 @@ import {
   UpdateStudentContactDTO,
   UpdateStudentPersonalDataDTO,
 } from './dto/find-students.dto';
+import { ActivateRegistrationDTO } from './dto/activate-registration.dto';
+import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { AcademicHistoryDTO } from './dto/academic-history';
 import { StudentNoteService } from './sudents-notes.service';
 import { FindStudentNoteDTO } from './dto/find-student-notes.dto';
 
@@ -74,6 +82,43 @@ export class StudentsController {
   })
   updatePersonalData(@Body(ValidationPipe) body: UpdateStudentPersonalDataDTO) {
     return this.studentsService.updatePersonalData(body);
+  }
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+  @Put('active-registration')
+  @ApiOperation({
+    summary: 'Ativar matrícula de um estudante',
+    description:
+      'Ativa a matrícula do aluno e desativa automaticamente todas as isenções existentes.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Matrícula ativada com sucesso',
+    schema: {
+      example: {
+        mensagem: 'Estado do estudante João Silva Definido',
+        sucesso: true,
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Erro ao ativar matrícula',
+  })
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  async ativarMatricula(@Body() dto: ActivateRegistrationDTO, @Req() req: any) {
+    const usuarioLogado = req.user;
+    return this.studentsService.activateRegistration(dto, usuarioLogado);
+  }
+
+  @Get('academic-history')
+  @ApiOperation({ summary: 'Obter histórico acadêmico do estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Histórico acadêmico do estudante obtido com sucesso',
+    type: AcademicHistoryDTO,
+  })
+  academicHistory(@Query(ValidationPipe) query: AcademicHistoryDTO) {
+    return this.studentsService.academicHistory(query);
   }
 
   @Get('notes')

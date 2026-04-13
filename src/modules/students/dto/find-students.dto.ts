@@ -1,4 +1,4 @@
-// src/horarios/dto/listar-horarios.dto.ts
+
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
