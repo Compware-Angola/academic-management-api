@@ -1667,4 +1667,79 @@ async listarEstudantesPorEstadoMatricula(filter: any) {
   };
 }
 
+async isentarColisaoMatricula(
+  matricula: number,
+  anoLectivo: number,
+  user: any,
+) {
+  const exists = await this.dataSource.query(
+    `
+      SELECT 1
+      FROM FK2_MGIM_TB_COLISAO_MATRICULA
+      WHERE CODIGO_MATRICULA = :1
+        AND CODIGO_ANOLECTIVO = :2
+      FETCH FIRST 1 ROWS ONLY
+    `,
+    [matricula, anoLectivo],
+  );
+
+  if (exists.length > 0) {
+    throw new BadRequestException(
+      'O estudante já está isento da colisão para este ano lectivo.',
+    );
+  }
+
+  await this.dataSource.query(
+    `
+      INSERT INTO FK2_MGIM_TB_COLISAO_MATRICULA
+        (CODIGO_MATRICULA, REF_UTILIZADOR, DATA, CODIGO_ANOLECTIVO)
+      VALUES
+        (:1, :2, SYSDATE, :3)
+    `,
+    [matricula, JSON.stringify(user), anoLectivo],
+  );
+
+  return {
+    message: 'Colisão aplicada por matrícula com sucesso.',
+  };
+}
+
+async isentarColisaoCurso(
+  curso: number,
+  turno: number,
+  anoLectivo: number,
+  user: any,
+) {
+  const exists = await this.dataSource.query(
+    `
+      SELECT 1
+      FROM FK2_MGIM_TB_COLISAO_CURSO
+      WHERE CODIGO_CURSO = :1
+        AND CODIGO_ANOLECTIVO = :2
+      FETCH FIRST 1 ROWS ONLY
+    `,
+    [curso, anoLectivo],
+  );
+
+  if (exists.length > 0) {
+    throw new BadRequestException(
+      'Este curso já está isento da colisão para este ano lectivo.',
+    );
+  }
+
+  await this.dataSource.query(
+    `
+      INSERT INTO FK2_MGIM_TB_COLISAO_CURSO
+        (CODIGO_CURSO, CODIGO_TURNO, REF_UTILIZADOR, DATA, CODIGO_ANOLECTIVO)
+      VALUES
+        (:1, :2, :3, SYSDATE, :4)
+    `,
+    [curso, turno, JSON.stringify(user), anoLectivo],
+  );
+
+  return {
+    message: 'Colisão aplicada por curso com sucesso.',
+  };
+}
+
 }

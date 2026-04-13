@@ -1,8 +1,11 @@
 import {
+  Body,
   Controller,
   Get,
   Injectable,
+  Post,
   Query,
+  Req,
   ValidationPipe,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -17,6 +20,8 @@ import { FindEstudanteMatriculadoDTO } from './dto/find-studantes-matriculadoDTO
 import { FindEstudantesSemInscricaoCursoDTO } from './dto/find-estudantes-sem-Inscricao-cursoDTO';
 import { FilterEstadoMatriculaHorarioDto } from './dto/listar-estado-matricula-por-horario.dto';
 import { FilterListarEstudantesPorEstadoMatriculaDto } from './dto/filter-listar-estudantes-por-estado-da-matricula.dto';
+import { IsentarColisaoMatriculaDto } from './dto/isentar-colisao-matricula.dto';
+import { IsentarColisaoCursoDto } from './dto/isentar-colisao-curso.dto';
 
 @ApiTags('registration')
 @Controller('registration')
@@ -101,6 +106,35 @@ async listarEstudantesPorEstadoMatricula(
   @Query() filter: FilterListarEstudantesPorEstadoMatriculaDto,
 ) {
   return this.registrationService.listarEstudantesPorEstadoMatricula(filter);
+}
+
+@Post('colisoes/matricula')
+@ApiOperation({ summary: 'Isentar colisão por matrícula' })
+@ApiResponse({ status: 201 })
+async isentarColisaoMatricula(
+  @Body() body: IsentarColisaoMatriculaDto,
+  @Req() req: any,
+) {
+  return this.registrationService.isentarColisaoMatricula(
+    body.matricula,
+    body.anoLectivo,
+    req.user,
+  );
+}
+
+@Post('colisoes/curso')
+@ApiOperation({ summary: 'Isentar colisão por curso' })
+@ApiResponse({ status: 201 })
+async isentarColisaoCurso(
+  @Body() body: IsentarColisaoCursoDto,
+  @Req() req: any,
+) {
+  return this.registrationService.isentarColisaoCurso(
+    body.curso,
+    body.turno,
+    body.anoLectivo,
+    req.user,
+  );
 }
 
 }
