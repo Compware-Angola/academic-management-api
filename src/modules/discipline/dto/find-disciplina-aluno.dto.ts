@@ -34,6 +34,15 @@ export class FindDisciplinaAlunoDTO {
   semestre?: number;
 
   @ApiPropertyOptional({
+    description: 'Filtrar por classe',
+    example: 1,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  classes: number;
+
+  @ApiPropertyOptional({
     description: 'Filtrar por matricula',
     example: 54595,
   })
