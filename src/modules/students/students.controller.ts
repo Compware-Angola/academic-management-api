@@ -10,9 +10,10 @@ import {
   HttpStatus,
   UseGuards,
   Req,
+  Post,
 } from '@nestjs/common';
 import { StudentsService } from './students.service';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import {
   FindStudentsDTO,
   ResetStudentPasswordDTO,
@@ -25,12 +26,15 @@ import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { AcademicHistoryDTO } from './dto/academic-history';
 import { StudentNoteService } from './sudents-notes.service';
 import { FindStudentNoteDTO } from './dto/find-student-notes.dto';
+import { CreateStudentEnrollmentUC } from './dto/create-student-enrollment-uc';
+import { StudentsEnrollmentUCService } from './students-enrollment-uc.service';
 
 @Controller('students')
 export class StudentsController {
   constructor(
     private readonly studentsService: StudentsService,
     private readonly studentNoteService: StudentNoteService,
+    private readonly studentEnrollment: StudentsEnrollmentUCService,
   ) {}
   @Get('estatistic/:codigoMatricula')
   async getProfile(@Param('codigoMatricula') codigoMatricula: number) {
@@ -130,5 +134,18 @@ export class StudentsController {
   })
   findStudentNotes(@Query(ValidationPipe) query: FindStudentNoteDTO) {
     return this.studentNoteService.findAll(query);
+  }
+
+  @Post('/enrollment-uc')
+  @ApiOperation({ summary: 'Fazer inscrição em UC' })
+  @ApiBody({ type: CreateStudentEnrollmentUC })
+  @ApiResponse({
+    status: 200,
+    description: 'Fazer inscrição em UC',
+  })
+  async createEnrollmentUc(
+    @Body(ValidationPipe) body: CreateStudentEnrollmentUC,
+  ) {
+    return this.studentEnrollment.enrollmentUc(body);
   }
 }
