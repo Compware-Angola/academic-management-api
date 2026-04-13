@@ -13,16 +13,27 @@ import {
 } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { FindStudentsDTO, ResetStudentPasswordDTO, UpdateStudentContactDTO, UpdateStudentPersonalDataDTO } from './dto/find-students.dto';
+import {
+  FindStudentsDTO,
+  ResetStudentPasswordDTO,
+  UpdateStudentContactDTO,
+  UpdateStudentPersonalDataDTO,
+} from './dto/find-students.dto';
 import { ActivateRegistrationDTO } from './dto/activate-registration.dto';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { AcademicHistoryDTO } from './dto/academic-history';
 import { ChangeCourseDTO } from './dto/change-course.dto';
 
+import { StudentNoteService } from './sudents-notes.service';
+import { FindStudentNoteDTO } from './dto/find-student-notes.dto';
+
 @Controller('students')
 export class StudentsController {
-  constructor(private readonly studentsService: StudentsService) { }
+  constructor(
+    private readonly studentsService: StudentsService,
+    private readonly studentNoteService: StudentNoteService,
+  ) {}
   @Get('estatistic/:codigoMatricula')
   async getProfile(@Param('codigoMatricula') codigoMatricula: number) {
     return this.studentsService.getProfileEstatistic(codigoMatricula);
@@ -87,7 +98,8 @@ export class StudentsController {
   @Put('active-registration')
   @ApiOperation({
     summary: 'Ativar matrícula de um estudante',
-    description: 'Ativa a matrícula do aluno e desativa automaticamente todas as isenções existentes.',
+    description:
+      'Ativa a matrícula do aluno e desativa automaticamente todas as isenções existentes.',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -104,10 +116,9 @@ export class StudentsController {
     description: 'Erro ao ativar matrícula',
   })
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-  async ativarMatricula(@Body() dto: ActivateRegistrationDTO,  @Req() req: any) {
-
-    const usuarioLogado = req.user
-    return this.studentsService.activateRegistration(dto,usuarioLogado);
+  async ativarMatricula(@Body() dto: ActivateRegistrationDTO, @Req() req: any) {
+    const usuarioLogado = req.user;
+    return this.studentsService.activateRegistration(dto, usuarioLogado);
   }
 
   @Get('academic-history')
@@ -121,4 +132,14 @@ export class StudentsController {
     return this.studentsService.academicHistory(query);
   }
 
+  @Get('notes')
+  @ApiOperation({ summary: 'Listar Notas de Estudantes matriculadas' })
+  @ApiResponse({
+    status: 200,
+    description: 'Listar  Notas de Estudantes matriculadas',
+    type: FindStudentsDTO,
+  })
+  findStudentNotes(@Query(ValidationPipe) query: FindStudentNoteDTO) {
+    return this.studentNoteService.findAll(query);
+  }
 }
