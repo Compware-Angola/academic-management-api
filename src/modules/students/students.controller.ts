@@ -24,6 +24,8 @@ import { ActivateRegistrationDTO } from './dto/activate-registration.dto';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { AcademicHistoryDTO } from './dto/academic-history';
+import { ChangeCourseDTO } from './dto/change-course.dto';
+
 import { StudentNoteService } from './sudents-notes.service';
 import { FindStudentNoteDTO } from './dto/find-student-notes.dto';
 import { CreateStudentEnrollmentUC } from './dto/create-student-enrollment-uc';
@@ -76,7 +78,16 @@ export class StudentsController {
   updateContactos(@Body(ValidationPipe) body: UpdateStudentContactDTO) {
     return this.studentsService.updateContactos(body);
   }
-
+  @Put('change-course')
+  @ApiOperation({ summary: 'Mudar curso do estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Curso do estudante alterado com sucesso',
+    type: ChangeCourseDTO,
+  })
+  changeCourse(@Body(ValidationPipe) body: ChangeCourseDTO) {
+    return this.studentsService.changeCourse(body);
+  }
   @Put('personal-data')
   @ApiOperation({ summary: 'Atualizar dados pessoais do estudante' })
   @ApiResponse({
