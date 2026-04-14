@@ -1,4 +1,4 @@
-// src/horarios/dto/listar-horarios.dto.ts
+
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -9,47 +9,74 @@ import {
   IsPositive,
   IsIn,
   Max,
+  IsString,
+  IsNotEmpty,
+  IsDateString,
 } from 'class-validator';
 
-export class FindDisciplinaAlunoDTO {
+export class AcademicHistoryDTO {
   @ApiProperty({
     description: 'Ano letivo obrigatório',
     example: 21,
     minimum: 1,
+    required: false,
   })
   @IsNumber()
   @IsPositive()
-  @Type(() => Number)
-  anoLectivo: number;
-
-  @ApiPropertyOptional({
-    description: 'Filtrar por semestre (1 ou 2)',
-    example: 1,
-    enum: [1, 2],
-  })
   @IsOptional()
-  @IsInt()
-  @IsIn([1, 2], { message: 'semestre deve ser 1 ou 2' })
   @Type(() => Number)
-  semestre?: number;
+  anoLectivoId?: number;
 
   @ApiPropertyOptional({
-    description: 'Filtrar por classe',
-    example: 1,
+    description: 'Codigo da Matricula',
+    example: 486,
+    required: false,
   })
   @IsOptional()
   @IsInt()
   @Type(() => Number)
-  classes: number;
+  matriculaId?: number;
 
   @ApiPropertyOptional({
-    description: 'Filtrar por matricula',
-    example: 54595,
+    description: 'Tipo de prova',
+    example: 486,
+    required: false,
   })
   @IsOptional()
   @IsInt()
   @Type(() => Number)
-  matriculaId: number;
+  tipoProvaId?: number;
+
+  @ApiPropertyOptional({
+    description: 'Tipo de avaliação',
+    example: 486,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  tipoAvaliacaoId?: number;
+
+  @ApiPropertyOptional({
+    description: 'Classe do aluno',
+    example: 486,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  classeId?: number;
+  @ApiPropertyOptional({
+    description: 'Campo de pesquisa para nome da unidade curricular',
+    example: "Matemática",
+
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @Type(() => String)
+  search?: string;
+
 
   @ApiPropertyOptional({
     description: 'Número da página',
@@ -77,3 +104,4 @@ export class FindDisciplinaAlunoDTO {
   @Type(() => Number)
   limit?: number = 25;
 }
+

@@ -18,6 +18,7 @@ export class DisciplineService {
                 matriculaId,
                 semestre,
                 anoLectivo,
+                classes,
                 limit = 25,
                 page = 1,
         }: FindDisciplinaAlunoDTO) {
@@ -28,6 +29,7 @@ export class DisciplineService {
     AND g.status_ = 1
     AND cfr.codigo_ano_lectivo = ${anoLectivo}
     ${semestre ? `AND s.codigo = ${semestre}` : ''}
+    ${classes ? `AND g.codigo_classe = ${classes}` : ''}
   `;
 
                 const sql = `

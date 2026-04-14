@@ -52,6 +52,7 @@ import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { AccessLogHelper } from '../common/helpers/access-log.helper';
 import { HttpService } from '@nestjs/axios';
+import { UpdatePersonUserDto } from './dto/update-person-user.dto';
 
 @Controller('acess_management')
 export class AcessManagementController {
@@ -148,7 +149,7 @@ export class AcessManagementController {
       usuarioLogado.sub,
     );
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-    await AccessLogHelper.logAccess(this.httpService, {
+     AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${usuarioLogado?.nome} Atualizou a senha do Utilizador ${dto.utilizadorId}`,
       fkAcesso: 155,
       fkFuncionalidade: 232,
@@ -166,7 +167,7 @@ export class AcessManagementController {
   @ApiNotFoundResponse({ description: 'Utilizador não encontrado' })
   async updateUser(
     @Param('personId', ParseIntPipe) personId: number,
-    @Body(ValidationPipe) dto: CreatePersonUserDto,
+    @Body(ValidationPipe) dto: UpdatePersonUserDto,
     @Req() req: any,
   ) {
     const usuarioLogado = req.user;
@@ -175,6 +176,7 @@ export class AcessManagementController {
       dto,
       usuarioLogado.sub,
     );
+   /*
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
      AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${usuarioLogado?.nome} Atualizou os dados do Utilizador ${userDateResponse.username}`,
@@ -184,6 +186,8 @@ export class AcessManagementController {
       fkOperacaoLog: 7,
       ip: ip,
     });
+    */
+   //TODO: CRIAR OUTRA ROTA PARA LOG DE ATUALIZAÇÃO DE DADOS DO UTILIZADOR, POIS A ATUALIZAÇÃO DE DADOS PESSOAIS NÃO DEVE GERAR O MESMO LOG DE ACESSO QUE A ATUALIZAÇÃO DE SENHA, POR EXEMPLO. FALTA DEFINIR MELHOR OS TIPOS DE LOGS E ACESSOS PARA CADA AÇÃO.
     return userDateResponse;
   } 
 
