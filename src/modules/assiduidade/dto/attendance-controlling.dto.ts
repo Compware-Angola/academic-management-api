@@ -1,10 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsOptional, Min } from 'class-validator';
+import {
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  Min,
+  IsString,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class AtendanceControlling {
-
-
   @ApiProperty({
     description: 'ID do Docente',
     example: 5,
@@ -66,14 +70,23 @@ export class AtendanceControlling {
   semestre?: number;
 
   @ApiProperty({
-  description: 'Grade Curricular',
-  example: 10,
-  required: false,
-})
-@IsOptional()
-@IsInt()
-@Type(() => Number)
-gradeCurricular?: number;
+    description: 'Grade Curricular',
+    example: 10,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  gradeCurricular?: number;
+
+  @ApiProperty({
+    description: 'Pesquisa por código, docente, curso ou unidade curricular',
+    example: 'matemática',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
 
   @ApiProperty({
     description: 'Número da página (começa em 1)',
