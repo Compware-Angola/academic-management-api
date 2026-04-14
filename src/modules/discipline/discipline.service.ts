@@ -34,6 +34,7 @@ export class DisciplineService {
 
                 const sql = `
     SELECT DISTINCT
+      al.codigo_grade_curricular AS codigo_grade_curricular,
       d.designacao        AS disciplina,
       d.codigo_disciplina AS codigo_disciplina,
       s.designacao        AS semestre,
