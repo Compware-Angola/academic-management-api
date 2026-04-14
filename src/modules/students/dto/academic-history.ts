@@ -66,6 +66,17 @@ export class AcademicHistoryDTO {
   @IsInt()
   @Type(() => Number)
   classeId?: number;
+  @ApiPropertyOptional({
+    description: 'Campo de pesquisa para nome da unidade curricular',
+    example: "Matemática",
+
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @Type(() => String)
+  search?: string;
+
 
   @ApiPropertyOptional({
     description: 'Número da página',
