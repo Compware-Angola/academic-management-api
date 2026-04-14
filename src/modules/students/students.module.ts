@@ -8,6 +8,7 @@ import { AnoLectivoUtil } from '../util/current-academic-year';
 
 import { StudentNoteService } from './sudents-notes.service';
 import { StudentsEnrollmentUCService } from './students-enrollment-uc.service';
+import { StudentsEnrollmentPendentUCService } from './students-pendent-uc.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([AcademicYear])],
@@ -18,6 +19,7 @@ import { StudentsEnrollmentUCService } from './students-enrollment-uc.service';
     AnoLectivoUtil,
     StudentNoteService,
     StudentsEnrollmentUCService,
+    StudentsEnrollmentPendentUCService,
   ],
 })
 export class StudentsModule {}

@@ -30,6 +30,8 @@ import { StudentNoteService } from './sudents-notes.service';
 import { FindStudentNoteDTO } from './dto/find-student-notes.dto';
 import { CreateStudentEnrollmentUC } from './dto/create-student-enrollment-uc';
 import { StudentsEnrollmentUCService } from './students-enrollment-uc.service';
+import { FindPendentUCDTO } from './dto/find-pendent-uc.dto';
+import { StudentsEnrollmentPendentUCService } from './students-pendent-uc.service';
 
 @Controller('students')
 export class StudentsController {
@@ -37,6 +39,7 @@ export class StudentsController {
     private readonly studentsService: StudentsService,
     private readonly studentNoteService: StudentNoteService,
     private readonly studentEnrollment: StudentsEnrollmentUCService,
+    private readonly studentsEnrollmentPendentUCService: StudentsEnrollmentPendentUCService,
   ) {}
   @Get('estatistic/:codigoMatricula')
   async getProfile(@Param('codigoMatricula') codigoMatricula: number) {
@@ -147,7 +150,7 @@ export class StudentsController {
     return this.studentNoteService.findAll(query);
   }
 
-  @Post('/enrollment-uc')
+  @Post('/enrollment/uc')
   @ApiOperation({ summary: 'Fazer inscrição em UC' })
   @ApiBody({ type: CreateStudentEnrollmentUC })
   @ApiResponse({
@@ -158,5 +161,15 @@ export class StudentsController {
     @Body(ValidationPipe) body: CreateStudentEnrollmentUC,
   ) {
     return this.studentEnrollment.enrollmentUc(body);
+  }
+  @Get('/enrollment/pendent-uc')
+  @ApiOperation({ summary: 'Listar Uc pendentes de um estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Listar Uc pendentes de um estudante',
+    type: FindPendentUCDTO,
+  })
+  findPendetUc(@Query(ValidationPipe) query: FindPendentUCDTO) {
+    return this.studentsEnrollmentPendentUCService.findPendent(query);
   }
 }

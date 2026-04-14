@@ -1,7 +1,13 @@
 // src/horarios/dto/listar-horarios.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsNumber, IsPositive } from 'class-validator';
+import {
+  IsArray,
+  IsInt,
+  IsNumber,
+  IsPositive,
+  IsString,
+} from 'class-validator';
 
 export class CreateStudentEnrollmentUC {
   @ApiProperty({
@@ -25,15 +31,16 @@ export class CreateStudentEnrollmentUC {
   codigoMatricula: number;
 
   @ApiProperty({
-    description: 'Grade Curricular',
-    example: 21,
-    minimum: 1,
+    description: 'Grade Curricular (lista de códigos)',
+    example: [21, 22, 23],
+    type: [Number],
     required: false,
   })
-  @IsNumber()
-  @IsPositive()
+  @IsArray()
+  @IsNumber({}, { each: true })
+  @IsPositive({ each: true })
   @Type(() => Number)
-  codigoGrade: number;
+  codigoGrades: number[];
 
   @ApiProperty({
     description: 'Grade Curricular',
@@ -45,4 +52,13 @@ export class CreateStudentEnrollmentUC {
   @IsPositive()
   @Type(() => Number)
   epoca: number;
+  @ApiProperty({
+    description: 'Observação',
+    example: 'Falta de Grade Curricular',
+    minimum: 1,
+    required: false,
+  })
+  @IsString()
+  @Type(() => String)
+  observacao;
 }
