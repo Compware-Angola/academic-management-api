@@ -10,9 +10,16 @@ import {
   HttpStatus,
   UseGuards,
   Req,
+  Patch,
+  Post,
 } from '@nestjs/common';
 import { StudentsService } from './students.service';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
+
+import { FilterMapaAnualFinalistasDto } from './dto/filter-mapa-anual-finalista.dto';
+import { FilterRegistoPrimarioExamesAcessoDto } from './dto/filter-registo-primario-exames-acesso.dto';
+import { FilterRegistoPrimarioMatriculadosDto } from './dto/filter-registo-primario-matriculados.dto';
+
 import {
   FindStudentsDTO,
   ResetStudentPasswordDTO,
@@ -27,12 +34,18 @@ import { ChangeCourseDTO } from './dto/change-course.dto';
 
 import { StudentNoteService } from './sudents-notes.service';
 import { FindStudentNoteDTO } from './dto/find-student-notes.dto';
+import { CreateStudentEnrollmentUC } from './dto/create-student-enrollment-uc';
+import { StudentsEnrollmentUCService } from './students-enrollment-uc.service';
+import { FindPendentUCDTO } from './dto/find-pendent-uc.dto';
+import { StudentsEnrollmentPendentUCService } from './students-pendent-uc.service';
 
 @Controller('students')
 export class StudentsController {
   constructor(
     private readonly studentsService: StudentsService,
     private readonly studentNoteService: StudentNoteService,
+    private readonly studentEnrollment: StudentsEnrollmentUCService,
+    private readonly studentsEnrollmentPendentUCService: StudentsEnrollmentPendentUCService,
   ) {}
   @Get('estatistic/:codigoMatricula')
   async getProfile(@Param('codigoMatricula') codigoMatricula: number) {
@@ -53,7 +66,34 @@ export class StudentsController {
     return this.studentsService.findStudents(query);
   }
 
-  @Put('reset-password')
+  @Get('mapa-anual-finalistas')
+  @ApiOperation({ summary: 'Mapa anual de estudantes finalistas' })
+  @ApiResponse({ status: 200 })
+  async listarMapaAnualFinalistas(
+    @Query() filter: FilterMapaAnualFinalistasDto,
+  ) {
+    return this.studentsService.listarMapaAnualFinalistas(filter);
+  }
+
+  @Get('registo-primario-exames-acesso')
+  @ApiOperation({ summary: 'Listar registo primário de exames de acesso' })
+  @ApiResponse({ status: 200 })
+  async listarRegistoPrimarioExamesAcesso(
+    @Query() filter: FilterRegistoPrimarioExamesAcessoDto,
+  ) {
+    return this.studentsService.listarRegistoPrimarioExamesAcesso(filter);
+  }
+
+  @Get('registo-primario-matriculados')
+  @ApiOperation({ summary: 'Listar registo primário de matriculados' })
+  @ApiResponse({ status: 200 })
+  async listarRegistoPrimarioMatriculados(
+    @Query() filter: FilterRegistoPrimarioMatriculadosDto,
+  ) {
+    return this.studentsService.listarRegistoPrimarioMatriculados(filter);
+  }
+
+  @Patch('reset-password')
   @ApiOperation({ summary: 'Resetar senha do estudante' })
   @ApiResponse({
     status: 200,
@@ -141,5 +181,28 @@ export class StudentsController {
   })
   findStudentNotes(@Query(ValidationPipe) query: FindStudentNoteDTO) {
     return this.studentNoteService.findAll(query);
+  }
+
+  @Post('/enrollment/uc')
+  @ApiOperation({ summary: 'Fazer inscrição em UC' })
+  @ApiBody({ type: CreateStudentEnrollmentUC })
+  @ApiResponse({
+    status: 200,
+    description: 'Fazer inscrição em UC',
+  })
+  async createEnrollmentUc(
+    @Body(ValidationPipe) body: CreateStudentEnrollmentUC,
+  ) {
+    return this.studentEnrollment.enrollmentUc(body);
+  }
+  @Get('/enrollment/pendent-uc')
+  @ApiOperation({ summary: 'Listar Uc pendentes de um estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Listar Uc pendentes de um estudante',
+    type: FindPendentUCDTO,
+  })
+  findPendetUc(@Query(ValidationPipe) query: FindPendentUCDTO) {
+    return this.studentsEnrollmentPendentUCService.findPendent(query);
   }
 }
