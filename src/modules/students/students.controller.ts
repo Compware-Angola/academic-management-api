@@ -34,7 +34,6 @@ import { ChangeCourseDTO } from './dto/change-course.dto';
 
 import { StudentNoteService } from './sudents-notes.service';
 import { FindStudentNoteDTO } from './dto/find-student-notes.dto';
->>>>>>> 4dd0c2e8f77600abc51ea7de83c90db12a1b6b68
 
 @Controller('students')
 export class StudentsController {
