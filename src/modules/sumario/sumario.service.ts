@@ -176,7 +176,7 @@ FETCH NEXT :limit ROWS ONLY
         limit,
         totalPages: total > 0 ? Math.ceil(total / limit) : 1,
       };
-    } catch (error) {
+    } catch (error:any) {
       console.error('Erro ao buscar agendamentos de al:', error);
       throw new Error(`Falha ao consultar agendamentos: ${error.message}`);
     }
@@ -217,7 +217,7 @@ FETCH NEXT :limit ROWS ONLY
       } as any);
 
       return { success: true, message: 'Sumário criado com sucesso' };
-    } catch (error) {
+    } catch (error:any) {
       console.error('Erro ao criar sumário:', error);
       throw new Error(`Falha ao criar sumário: ${error.message}`);
     }
@@ -273,7 +273,7 @@ FETCH NEXT :limit ROWS ONLY
     try {
       await this.dataSource.query(updateSql, params);
       return { success: true, message: 'Sumário atualizado com sucesso' };
-    } catch (error) {
+    } catch (error:any) {
       console.error('Erro ao atualizar sumário:', error);
       throw new Error(`Falha ao atualizar sumário: ${error.message}`);
     }
@@ -296,6 +296,7 @@ FETCH NEXT :limit ROWS ONLY
 
     const conditions: string[] = [
       "aa.ACTIVE_STATE = 1",
+      "ew.SIGLA!= 'ab'",
       "aa.DATA_AULA BETWEEN :dataInicial AND :dataFinal",
     ];
 
@@ -324,7 +325,7 @@ SELECT
   MIN(aa.PK_AGENDAMENTO_AULA) AS codigo_agendamento,
   JSON_VALUE(al.REF_DOCENTE,'$.nome') AS docente,
   d.DESIGNACAO AS unidade_curricular,
-  MIN(h.DESIGNACAO) AS horario,
+  h.DESIGNACAO AS horario,                    -- ← Alterado
   MIN(c2.DESIGNACAO) AS curso,
 
   /* CONTROLE DE SUMARIOS */
@@ -349,32 +350,30 @@ SELECT
   ) AS sumario_com_assid
 
 FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
-
 INNER JOIN FK2_MGH_TB_AULA al
   ON JSON_VALUE(aa.REF_AULA,'$.pkAula') = al.PK_AULA
-
 INNER JOIN FK2_MGH_TB_HORARIO h
   ON al.FK_HORARIO = h.PK_HORARIO
-
 INNER JOIN FK2_TB_GRADE_CURRICULAR gc
   ON aa.FK_GRADE_CURRICULAR = gc.CODIGO
-
 LEFT JOIN FK2_TB_DISCIPLINAS d
   ON gc.CODIGO_DISCIPLINA = d.CODIGO
-
 LEFT JOIN FK2_TB_CURSOS c2
   ON gc.CODIGO_CURSO = c2.CODIGO
-
 LEFT JOIN FK2_MSA_TB_SUMARIO s
   ON s.FK_AGENDAMENTO_AULA = aa.PK_AGENDAMENTO_AULA
+ LEFT JOIN "FK2_MGH_TB_ESTADO_HORARIO_WF" ew
+  ON h."FK_ESTADO_HORARIO_WF" = ew."PK_ESTADO_HORARIO_WF"
 
 ${whereClause}
 
 GROUP BY
   JSON_VALUE(al.REF_DOCENTE,'$.nome'),
-  d.DESIGNACAO
+  d.DESIGNACAO,
+  h.DESIGNACAO,           -- ← Adicionado aqui
+  h.PK_HORARIO            -- ← Recomendado (mais seguro)
 
-ORDER BY docente
+ORDER BY docente, unidade_curricular, horario
 
 OFFSET :offset ROWS
 FETCH NEXT :limit ROWS ONLY
@@ -384,32 +383,26 @@ FETCH NEXT :limit ROWS ONLY
 SELECT COUNT(*) AS total FROM (
   SELECT
     JSON_VALUE(al.REF_DOCENTE,'$.nome'),
-    d.DESIGNACAO
+    d.DESIGNACAO,
+    h.DESIGNACAO,
+    h.PK_HORARIO
   FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
-
-  INNER JOIN FK2_MGH_TB_AULA al
-    ON JSON_VALUE(aa.REF_AULA,'$.pkAula') = al.PK_AULA
-
-  INNER JOIN FK2_MGH_TB_HORARIO h
-    ON al.FK_HORARIO = h.PK_HORARIO
-
-  INNER JOIN FK2_TB_GRADE_CURRICULAR gc
-    ON aa.FK_GRADE_CURRICULAR = gc.CODIGO
-
-  LEFT JOIN FK2_TB_DISCIPLINAS d
-    ON gc.CODIGO_DISCIPLINA = d.CODIGO
-
-  LEFT JOIN FK2_TB_CURSOS c2
-    ON gc.CODIGO_CURSO = c2.CODIGO
-
-  LEFT JOIN FK2_MSA_TB_SUMARIO s
-    ON s.FK_AGENDAMENTO_AULA = aa.PK_AGENDAMENTO_AULA
+  INNER JOIN FK2_MGH_TB_AULA al ON JSON_VALUE(aa.REF_AULA,'$.pkAula') = al.PK_AULA
+  INNER JOIN FK2_MGH_TB_HORARIO h ON al.FK_HORARIO = h.PK_HORARIO
+  INNER JOIN FK2_TB_GRADE_CURRICULAR gc ON aa.FK_GRADE_CURRICULAR = gc.CODIGO
+  LEFT JOIN FK2_TB_DISCIPLINAS d ON gc.CODIGO_DISCIPLINA = d.CODIGO
+  LEFT JOIN FK2_TB_CURSOS c2 ON gc.CODIGO_CURSO = c2.CODIGO
+  LEFT JOIN FK2_MSA_TB_SUMARIO s ON s.FK_AGENDAMENTO_AULA = aa.PK_AGENDAMENTO_AULA
+    LEFT JOIN "FK2_MGH_TB_ESTADO_HORARIO_WF" ew
+        ON h."FK_ESTADO_HORARIO_WF" = ew."PK_ESTADO_HORARIO_WF"
 
   ${whereClause}
 
   GROUP BY
     JSON_VALUE(al.REF_DOCENTE,'$.nome'),
-    d.DESIGNACAO
+    d.DESIGNACAO,
+    h.DESIGNACAO,
+    h.PK_HORARIO
 )
 `;
 
@@ -450,7 +443,7 @@ SELECT COUNT(*) AS total FROM (
         limit,
         totalPages: total > 0 ? Math.ceil(total / limit) : 1,
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao buscar estatísticas:", error);
       throw new Error(`Falha ao consultar estatísticas: ${error.message}`);
     }
@@ -628,7 +621,7 @@ ${whereClause}
         limit,
         totalPages: total > 0 ? Math.ceil(total / limit) : 1,
       };
-    } catch (error) {
+    } catch (error:any) {
       console.error('Erro ao buscar sumários:', error);
       throw new Error(`Falha ao consultar sumários: ${error.message}`);
     }
@@ -687,7 +680,7 @@ ${whereClause}
     try {
       await this.dataSource.query(updateSql, params as any);
       return { success: true, message: 'Sumário atualizado com sucesso' };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao atualizar sumário:', error);
       throw new Error(`Falha ao atualizar sumário: ${error.message}`);
     }
