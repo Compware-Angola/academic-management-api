@@ -27,7 +27,7 @@ export class DocenteGestaoService {
 
     const baseWhere = `
     ACTIVE_STATE = 1
-    ${search ? `AND (DESIGNACAO LIKE '%${search}%' OR SIGLA LIKE '%${search}%')` : ''}
+   ${search ? `AND (LOWER(DESIGNACAO) LIKE LOWER('%${search}%') OR LOWER(SIGLA) LIKE LOWER('%${search}%'))` : ''}
   `;
 
     const sql = `
@@ -334,7 +334,7 @@ export class DocenteGestaoService {
         codigo,
         status,
       } as any);
-    } catch (error) {
+    } catch (error:any) {
       throw new BadRequestException(error.message);
     }
   }
@@ -688,7 +688,7 @@ export class DocenteGestaoService {
         utilizadorSincronizado: { pk: UTIL_CODIGO, desc },
         camposAtualizados: fields.length - 1,
       };
-    } catch (error) {
+    } catch (error:any) {
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
