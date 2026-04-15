@@ -7,14 +7,19 @@ import { TypeOrmModule } from '@nestjs/typeorm/dist/typeorm.module';
 import { AnoLectivoUtil } from '../util/current-academic-year';
 
 import { StudentNoteService } from './sudents-notes.service';
+import { StudentsEnrollmentUCService } from './students-enrollment-uc.service';
+import { StudentsEnrollmentPendentUCService } from './students-pendent-uc.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([AcademicYear])],
   controllers: [StudentsController],
 
-  providers: [StudentsService,AnoLectivoUtil,StudentNoteService],
-
-
-
+  providers: [
+    StudentsService,
+    AnoLectivoUtil,
+    StudentNoteService,
+    StudentsEnrollmentUCService,
+    StudentsEnrollmentPendentUCService,
+  ],
 })
 export class StudentsModule {}

@@ -13,7 +13,7 @@ import {
 } from './dto/find-students.dto';
 import { gerarHashExterno } from '../util/hash.util';
 import { ActivateRegistrationDTO } from './dto/activate-registration.dto';
-import { AcademicHistoryDTO } from './dto/academic-history';
+import { AcademicHistoryDTO, TipoAcademicHistoryEnum } from './dto/academic-history';
 import { ChangeCourseDTO } from './dto/change-course.dto';
 import { AnoLectivoUtil } from '../util/current-academic-year';
 import { FilterMapaAnualFinalistasDto } from './dto/filter-mapa-anual-finalista.dto';
@@ -35,6 +35,7 @@ export class StudentsService {
     c.designacao           AS curso,
     c.codigo               AS curso_codigo,
     pe.DESIGNACAO          AS periodo,
+    pe.codigo              AS periodo_codigo,
     m.ESTADO_MATRICULA     AS estado,
     p.Nome_Completo        AS nome_completo,
     p.Bilhete_Identidade   AS bi_aluno,
@@ -1172,7 +1173,7 @@ WHERE M."CODIGO" = :codigoMatricula`;
   }
 
   async academicHistory(dto: AcademicHistoryDTO) {
-    const { anoLectivoId, matriculaId, tipoProvaId, tipoAvaliacaoId, classeId, search, page = 1, limit = 10 } = dto;
+    const { anoLectivoId, matriculaId, tipoProvaId, tipoAvaliacaoId, classeId, search, page = 1, limit = 10,tipo=TipoAcademicHistoryEnum.NORMAL } = dto;
 
     const offset = (page - 1) * limit;
 
@@ -1210,6 +1211,9 @@ WHERE M."CODIGO" = :codigoMatricula`;
       GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
       AND MAT.CODIGO = :matriculaId
       AND AVA.TIPO_AVALIACAO IS NOT NULL
+      ${tipo === TipoAcademicHistoryEnum.MIGRACAO  ? 'AND GCA.CANAL = 8'
+         : tipo === TipoAcademicHistoryEnum.EQUIVALENCIA ? 'AND GCA.EQUIVALENCIA = 1'
+         : 'AND GCA.EQUIVALENCIA = 0'}
       ${tipoProvaId ? 'AND AVA.TIPO_DE_PROVA = :tipoProvaId' : ''}
       ${tipoAvaliacaoId ? 'AND AVA.TIPO_AVALIACAO = :tipoAvaliacaoId' : ''}
       ${classeId ? 'AND GC.CODIGO_CLASSE = :classeId' : ''}
@@ -1234,6 +1238,8 @@ WHERE M."CODIGO" = :codigoMatricula`;
     if (tipoProvaId) params.tipoProvaId = tipoProvaId;
     if (tipoAvaliacaoId) params.tipoAvaliacaoId = tipoAvaliacaoId;
     if (classeId) params.classeId = classeId;
+   
+    
     if (search) params.search = `%${search}%`;
 
     const result = await this.dataSource.query(query, params as any);
