@@ -51,6 +51,12 @@ export class FilterInscritosPorUcDto {
   @IsInt()
   cadeira?: number = 0;
 
+  @ApiPropertyOptional({ example: 0, description: '0 = todos' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  horario?: number = 0;
+
   @ApiPropertyOptional({
     example: '0',
     description: '0 = todos, 1 = Em curso, 2 = Pendente',

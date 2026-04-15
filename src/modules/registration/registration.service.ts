@@ -9,8 +9,13 @@ import { FindInscricaoSemUCDTO } from './dto/find-inscricao-sem-ucDTO';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FilterListagemGeralEstudantesDto } from './dto/filter-listagem-geral-de-estudantes.dto';
 import { FilterInscritosPorUcDto } from './dto/filtrar-inscritos-por-uc.dto';
+<<<<<<< HEAD
 import { FilterHorariosPorUcDto } from './dto/filter-horarios-por-uc.dto';
 import { FindEstudanteMatriculadoDTO } from './dto/find-studantes-matriculadoDTO';
+=======
+import { FilterHorariosInscritosPorUcDto } from './dto/filter-horarios-inscritos-por-uc';
+
+>>>>>>> c1bbd56 (feat: ...)
 @Injectable()
 export class RegistrationService {
   constructor(private readonly dataSource: DataSource) {}
@@ -466,7 +471,7 @@ export class RegistrationService {
     };
   }
 
-  async listarInscritosPorUc(filter: FilterInscritosPorUcDto) {
+async listarInscritosPorUc(filter: FilterInscritosPorUcDto) {
   const {
     page = 1,
     limit = 10,
@@ -476,6 +481,7 @@ export class RegistrationService {
     semestre = 0,
     periodo = 0,
     cadeira = 0,
+    horario = 0,
     estado = '0',
     search,
   } = filter;
@@ -486,6 +492,7 @@ export class RegistrationService {
     '0': null,
     '1': 'Em curso',
     '2': 'Pendente',
+    '3': 'Fez com Sucesso'
   };
 
   const estadoNome = estadoMap[String(estado)] ?? null;
@@ -499,10 +506,10 @@ export class RegistrationService {
     anoCurricular_zero: anoCurricular,
     semestre,
     semestre_zero: semestre,
-    periodo,
-    periodo_zero: periodo,
     cadeira,
     cadeira_zero: cadeira,
+    horario,
+    horario_zero: horario,
   };
 
   let whereClause = `
@@ -511,7 +518,10 @@ export class RegistrationService {
       AND (tgc.CODIGO_CLASSE = :anoCurricular OR :anoCurricular_zero = 0)
       AND (tgc.CODIGO_SEMESTRE = :semestre OR :semestre_zero = 0)
       AND (tal.CODIGO = :anoLectivo OR :anoLectivo_zero = 0)
-      AND (tpd.CODIGO = :periodo OR :periodo_zero = 0)
+      AND (
+        :horario_zero = 0
+        OR JSON_VALUE(tgca.REF_HORARIO, '$.pk') = TO_CHAR(:horario)
+      )
   `;
 
   if (estadoNome) {
@@ -533,56 +543,62 @@ export class RegistrationService {
   }
 
   const baseFrom = `
-    FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
-    INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
-      ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
-    INNER JOIN FK2_TB_MATRICULAS tm
-      ON tm.CODIGO = tgca.CODIGO_MATRICULA
-    INNER JOIN FK2_TB_ADMISSAO ta
-      ON ta.CODIGO = tm.CODIGO_ALUNO
-    INNER JOIN FK2_TB_PREINSCRICAO tp
-      ON tp.CODIGO = ta.PRE_INCRICAO
-    INNER JOIN FK2_TB_CURSOS tc
-      ON tc.CODIGO = tm.CODIGO_CURSO
-    INNER JOIN FK2_TB_STATUS_GRADE_CURRICULAR tsgc
-      ON tsgc.CODIGO = tgca.CODIGO_STATUS_GRADE_CURRICULAR
-    INNER JOIN FK2_TB_CONFIRMACOES tcf
-      ON tcf.CODIGO_MATRICULA = tm.CODIGO
-    INNER JOIN FK2_TB_ANO_LECTIVO tal
-      ON tal.CODIGO = tcf.CODIGO_ANO_LECTIVO
-    INNER JOIN FK2_TB_PERIODOS tpd
-      ON tpd.CODIGO = tm.CANAL
-  `;
+  FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+  INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+    ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
+  INNER JOIN FK2_TB_MATRICULAS tm
+    ON tm.CODIGO = tgca.CODIGO_MATRICULA
+  INNER JOIN FK2_TB_ADMISSAO ta
+    ON ta.CODIGO = tm.CODIGO_ALUNO
+  INNER JOIN FK2_TB_PREINSCRICAO tp
+    ON tp.CODIGO = ta.PRE_INCRICAO
+  INNER JOIN FK2_TB_CURSOS tc
+    ON tc.CODIGO = tm.CODIGO_CURSO
+  INNER JOIN FK2_TB_STATUS_GRADE_CURRICULAR tsgc
+    ON tsgc.CODIGO = tgca.CODIGO_STATUS_GRADE_CURRICULAR
+  INNER JOIN FK2_TB_CONFIRMACOES tcf
+    ON tcf.CODIGO_MATRICULA = tm.CODIGO
+  INNER JOIN FK2_TB_ANO_LECTIVO tal
+    ON tal.CODIGO = tcf.CODIGO_ANO_LECTIVO
+  LEFT JOIN FK2_TB_BOLSEIROS fb
+    ON fb.CODIGO_MATRICULA = tm.CODIGO
+    AND fb.CODIGO_ANOLECTIVO = :anoLectivo
+    AND fb.SEMESTRE = tgc.CODIGO_SEMESTRE
+    AND fb.STATUS_ = 0
+  LEFT JOIN FK2_TB_INSTITUICAO i
+    ON i.CODIGO = fb.CODIGO_INSTITUICAO
+`;
 
   const sql = `
-    SELECT *
+  SELECT *
+  FROM (
+    SELECT
+      q.*,
+      ROW_NUMBER() OVER (ORDER BY q.NOME ASC) AS RN
     FROM (
-      SELECT
-        q.*,
-        ROW_NUMBER() OVER (ORDER BY q.NOME ASC) AS RN
-      FROM (
-        SELECT DISTINCT
-          tm.CODIGO AS MATRICULA,
-          tp.NOME_COMPLETO AS NOME,
-          '-' AS TIPO_ALUNO,
-          tc.DESIGNACAO AS CURSO,
-          tsgc.DESIGNACAO AS ESTADO
-        ${baseFrom}
-        ${whereClause}
-      ) q
-    ) t
-    WHERE t.RN BETWEEN :offset + 1 AND :offset + :limit
-    ORDER BY t.RN
-  `;
+      SELECT DISTINCT
+        tm.CODIGO AS MATRICULA,
+        tp.NOME_COMPLETO AS NOME,
+        NVL(fn_tipo_estudante(fb.CODIGO, i.RENUNCIA, fb.CODIGO_TIPO_BOLSA), '-') AS TIPO_ALUNO,
+        tc.DESIGNACAO AS CURSO,
+        tsgc.DESIGNACAO AS ESTADO
+      ${baseFrom}
+      ${whereClause}
+    ) q
+  ) t
+  WHERE t.RN BETWEEN :offset + 1 AND :offset + :limit
+  ORDER BY t.RN
+`;
 
   const countSql = `
     SELECT COUNT(*) AS TOTAL
     FROM (
       SELECT DISTINCT
-        tm.CODIGO AS MATRICULA,
-        tp.NOME_COMPLETO AS NOME,
-        tc.DESIGNACAO AS CURSO,
-        tsgc.DESIGNACAO AS ESTADO
+  tm.CODIGO AS MATRICULA,
+  tp.NOME_COMPLETO AS NOME,
+  NVL(fn_tipo_estudante(fb.CODIGO, i.RENUNCIA, fb.CODIGO_TIPO_BOLSA), '-') AS TIPO_ALUNO,
+  tc.DESIGNACAO AS CURSO,
+  tsgc.DESIGNACAO AS ESTADO
       ${baseFrom}
       ${whereClause}
     ) x
@@ -623,32 +639,52 @@ export class RegistrationService {
   };
 }
 
-async listarHorariosPorUc(filter: FilterHorariosPorUcDto) {
+async listarHorariosDisponiveisInscritosPorUc(
+  filter: FilterHorariosInscritosPorUcDto,
+) {
   const {
     anoLectivo = 0,
+    curso = 0,
+    anoCurricular = 0,
     semestre = 0,
     periodo = 0,
     cadeira = 0,
   } = filter;
 
   const sql = `
-    SELECT
-      PK_HORARIO AS CODIGO,
-      DESIGNACAO
-    FROM FK2_MGH_TB_HORARIO
-    WHERE (FK_GRADE_CURRICULAR = :cadeira OR :cadeira = 0)
-      AND (FK_ANO_LECTIVO = :anoLectivo OR :anoLectivo = 0)
-      AND (FK_SEMESTRE = :semestre OR :semestre = 0)
-      AND (FK_PERIODO = :periodo OR :periodo = 0)
+    SELECT DISTINCT
+      JSON_VALUE(
+        tgca.REF_HORARIO,
+        '$.pk' RETURNING NUMBER NULL ON ERROR
+      ) AS CODIGO,
+      JSON_VALUE(tgca.REF_HORARIO, '$.desc') AS DESIGNACAO
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+    INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+      ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
+    INNER JOIN FK2_TB_MATRICULAS tm
+      ON tm.CODIGO = tgca.CODIGO_MATRICULA
+    INNER JOIN FK2_TB_CONFIRMACOES tcf
+      ON tcf.CODIGO_MATRICULA = tm.CODIGO
+    WHERE (tgc.CODIGO = :cadeira OR :cadeira = 0)
+      AND (tm.CODIGO_CURSO = :curso OR :curso = 0)
+      AND (tgc.CODIGO_CLASSE = :anoCurricular OR :anoCurricular = 0)
+      AND (tgc.CODIGO_SEMESTRE = :semestre OR :semestre = 0)
+      AND (tcf.CODIGO_ANO_LECTIVO = :anoLectivo OR :anoLectivo = 0)
+      AND JSON_VALUE(
+        tgca.REF_HORARIO,
+        '$.pk' RETURNING NUMBER NULL ON ERROR
+      ) IS NOT NULL
     ORDER BY DESIGNACAO ASC
   `;
 
   return await this.dataSource.query(sql, {
-    cadeira,
     anoLectivo,
+    curso,
+    anoCurricular,
     semestre,
-    periodo,
+    cadeira,
   } as any);
 }
+
 
 }
