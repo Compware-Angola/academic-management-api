@@ -7,7 +7,7 @@ import { AssessmentModule } from './modules/assessment/assessment.module';
 import { RoonModule } from './modules/room/roon.module';
 import { ExemptDaysModule } from './modules/exempt_days/exempt_days.module';
 import { AcademicActivitiesModule } from './modules/academic_activities/academic_activities.module';
-import { TeacherModule } from './modules/teacher/teacher.module';
+import { TeacherModule } from './modules/users/users.module';
 import { ScheduleModule } from './modules/schedule/schedule.module';
 import { HistoryNoteReleaseService } from './modules/assessment/history_note_release.service';
 import { AcessManagementModule } from './modules/acess_management/acess_management.module';
@@ -75,7 +75,7 @@ import { CustomThrottlerGuard } from './modules/common/guard/Custom-Throttler.gu
 
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: false,
-      logging: ['error'],           // remove 'query' em produção (muito barulhento)
+      logging: ['query', 'error'],
 
       // ==================== CONFIGURAÇÃO DO POOL ====================
       poolSize: 20,                 // ← Número máximo de conexões (ajusta conforme teu servidor)

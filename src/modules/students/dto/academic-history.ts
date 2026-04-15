@@ -1,4 +1,4 @@
-// src/horarios/dto/listar-horarios.dto.ts
+
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -9,78 +9,90 @@ import {
   IsPositive,
   IsIn,
   Max,
-  IsNotEmpty,
   IsString,
+  IsNotEmpty,
+  IsDateString,
+  IsEnum,
 } from 'class-validator';
-
-export class FindDocenteAfectacaoDTO {
+export enum TipoAcademicHistoryEnum {
+  NORMAL = 'normal',
+  EQUIVALENCIA = 'equivalencia',
+  MIGRACAO = 'migracao',
+}
+export class AcademicHistoryDTO {
   @ApiProperty({
     description: 'Ano letivo obrigatório',
     example: 21,
     minimum: 1,
+    required: false,
   })
   @IsNumber()
   @IsPositive()
-  @Type(() => Number)
-  anoLectivo: number;
-
-  @ApiPropertyOptional({
-    description: 'Filtrar por semestre (1 ou 2)',
-    example: 1,
-    enum: [1, 2],
-  })
-  @IsInt()
   @IsOptional()
-  @IsIn([1, 2], { message: 'semestre deve ser 1 ou 2' })
   @Type(() => Number)
-  semestre: number;
+  anoLectivoId?: number;
 
   @ApiPropertyOptional({
-    description: 'Tipo Afectacao',
-    example: 1,
-    required: true,
-    enum: [1, 2],
+    description: 'Codigo da Matricula',
+    example: 486,
+    required: false,
   })
   @IsOptional()
   @IsInt()
   @Type(() => Number)
-  @IsIn([1, 2], {
-    message: '1 Para Afectação com Docente e 2 para Afectação sem Docente',
-  })
-  tipoAfectacao: number;
+  matriculaId?: number;
 
   @ApiPropertyOptional({
-    description: 'Codigo do docente',
-    example: 1,
-    required: true,
+    description: 'Tipo de prova',
+    example: 486,
+    required: false,
   })
   @IsOptional()
   @IsInt()
   @Type(() => Number)
-  docente: number;
-  @ApiPropertyOptional({ description: 'Search' })
+  tipoProvaId?: number;
+
+  @ApiPropertyOptional({
+    description: 'Tipo de avaliação',
+    example: 486,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  tipoAvaliacaoId?: number;
+
+  @ApiPropertyOptional({
+    description: 'Classe do aluno',
+    example: 486,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  classeId?: number;
+  @ApiPropertyOptional({
+    description: 'Campo de pesquisa para nome da unidade curricular',
+    example: "Matemática",
+
+    required: false,
+  })
+  @IsOptional()
   @IsString()
-  @IsOptional()
+  @Type(() => String)
   search?: string;
-  @ApiPropertyOptional({
-    description: 'Data inicial do intervalo',
-    example: '2025-01-02',
-    type: String,
-    format: 'date',
-  })
-  @IsOptional()
-  @Type(() => Date)
-  dataInicial: Date;
 
-  @ApiPropertyOptional({
-    description: 'Data Final do intervalo',
-    example: '2025-12-30',
-    type: String,
-    format: 'date',
-  })
-  @IsOptional()
-  @Type(() => Date)
-  dataFinal: Date;
+@ApiPropertyOptional({
+  enum: TipoAcademicHistoryEnum,
+  example: TipoAcademicHistoryEnum.EQUIVALENCIA,
+  required: false,
+})
+@IsOptional()
+@IsEnum(TipoAcademicHistoryEnum, {
+  message: 'O tipo deve ser: normal, equivalencia ou migracao',
+})
+tipo?: TipoAcademicHistoryEnum;
+
 
   @ApiPropertyOptional({
     description: 'Número da página',
@@ -108,3 +120,4 @@ export class FindDocenteAfectacaoDTO {
   @Type(() => Number)
   limit?: number = 25;
 }
+

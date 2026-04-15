@@ -7,49 +7,18 @@ import {
   Min,
   IsNumber,
   IsPositive,
-  IsIn,
   Max,
 } from 'class-validator';
 
-export class FindDisciplinaAlunoDTO {
+export class FindPendentUCDTO {
   @ApiProperty({
-    description: 'Ano letivo obrigatório',
-    example: 21,
-    minimum: 1,
+    description: 'Filtrar por Codigo de Matricula',
+    example: 40014,
+    required: true,
   })
-  @IsNumber()
-  @IsPositive()
-  @Type(() => Number)
-  anoLectivo: number;
-
-  @ApiPropertyOptional({
-    description: 'Filtrar por semestre (1 ou 2)',
-    example: 1,
-    enum: [1, 2],
-  })
-  @IsOptional()
-  @IsInt()
-  @IsIn([1, 2], { message: 'semestre deve ser 1 ou 2' })
-  @Type(() => Number)
-  semestre?: number;
-
-  @ApiPropertyOptional({
-    description: 'Filtrar por classe',
-    example: 1,
-  })
-  @IsOptional()
   @IsInt()
   @Type(() => Number)
-  classes: number;
-
-  @ApiPropertyOptional({
-    description: 'Filtrar por matricula',
-    example: 54595,
-  })
-  @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  matriculaId: number;
+  codigoMatricula: number;
 
   @ApiPropertyOptional({
     description: 'Número da página',

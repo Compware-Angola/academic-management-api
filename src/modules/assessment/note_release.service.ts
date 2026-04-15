@@ -15,7 +15,7 @@ export class NoteReleaseService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly promptToCreateAndEditService: promptToCreateAndEditService,
-  ) {}
+  ) { }
 
   async findstudents(filters: StudentFiltersDto) {
     let {
@@ -103,11 +103,11 @@ export class NoteReleaseService {
     } = filters;
 
     const baseWhere = `
-    MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
-    AND GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
+   -- MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
+     GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
     AND JSON_VALUE(GCA.REF_HORARIO, '$.pk') = :horarioId
     AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
-    AND CONF.CLASSE = :classe
+    AND GC.CODIGO_CLASSE = :classe
     AND PRE.CODIGO_TURNO = :turno
     AND (
         :search IS NULL
@@ -145,6 +145,7 @@ export class NoteReleaseService {
     ${joinType} JOIN FK2_TB_ADMISSAO ADM    ON ADM.CODIGO  = MAT.CODIGO_ALUNO
     ${joinType} JOIN FK2_TB_PREINSCRICAO PRE ON PRE.CODIGO = ADM.PRE_INCRICAO
     ${joinType} JOIN FK2_TB_CONFIRMACOES CONF ON CONF.CODIGO = GCA.CODIGO_CONFIRMACAO
+    ${joinType} JOIN FK2_TB_GRADE_CURRICULAR GC ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
     WHERE ${baseWhere}
     ${exameExtraFilter}
   `;
@@ -336,6 +337,7 @@ export class NoteReleaseService {
        AND AVA.TIPO_DE_PROVA = :tipoProvaId
        AND AVA.TIPO_AVALIACAO = :tipoAvaliacao
     LEFT JOIN FK2_TB_MATRICULAS MAT ON MAT.CODIGO = GCA.CODIGO_MATRICULA
+    LEFT JOIN FK2_TB_GRADE_CURRICULAR GC ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
     LEFT JOIN FK2_TB_ADMISSAO ADM ON ADM.CODIGO = MAT.CODIGO_ALUNO
     LEFT JOIN FK2_TB_PREINSCRICAO PRE ON PRE.CODIGO = ADM.PRE_INCRICAO
     LEFT JOIN FK2_TB_CONFIRMACOES CONF ON CONF.CODIGO = GCA.CODIGO_CONFIRMACAO
@@ -344,7 +346,7 @@ export class NoteReleaseService {
          GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
         AND JSON_VALUE(GCA.REF_HORARIO, '$.pk') = :horarioId
         AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
-        AND CONF.CLASSE = :classe
+        AND GC.CODIGO_CLASSE = :classe
         AND PRE.CODIGO_TURNO = :turno
         AND (
             :search IS NULL
@@ -404,13 +406,14 @@ export class NoteReleaseService {
     INNER JOIN FK2_TB_MATRICULAS MAT ON MAT.CODIGO = GCA.CODIGO_MATRICULA
     INNER JOIN FK2_TB_ADMISSAO ADM ON ADM.CODIGO = MAT.CODIGO_ALUNO
     INNER JOIN FK2_TB_PREINSCRICAO PRE ON PRE.CODIGO = ADM.PRE_INCRICAO
+      LEFT JOIN FK2_TB_GRADE_CURRICULAR GC ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
     INNER JOIN FK2_TB_CONFIRMACOES CONF ON CONF.CODIGO = GCA.CODIGO_CONFIRMACAO
     WHERE
       --  MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
          GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
         AND JSON_VALUE(GCA.REF_HORARIO, '$.pk') = :horarioId
         AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
-        AND CONF.CLASSE = :classe
+        AND GC.CODIGO_CLASSE = :classe
         AND PRE.CODIGO_TURNO = :turno
         AND (
             :search IS NULL
@@ -470,13 +473,14 @@ export class NoteReleaseService {
     INNER JOIN FK2_TB_MATRICULAS MAT ON MAT.CODIGO = GCA.CODIGO_MATRICULA
     INNER JOIN FK2_TB_ADMISSAO ADM ON ADM.CODIGO = MAT.CODIGO_ALUNO
     INNER JOIN FK2_TB_PREINSCRICAO PRE ON PRE.CODIGO = ADM.PRE_INCRICAO
+    INNER JOIN FK2_TB_GRADE_CURRICULAR GC ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
     INNER JOIN FK2_TB_CONFIRMACOES CONF ON CONF.CODIGO = GCA.CODIGO_CONFIRMACAO
     WHERE
        --  MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
          GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
         AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
         AND JSON_VALUE(GCA.REF_HORARIO, '$.pk') = :horarioId
-        AND CONF.CLASSE = :classe
+        AND GC.CODIGO_CLASSE = :classe
         AND PRE.CODIGO_TURNO = :turno
         AND (
             :search IS NULL

@@ -469,7 +469,7 @@ export class GenaralAgendaService {
             // Retorna o primeiro registro (ou null/undefined se não encontrar)
             return grades[0] || null;
 
-        } catch (error) {
+        } catch (error:any) {
             console.error('Erro ao buscar grade avaliada:', error);
             throw new Error(`Falha ao consultar grade curricular avaliada: ${error.message}`);
         }
