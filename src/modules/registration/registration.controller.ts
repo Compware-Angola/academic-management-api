@@ -28,7 +28,6 @@ import { IsentarColisaoCursoDto } from './dto/isentar-colisao-curso.dto';
 import { FilterPesquisarEstudantesIsencaoDto } from './dto/filter-pesquisar-estudante-isentar-colisao.dto';
 import { FilterListarColisoesIsentasPorMatriculaDto } from './dto/filter-listar-colisoes-isentas-por-matriculas.dto';
 import { FilterListarColisoesIsentasPorCursoDto } from './dto/filter-listar-colisoes-isentas-por-curso';
-<<<<<<< HEAD
 
 
 import { FilterListagemGeralEstudantesDto } from './dto/filter-listagem-geral-de-estudantes.dto';
@@ -40,8 +39,6 @@ import { FindInscricaoSemUCDTO } from './dto/find-inscricao-sem-ucDTO';
 
 
 
-=======
->>>>>>> efed7d9 (isentar colisao, listagem)
 
 @ApiTags('registration')
 @Controller('registration')
