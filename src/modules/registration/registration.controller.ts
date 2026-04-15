@@ -14,6 +14,7 @@ import { RegistrationService } from './registration.service';
 
 
 
+
 import { FilterHorariosInscritosPorUcDto } from './dto/filter-horarios-inscritos-por-uc';
 
 
@@ -30,13 +31,12 @@ import { FilterListarColisoesIsentasPorCursoDto } from './dto/filter-listar-coli
 
 import { FilterListagemGeralEstudantesDto } from './dto/filter-listagem-geral-de-estudantes.dto';
 import { FilterInscritosPorUcDto } from './dto/filtrar-inscritos-por-uc.dto';
-<<<<<<< HEAD
-import { FilterHorariosPorUcDto } from './dto/filter-horarios-por-uc.dto';
 import { FindInscricaoSemUCDTO } from './dto/find-inscricao-sem-ucDTO';
-=======
-import { FilterHorariosInscritosPorUcDto } from './dto/filter-horarios-inscritos-por-uc';
 
->>>>>>> c1bbd56 (feat: ...)
+
+
+
+
 
 @ApiTags('registration')
 @Controller('registration')
@@ -80,4 +80,16 @@ async listarHorariosDisponiveisInscritosPorUc(
   return this.registrationService.listarHorariosDisponiveisInscritosPorUc(filter);
 }
 
+  @Get('/estudantes-matriculados')
+  @ApiOperation({ summary: 'Lista Estudantes Matriculados' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de cadeiras do docente no curso',
+    type: FindEstudanteMatriculadoDTO,
+  })
+  findEstudantesMatriculados(
+    @Query(ValidationPipe) query: FindEstudanteMatriculadoDTO,
+  ) {
+    return this.registrationService.findEstudantesMatriculados(query);
+  }
 }
