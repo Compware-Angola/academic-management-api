@@ -12,8 +12,13 @@ import {
   IsString,
   IsNotEmpty,
   IsDateString,
+  IsEnum,
 } from 'class-validator';
-
+export enum TipoAcademicHistoryEnum {
+  NORMAL = 'normal',
+  EQUIVALENCIA = 'equivalencia',
+  MIGRACAO = 'migracao',
+}
 export class AcademicHistoryDTO {
   @ApiProperty({
     description: 'Ano letivo obrigatório',
@@ -76,6 +81,17 @@ export class AcademicHistoryDTO {
   @IsString()
   @Type(() => String)
   search?: string;
+
+@ApiPropertyOptional({
+  enum: TipoAcademicHistoryEnum,
+  example: TipoAcademicHistoryEnum.EQUIVALENCIA,
+  required: false,
+})
+@IsOptional()
+@IsEnum(TipoAcademicHistoryEnum, {
+  message: 'O tipo deve ser: normal, equivalencia ou migracao',
+})
+tipo?: TipoAcademicHistoryEnum;
 
 
   @ApiPropertyOptional({
