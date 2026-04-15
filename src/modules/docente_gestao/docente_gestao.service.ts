@@ -342,6 +342,7 @@ export class DocenteGestaoService {
     const {
       anoLectivo,
       semestre,
+      search,
       docente,
       tipoAfectacao,
       dataInicial,
@@ -376,6 +377,17 @@ export class DocenteGestaoService {
       params.dataInicial = dataInicial;
       params.dataFinal = dataFinal;
     }
+    if (search) {
+      conditions.push(`
+    (
+      LOWER(d.N_MECANOGRAFICO) LIKE LOWER(:search)
+      OR FN_REMOVE_ACENTOS(LOWER(json_value(d.CODIGO_UTILIZADOR,'$.desc'))) LIKE FN_REMOVE_ACENTOS(LOWER(:search))
+      OR TO_CHAR(d.codigo) LIKE :search
+    )
+  `);
+
+      params.search = `%${search}%`;
+    }
 
     const whereClause = conditions.join(' AND ');
     let sqlCommand = '';
@@ -384,7 +396,7 @@ export class DocenteGestaoService {
     if (tipoAfectacao == 1) {
       sqlCommand = `
       SELECT DISTINCT
-        JSON_VALUE(a.REF_DOCENTE,'$.desc')  AS docente,
+        json_value(d.CODIGO_UTILIZADOR,'$.desc')  AS docente,
         d.N_MECANOGRAFICO                   AS mecanografico,
         d.codigo                            AS codigo_docente
 
@@ -1042,59 +1054,58 @@ export class DocenteGestaoService {
     return await toLowerCaseKeys(result);
   }
 
-
   async listarDocentesComContrato(filter: FilterDocenteContratoDto) {
-  const {
-    page = 1,
-    limit = 10,
-    curso = 0,
-    grau = 0,
-    genero = 0,
-    data_inicio,
-    data_fim,
-    search,
-  } = filter;
+    const {
+      page = 1,
+      limit = 10,
+      curso = 0,
+      grau = 0,
+      genero = 0,
+      data_inicio,
+      data_fim,
+      search,
+    } = filter;
 
-  const offset = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-  let whereClause = `
+    let whereClause = `
     WHERE d.PROPOSTA_DE_CONTRATACAO IS NOT NULL
       AND (fa.CURSO_AREA_FORMACAO_ID = :curso OR :curso_zero = 0)
       AND (c.GRAU_ACADEMICO = :grau OR :grau_zero = 0)
       AND (p.FK_GENERO = :genero OR :genero_zero = 0)
   `;
 
-  // parâmetros base (sem paginação)
-  const baseParams: Record<string, any> = {
-    curso,
-    curso_zero: curso,
-    grau,
-    grau_zero: grau,
-    genero,
-    genero_zero: genero,
-  };
+    // parâmetros base (sem paginação)
+    const baseParams: Record<string, any> = {
+      curso,
+      curso_zero: curso,
+      grau,
+      grau_zero: grau,
+      genero,
+      genero_zero: genero,
+    };
 
-  if (data_inicio && data_fim) {
-    whereClause += `
+    if (data_inicio && data_fim) {
+      whereClause += `
       AND c.DATA_CANDIDATURA BETWEEN
           TO_DATE(:data_inicio, 'YYYY-MM-DD')
           AND TO_DATE(:data_fim, 'YYYY-MM-DD')
     `;
-    baseParams.data_inicio = data_inicio;
-    baseParams.data_fim = data_fim;
-  }
+      baseParams.data_inicio = data_inicio;
+      baseParams.data_fim = data_fim;
+    }
 
-  if (search && search.trim()) {
-    whereClause += `
+    if (search && search.trim()) {
+      whereClause += `
       AND (
         UPPER(NVL(u.NOME, JSON_VALUE(d.CODIGO_UTILIZADOR, '$.desc'))) LIKE :search
         OR UPPER(NVL(u.EMAIL, '-')) LIKE :search
       )
     `;
-    baseParams.search = `%${search.trim().toUpperCase()}%`;
-  }
+      baseParams.search = `%${search.trim().toUpperCase()}%`;
+    }
 
-  const baseFrom = `
+    const baseFrom = `
     FROM FK2_MGD_TB_DOCENTE d
     LEFT JOIN FK2_MCA_TB_UTILIZADOR u
       ON u.PK_UTILIZADOR = JSON_VALUE(d.CODIGO_UTILIZADOR, '$.pk')
@@ -1112,7 +1123,7 @@ export class DocenteGestaoService {
       ON ec.CODIGO = c.FK_ESTADO_CANDIDATURA
   `;
 
-  const sql = `
+    const sql = `
     SELECT *
     FROM (
       SELECT
@@ -1135,72 +1146,72 @@ export class DocenteGestaoService {
     ORDER BY t.RN
   `;
 
-  const countSql = `
+    const countSql = `
     SELECT COUNT(*) AS TOTAL
     ${baseFrom}
     ${whereClause}
   `;
 
-  // parâmetros da query principal
-  const dataParams: Record<string, any> = {
-    ...baseParams,
-    offset,
-    limit,
-  };
+    // parâmetros da query principal
+    const dataParams: Record<string, any> = {
+      ...baseParams,
+      offset,
+      limit,
+    };
 
-  // parâmetros da count query
-  const countParams: Record<string, any> = {
-    ...baseParams,
-  };
+    // parâmetros da count query
+    const countParams: Record<string, any> = {
+      ...baseParams,
+    };
 
-  const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql, dataParams as any),
-    this.dataSource.query(countSql, countParams as any),
-  ]);
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, dataParams as any),
+      this.dataSource.query(countSql, countParams as any),
+    ]);
 
-  const total = Number(countResult[0]?.TOTAL ?? 0);
+    const total = Number(countResult[0]?.TOTAL ?? 0);
 
-  const data = result.map((row: any, index: number) => {
-    const nascimento = row.DATA_NASCIMENTO
-      ? new Date(row.DATA_NASCIMENTO)
-      : null;
+    const data = result.map((row: any, index: number) => {
+      const nascimento = row.DATA_NASCIMENTO
+        ? new Date(row.DATA_NASCIMENTO)
+        : null;
 
-    let idade: number | null = null;
+      let idade: number | null = null;
 
-    if (nascimento) {
-      const hoje = new Date();
-      idade = hoje.getFullYear() - nascimento.getFullYear();
+      if (nascimento) {
+        const hoje = new Date();
+        idade = hoje.getFullYear() - nascimento.getFullYear();
 
-      const mes = hoje.getMonth() - nascimento.getMonth();
-      if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) {
-        idade--;
+        const mes = hoje.getMonth() - nascimento.getMonth();
+        if (mes < 0 || (mes === 0 && hoje.getDate() < nascimento.getDate())) {
+          idade--;
+        }
       }
-    }
+
+      return {
+        numero: offset + index + 1,
+        codigo: row.CODIGO,
+        nome: row.NOME,
+        genero: row.GENERO ?? '-',
+        curso: row.CURSO ?? '-',
+        idade: idade ?? '-',
+        email: row.EMAIL ?? '-',
+        data_candidatura: row.DATA_CANDIDATURA,
+        estado: row.ESTADO ?? '-',
+        ultima_actualizacao: row.UPDATED_AT,
+      };
+    });
 
     return {
-      numero: offset + index + 1,
-      codigo: row.CODIGO,
-      nome: row.NOME,
-      genero: row.GENERO ?? '-',
-      curso: row.CURSO ?? '-',
-      idade: idade ?? '-',
-      email: row.EMAIL ?? '-',
-      data_candidatura: row.DATA_CANDIDATURA,
-      estado: row.ESTADO ?? '-',
-      ultima_actualizacao: row.UPDATED_AT,
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
     };
-  });
+  }
 
-  return {
-    data,
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
-  };
-}
-
-async definirRegente(dto: DefinirRegenteDto) {
+  async definirRegente(dto: DefinirRegenteDto) {
     const { anoLectivo, gradeCurricular, docente, semestre, createdBy } = dto;
 
     // 1. Buscar docente
@@ -1396,6 +1407,4 @@ async definirRegente(dto: DefinirRegenteDto) {
       await queryRunner.release();
     }
   }
-
-  
 }
