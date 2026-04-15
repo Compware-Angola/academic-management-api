@@ -1744,6 +1744,129 @@ async isentarColisaoCurso(
   };
 }
 
+
+async pesquisarEstudantesParaIsencao(filter: any) {
+  const {
+    page = 1,
+    limit = 10,
+    anoLectivo = 0,
+    curso = 0,
+    turno = 0,
+    search = "",
+  } = filter;
+
+  const offset = (page - 1) * limit;
+  const searchValue =
+    search && String(search).trim()
+      ? `%${String(search).trim().toUpperCase()}%`
+      : null;
+
+  const dataParams = [
+    anoLectivo,   // :1
+    anoLectivo,   // :2
+    curso,        // :3
+    curso,        // :4
+    turno,        // :5
+    turno,        // :6
+    searchValue,  // :7
+    searchValue,  // :8
+    searchValue,  // :9
+    offset,       // :10
+    offset,       // :11
+    limit,        // :12
+  ];
+
+  const countParams = [
+    anoLectivo,   // :1
+    anoLectivo,   // :2
+    curso,        // :3
+    curso,        // :4
+    turno,        // :5
+    turno,        // :6
+    searchValue,  // :7
+    searchValue,  // :8
+    searchValue,  // :9
+  ];
+
+  const sql = `
+    SELECT *
+    FROM (
+      SELECT
+        tm.CODIGO AS MATRICULA,
+        tp.NOME_COMPLETO AS NOME,
+        tp.EMAIL AS EMAIL,
+        tp.CONTACTOS_TELEFONICOS AS TELEFONE,
+        tc.DESIGNACAO AS CURSO,
+        tp.CODIGO_TURNO AS CODIGO_TURNO,
+        ROW_NUMBER() OVER (ORDER BY tp.NOME_COMPLETO ASC) AS RN
+      FROM FK2_TB_MATRICULAS tm
+      INNER JOIN FK2_TB_ADMISSAO ta
+        ON ta.CODIGO = tm.CODIGO_ALUNO
+      INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON tp.CODIGO = ta.PRE_INCRICAO
+      INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+      WHERE (tp.ANOLECTIVO = :1 OR :2 = 0)
+        AND (tc.CODIGO = :3 OR :4 = 0)
+        AND (tp.CODIGO_TURNO = :5 OR :6 = 0)
+        AND (
+          :7 IS NULL
+          OR UPPER(tp.NOME_COMPLETO) LIKE :8
+          OR UPPER(TO_CHAR(tm.CODIGO)) LIKE :9
+        )
+    ) t
+    WHERE t.RN BETWEEN :10 + 1 AND :11 + :12
+    ORDER BY t.RN
+  `;
+
+  const countSql = `
+    SELECT COUNT(*) AS TOTAL
+    FROM (
+      SELECT DISTINCT tm.CODIGO
+      FROM FK2_TB_MATRICULAS tm
+      INNER JOIN FK2_TB_ADMISSAO ta
+        ON ta.CODIGO = tm.CODIGO_ALUNO
+      INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON tp.CODIGO = ta.PRE_INCRICAO
+      INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+      WHERE (tp.ANOLECTIVO = :1 OR :2 = 0)
+        AND (tc.CODIGO = :3 OR :4 = 0)
+        AND (tp.CODIGO_TURNO = :5 OR :6 = 0)
+        AND (
+          :7 IS NULL
+          OR UPPER(tp.NOME_COMPLETO) LIKE :8
+          OR UPPER(TO_CHAR(tm.CODIGO)) LIKE :9
+        )
+    )
+  `;
+
+  const [result, countResult] = await Promise.all([
+    this.dataSource.query(sql, dataParams),
+    this.dataSource.query(countSql, countParams),
+  ]);
+
+  const total = Number(countResult[0]?.TOTAL ?? 0);
+
+  const data = result.map((row: any) => ({
+    matricula: row.MATRICULA,
+    nome: row.NOME,
+    email: row.EMAIL,
+    telefone: row.TELEFONE,
+    curso: row.CURSO,
+    codigo_turno: row.CODIGO_TURNO,
+  }));
+
+  return {
+    data,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit) || 1,
+  };
+}
+
+
 async listarColisoesIsentasPorMatricula(filter: any) {
   const {
     page = 1,
@@ -1953,126 +2076,8 @@ async listarColisoesIsentasPorCurso(filter: any) {
   };
 }
 
-async pesquisarEstudantesParaIsencao(filter: any) {
-  const {
-    page = 1,
-    limit = 10,
-    anoLectivo = 0,
-    curso = 0,
-    turno = 0,
-    search = "",
-  } = filter;
 
-  const offset = (page - 1) * limit;
-  const searchValue =
-    search && String(search).trim()
-      ? `%${String(search).trim().toUpperCase()}%`
-      : null;
 
-  const dataParams = [
-    anoLectivo,   // :1
-    anoLectivo,   // :2
-    curso,        // :3
-    curso,        // :4
-    turno,        // :5
-    turno,        // :6
-    searchValue,  // :7
-    searchValue,  // :8
-    searchValue,  // :9
-    offset,       // :10
-    offset,       // :11
-    limit,        // :12
-  ];
-
-  const countParams = [
-    anoLectivo,   // :1
-    anoLectivo,   // :2
-    curso,        // :3
-    curso,        // :4
-    turno,        // :5
-    turno,        // :6
-    searchValue,  // :7
-    searchValue,  // :8
-    searchValue,  // :9
-  ];
-
-  const sql = `
-    SELECT *
-    FROM (
-      SELECT
-        tm.CODIGO AS MATRICULA,
-        tp.NOME_COMPLETO AS NOME,
-        tp.EMAIL AS EMAIL,
-        tp.CONTACTOS_TELEFONICOS AS TELEFONE,
-        tc.DESIGNACAO AS CURSO,
-        tp.CODIGO_TURNO AS CODIGO_TURNO,
-        ROW_NUMBER() OVER (ORDER BY tp.NOME_COMPLETO ASC) AS RN
-      FROM FK2_TB_MATRICULAS tm
-      INNER JOIN FK2_TB_ADMISSAO ta
-        ON ta.CODIGO = tm.CODIGO_ALUNO
-      INNER JOIN FK2_TB_PREINSCRICAO tp
-        ON tp.CODIGO = ta.PRE_INCRICAO
-      INNER JOIN FK2_TB_CURSOS tc
-        ON tc.CODIGO = tm.CODIGO_CURSO
-      WHERE (tp.ANOLECTIVO = :1 OR :2 = 0)
-        AND (tc.CODIGO = :3 OR :4 = 0)
-        AND (tp.CODIGO_TURNO = :5 OR :6 = 0)
-        AND (
-          :7 IS NULL
-          OR UPPER(tp.NOME_COMPLETO) LIKE :8
-          OR UPPER(TO_CHAR(tm.CODIGO)) LIKE :9
-        )
-    ) t
-    WHERE t.RN BETWEEN :10 + 1 AND :11 + :12
-    ORDER BY t.RN
-  `;
-
-  const countSql = `
-    SELECT COUNT(*) AS TOTAL
-    FROM (
-      SELECT DISTINCT tm.CODIGO
-      FROM FK2_TB_MATRICULAS tm
-      INNER JOIN FK2_TB_ADMISSAO ta
-        ON ta.CODIGO = tm.CODIGO_ALUNO
-      INNER JOIN FK2_TB_PREINSCRICAO tp
-        ON tp.CODIGO = ta.PRE_INCRICAO
-      INNER JOIN FK2_TB_CURSOS tc
-        ON tc.CODIGO = tm.CODIGO_CURSO
-      WHERE (tp.ANOLECTIVO = :1 OR :2 = 0)
-        AND (tc.CODIGO = :3 OR :4 = 0)
-        AND (tp.CODIGO_TURNO = :5 OR :6 = 0)
-        AND (
-          :7 IS NULL
-          OR UPPER(tp.NOME_COMPLETO) LIKE :8
-          OR UPPER(TO_CHAR(tm.CODIGO)) LIKE :9
-        )
-    )
-  `;
-
-  const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql, dataParams),
-    this.dataSource.query(countSql, countParams),
-  ]);
-
-  const total = Number(countResult[0]?.TOTAL ?? 0);
-
-  const data = result.map((row: any) => ({
-    matricula: row.MATRICULA,
-    nome: row.NOME,
-    email: row.EMAIL,
-    telefone: row.TELEFONE,
-    curso: row.CURSO,
-    codigo_turno: row.CODIGO_TURNO,
-  }));
-
-  return {
-    data,
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
-  };
-}
 
 
 
