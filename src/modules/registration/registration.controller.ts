@@ -11,11 +11,12 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RegistrationService } from './registration.service';
 
-import { FilterListagemGeralEstudantesDto } from './dto/filter-listagem-geral-de-estudantes.dto';
+
+
 import { FilterInscritosPorUcDto } from './dto/filtrar-inscritos-por-uc.dto';
 import { FilterHorariosInscritosPorUcDto } from './dto/filter-horarios-inscritos-por-uc';
 
-import { FindInscricaoSemUCDTO } from './dto/find-inscricao-sem-ucDTO';
+
 import { FindEstudanteMatriculadoDTO } from './dto/find-studantes-matriculadoDTO';
 import { FindEstudantesSemInscricaoCursoDTO } from './dto/find-estudantes-sem-Inscricao-cursoDTO';
 import { FilterEstadoMatriculaHorarioDto } from './dto/listar-estado-matricula-por-horario.dto';
@@ -25,6 +26,11 @@ import { IsentarColisaoCursoDto } from './dto/isentar-colisao-curso.dto';
 import { FilterPesquisarEstudantesIsencaoDto } from './dto/filter-pesquisar-estudante-isentar-colisao.dto';
 import { FilterListarColisoesIsentasPorMatriculaDto } from './dto/filter-listar-colisoes-isentas-por-matriculas.dto';
 import { FilterListarColisoesIsentasPorCursoDto } from './dto/filter-listar-colisoes-isentas-por-curso';
+
+
+import { FilterListagemGeralEstudantesDto } from './dto/filter-listagem-geral-de-estudantes.dto';
+import { FindInscricaoSemUCDTO } from './dto/find-inscricao-sem-ucDTO';
+
 
 @ApiTags('registration')
 @Controller('registration')
