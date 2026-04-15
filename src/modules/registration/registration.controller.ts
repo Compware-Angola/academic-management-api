@@ -126,5 +126,60 @@ async listarEstudantesPorEstadoMatricula(
   return this.registrationService.listarEstudantesPorEstadoMatricula(filter);
 }
 
+@Get('colisoes-isentas/matriculas')
+@ApiOperation({ summary: 'Listar isenções de colisão por matrícula' })
+@ApiResponse({ status: 200 })
+async listarColisoesIsentasPorMatricula(
+  @Query() filter: FilterListarColisoesIsentasPorMatriculaDto,
+) {
+  return this.registrationService.listarColisoesIsentasPorMatricula(filter);
+}
+
+@Get('colisoes-isentas/cursos')
+@ApiOperation({ summary: 'Listar isenções de colisão por curso' })
+@ApiResponse({ status: 200 })
+async listarColisoesIsentasPorCurso(
+  @Query() filter: FilterListarColisoesIsentasPorCursoDto,
+) {
+  return this.registrationService.listarColisoesIsentasPorCurso(filter);
+}
+
+@Get('pesquisar-estudantes-isencao')
+@ApiOperation({ summary: 'Pesquisar estudantes para isenção de colisão' })
+@ApiResponse({ status: 200 })
+async pesquisarEstudantesParaIsencao(
+  @Query() filter: FilterPesquisarEstudantesIsencaoDto,
+) {
+  return this.registrationService.pesquisarEstudantesParaIsencao(filter);
+}
+
+@Post('colisoes/matricula')
+@ApiOperation({ summary: 'Isentar colisão por matrícula' })
+@ApiResponse({ status: 201 })
+async isentarColisaoMatricula(
+  @Body() body: IsentarColisaoMatriculaDto,
+  @Req() req: any,
+) {
+  return this.registrationService.isentarColisaoMatricula(
+    body.matricula,
+    body.anoLectivo,
+    req.user,
+  );
+}
+
+@Post('colisoes/curso')
+@ApiOperation({ summary: 'Isentar colisão por curso' })
+@ApiResponse({ status: 201 })
+async isentarColisaoCurso(
+  @Body() body: IsentarColisaoCursoDto,
+  @Req() req: any,
+) {
+  return this.registrationService.isentarColisaoCurso(
+    body.curso,
+    body.turno,
+    body.anoLectivo,
+    req.user,
+  );
+}
 
 }
