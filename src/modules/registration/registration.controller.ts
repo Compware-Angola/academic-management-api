@@ -22,6 +22,9 @@ import { FilterEstadoMatriculaHorarioDto } from './dto/listar-estado-matricula-p
 import { FilterListarEstudantesPorEstadoMatriculaDto } from './dto/filter-listar-estudantes-por-estado-da-matricula.dto';
 import { IsentarColisaoMatriculaDto } from './dto/isentar-colisao-matricula.dto';
 import { IsentarColisaoCursoDto } from './dto/isentar-colisao-curso.dto';
+import { FilterPesquisarEstudantesIsencaoDto } from './dto/filter-pesquisar-estudante-isentar-colisao.dto';
+import { FilterListarColisoesIsentasPorMatriculaDto } from './dto/filter-listar-colisoes-isentas-por-matriculas.dto';
+import { FilterListarColisoesIsentasPorCursoDto } from './dto/filter-listar-colisoes-isentas-por-curso';
 
 @ApiTags('registration')
 @Controller('registration')
@@ -115,10 +118,11 @@ async isentarColisaoMatricula(
   @Body() body: IsentarColisaoMatriculaDto,
   @Req() req: any,
 ) {
+  
   return this.registrationService.isentarColisaoMatricula(
     body.matricula,
     body.anoLectivo,
-    req.user,
+    req.user
   );
 }
 
@@ -135,6 +139,33 @@ async isentarColisaoCurso(
     body.anoLectivo,
     req.user,
   );
+}
+
+@Get('pesquisar-estudantes-isencao')
+@ApiOperation({ summary: 'Pesquisar estudantes para isenção de colisão' })
+@ApiResponse({ status: 200 })
+async pesquisarEstudantesParaIsencao(
+  @Query() filter: FilterPesquisarEstudantesIsencaoDto,
+) {
+  return this.registrationService.pesquisarEstudantesParaIsencao(filter);
+}
+
+@Get('colisoes-isentas/matriculas')
+@ApiOperation({ summary: 'Listar isenções de colisão por matrícula' })
+@ApiResponse({ status: 200 })
+async listarColisoesIsentasPorMatricula(
+  @Query() filter: FilterListarColisoesIsentasPorMatriculaDto,
+) {
+  return this.registrationService.listarColisoesIsentasPorMatricula(filter);
+}
+
+@Get('colisoes-isentas/cursos')
+@ApiOperation({ summary: 'Listar isenções de colisão por curso' })
+@ApiResponse({ status: 200 })
+async listarColisoesIsentasPorCurso(
+  @Query() filter: FilterListarColisoesIsentasPorCursoDto,
+) {
+  return this.registrationService.listarColisoesIsentasPorCurso(filter);
 }
 
 }
