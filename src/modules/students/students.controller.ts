@@ -38,6 +38,7 @@ import { CreateStudentEnrollmentUC } from './dto/create-student-enrollment-uc';
 import { StudentsEnrollmentUCService } from './students-enrollment-uc.service';
 import { FindPendentUCDTO } from './dto/find-pendent-uc.dto';
 import { StudentsEnrollmentPendentUCService } from './students-pendent-uc.service';
+import { AcademicHistoryEquivalenciaDTO } from './dto/academic-history-equivalencia.dto';
 
 @Controller('students')
 export class StudentsController {
@@ -204,5 +205,16 @@ export class StudentsController {
   })
   findPendetUc(@Query(ValidationPipe) query: FindPendentUCDTO) {
     return this.studentsEnrollmentPendentUCService.findPendent(query);
+  }
+
+  @Get('academic-history-equivalencia')
+  @ApiOperation({ summary: 'Obter histórico acadêmico do estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Histórico acadêmico do estudante obtido com sucesso',
+    type: AcademicHistoryDTO,
+  })
+  academicHistoryEquivalencia(@Query(ValidationPipe) query: AcademicHistoryEquivalenciaDTO) {
+    return this.studentsService.academicHistoryEquivalencia(query);
   }
 }

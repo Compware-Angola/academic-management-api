@@ -1072,6 +1072,8 @@ ${whereClause}
     const { docenteNome = '', modo } = dto;
     const refDate = parseISODateOrToday(dto.dataReferencia);
 
+   console.log('dataReferencia:', dto.dataReferencia);
+
     if (!modo) {
       throw new BadGatewayException('Parâmetro "modo" é obrigatório: MES | SEMANA | DIA');
     }

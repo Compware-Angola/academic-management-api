@@ -303,4 +303,5 @@ export class EnrollmentService {
       segundoSemestre: [...new Set(resultado.segundoSemestre)],
     };
   }
+
 }

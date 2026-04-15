@@ -13,11 +13,12 @@ import {
 } from './dto/find-students.dto';
 import { gerarHashExterno } from '../util/hash.util';
 import { ActivateRegistrationDTO } from './dto/activate-registration.dto';
-import { AcademicHistoryDTO, TipoAcademicHistoryEnum } from './dto/academic-history';
+import { AcademicHistoryDTO } from './dto/academic-history';
 import { ChangeCourseDTO } from './dto/change-course.dto';
 import { AnoLectivoUtil } from '../util/current-academic-year';
 import { FilterMapaAnualFinalistasDto } from './dto/filter-mapa-anual-finalista.dto';
 import { FilterRegistoPrimarioExamesAcessoDto } from './dto/filter-registo-primario-exames-acesso.dto';
+import { AcademicHistoryEquivalenciaDTO } from './dto/academic-history-equivalencia.dto';
 
 @Injectable()
 export class StudentsService {
@@ -1173,7 +1174,7 @@ WHERE M."CODIGO" = :codigoMatricula`;
   }
 
   async academicHistory(dto: AcademicHistoryDTO) {
-    const { anoLectivoId, matriculaId, tipoProvaId, tipoAvaliacaoId, classeId, search, page = 1, limit = 10,tipo=TipoAcademicHistoryEnum.NORMAL } = dto;
+    const { anoLectivoId, matriculaId, tipoProvaId, tipoAvaliacaoId, classeId, search, page = 1, limit = 10 } = dto;
 
     const offset = (page - 1) * limit;
 
@@ -1211,9 +1212,6 @@ WHERE M."CODIGO" = :codigoMatricula`;
       GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
       AND MAT.CODIGO = :matriculaId
       AND AVA.TIPO_AVALIACAO IS NOT NULL
-      ${tipo === TipoAcademicHistoryEnum.MIGRACAO  ? 'AND GCA.CANAL = 8'
-         : tipo === TipoAcademicHistoryEnum.EQUIVALENCIA ? 'AND GCA.EQUIVALENCIA = 1'
-         : 'AND GCA.EQUIVALENCIA = 0'}
       ${tipoProvaId ? 'AND AVA.TIPO_DE_PROVA = :tipoProvaId' : ''}
       ${tipoAvaliacaoId ? 'AND AVA.TIPO_AVALIACAO = :tipoAvaliacaoId' : ''}
       ${classeId ? 'AND GC.CODIGO_CLASSE = :classeId' : ''}
@@ -1255,6 +1253,90 @@ WHERE M."CODIGO" = :codigoMatricula`;
       hasNextPage,
     };
   }
+
+async academicHistoryEquivalencia(dto: AcademicHistoryEquivalenciaDTO) {
+  const {
+    anoLectivoId,
+    matriculaId,
+    classeId,
+    search,
+    page = 1,
+    limit = 10,
+  } = dto;
+
+  const offset = (page - 1) * limit;
+
+  const query = `
+    SELECT 
+      al.codigo,
+      d.DESIGNACAO AS unidade_curricular,
+      cla.DESIGNACAO AS classes,
+      MAX(al.NOTA) AS nota,
+      an.DESIGNACAO AS ano_lectivo,
+      c.DESIGNACAO AS curso
+
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
+
+    INNER JOIN FK2_TB_GRADE_CURRICULAR ga
+      ON ga.codigo = al.CODIGO_GRADE_CURRICULAR 
+
+    INNER JOIN FK2_TB_DISCIPLINAS d 
+      ON d.codigo = ga.CODIGO_DISCIPLINA
+
+    INNER JOIN FK2_TB_CLASSES cla 
+      ON cla.CODIGO = ga.CODIGO_CLASSE
+
+    INNER JOIN FK2_TB_ANO_LECTIVO an
+      ON an.CODIGO = al.CODIGO_ANO_LECTIVO
+
+    INNER JOIN FK2_TB_CURSOS c
+      ON c.CODIGO = ga.CODIGO_CURSO
+
+    WHERE 
+      al.EQUIVALENCIA = 1
+      AND al.CODIGO_MATRICULA = :matriculaId
+      ${anoLectivoId ? 'AND al.CODIGO_ANO_LECTIVO = :anoLectivoId' : ''}
+      ${classeId ? 'AND ga.CODIGO_CLASSE = :classeId' : ''}
+      ${search ? 'AND UPPER(d.DESIGNACAO) LIKE UPPER(:search)' : ''}
+
+    GROUP BY 
+      al.codigo,
+      d.DESIGNACAO,
+      cla.DESIGNACAO,
+      an.DESIGNACAO,
+      c.DESIGNACAO
+
+    ORDER BY 
+      cla.DESIGNACAO,
+      d.DESIGNACAO ASC
+
+    OFFSET :offset ROWS FETCH NEXT :fetchLimit ROWS ONLY
+  `;
+
+  const params: Record<string, any> = {
+    matriculaId,
+    offset,
+    fetchLimit: limit + 1,
+  };
+
+  if (anoLectivoId) params.anoLectivoId = anoLectivoId;
+  if (classeId) params.classeId = classeId;
+  if (search) params.search = `%${search}%`;
+
+  const result = await this.dataSource.query(query, params as any);
+
+  const hasNextPage = result.length > limit;
+  if (hasNextPage) result.pop();
+
+  return {
+    success: true,
+    data: await toLowerCaseKeys(result),
+    page,
+    limit,
+    hasNextPage,
+  };
+}
+
   async changeCourse(dto: ChangeCourseDTO) {
     const { PoloId, matriculaId, cursoId } = dto;
      let  mudarCurso = true;
