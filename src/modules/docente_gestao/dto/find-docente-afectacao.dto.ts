@@ -10,6 +10,7 @@ import {
   IsIn,
   Max,
   IsNotEmpty,
+  IsString,
 } from 'class-validator';
 
 export class FindDocenteAfectacaoDTO {
@@ -57,7 +58,10 @@ export class FindDocenteAfectacaoDTO {
   @IsInt()
   @Type(() => Number)
   docente: number;
-
+  @ApiPropertyOptional({ description: 'Search' })
+  @IsString()
+  @IsOptional()
+  search?: string;
   @ApiPropertyOptional({
     description: 'Data inicial do intervalo',
     example: '2025-01-02',
