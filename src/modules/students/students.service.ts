@@ -1382,6 +1382,7 @@ async academicHistoryMigracaoDados(dto: AcademicHistoryMigracaoDadosDTO) {
     WHERE 
       al.CANAL = 8
       AND al.CODIGO_MATRICULA = :matriculaId
+      AND al.CODIGO_STATUS_GRADE_CURRICULAR = 3
       ${anoLectivoId ? 'AND al.CODIGO_ANO_LECTIVO = :anoLectivoId' : ''}
       ${classeId ? 'AND ga.CODIGO_CLASSE = :classeId' : ''}
       ${search ? 'AND UPPER(d.DESIGNACAO) LIKE UPPER(:search)' : ''}
@@ -1392,7 +1393,8 @@ async academicHistoryMigracaoDados(dto: AcademicHistoryMigracaoDadosDTO) {
       cla.DESIGNACAO,
       an.DESIGNACAO,
       c.DESIGNACAO,
-      al.EPOCA
+      al.EPOCA,
+      al.CODIGO_STATUS_GRADE_CURRICULAR
 
     ORDER BY 
       cla.DESIGNACAO,
