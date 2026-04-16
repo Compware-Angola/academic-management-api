@@ -19,6 +19,7 @@ import { AnoLectivoUtil } from '../util/current-academic-year';
 import { FilterMapaAnualFinalistasDto } from './dto/filter-mapa-anual-finalista.dto';
 import { FilterRegistoPrimarioExamesAcessoDto } from './dto/filter-registo-primario-exames-acesso.dto';
 import { AcademicHistoryEquivalenciaDTO } from './dto/academic-history-equivalencia.dto';
+import { AcademicHistoryMigracaoDadosDTO } from './dto/academic-history-migracao.dto';
 
 @Injectable()
 export class StudentsService {
@@ -1273,7 +1274,8 @@ async academicHistoryEquivalencia(dto: AcademicHistoryEquivalenciaDTO) {
       cla.DESIGNACAO AS classes,
       MAX(al.NOTA) AS nota,
       an.DESIGNACAO AS ano_lectivo,
-      c.DESIGNACAO AS curso
+      c.DESIGNACAO AS curso,
+      al.EPOCA as epoca
 
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
 
@@ -1304,7 +1306,93 @@ async academicHistoryEquivalencia(dto: AcademicHistoryEquivalenciaDTO) {
       d.DESIGNACAO,
       cla.DESIGNACAO,
       an.DESIGNACAO,
-      c.DESIGNACAO
+      c.DESIGNACAO,
+      al.EPOCA
+
+    ORDER BY 
+      cla.DESIGNACAO,
+      d.DESIGNACAO ASC
+
+    OFFSET :offset ROWS FETCH NEXT :fetchLimit ROWS ONLY
+  `;
+
+  const params: Record<string, any> = {
+    matriculaId,
+    offset,
+    fetchLimit: limit + 1,
+  };
+
+  if (anoLectivoId) params.anoLectivoId = anoLectivoId;
+  if (classeId) params.classeId = classeId;
+  if (search) params.search = `%${search}%`;
+
+  const result = await this.dataSource.query(query, params as any);
+
+  const hasNextPage = result.length > limit;
+  if (hasNextPage) result.pop();
+
+  return {
+    success: true,
+    data: await toLowerCaseKeys(result),
+    page,
+    limit,
+    hasNextPage,
+  };
+}
+
+async academicHistoryMigracaoDados(dto: AcademicHistoryMigracaoDadosDTO) {
+  const {
+    anoLectivoId,
+    matriculaId,
+    classeId,
+    search,
+    page = 1,
+    limit = 10,
+  } = dto;
+
+  const offset = (page - 1) * limit;
+
+  const query = `
+    SELECT 
+      al.codigo,
+      d.DESIGNACAO AS unidade_curricular,
+      cla.DESIGNACAO AS classes,
+      MAX(al.NOTA) AS nota,
+      an.DESIGNACAO AS ano_lectivo,
+      c.DESIGNACAO AS curso,
+      al.EPOCA as epoca
+
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
+
+    INNER JOIN FK2_TB_GRADE_CURRICULAR ga
+      ON ga.codigo = al.CODIGO_GRADE_CURRICULAR 
+
+    INNER JOIN FK2_TB_DISCIPLINAS d 
+      ON d.codigo = ga.CODIGO_DISCIPLINA
+
+    INNER JOIN FK2_TB_CLASSES cla 
+      ON cla.CODIGO = ga.CODIGO_CLASSE
+
+    INNER JOIN FK2_TB_ANO_LECTIVO an
+      ON an.CODIGO = al.CODIGO_ANO_LECTIVO
+
+    INNER JOIN FK2_TB_CURSOS c
+      ON c.CODIGO = ga.CODIGO_CURSO
+
+    WHERE 
+      al.CANAL = 8
+      AND al.CODIGO_MATRICULA = :matriculaId
+      ${anoLectivoId ? 'AND al.CODIGO_ANO_LECTIVO = :anoLectivoId' : ''}
+      ${classeId ? 'AND ga.CODIGO_CLASSE = :classeId' : ''}
+      ${search ? 'AND UPPER(d.DESIGNACAO) LIKE UPPER(:search)' : ''}
+
+    GROUP BY 
+      al.codigo,
+      d.DESIGNACAO,
+      cla.DESIGNACAO,
+      an.DESIGNACAO,
+      c.DESIGNACAO,
+      al.EPOCA
 
     ORDER BY 
       cla.DESIGNACAO,
