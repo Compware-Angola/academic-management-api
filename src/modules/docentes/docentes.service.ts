@@ -362,6 +362,7 @@ async findAssiduidadeDocente(docenteId: number, filters: FindAssiduidadeDTO) {
   // ====================== COLUNAS ======================
   const columns = `
     aa.PK_AGENDAMENTO_AULA AS "Codigo",
+    h.DESIGNACAO AS "horario",
     TO_CHAR(aa.DATA_AULA, 'YYYY-MM-DD') AS "data_aula",
     estado.DESIGNACAO AS "estado",
     JSON_VALUE(aa.REF_AULA, '$.nomeDocente') AS "Docente",
