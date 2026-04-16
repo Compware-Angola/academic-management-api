@@ -14,6 +14,16 @@ export class FindAgendamentoAulaDto {
   @Type(() => Number)
   unidadeCurricular?: number;
 
+    @ApiProperty({
+    description: 'Periodo de aula ',
+    example: 10,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  periodoId?: number;
+
   @ApiProperty({
     description: 'ID do Docente',
     example: 5,

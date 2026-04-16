@@ -126,6 +126,7 @@ export class AssiduidadeService {
       unidadeCurricular = 0,
       dataInicial,
       dataFinal,
+      periodoId = 0,
       estado = 0,
       anoLectivo = 0,
       semestre = 0,
@@ -141,6 +142,7 @@ export class AssiduidadeService {
 
     // Adiciona apenas os filtros que vieram preenchidos (≠ 0)
     if (docente !== 0) whereParams.docente = docente;
+    if (periodoId !== 0) whereParams.periodoId = periodoId;
 
     if (unidadeCurricular !== 0) whereParams.unidadeCurricular = unidadeCurricular;
 
@@ -155,6 +157,9 @@ export class AssiduidadeService {
       'aa.ACTIVE_STATE = 1',
       'aa.DATA_AULA BETWEEN :dataInicial AND :dataFinal',
     ];
+    if (periodoId !== 0) {
+      conditions.push("h.FK_PERIODO = :periodoId");
+    }
 
     if (docente !== 0) {
       conditions.push("JSON_VALUE(aa.REF_AULA, '$.pkDocente') = :docente");
@@ -761,6 +766,7 @@ FETCH NEXT :limit ROWS ONLY
       unidadeCurricular = 0,
       dataInicial,
       dataFinal,
+      periodoId = 0,
       estado = 0,
       anoLectivo = 0,
       semestre = 0,
@@ -776,6 +782,7 @@ FETCH NEXT :limit ROWS ONLY
     const tipoAulaSigla = 'adc';
 
     if (docente !== 0) whereParams.docente = docente;
+    if (periodoId !== 0) whereParams.periodoId = periodoId;
 
     if (unidadeCurricular !== 0) whereParams.unidadeCurricular = unidadeCurricular;
 
@@ -798,6 +805,9 @@ FETCH NEXT :limit ROWS ONLY
     ];
     if (docente !== 0) {
       conditions.push("JSON_VALUE(aa.REF_AULA, '$.pkDocente') = :docente");
+    }
+    if (periodoId !== 0) {
+      conditions.push("h.FK_PERIODO = :periodoId");
     }
 
     if (unidadeCurricular !== 0) {
@@ -919,6 +929,8 @@ ${whereClause}
       disciplina = 0,
       estado = 0,
       anoLectivo = 0,
+      periodoId = 0,
+      
       semestre = 0,
       dataInicio,
       dataFim,
@@ -936,6 +948,7 @@ ${whereClause}
 
 
     if (disciplina !== 0) whereParams.disciplina = disciplina;
+    if (periodoId !== 0) whereParams.periodoId = periodoId;
     if (estado !== 0) whereParams.estado = estado;
     if (anoLectivo !== 0) whereParams.anoLectivo = anoLectivo;
     if (semestre !== 0) whereParams.semestre = semestre;
@@ -985,6 +998,10 @@ ${whereClause}
         "JSON_VALUE(cp.REF_PRAZO, '$.pk_semestre' RETURNING NUMBER) = :semestre"
       );
     }
+    if (periodoId !== 0) {
+         conditions.push("h.FK_PERIODO = :periodoId");
+  
+    }
 
     if (disciplina !== 0) {
       conditions.push('d.CODIGO = :disciplina');
@@ -1011,14 +1028,14 @@ ${whereClause}
       TO_CHAR(cp.HORA_PROVA, 'HH24:MI') AS hora_prova,
         TO_CHAR(cp.HORA_TERMINO, 'HH24:MI') AS hora_termino,
         TO_CHAR(cp.DURACAOPROVA, 'HH24:MI') AS duracao_prova,
-     
-      
       JSON_VALUE(v.REF_VIGILANTE, '$.desc') AS docente_nome
     FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE v
     LEFT JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO ap
       ON ap.PK_ESTADO_AGENDAMENTO = v.ESTADO_AGENDAMENTO
     LEFT JOIN FK2_TB_CALENDARIO_PROVA cp
       ON cp.CODIGO = v.CALENDARIO_PROVA
+      LEFT JOIN FK2_MGH_TB_HORARIO h
+      ON JSON_VALUE(cp.REF_HORARIO, '$.pk' RETURNING NUMBER) = h.PK_HORARIO
     LEFT JOIN FK2_TB_DISCIPLINAS d
       ON d.CODIGO = cp.CODIGO_DISCIPLINA
       LEFT JOIN FK2_TB_ANO_LECTIVO al
@@ -1038,6 +1055,8 @@ ${whereClause}
       ON ap.PK_ESTADO_AGENDAMENTO = v.ESTADO_AGENDAMENTO
     LEFT JOIN FK2_TB_CALENDARIO_PROVA cp
       ON cp.CODIGO = v.CALENDARIO_PROVA
+          LEFT JOIN FK2_MGH_TB_HORARIO h
+      ON JSON_VALUE(cp.REF_HORARIO, '$.pk' RETURNING NUMBER) = h.PK_HORARIO
     LEFT JOIN FK2_DISCIPLINA d
       ON d.CODIGO = cp.CODIGO_DISCIPLINA
         LEFT JOIN FK2_TB_ANO_LECTIVO al
@@ -1072,7 +1091,7 @@ ${whereClause}
     const { docenteNome = '', modo } = dto;
     const refDate = parseISODateOrToday(dto.dataReferencia);
 
-   console.log('dataReferencia:', dto.dataReferencia);
+
 
     if (!modo) {
       throw new BadGatewayException('Parâmetro "modo" é obrigatório: MES | SEMANA | DIA');

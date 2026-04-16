@@ -11,6 +11,13 @@ export class FindAssiduidadeDTO {
   @Type(() => Number)
   gradeId?: number;
 
+    @ApiPropertyOptional({ example: 438, description: 'ID do Período ' })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  periodoId?: number;
+
+
   @ApiPropertyOptional({ example: 3, description: 'ID do Estado do Agendamento (0 para todos)' })
   @IsOptional()
   @IsNumber()
