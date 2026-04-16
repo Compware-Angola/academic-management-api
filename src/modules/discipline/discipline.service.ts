@@ -40,6 +40,7 @@ export class DisciplineService {
       s.designacao        AS semestre,
       dur.designacao      AS duracao,
       c.designacao        AS classe,
+        c.codigo            AS codigo_classe,
       ano.designacao      AS ano_lectivo,
       hr.designacao       AS horario,
       hr.pk_horario       AS codigo_horario,
