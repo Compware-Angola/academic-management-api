@@ -378,46 +378,34 @@ async findAssiduidadeDocente(docenteId: number, filters: FindAssiduidadeDTO) {
     'aa.DATA_AULA <= TRUNC(SYSDATE)'
   ];
 
-  const params: any = {
-    docenteId: docenteId || 0,
-    offset,
-    limit,
-  };
-
-  // Filtros condicionais
+  // Filtros condicionais (sem binds)
   if (docenteId > 0) {
-    whereConditions.push(`TO_NUMBER(JSON_VALUE(aa.REF_AULA, '$.pkDocente')) = :docenteId`);
+    whereConditions.push(`TO_NUMBER(JSON_VALUE(aa.REF_AULA, '$.pkDocente')) = ${docenteId}`);
   }
 
-  if (gradeId&& gradeId > 0) {
-    whereConditions.push(`aa.FK_GRADE_CURRICULAR = :gradeId`);
-    params.gradeId = gradeId;
+  if (gradeId && gradeId > 0) {
+    whereConditions.push(`aa.FK_GRADE_CURRICULAR = ${gradeId}`);
   }
 
-  if (estadoAgendamento&& estadoAgendamento > 0) {
-    whereConditions.push(`aa.FK_ESTADO_AGENDAMENTO = :estadoAgendamento`);
-    params.estadoAgendamento = estadoAgendamento;
+  if (estadoAgendamento && estadoAgendamento > 0) {
+    whereConditions.push(`aa.FK_ESTADO_AGENDAMENTO = ${estadoAgendamento}`);
   }
 
   if (anoLectivo > 0) {
-    whereConditions.push(`h.FK_ANO_LECTIVO = :anoLectivo`);
-    params.anoLectivo = anoLectivo;
+    whereConditions.push(`h.FK_ANO_LECTIVO = ${anoLectivo}`);
   }
 
   if (semestre > 0) {
-    whereConditions.push(`h.FK_SEMESTRE = :semestre`);
-    params.semestre = semestre;
+    whereConditions.push(`h.FK_SEMESTRE = ${semestre}`);
   }
 
   if (periodoId > 0) {
-    whereConditions.push(`h.FK_PERIODO = :periodoId`);
-    params.periodoId = periodoId;
+    whereConditions.push(`h.FK_PERIODO = ${periodoId}`);
   }
 
   if (hasDateFilter) {
-    whereConditions.push(`aa.DATA_AULA BETWEEN TO_DATE(:dataInicio, 'YYYY-MM-DD') AND TO_DATE(:dataFim, 'YYYY-MM-DD')`);
-    params.dataInicio = dataInicio;
-    params.dataFim = dataFim;
+    whereConditions.push(`aa.DATA_AULA BETWEEN TO_DATE('${dataInicio}', 'YYYY-MM-DD') 
+                          AND TO_DATE('${dataFim}', 'YYYY-MM-DD')`);
   }
 
   const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
@@ -434,9 +422,10 @@ async findAssiduidadeDocente(docenteId: number, filters: FindAssiduidadeDTO) {
     LEFT JOIN FK2_TB_CURSOS c2 ON gc.CODIGO_CURSO = c2.CODIGO
     ${whereClause}
     ORDER BY aa.DATA_AULA ASC, al.ORDEM ASC
-    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
   `;
 
+  // SQL de contagem (mesma lógica)
   const countSql = `
     SELECT COUNT(*) AS TOTAL
     FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
@@ -447,8 +436,8 @@ async findAssiduidadeDocente(docenteId: number, filters: FindAssiduidadeDTO) {
   `;
 
   const [records, countResult] = await Promise.all([
-    this.dataSource.query(sql, params),
-    this.dataSource.query(countSql, params),
+    this.dataSource.query(sql),
+    this.dataSource.query(countSql),
   ]);
 
   const total = Number(countResult[0]?.TOTAL || 0);
