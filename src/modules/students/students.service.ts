@@ -1427,6 +1427,85 @@ async academicHistoryMigracaoDados(dto: AcademicHistoryMigracaoDadosDTO) {
   };
 }
 
+
+async updateHorarioGradeCurricular({codigoGradeCurricularAluno, horarioID}: {codigoGradeCurricularAluno: number, horarioID: number}) {
+  const gradeCurricularID = codigoGradeCurricularAluno;
+  const STATUS_PERMITIDO = 2;
+
+  const [gradeResult, statusResult, horarioResult] = await Promise.all([
+    this.dataSource.query(
+      `
+      SELECT 
+        al.codigo as codigo_grade_curricular_aluno,
+        al.REF_HORARIO as ref_horario,
+        al.CODIGO_STATUS_GRADE_CURRICULAR as codigo_status_grade_curricular
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
+      WHERE al.CODIGO = :1
+      `,
+      [gradeCurricularID],
+    ),
+
+    this.dataSource.query(
+      `
+      SELECT 
+        sgc.DESIGNACAO as status_nome
+      FROM FK2_TB_STATUS_GRADE_CURRICULAR sgc
+      WHERE sgc.codigo = :1
+      `,
+      [STATUS_PERMITIDO],
+    ),
+
+    this.dataSource.query(
+      `
+      SELECT 
+        hr.pk_horario as pk,
+        hr.designacao as desc
+      FROM FK2_MGH_TB_HORARIO hr
+      WHERE hr.pk_horario = :1
+      `,
+      [horarioID],
+    ),
+  ]);
+
+  const [gradeCurricular] = toLowerCaseKeys(gradeResult);
+  const [statusGradeCurricular] = toLowerCaseKeys(statusResult);
+  const [horario] = toLowerCaseKeys(horarioResult);
+
+
+  if (!gradeCurricular) {
+    throw new BadRequestException('Grade curricular não encontrada');
+  }
+
+  if (!horario) {
+    throw new BadRequestException('Horário não encontrado');
+  }
+
+  if (gradeCurricular.codigo_status_grade_curricular !== STATUS_PERMITIDO) {
+    throw new BadRequestException(
+      `Apenas grades curriculares com estado ${statusGradeCurricular?.status_nome} podem ter horário`,
+    );
+  }
+
+  const REF_HORARIO = JSON.stringify(horario);
+
+  await this.dataSource.query(
+    `
+    UPDATE FK2_TB_GRADE_CURRICULAR_ALUNO
+    SET REF_HORARIO = :1
+    WHERE CODIGO = :2
+    `,
+    [REF_HORARIO, gradeCurricularID],
+  );
+ 
+ 
+
+  return {
+    message: 'Horário da grade curricular atualizado com sucesso',
+  };
+}
+
+
+
   async changeCourse(dto: ChangeCourseDTO) {
     const { PoloId, matriculaId, cursoId } = dto;
      let  mudarCurso = true;

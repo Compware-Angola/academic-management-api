@@ -45,7 +45,9 @@ export class DisciplineService {
       hr.designacao       AS horario,
       hr.pk_horario       AS codigo_horario,
       gcs.designacao      AS estado,
+      gcs.codigo          AS estado_codigo,
       sl.designacao       AS sala
+     
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
       INNER JOIN FK2_TB_GRADE_CURRICULAR g
               ON al.CODIGO_GRADE_CURRICULAR = g.codigo
