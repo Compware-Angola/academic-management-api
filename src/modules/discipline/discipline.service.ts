@@ -75,6 +75,7 @@ export class DisciplineService {
       LEFT JOIN FK2_TB_SALAS sl
               ON sl.codigo = json_value(au.ref_sala, '$.pk')
     WHERE ${baseWhere}
+    ORDER BY al.codigo ASC
     OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
   `;
 
