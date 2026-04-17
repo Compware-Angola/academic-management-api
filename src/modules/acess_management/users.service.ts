@@ -149,6 +149,10 @@ private async telefoneExistePerson(
   }
 async switchStateUser(userId: number,usuarioLogadoId:number): Promise<any> {
   // Busca o usuário atual
+
+ if (userId === usuarioLogadoId) {
+  throw new BadRequestException("Não podes bloquear o teu próprio utilizador");
+}
   const userResult = await this.dataSource.query(
     `SELECT PK_UTILIZADOR, NOME, ACTIVE_STATE 
      FROM FK2_MCA_TB_UTILIZADOR 
