@@ -147,6 +147,47 @@ private async telefoneExistePerson(
       await queryRunner.release();
     }
   }
+async switchStateUser(userId: number,usuarioLogadoId:number): Promise<any> {
+  // Busca o usuário atual
+  const userResult = await this.dataSource.query(
+    `SELECT PK_UTILIZADOR, NOME, ACTIVE_STATE 
+     FROM FK2_MCA_TB_UTILIZADOR 
+     WHERE PK_UTILIZADOR = :userId`,
+    [userId]
+  );
+
+  if (userResult.length === 0) {
+    throw new Error('Utilizador não encontrado');
+  }
+
+  const user = userResult[0];
+  const currentState = user.ACTIVE_STATE;
+  const newState = currentState === 1 || currentState === true ? 0 : 1;
+
+  // Atualiza o estado
+  await this.dataSource.query(
+    `UPDATE FK2_MCA_TB_UTILIZADOR 
+     SET ACTIVE_STATE = :newState,
+         UPDATED_AT = CURRENT_TIMESTAMP,
+         LAST_UPDATED_BY = :usuarioLogadoId   -- pode mudar para req.user depois
+     WHERE PK_UTILIZADOR = :userId`,
+    { newState,usuarioLogadoId, userId }  as any
+  );
+
+  const action = newState === 1 ? 'ativado' : 'inativado';
+  const stateText = newState === 1 ? 'Ativo' : 'Inativo';
+
+  return {
+    success: true,
+    userId: user.PK_UTILIZADOR,
+    nome: user.NOME,
+    previousState: currentState === 1 ? 'Ativo' : 'Inativo',
+    newState: stateText,
+    action: action,
+    message: `Utilizador ${user.NOME} foi ${action} com sucesso.`,
+    active: newState === 1
+  };
+}
 
   async listUsers(filter: UserFilterDto): Promise<{
     data: UserListItemDto[];
