@@ -1431,6 +1431,7 @@ async academicHistoryMigracaoDados(dto: AcademicHistoryMigracaoDadosDTO) {
 async updateHorarioGradeCurricular({codigoGradeCurricularAluno, horarioID}: {codigoGradeCurricularAluno: number, horarioID: number}) {
   const gradeCurricularID = codigoGradeCurricularAluno;
   const STATUS_PERMITIDO = 2;
+  console.log({codigoGradeCurricularAluno, horarioID})
 
   const [gradeResult, statusResult, horarioResult] = await Promise.all([
     this.dataSource.query(
@@ -1441,6 +1442,7 @@ async updateHorarioGradeCurricular({codigoGradeCurricularAluno, horarioID}: {cod
         al.CODIGO_STATUS_GRADE_CURRICULAR as codigo_status_grade_curricular
       FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
       WHERE al.CODIGO = :1
+      
       `,
       [gradeCurricularID],
     ),
@@ -1459,7 +1461,7 @@ async updateHorarioGradeCurricular({codigoGradeCurricularAluno, horarioID}: {cod
       `
       SELECT 
         hr.pk_horario as pk,
-        hr.designacao as desc
+        hr.designacao as designacao
       FROM FK2_MGH_TB_HORARIO hr
       WHERE hr.pk_horario = :1
       `,
@@ -1480,13 +1482,15 @@ async updateHorarioGradeCurricular({codigoGradeCurricularAluno, horarioID}: {cod
     throw new BadRequestException('Horário não encontrado');
   }
 
+  console.log({gradeCurricular});
+
   if (gradeCurricular.codigo_status_grade_curricular !== STATUS_PERMITIDO) {
     throw new BadRequestException(
       `Apenas grades curriculares com estado ${statusGradeCurricular?.status_nome} podem ter horário`,
     );
   }
 
-  const REF_HORARIO = JSON.stringify(horario);
+  const REF_HORARIO = JSON.stringify({pk: horario.pk, desc: horario.designacao});
 
   await this.dataSource.query(
     `
@@ -1504,9 +1508,7 @@ async updateHorarioGradeCurricular({codigoGradeCurricularAluno, horarioID}: {cod
   };
 }
 
-
-
-  async changeCourse(dto: ChangeCourseDTO) {
+async changeCourse(dto: ChangeCourseDTO) {
     const { PoloId, matriculaId, cursoId } = dto;
      let  mudarCurso = true;
      let            buscarHorario = true;

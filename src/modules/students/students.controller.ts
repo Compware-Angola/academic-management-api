@@ -214,7 +214,6 @@ export class StudentsController {
   @ApiResponse({
     status: 200,
     description: 'Histórico acadêmico do estudante obtido com sucesso',
-    type: AcademicHistoryDTO,
   })
   academicHistoryEquivalencia(@Query(ValidationPipe) query: AcademicHistoryEquivalenciaDTO) {
     return this.studentsService.academicHistoryEquivalencia(query);
@@ -225,18 +224,16 @@ export class StudentsController {
   @ApiResponse({
     status: 200,
     description: 'Histórico acadêmico do estudante obtido com sucesso',
-    type: AcademicHistoryDTO,
   })
   academicHistoryMigracaoDados(@Query(ValidationPipe) query: AcademicHistoryMigracaoDadosDTO) {
     return this.studentsService.academicHistoryMigracaoDados(query);
   }
 
-  @Patch('update-horario-grade-curricular')
+  @Put('horario-grade-curricular')
   @ApiOperation({ summary: 'Atualizar horário da grade curricular' })
   @ApiResponse({
     status: 200,
     description: 'Horário da grade curricular atualizado com sucesso',
-    type: AcademicHistoryDTO,
   })
   updateHorarioGradeCurricular(@Body(ValidationPipe) body: UpdateGradeCurricularAlunoHorarioDTO) {
     return this.studentsService.updateHorarioGradeCurricular(body);
