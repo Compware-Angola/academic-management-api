@@ -23,6 +23,7 @@ import { formatHora } from '../util/formate-date';
 import { promptToCreateAndEditService } from '../academic_activities/prompt-to-create-and-edit.service';
 import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
+import { ScheduleParamDto } from './dto/parametros.dto';
 
 @Injectable()
 export class ScheduleService {
@@ -154,49 +155,49 @@ export class ScheduleService {
     };
   }
 
- async getAulasOcupadasParaDropdown(
-  salaCodigo: number,
-  anoLectivo: number,
-  periodo: number,
-  semetre: number,
-  horarioId?: number,
-): Promise<{ aulas: any[] }> {
+  async getAulasOcupadasParaDropdown(
+    salaCodigo: number,
+    anoLectivo: number,
+    periodo: number,
+    semetre: number,
+    horarioId?: number,
+  ): Promise<{ aulas: any[] }> {
 
-  // 1️⃣ Verifica se a sala existe
-  const salaResult = await this.dataSource.query(
-    `
+    // 1️⃣ Verifica se a sala existe
+    const salaResult = await this.dataSource.query(
+      `
     SELECT CODIGO
     FROM FK2_TB_SALAS
     WHERE CODIGO = :salaCodigo
       AND DELETED_AT IS NULL
     `,
-    { salaCodigo } as any,
-  );
-
-  if (!salaResult?.length) {
-    throw new NotFoundException(
-      `Sala com código ${salaCodigo} não encontrada ou inativa`,
+      { salaCodigo } as any,
     );
-  }
 
-  // 2️⃣ Condição dinâmica para ignorar o próprio horário (edição)
-  let horarioCondition = '';
+    if (!salaResult?.length) {
+      throw new NotFoundException(
+        `Sala com código ${salaCodigo} não encontrada ou inativa`,
+      );
+    }
 
-  const params: any = {
-    salaCodigo,
-    anoLectivo,
-    periodo,
-    semetre,
-  };
+    // 2️⃣ Condição dinâmica para ignorar o próprio horário (edição)
+    let horarioCondition = '';
 
-  if (horarioId !== undefined && Number.isInteger(horarioId) && horarioId > 0) {
-    horarioCondition = 'AND h.PK_HORARIO <> :horarioId';
-    params.horarioId = horarioId;
-  }
+    const params: any = {
+      salaCodigo,
+      anoLectivo,
+      periodo,
+      semetre,
+    };
 
-  // 3️⃣ Busca aulas ocupadas
-  const aulasResult = await this.dataSource.query(
-    `
+    if (horarioId !== undefined && Number.isInteger(horarioId) && horarioId > 0) {
+      horarioCondition = 'AND h.PK_HORARIO <> :horarioId';
+      params.horarioId = horarioId;
+    }
+
+    // 3️⃣ Busca aulas ocupadas
+    const aulasResult = await this.dataSource.query(
+      `
     SELECT
       al.PK_AULA,
       ta.DESCRICAO AS TIPO_AULA,
@@ -230,40 +231,40 @@ export class ScheduleService {
         'HH24:MI'
       )
     `,
-    params,
-  );
+      params,
+    );
 
-  // 4️⃣ Agrupa por dia da semana
-  const mapaDias = new Map<number, any>();
+    // 4️⃣ Agrupa por dia da semana
+    const mapaDias = new Map<number, any>();
 
-  aulasResult.forEach((aula: any) => {
-    if (!mapaDias.has(aula.PK_DIA_DA_SEMANA)) {
-      mapaDias.set(aula.PK_DIA_DA_SEMANA, {
-        diaSemana: {
-          pkDiaDaSemana: aula.PK_DIA_DA_SEMANA,
-          designacao: aula.DIA_SEMANA,
-          ordem: aula.ORDEM_DIA_SEMANA,
-        },
-        tempos: [],
+    aulasResult.forEach((aula: any) => {
+      if (!mapaDias.has(aula.PK_DIA_DA_SEMANA)) {
+        mapaDias.set(aula.PK_DIA_DA_SEMANA, {
+          diaSemana: {
+            pkDiaDaSemana: aula.PK_DIA_DA_SEMANA,
+            designacao: aula.DIA_SEMANA,
+            ordem: aula.ORDEM_DIA_SEMANA,
+          },
+          tempos: [],
+        });
+      }
+
+      mapaDias.get(aula.PK_DIA_DA_SEMANA).tempos.push({
+        horaInicio: formatHora(aula.HORA_INICIO),
+        horaFim: formatHora(aula.HORA_TERMINO),
+        disponivel: false,
+        codigoAula: aula.PK_AULA,
+        tipoAula: aula.TIPO_AULA,
+        ordem_tempo: aula.ORDEM_TEMPO,
+        periodo: aula.FK_PERIODO,
       });
-    }
-
-    mapaDias.get(aula.PK_DIA_DA_SEMANA).tempos.push({
-      horaInicio: formatHora(aula.HORA_INICIO),
-      horaFim: formatHora(aula.HORA_TERMINO),
-      disponivel: false,
-      codigoAula: aula.PK_AULA,
-      tipoAula: aula.TIPO_AULA,
-      ordem_tempo: aula.ORDEM_TEMPO,
-      periodo: aula.FK_PERIODO,
     });
-  });
 
-  // 5️⃣ Retorno final
-  return {
-    aulas: Array.from(mapaDias.values()),
-  };
-}
+    // 5️⃣ Retorno final
+    return {
+      aulas: Array.from(mapaDias.values()),
+    };
+  }
 
   async createPermissionToEditSchedule(query: CreatePermissionEditScheduleDto) {
     const json_user = `{"pk": ${query.userId}, "desc": " ", "corLetra": "black", "disponivel": true}`;
@@ -858,7 +859,7 @@ ORDER BY
     // --------------------------------------------------------------------
     // 4) Iniciar Fila para Agendar Aulas
     // --------------------------------------------------------------------
-     await this.queueScheduleClass(horarioId);
+    await this.queueScheduleClass(horarioId);
     // --------------------------------------------------------------------
     // 5) RETORNAR RESPOSTA AMIGÁVEL
     // --------------------------------------------------------------------
@@ -1292,29 +1293,29 @@ ORDER BY
       totalPages: Math.ceil(total / limit),
     };
   }
-async findAllRegistrationBySchedule(filters: ListScheduleDto) {
-  const {
-    anoLectivo,
-    semestre,
-    periodo,
-    curso,
-    anoCurricular,
-    unidadeCurricular,
-    estado,
-    afetacaoDocente,
-    page = 1,
-    limit = 25,
-  } = filters;
+  async findAllRegistrationBySchedule(filters: ListScheduleDto) {
+    const {
+      anoLectivo,
+      semestre,
+      periodo,
+      curso,
+      anoCurricular,
+      unidadeCurricular,
+      estado,
+      afetacaoDocente,
+      page = 1,
+      limit = 25,
+    } = filters;
 
-  if (!anoLectivo) {
-    throw new BadRequestException('O campo anoLectivo é obrigatório');
-  }
+    if (!anoLectivo) {
+      throw new BadRequestException('O campo anoLectivo é obrigatório');
+    }
 
-  const offset = (page - 1) * limit;
-  // ✅ FIX 1: limit era offset+limit (errado). Agora passa limit direto.
-  const params: any = { anoLectivo, offset, limit };
+    const offset = (page - 1) * limit;
+    // ✅ FIX 1: limit era offset+limit (errado). Agora passa limit direto.
+    const params: any = { anoLectivo, offset, limit };
 
-  let sql = `
+    let sql = `
     SELECT *
     FROM (
       SELECT
@@ -1379,29 +1380,29 @@ async findAllRegistrationBySchedule(filters: ListScheduleDto) {
           AND ew."SIGLA" != 'ab'
   `;
 
-  if (semestre != null) {
-    sql += ` AND TO_NUMBER(NULLIF(h."FK_SEMESTRE", '')) = :semestre`;
-    params.semestre = semestre;
-  }
-  if (periodo != null) {
-    sql += ` AND TO_NUMBER(NULLIF(h."FK_PERIODO", '')) = :periodo`;
-    params.periodo = periodo;
-  }
-  if (unidadeCurricular != null) {
-    sql += ` AND g."CODIGO" = :unidadeCurricular`;
-    params.unidadeCurricular = unidadeCurricular;
-  }
-  if (anoCurricular != null) {
-    sql += ` AND g."CODIGO_CLASSE" = :anoCurricular`;
-    params.anoCurricular = anoCurricular;
-  }
-  if (estado != null) {
-    sql += ` AND ew."PK_ESTADO_HORARIO_WF" = :estado`;
-    params.estado = estado;
-  }
+    if (semestre != null) {
+      sql += ` AND TO_NUMBER(NULLIF(h."FK_SEMESTRE", '')) = :semestre`;
+      params.semestre = semestre;
+    }
+    if (periodo != null) {
+      sql += ` AND TO_NUMBER(NULLIF(h."FK_PERIODO", '')) = :periodo`;
+      params.periodo = periodo;
+    }
+    if (unidadeCurricular != null) {
+      sql += ` AND g."CODIGO" = :unidadeCurricular`;
+      params.unidadeCurricular = unidadeCurricular;
+    }
+    if (anoCurricular != null) {
+      sql += ` AND g."CODIGO_CLASSE" = :anoCurricular`;
+      params.anoCurricular = anoCurricular;
+    }
+    if (estado != null) {
+      sql += ` AND ew."PK_ESTADO_HORARIO_WF" = :estado`;
+      params.estado = estado;
+    }
 
-  if (curso != null) {
-    sql += `
+    if (curso != null) {
+      sql += `
       AND (
         (SELECT curs."GRAU" FROM "FK2_TB_CURSOS" curs WHERE curs."CODIGO" = :curso AND curs."STATUS_" = 1) = '0'
           AND g."FK_DEPARTAMENTO" = :curso
@@ -1416,11 +1417,11 @@ async findAllRegistrationBySchedule(filters: ListScheduleDto) {
           AND ew."PK_ESTADO_HORARIO_WF" = 4
       )
     `;
-    params.curso = curso;
-  }
+      params.curso = curso;
+    }
 
-  if (afetacaoDocente === 1) {
-    sql += `
+    if (afetacaoDocente === 1) {
+      sql += `
       AND EXISTS (
         SELECT 1 FROM "FK2_MGH_TB_AULA" a
         WHERE a."FK_HORARIO" = h."PK_HORARIO"
@@ -1429,8 +1430,8 @@ async findAllRegistrationBySchedule(filters: ListScheduleDto) {
           AND JSON_VALUE(a."REF_DOCENTE", '$.pkDocente' RETURNING NUMBER) != 0
       )
     `;
-  } else if (afetacaoDocente === 2) {
-    sql += `
+    } else if (afetacaoDocente === 2) {
+      sql += `
       AND NOT EXISTS (
         SELECT 1 FROM "FK2_MGH_TB_AULA" a
         WHERE a."FK_HORARIO" = h."PK_HORARIO"
@@ -1439,10 +1440,10 @@ async findAllRegistrationBySchedule(filters: ListScheduleDto) {
           AND JSON_VALUE(a."REF_DOCENTE", '$.pkDocente' RETURNING NUMBER) != 0
       )
     `;
-  }
+    }
 
-  // ✅ FIX 5: Paginação correta com OFFSET/FETCH (mais eficiente que ROW_NUMBER filter)
-  sql += `
+    // ✅ FIX 5: Paginação correta com OFFSET/FETCH (mais eficiente que ROW_NUMBER filter)
+    sql += `
       ) dados
       ORDER BY "CRIADOPOR" DESC, "CODIGO" DESC
     )
@@ -1451,19 +1452,19 @@ async findAllRegistrationBySchedule(filters: ListScheduleDto) {
     ORDER BY rn
   `;
 
-  const result = await this.dataSource.query(sql, params);
+    const result = await this.dataSource.query(sql, params);
 
-  const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
-  const data = result.map(({ RN, TOTAL_REGISTROS, ...item }: any) => item);
+    const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
+    const data = result.map(({ RN, TOTAL_REGISTROS, ...item }: any) => item);
 
-  return {
-    data: await toLowerCaseKeys(data),
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit),
-  };
-}
+    return {
+      data: await toLowerCaseKeys(data),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
   async detailsRegistrationBySchedule(scheduleId: number) {
     let sql = `SELECT
 GCA.CODIGO  AS codigo_grade_aluno ,
@@ -2223,6 +2224,132 @@ WHERE ${baseWhere}
       success: true,
       message: `${studentsCurriculumIds.length} Estudante(s) Movimentados com sucesso`,
     };
+  }
+
+  async scheduleParams(dto: ScheduleParamDto) {
+    const { tipoParametro, curso, page = 1, limit = 10, search } = dto;
+    const offset = (page - 1) * limit;
+    let parametros: any;
+
+    switch (tipoParametro) {
+      case 1:
+        parametros = await this.findParametroHorarioGeraisOrderByDesignacao(search, offset, limit);
+
+        break;
+      case 2:
+        parametros = await this.findParametroHorarioPorCursoOrderByDesignacao(search, offset, limit);
+        break;
+
+      default:
+        parametros = await this.findAllOrderByDesignacao(search, offset, limit);
+        break;
+    }
+
+   
+       const hasNextPage = parametros.length > limit;
+    if (hasNextPage) parametros.pop();
+
+    return {
+      success: true,
+      data: await toLowerCaseKeys(parametros),
+      page,
+      limit,
+      hasNextPage,
+    };
+  }
+  private async findAllOrderByDesignacao(
+    search?: string,
+    offset = 0,
+    limit = 10,
+  ) {
+    const query = `
+    SELECT
+        P.PK_PARAMETRO,
+        P.DESIGNACAO,
+        P.DESCRICAO,
+        P.SIGLA,
+      --  P.ARGS,
+        P.OBS,
+        P.ORDEM,
+        P.ACTIVE_STATE
+    FROM FK2_MGH_TB_PARAMETRO P
+    WHERE (
+        :search IS NULL
+        OR UPPER(P.DESIGNACAO) LIKE UPPER(:search)
+        OR UPPER(P.DESCRICAO) LIKE UPPER(:search)
+        OR UPPER(P.SIGLA) LIKE UPPER(:search)
+    )
+    ORDER BY P.DESIGNACAO
+    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+  `;
+
+    return await this.dataSource.query(query, {
+      search: search ? `%${search}%` : null,
+    } as any);
+  }
+  private async findParametroHorarioPorCursoOrderByDesignacao(
+    search?: string,
+    offset = 0,
+    limit = 10,
+  ) {
+    const query = `
+    SELECT DISTINCT
+        P.PK_PARAMETRO,
+        P.DESIGNACAO,
+        P.DESCRICAO,
+        P.SIGLA,
+      --  P.ARGS,
+        P.OBS,
+        P.ORDEM,
+        P.ACTIVE_STATE
+    FROM FK2_MGH_TB_PARAMETRO P
+    WHERE P.SIGLA NOT IN ('nbph', 'epndh')
+        AND P.ACTIVE_STATE = 1
+        AND (
+            :search IS NULL
+            OR UPPER(P.DESIGNACAO) LIKE UPPER(:search)
+            OR UPPER(P.DESCRICAO) LIKE UPPER(:search)
+            OR UPPER(P.SIGLA) LIKE UPPER(:search)
+        )
+    ORDER BY P.DESIGNACAO ASC
+    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+  `;
+
+    return await this.dataSource.query(query, {
+      search: search ? `%${search}%` : null,
+    } as any);
+  }
+  private async findParametroHorarioGeraisOrderByDesignacao(
+    search?: string,
+    offset = 0,
+    limit = 10,
+  ) {
+    const query = `
+    SELECT DISTINCT
+        P.PK_PARAMETRO,
+        P.DESIGNACAO,
+        P.DESCRICAO,
+        P.SIGLA,
+      --  P.ARGS,
+        P.OBS,
+        P.ORDEM,
+        P.ACTIVE_STATE
+    FROM FK2_MGH_TB_PARAMETRO P
+    WHERE P.SIGLA IN ('nbph', 'epndh')
+        AND P.ACTIVE_STATE = 1
+        AND (
+            :search IS NULL
+            OR UPPER(P.DESIGNACAO) LIKE UPPER(:search)
+            OR UPPER(P.DESCRICAO) LIKE UPPER(:search)
+            OR UPPER(P.SIGLA) LIKE UPPER(:search)
+        )
+    ORDER BY P.DESIGNACAO ASC
+    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+  `;
+
+    return await this.dataSource.query(query, {
+      search: search ? `%${search}%` : null,
+    } as any);
   }
 
   private async createOrUpdateHorario(

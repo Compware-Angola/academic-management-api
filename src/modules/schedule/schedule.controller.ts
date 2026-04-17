@@ -13,7 +13,7 @@ import {
   UsePipes,
   UseGuards,
   Req,
-  DefaultValuePipe,
+  
 } from '@nestjs/common';
 
 import { ScheduleService } from './schedule.service';
@@ -39,6 +39,7 @@ import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { GetAulasOcupadasDto } from './dto/get-aulas-ocupadas.dto';
+import { ScheduleParamDto } from './dto/parametros.dto';
 
 @ApiTags('schedule')
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -52,17 +53,17 @@ export class ScheduleController {
   @ApiResponse({ status: 201, description: 'Permissão criada com sucesso.' })
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
   @RequiredPermissions(PermissionTypeDetails.PERMISSAO_PARA_EDITAR_HORARIO.sigla)
-   async createPermission(
+  async createPermission(
     @Body(ValidationPipe)
     createPermissionEditScheduleDto: CreatePermissionEditScheduleDto,
     @Req() req: any,
   ) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const user = req.user;
-       const result = await this.scheduleService.createPermissionToEditSchedule(
+    const result = await this.scheduleService.createPermissionToEditSchedule(
       createPermissionEditScheduleDto,
     );
-   await AccessLogHelper.logAccess(this.httpService, {
+    await AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${user?.nome} Criou Permissão de Edição de Horário  ${createPermissionEditScheduleDto.fkHorario}`,
       fkAcesso: 6,
       fkFuncionalidade: 91,
@@ -71,21 +72,21 @@ export class ScheduleController {
       ip: ip,
     });
     return result;
- 
+
   }
-@Get('aulas-ocupadas/:salaCodigo')
-async getAulasOcupadas(
-  @Param('salaCodigo', ParseIntPipe) salaCodigo: number,
-  @Query() query: GetAulasOcupadasDto,
-) {
-  return this.scheduleService.getAulasOcupadasParaDropdown(
-    salaCodigo,
-    query.anoLectivo,
-    query.periodo,
-    query.semestre,
-    query.horarioId,
-  );
-}
+  @Get('aulas-ocupadas/:salaCodigo')
+  async getAulasOcupadas(
+    @Param('salaCodigo', ParseIntPipe) salaCodigo: number,
+    @Query() query: GetAulasOcupadasDto,
+  ) {
+    return this.scheduleService.getAulasOcupadasParaDropdown(
+      salaCodigo,
+      query.anoLectivo,
+      query.periodo,
+      query.semestre,
+      query.horarioId,
+    );
+  }
   // ================ LISTAGENS ================
   @Get()
   @RequiredPermissions(PermissionTypeDetails.LISTAR_HORARIOS.sigla)
@@ -95,6 +96,15 @@ async getAulasOcupadas(
   findAll(@Query(ValidationPipe) query: ListScheduleDto, @Req() req: any,) {
 
     return this.scheduleService.findAll(query);
+  }
+  @Get('params')
+  @ApiOperation({
+    summary: "Listagem dos Parametros dos horários"
+
+  })
+  getParams(@Query(ValidationPipe) query: ScheduleParamDto, @Req() req: any) {
+    return this.scheduleService.scheduleParams(query)
+
   }
 
   @Get('with-permission')
@@ -205,7 +215,7 @@ async getAulasOcupadas(
   ) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const user = req.user
-   const schedule= await this.scheduleService.create(user.sub, createScheduleDto);
+    const schedule = await this.scheduleService.create(user.sub, createScheduleDto);
     await AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${user?.nome} Criou Horário ${schedule.horarioId}`,
       fkAcesso: 6,
@@ -261,7 +271,7 @@ async getAulasOcupadas(
     await AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${user?.nome} Movimentou Estudantes do Horário ID ${dto.fromScheduleId} para o Horário ID ${dto.toScheduleId}`,
       fkAcesso: 6,
-  
+
       fkUtilizadorResponsavel: user.sub,
       fkOperacaoLog: 10,
       ip: ip,
@@ -293,7 +303,7 @@ async getAulasOcupadas(
       ip: ip,
     });
     return result;
-    
+
   }
 
   @Patch(':horarioId/disponibilidade/:userId')
@@ -334,7 +344,7 @@ async getAulasOcupadas(
       ip: ip,
     });
     return result;
-   
+
   }
 
   @Patch(':horarioId/restaurar/:userId')
@@ -355,6 +365,6 @@ async getAulasOcupadas(
       ip: ip,
     });
     return result;
-   
+
   }
 }
