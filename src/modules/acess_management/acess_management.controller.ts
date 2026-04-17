@@ -93,6 +93,8 @@ export class AcessManagementController {
     return userDateResponse;
   }
    @Patch('user/:id/toggle-status')
+    @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+     @RequiredPermissions(PermissionTypeDetails.BLOQUEAR_ACESSOS.sigla)
   @ApiOperation({ 
     summary: 'Alterna o estado ativo/inativo de um utilizador (Toggle)', 
     description: 'Troca o ACTIVE_STATE entre 1 (ativo) e 0 (inativo)'
@@ -108,8 +110,7 @@ export class AcessManagementController {
   ) {
 
      const currentUser = req.user;
-    
-    return this.usersService.switchStateUser(id,currentUser);
+    return this.usersService.switchStateUser(id,currentUser.sub);
   }
 
 
