@@ -479,7 +479,9 @@ async listarInscritosPorUc(filter: FilterInscritosPorUcDto) {
 
   const estadoNome = estadoMap[String(estado)] ?? null;
 
+  // ====================== PARÂMETROS ======================
   const params: any = {
+    anoLectivo,           // ← Sempre incluído (mesmo que 0)
     offset,
     limit: offset + limit,
   };
@@ -529,7 +531,6 @@ async listarInscritosPorUc(filter: FilterInscritosPorUcDto) {
 
   if (anoLectivo && anoLectivo > 0) {
     sql += ` AND tal.CODIGO = :anoLectivo`;
-    params.anoLectivo = anoLectivo;
   }
 
   if (curso && curso > 0) {
