@@ -34,17 +34,21 @@ export class DisciplineService {
 
                 const sql = `
     SELECT DISTINCT
+      al.codigo AS codigo,
       al.codigo_grade_curricular AS codigo_grade_curricular,
       d.designacao        AS disciplina,
       d.codigo_disciplina AS codigo_disciplina,
       s.designacao        AS semestre,
       dur.designacao      AS duracao,
       c.designacao        AS classe,
+        c.codigo            AS codigo_classe,
       ano.designacao      AS ano_lectivo,
       hr.designacao       AS horario,
       hr.pk_horario       AS codigo_horario,
       gcs.designacao      AS estado,
+      gcs.codigo          AS estado_codigo,
       sl.designacao       AS sala
+     
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
       INNER JOIN FK2_TB_GRADE_CURRICULAR g
               ON al.CODIGO_GRADE_CURRICULAR = g.codigo

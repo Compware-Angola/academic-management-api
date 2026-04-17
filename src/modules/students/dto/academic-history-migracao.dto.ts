@@ -7,15 +7,10 @@ import {
   Min,
   IsNumber,
   IsPositive,
-  IsIn,
   Max,
   IsString,
-  IsNotEmpty,
-  IsDateString,
-  IsEnum,
 } from 'class-validator';
-
-export class AcademicHistoryDTO {
+export class AcademicHistoryMigracaoDadosDTO {
   @ApiProperty({
     description: 'Ano letivo obrigatório',
     example: 21,
@@ -40,26 +35,6 @@ export class AcademicHistoryDTO {
 
   @ApiPropertyOptional({
     description: 'Tipo de prova',
-    example: 486,
-    required: false,
-  })
-  @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  tipoProvaId?: number;
-
-  @ApiPropertyOptional({
-    description: 'Tipo de avaliação',
-    example: 486,
-    required: false,
-  })
-  @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  tipoAvaliacaoId?: number;
-
-  @ApiPropertyOptional({
-    description: 'Classe do aluno',
     example: 486,
     required: false,
   })
@@ -103,5 +78,3 @@ export class AcademicHistoryDTO {
   @Type(() => Number)
   limit?: number = 25;
 }
-
-

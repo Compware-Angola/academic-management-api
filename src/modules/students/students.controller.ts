@@ -38,6 +38,9 @@ import { CreateStudentEnrollmentUC } from './dto/create-student-enrollment-uc';
 import { StudentsEnrollmentUCService } from './students-enrollment-uc.service';
 import { FindPendentUCDTO } from './dto/find-pendent-uc.dto';
 import { StudentsEnrollmentPendentUCService } from './students-pendent-uc.service';
+import { AcademicHistoryEquivalenciaDTO } from './dto/academic-history-equivalencia.dto';
+import { AcademicHistoryMigracaoDadosDTO } from './dto/academic-history-migracao.dto';
+import { UpdateGradeCurricularAlunoHorarioDTO } from '../discipline/dto/update-grade-curri-curricular-aluno-horario';
 
 @Controller('students')
 export class StudentsController {
@@ -204,5 +207,35 @@ export class StudentsController {
   })
   findPendetUc(@Query(ValidationPipe) query: FindPendentUCDTO) {
     return this.studentsEnrollmentPendentUCService.findPendent(query);
+  }
+
+  @Get('academic-history-equivalencia')
+  @ApiOperation({ summary: 'Obter histórico acadêmico do estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Histórico acadêmico do estudante obtido com sucesso',
+  })
+  academicHistoryEquivalencia(@Query(ValidationPipe) query: AcademicHistoryEquivalenciaDTO) {
+    return this.studentsService.academicHistoryEquivalencia(query);
+  }
+
+  @Get('academic-history-migracao-dados')
+  @ApiOperation({ summary: 'Obter histórico acadêmico do estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Histórico acadêmico do estudante obtido com sucesso',
+  })
+  academicHistoryMigracaoDados(@Query(ValidationPipe) query: AcademicHistoryMigracaoDadosDTO) {
+    return this.studentsService.academicHistoryMigracaoDados(query);
+  }
+
+  @Put('horario-grade-curricular')
+  @ApiOperation({ summary: 'Atualizar horário da grade curricular' })
+  @ApiResponse({
+    status: 200,
+    description: 'Horário da grade curricular atualizado com sucesso',
+  })
+  updateHorarioGradeCurricular(@Body(ValidationPipe) body: UpdateGradeCurricularAlunoHorarioDTO) {
+    return this.studentsService.updateHorarioGradeCurricular(body);
   }
 }
