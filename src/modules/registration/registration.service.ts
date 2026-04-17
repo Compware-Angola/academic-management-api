@@ -303,194 +303,154 @@ export class RegistrationService {
     };
   }
 
-  async listarGeralEstudantes(filter: FilterListagemGeralEstudantesDto) {
-    const {
-      page = 1,
-      limit = 10,
-      anoLectivo = 0,
-      faculdade = 0,
-      grauAcademico = 0,
-      curso = 0,
-      anoCurricular = 0,
-      periodo = 0,
-      nacionalidade = 0,
-      necessidade = 0,
-      sexo = 0,
-      search,
-    } = filter;
-  
-    const offset = (page - 1) * limit;
-  
-    const baseParams: Record<string, any> = {
-      anoLectivo,
-      anoLectivo_zero: anoLectivo,
-      faculdade,
-      faculdade_zero: faculdade,
-      grauAcademico,
-      grauAcademico_zero: grauAcademico,
-      curso,
-      curso_zero: curso,
-      anoCurricular,
-      anoCurricular_zero: anoCurricular,
-      periodo,
-      periodo_zero: periodo,
-      nacionalidade,
-      nacionalidade_zero: nacionalidade,
-      necessidade,
-      necessidade_zero: necessidade,
-      sexo,
-      sexo_zero: sexo,
-    };
-  
-    let whereClause = `
-      WHERE (tal.CODIGO = :anoLectivo OR :anoLectivo_zero = 0)
-        AND (tc2.FACULDADE_ID = :faculdade OR :faculdade_zero = 0)
-        AND (tc2.GRAU = :grauAcademico OR :grauAcademico_zero = 0)
-        AND (tc2.CODIGO = :curso OR :curso_zero = 0)
-        AND (tgc.CODIGO_CLASSE = :anoCurricular OR :anoCurricular_zero = 0)
-        AND (tp2.CODIGO = :periodo OR :periodo_zero = 0)
-        AND (tn.CODIGO = :nacionalidade OR :nacionalidade_zero = 0)
-        AND (NVL(ne.ID, 0) = :necessidade OR :necessidade_zero = 0)
-        AND (
-          :sexo_zero = 0
-          OR tp.SEXO = (
-            SELECT ts.DESIGNACAO
-            FROM FK2_TB_SEXO ts
-            WHERE ts.CODIGO = :sexo
-          )
-        )
-    `;
-  
-    if (search && search.trim()) {
-      whereClause += `
-        AND (
-          UPPER(tp.NOME_COMPLETO) LIKE :search
-          OR UPPER(NVL(TO_CHAR(tm.NUMEROALUNO), TO_CHAR(tm.CODIGO_ALUNO))) LIKE :search
-        )
-      `;
-      baseParams.search = `%${search.trim().toUpperCase()}%`;
-    }
-  
-    const baseFrom = `
-  FROM FK2_TB_MATRICULAS tm
-  INNER JOIN FK2_TB_CONFIRMACOES tc
-    ON tc.CODIGO_MATRICULA = tm.CODIGO
-  INNER JOIN FK2_TB_CURSOS tc2
-    ON tc2.CODIGO = tm.CODIGO_CURSO
-  INNER JOIN FK2_TB_FACULDADE tf
-    ON tf.CODIGO = tc2.FACULDADE_ID
-  INNER JOIN FK2_TB_ADMISSAO ta
-    ON ta.CODIGO = tm.CODIGO_ALUNO
-  INNER JOIN FK2_TB_PREINSCRICAO tp
-    ON tp.CODIGO = ta.PRE_INCRICAO
-  INNER JOIN FK2_TB_NACIONALIDADES tn
-    ON tn.CODIGO = tp.CODIGO_NACIONALIDADE
-  INNER JOIN FK2_TB_ANO_LECTIVO tal
-    ON tal.CODIGO = tc.CODIGO_ANO_LECTIVO
-  LEFT JOIN FK2_NECESSIDADE_ESPECIAIS ne
-    ON ne.ID = tp.NECESSIDADE_ESPECIAL_ID
-  INNER JOIN FK2_TB_PERIODOS tp2
-    ON tp.CODIGO_TURNO = tp2.CODIGO
-  INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
-    ON tgca.CODIGO_MATRICULA = tm.CODIGO
-  INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
-    ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
-  LEFT JOIN FK2_TB_BOLSEIROS fb
-    ON fb.CODIGO_MATRICULA = tm.CODIGO
-    AND fb.CODIGO_ANOLECTIVO = tal.CODIGO
-    AND fb.SEMESTRE = tgc.CODIGO_SEMESTRE
-    AND fb.STATUS_ = 0
-  LEFT JOIN FK2_TB_INSTITUICAO i
-    ON i.CODIGO = fb.CODIGO_INSTITUICAO
-`;
-  
-    const sql = `
-  SELECT *
-  FROM (
-    SELECT
-      q.*,
-      ROW_NUMBER() OVER (ORDER BY q.NOME ASC) AS RN
+async listarGeralEstudantes(filter: FilterListagemGeralEstudantesDto) {
+  const {
+    page = 1,
+    limit = 10,
+    anoLectivo,
+    faculdade,
+    grauAcademico,
+    curso,
+    anoCurricular,
+    periodo,
+    nacionalidade,
+    necessidade,
+    sexo,
+    search,
+  } = filter;
+
+  const offset = (page - 1) * limit;
+
+  const params: any = {
+    offset,
+    limit: offset + limit,
+  };
+
+  let sql = `
+    SELECT *
     FROM (
-      SELECT DISTINCT
-        NVL(tm.NUMEROALUNO, tm.CODIGO_ALUNO) AS NUMERO_MATRICULA,
-        tp.NOME_COMPLETO AS NOME,
-        NVL(fn_tipo_estudante(fb.CODIGO, i.RENUNCIA, fb.CODIGO_TIPO_BOLSA), '-') AS TIPO_ALUNO,
-        tal.DESIGNACAO AS ANO_LECTIVO,
-        tp.SEXO AS SEXO,
-        tn.DESIGNACAO AS NATURALIDADE,
-        NVL(ne.DESIGNACAO, '-') AS NECESSIDADE,
-        tf.DESIGNACAO AS FACULDADE,
-        tc2.DESIGNACAO AS CURSO,
-        tgc.CODIGO_CLASSE AS ANO_CURRICULAR,
-        tp2.DESIGNACAO AS PERIODO
-      ${baseFrom}
-      ${whereClause}
-    ) q
-  ) t
-  WHERE t.RN BETWEEN :offset + 1 AND :offset + :limit
-  ORDER BY t.RN
-`;
-  
-    const countSql = `
-  SELECT COUNT(*) AS TOTAL
-  FROM (
-    SELECT DISTINCT
-      NVL(tm.NUMEROALUNO, tm.CODIGO_ALUNO) AS NUMERO_MATRICULA,
-      tp.NOME_COMPLETO AS NOME,
-      NVL(fn_tipo_estudante(fb.CODIGO, i.RENUNCIA, fb.CODIGO_TIPO_BOLSA), '-') AS TIPO_ALUNO,
-      tal.DESIGNACAO AS ANO_LECTIVO,
-      tp.SEXO AS SEXO,
-      tn.DESIGNACAO AS NATURALIDADE,
-      NVL(ne.DESIGNACAO, '-') AS NECESSIDADE,
-      tf.DESIGNACAO AS FACULDADE,
-      tc2.DESIGNACAO AS CURSO,
-      tgc.CODIGO_CLASSE AS ANO_CURRICULAR,
-      tp2.DESIGNACAO AS PERIODO
-    ${baseFrom}
-    ${whereClause}
-  ) x
-`;
-  
-    const dataParams = {
-      ...baseParams,
-      offset,
-      limit,
-    };
-  
-    const countParams = {
-      ...baseParams,
-    };
-  
-    const [result, countResult] = await Promise.all([
-      this.dataSource.query(sql, dataParams as any),
-      this.dataSource.query(countSql, countParams as any),
-    ]);
-  
-    const total = Number(countResult[0]?.TOTAL ?? 0);
-  
-    const data = result.map((row: any, index: number) => ({
-      numero: offset + index + 1,
-      numero_matricula: row.NUMERO_MATRICULA,
-      nome: row.NOME,
-      tipo_aluno: row.TIPO_ALUNO,
-      ano_lectivo: row.ANO_LECTIVO,
-      sexo: row.SEXO,
-      naturalidade: row.NATURALIDADE,
-      necessidade: row.NECESSIDADE,
-      faculdade: row.FACULDADE,
-      curso: row.CURSO,
-      ano_curricular: row.ANO_CURRICULAR,
-      periodo: row.PERIODO,
-    }));
-  
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit) || 1,
-    };
+      SELECT
+        dados.*,
+        ROW_NUMBER() OVER (ORDER BY dados.NOME ASC) AS rn,
+        COUNT(*) OVER () AS total_registros
+      FROM (
+        SELECT DISTINCT
+          NVL(tm.NUMEROALUNO, tm.CODIGO_ALUNO)          AS NUMERO_MATRICULA,
+          tp.NOME_COMPLETO                               AS NOME,
+          NVL(fn_tipo_estudante(fb.CODIGO, i.RENUNCIA, fb.CODIGO_TIPO_BOLSA), '-') AS TIPO_ALUNO,
+          tal.DESIGNACAO                                 AS ANO_LECTIVO,
+          tp.SEXO                                        AS SEXO,
+          tn.DESIGNACAO                                  AS NATURALIDADE,
+          NVL(ne.DESIGNACAO, '-')                        AS NECESSIDADE,
+          tf.DESIGNACAO                                  AS FACULDADE,
+          tc2.DESIGNACAO                                 AS CURSO,
+          tgc.CODIGO_CLASSE                              AS ANO_CURRICULAR,
+          tp2.DESIGNACAO                                 AS PERIODO
+        FROM FK2_TB_MATRICULAS tm
+        INNER JOIN FK2_TB_CONFIRMACOES tc          ON tc.CODIGO_MATRICULA = tm.CODIGO
+        INNER JOIN FK2_TB_CURSOS tc2               ON tc2.CODIGO = tm.CODIGO_CURSO
+        INNER JOIN FK2_TB_FACULDADE tf             ON tf.CODIGO = tc2.FACULDADE_ID
+        INNER JOIN FK2_TB_ADMISSAO ta              ON ta.CODIGO = tm.CODIGO_ALUNO
+        INNER JOIN FK2_TB_PREINSCRICAO tp          ON tp.CODIGO = ta.PRE_INCRICAO
+        INNER JOIN FK2_TB_NACIONALIDADES tn        ON tn.CODIGO = tp.CODIGO_NACIONALIDADE
+        INNER JOIN FK2_TB_ANO_LECTIVO tal          ON tal.CODIGO = tc.CODIGO_ANO_LECTIVO
+        LEFT  JOIN FK2_NECESSIDADE_ESPECIAIS ne    ON ne.ID = tp.NECESSIDADE_ESPECIAL_ID
+        INNER JOIN FK2_TB_PERIODOS tp2             ON tp.CODIGO_TURNO = tp2.CODIGO
+        INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca ON tgca.CODIGO_MATRICULA = tm.CODIGO
+        INNER JOIN FK2_TB_GRADE_CURRICULAR tgc     ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
+        LEFT  JOIN FK2_TB_BOLSEIROS fb             ON fb.CODIGO_MATRICULA = tm.CODIGO
+                                                   AND fb.CODIGO_ANOLECTIVO = tal.CODIGO
+                                                   AND fb.SEMESTRE = tgc.CODIGO_SEMESTRE
+                                                   AND fb.STATUS_ = 0
+        LEFT  JOIN FK2_TB_INSTITUICAO i            ON i.CODIGO = fb.CODIGO_INSTITUICAO
+        WHERE 1 = 1
+  `;
+
+  // Filtros obrigatórios / principais
+  if (anoLectivo && anoLectivo > 0) {
+    sql += ` AND tal.CODIGO = :anoLectivo`;
+    params.anoLectivo = anoLectivo;
   }
+
+  // Filtros opcionais
+  if (faculdade && faculdade > 0) {
+    sql += ` AND tc2.FACULDADE_ID = :faculdade`;
+    params.faculdade = faculdade;
+  }
+
+  if (grauAcademico && grauAcademico > 0) {
+    sql += ` AND tc2.GRAU = :grauAcademico`;
+    params.grauAcademico = grauAcademico;
+  }
+
+  if (curso && curso > 0) {
+    sql += ` AND tc2.CODIGO = :curso`;
+    params.curso = curso;
+  }
+
+  if (anoCurricular && anoCurricular > 0) {
+    sql += ` AND tgc.CODIGO_CLASSE = :anoCurricular`;
+    params.anoCurricular = anoCurricular;
+  }
+
+  if (periodo && periodo > 0) {
+    sql += ` AND tp2.CODIGO = :periodo`;
+    params.periodo = periodo;
+  }
+
+  if (nacionalidade && nacionalidade > 0) {
+    sql += ` AND tn.CODIGO = :nacionalidade`;
+    params.nacionalidade = nacionalidade;
+  }
+
+  if (necessidade && necessidade > 0) {
+    sql += ` AND NVL(ne.ID, 0) = :necessidade`;
+    params.necessidade = necessidade;
+  }
+
+  if (sexo && sexo > 0) {
+    sql += ` AND tp.SEXO = (SELECT DESIGNACAO FROM FK2_TB_SEXO WHERE CODIGO = :sexo)`;
+    params.sexo = sexo;
+  }
+
+  // Filtro de pesquisa (nome ou número de matrícula)
+  if (search && search.trim()) {
+    const searchTerm = `%${search.trim().toUpperCase()}%`;
+    sql += `
+      AND (
+        UPPER(tp.NOME_COMPLETO) LIKE :search
+        OR UPPER(NVL(TO_CHAR(tm.NUMEROALUNO), TO_CHAR(tm.CODIGO_ALUNO))) LIKE :search
+      )
+    `;
+    params.search = searchTerm;
+  }
+
+  // Fechamento das subqueries e paginação
+  sql += `
+        ) dados
+    )
+    WHERE rn > :offset
+      AND rn <= :limit
+    ORDER BY rn
+  `;
+
+  const result = await this.dataSource.query(sql, params);
+
+  const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
+
+  const data = result.map((row: any) => {
+    const { RN, TOTAL_REGISTROS, ...item } = row;
+    return item;
+  });
+
+  return {
+    data: await toLowerCaseKeys(data),   // mantendo o padrão do seu outro método
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit) || 1,
+  };
+}
 
 async listarInscritosPorUc(filter: FilterInscritosPorUcDto) {
   const {
@@ -509,6 +469,7 @@ async listarInscritosPorUc(filter: FilterInscritosPorUcDto) {
 
   const offset = (page - 1) * limit;
 
+  // Mapeamento de estado
   const estadoMap: Record<string, string | null> = {
     '0': null,
     '1': 'Em curso',
@@ -518,141 +479,122 @@ async listarInscritosPorUc(filter: FilterInscritosPorUcDto) {
 
   const estadoNome = estadoMap[String(estado)] ?? null;
 
-  const baseParams: Record<string, any> = {
-    anoLectivo,
-    anoLectivo_zero: anoLectivo,
-    curso,
-    curso_zero: curso,
-    anoCurricular,
-    anoCurricular_zero: anoCurricular,
-    semestre,
-    semestre_zero: semestre,
-    cadeira,
-    cadeira_zero: cadeira,
-    horario,
-    horario_zero: horario,
+  const params: any = {
+    offset,
+    limit: offset + limit,
   };
 
-  let whereClause = `
-    WHERE (tgc.CODIGO = :cadeira OR :cadeira_zero = 0)
-      AND (tc.CODIGO = :curso OR :curso_zero = 0)
-      AND (tgc.CODIGO_CLASSE = :anoCurricular OR :anoCurricular_zero = 0)
-      AND (tgc.CODIGO_SEMESTRE = :semestre OR :semestre_zero = 0)
-      AND (tal.CODIGO = :anoLectivo OR :anoLectivo_zero = 0)
-      AND (
-        :horario_zero = 0
-        OR JSON_VALUE(tgca.REF_HORARIO, '$.pk') = TO_CHAR(:horario)
-      )
+  let sql = `
+    SELECT *
+    FROM (
+      SELECT
+        dados.*,
+        ROW_NUMBER() OVER (ORDER BY dados.NOME ASC) AS rn,
+        COUNT(*) OVER () AS total_registros
+      FROM (
+        SELECT DISTINCT
+          tm.CODIGO                                      AS MATRICULA,
+          tp.NOME_COMPLETO                               AS NOME,
+          NVL(fn_tipo_estudante(fb.CODIGO, i.RENUNCIA, fb.CODIGO_TIPO_BOLSA), '-') AS TIPO_ALUNO,
+          tc.DESIGNACAO                                  AS CURSO,
+          tsgc.DESIGNACAO                                AS ESTADO
+        FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+          ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
+        INNER JOIN FK2_TB_MATRICULAS tm
+          ON tm.CODIGO = tgca.CODIGO_MATRICULA
+        INNER JOIN FK2_TB_ADMISSAO ta
+          ON ta.CODIGO = tm.CODIGO_ALUNO
+        INNER JOIN FK2_TB_PREINSCRICAO tp
+          ON tp.CODIGO = ta.PRE_INCRICAO
+        INNER JOIN FK2_TB_CURSOS tc
+          ON tc.CODIGO = tm.CODIGO_CURSO
+        INNER JOIN FK2_TB_STATUS_GRADE_CURRICULAR tsgc
+          ON tsgc.CODIGO = tgca.CODIGO_STATUS_GRADE_CURRICULAR
+        INNER JOIN FK2_TB_CONFIRMACOES tcf
+          ON tcf.CODIGO_MATRICULA = tm.CODIGO
+        INNER JOIN FK2_TB_ANO_LECTIVO tal
+          ON tal.CODIGO = tcf.CODIGO_ANO_LECTIVO
+        LEFT JOIN FK2_TB_BOLSEIROS fb
+          ON fb.CODIGO_MATRICULA = tm.CODIGO
+         AND fb.CODIGO_ANOLECTIVO = :anoLectivo
+         AND fb.SEMESTRE = tgc.CODIGO_SEMESTRE
+         AND fb.STATUS_ = 0
+        LEFT JOIN FK2_TB_INSTITUICAO i
+          ON i.CODIGO = fb.CODIGO_INSTITUICAO
+        WHERE 1 = 1
   `;
 
-  if (estadoNome) {
-    whereClause += `
-      AND UPPER(tsgc.DESIGNACAO) = :estadoNome
-    `;
-    baseParams.estadoNome = estadoNome.toUpperCase();
+  // ==================== FILTROS ====================
+
+  if (anoLectivo && anoLectivo > 0) {
+    sql += ` AND tal.CODIGO = :anoLectivo`;
+    params.anoLectivo = anoLectivo;
   }
 
+  if (curso && curso > 0) {
+    sql += ` AND tc.CODIGO = :curso`;
+    params.curso = curso;
+  }
+
+  if (anoCurricular && anoCurricular > 0) {
+    sql += ` AND tgc.CODIGO_CLASSE = :anoCurricular`;
+    params.anoCurricular = anoCurricular;
+  }
+
+  if (semestre && semestre > 0) {
+    sql += ` AND tgc.CODIGO_SEMESTRE = :semestre`;
+    params.semestre = semestre;
+  }
+
+  if (cadeira && cadeira > 0) {
+    sql += ` AND tgc.CODIGO = :cadeira`;
+    params.cadeira = cadeira;
+  }
+
+  if (horario && horario > 0) {
+    sql += ` AND JSON_VALUE(tgca.REF_HORARIO, '$.pk') = TO_CHAR(:horario)`;
+    params.horario = horario;
+  }
+
+  if (estadoNome) {
+    sql += ` AND UPPER(tsgc.DESIGNACAO) = :estadoNome`;
+    params.estadoNome = estadoNome.toUpperCase();
+  }
+
+  // Filtro de pesquisa
   if (search && search.trim()) {
-    whereClause += `
+    const searchTerm = `%${search.trim().toUpperCase()}%`;
+    sql += `
       AND (
         UPPER(tp.NOME_COMPLETO) LIKE :search
         OR TO_CHAR(tm.CODIGO) LIKE :search
         OR TO_CHAR(NVL(tm.NUMEROALUNO, tm.CODIGO_ALUNO)) LIKE :search
       )
     `;
-    baseParams.search = `%${search.trim().toUpperCase()}%`;
+    params.search = searchTerm;
   }
 
-  const baseFrom = `
-  FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
-  INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
-    ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
-  INNER JOIN FK2_TB_MATRICULAS tm
-    ON tm.CODIGO = tgca.CODIGO_MATRICULA
-  INNER JOIN FK2_TB_ADMISSAO ta
-    ON ta.CODIGO = tm.CODIGO_ALUNO
-  INNER JOIN FK2_TB_PREINSCRICAO tp
-    ON tp.CODIGO = ta.PRE_INCRICAO
-  INNER JOIN FK2_TB_CURSOS tc
-    ON tc.CODIGO = tm.CODIGO_CURSO
-  INNER JOIN FK2_TB_STATUS_GRADE_CURRICULAR tsgc
-    ON tsgc.CODIGO = tgca.CODIGO_STATUS_GRADE_CURRICULAR
-  INNER JOIN FK2_TB_CONFIRMACOES tcf
-    ON tcf.CODIGO_MATRICULA = tm.CODIGO
-  INNER JOIN FK2_TB_ANO_LECTIVO tal
-    ON tal.CODIGO = tcf.CODIGO_ANO_LECTIVO
-  LEFT JOIN FK2_TB_BOLSEIROS fb
-    ON fb.CODIGO_MATRICULA = tm.CODIGO
-    AND fb.CODIGO_ANOLECTIVO = :anoLectivo
-    AND fb.SEMESTRE = tgc.CODIGO_SEMESTRE
-    AND fb.STATUS_ = 0
-  LEFT JOIN FK2_TB_INSTITUICAO i
-    ON i.CODIGO = fb.CODIGO_INSTITUICAO
-`;
-
-  const sql = `
-  SELECT *
-  FROM (
-    SELECT
-      q.*,
-      ROW_NUMBER() OVER (ORDER BY q.NOME ASC) AS RN
-    FROM (
-      SELECT DISTINCT
-        tm.CODIGO AS MATRICULA,
-        tp.NOME_COMPLETO AS NOME,
-        NVL(fn_tipo_estudante(fb.CODIGO, i.RENUNCIA, fb.CODIGO_TIPO_BOLSA), '-') AS TIPO_ALUNO,
-        tc.DESIGNACAO AS CURSO,
-        tsgc.DESIGNACAO AS ESTADO
-      ${baseFrom}
-      ${whereClause}
-    ) q
-  ) t
-  WHERE t.RN BETWEEN :offset + 1 AND :offset + :limit
-  ORDER BY t.RN
-`;
-
-  const countSql = `
-    SELECT COUNT(*) AS TOTAL
-    FROM (
-      SELECT DISTINCT
-  tm.CODIGO AS MATRICULA,
-  tp.NOME_COMPLETO AS NOME,
-  NVL(fn_tipo_estudante(fb.CODIGO, i.RENUNCIA, fb.CODIGO_TIPO_BOLSA), '-') AS TIPO_ALUNO,
-  tc.DESIGNACAO AS CURSO,
-  tsgc.DESIGNACAO AS ESTADO
-      ${baseFrom}
-      ${whereClause}
-    ) x
+  // ==================== FECHAMENTO ====================
+  sql += `
+        ) dados
+    )
+    WHERE rn > :offset
+      AND rn <= :limit
+    ORDER BY rn
   `;
 
-  const dataParams = {
-    ...baseParams,
-    offset,
-    limit,
-  };
+  const result = await this.dataSource.query(sql, params);
 
-  const countParams = {
-    ...baseParams,
-  };
+  const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
 
-  const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql, dataParams as any),
-    this.dataSource.query(countSql, countParams as any),
-  ]);
-
-  const total = Number(countResult[0]?.TOTAL ?? 0);
-
-  const data = result.map((row: any, index: number) => ({
-    numero: offset + index + 1,
-    matricula: row.MATRICULA,
-    nome: row.NOME,
-    tipo_aluno: row.TIPO_ALUNO,
-    curso: row.CURSO,
-    estado: row.ESTADO,
-  }));
+  const data = result.map((row: any) => {
+    const { RN, TOTAL_REGISTROS, ...item } = row;
+    return item;
+  });
 
   return {
-    data,
+    data: await toLowerCaseKeys(data),
     total,
     page,
     limit,
