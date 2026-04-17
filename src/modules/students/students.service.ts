@@ -1508,6 +1508,76 @@ async updateHorarioGradeCurricular({codigoGradeCurricularAluno, horarioID}: {cod
   };
 }
 
+async deleteGrade({codigoGradeCurricularAluno}: {codigoGradeCurricularAluno: number}) {
+  console.log({codigoGradeCurricularAluno})
+  const gradeCurricularResult = await this.dataSource.query(
+    `
+    SELECT 
+      al.CODIGO_STATUS_GRADE_CURRICULAR as codigo_status_grade_curricular
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
+    WHERE al.CODIGO = :1
+    `,
+    [codigoGradeCurricularAluno],
+  );
+  console.log({gradeCurricularResult})
+  const [gradeCurricular] = toLowerCaseKeys(gradeCurricularResult);
+
+  if (!gradeCurricular) {
+    throw new BadRequestException('Grade curricular não encontrada');
+  }
+
+  if (gradeCurricular.codigo_status_grade_curricular === 3) {
+    throw new BadRequestException(
+      'Não é possível deletar grade curricular Concluida',
+    );
+  }
+
+
+  await this.dataSource.query(
+    `
+    UPDATE FK2_TB_GRADE_CURRICULAR_ALUNO
+    SET CODIGO_STATUS_GRADE_CURRICULAR = 5
+    WHERE CODIGO = :1
+    `,
+    [codigoGradeCurricularAluno],
+  );
+  return {
+    message: 'Grade curricular deletada com sucesso',
+  };
+}
+
+async restoreGrade({codigoGradeCurricularAluno}: {codigoGradeCurricularAluno: number}) {
+  const gradeCurricularResult = await this.dataSource.query(
+    `
+    SELECT 
+      al.CODIGO_STATUS_GRADE_CURRICULAR as codigo_status_grade_curricular
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
+    WHERE al.CODIGO = :1
+    `,
+    [codigoGradeCurricularAluno],
+  );
+
+  const [gradeCurricular] = toLowerCaseKeys(gradeCurricularResult);
+
+  if (!gradeCurricular) {
+    throw new BadRequestException('Grade curricular não encontrada');
+  }
+
+  await this.dataSource.query(
+    `
+    UPDATE FK2_TB_GRADE_CURRICULAR_ALUNO
+    SET CODIGO_STATUS_GRADE_CURRICULAR = 2
+    WHERE CODIGO = :1
+    `,
+    [codigoGradeCurricularAluno],
+  );
+return {
+  message: 'Grade curricular restaurada com sucesso',
+};
+}
+
+
+
 async changeCourse(dto: ChangeCourseDTO) {
     const { PoloId, matriculaId, cursoId } = dto;
      let  mudarCurso = true;
