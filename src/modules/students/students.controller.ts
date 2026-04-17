@@ -40,6 +40,7 @@ import { FindPendentUCDTO } from './dto/find-pendent-uc.dto';
 import { StudentsEnrollmentPendentUCService } from './students-pendent-uc.service';
 import { AcademicHistoryEquivalenciaDTO } from './dto/academic-history-equivalencia.dto';
 import { AcademicHistoryMigracaoDadosDTO } from './dto/academic-history-migracao.dto';
+import { UpdateGradeCurricularAlunoHorarioDTO } from '../discipline/dto/update-grade-curri-curricular-aluno-horario';
 
 @Controller('students')
 export class StudentsController {
@@ -228,5 +229,16 @@ export class StudentsController {
   })
   academicHistoryMigracaoDados(@Query(ValidationPipe) query: AcademicHistoryMigracaoDadosDTO) {
     return this.studentsService.academicHistoryMigracaoDados(query);
+  }
+
+  @Patch('update-horario-grade-curricular')
+  @ApiOperation({ summary: 'Atualizar horário da grade curricular' })
+  @ApiResponse({
+    status: 200,
+    description: 'Horário da grade curricular atualizado com sucesso',
+    type: AcademicHistoryDTO,
+  })
+  updateHorarioGradeCurricular(@Body(ValidationPipe) body: UpdateGradeCurricularAlunoHorarioDTO) {
+    return this.studentsService.updateHorarioGradeCurricular(body);
   }
 }
