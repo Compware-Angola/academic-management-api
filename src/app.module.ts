@@ -33,6 +33,7 @@ import { RegistrationModule } from './modules/registration/registration.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'; 
 import { APP_GUARD } from '@nestjs/core/constants';
 import { CustomThrottlerGuard } from './modules/common/guard/Custom-Throttler.guard';
+import { TopicosModule } from './modules/topicos/topicos.module';
 
 
 @Module({
@@ -122,6 +123,7 @@ import { CustomThrottlerGuard } from './modules/common/guard/Custom-Throttler.gu
     ExamesDeAcessoModule,
     StatisticsReportsModule,
     RegistrationModule,
+    TopicosModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService,
