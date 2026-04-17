@@ -34,6 +34,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core/constants';
 import { CustomThrottlerGuard } from './modules/common/guard/Custom-Throttler.guard';
 import { TopicosModule } from './modules/topicos/topicos.module';
+import { PerguntasModule } from './modules/perguntas/perguntas.module';
 
 
 @Module({
@@ -124,6 +125,7 @@ import { TopicosModule } from './modules/topicos/topicos.module';
     StatisticsReportsModule,
     RegistrationModule,
     TopicosModule,
+    PerguntasModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService,
