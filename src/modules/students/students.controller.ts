@@ -12,6 +12,8 @@ import {
   Req,
   Patch,
   Post,
+  Delete,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { StudentsService } from './students.service';
 import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
@@ -237,5 +239,25 @@ export class StudentsController {
   })
   updateHorarioGradeCurricular(@Body(ValidationPipe) body: UpdateGradeCurricularAlunoHorarioDTO) {
     return this.studentsService.updateHorarioGradeCurricular(body);
+  }
+
+@Delete('grade-curricular/:codigoGradeCurricularAluno')
+deleteGrade(
+  @Param('codigoGradeCurricularAluno', ParseIntPipe)
+  codigoGradeCurricularAluno: number
+) {
+  return this.studentsService.deleteGrade({
+    codigoGradeCurricularAluno,
+  });
+}
+
+  @Put('restore-grade-curricular/:codigoGradeCurricularAluno')
+  @ApiOperation({ summary: 'Restaurar grade curricular' })
+  @ApiResponse({
+    status: 200,
+    description: 'Grade curricular restaurada com sucesso',
+  })
+  restoreGrade(@Param('codigoGradeCurricularAluno', ParseIntPipe) codigoGradeCurricularAluno: number) {
+    return this.studentsService.restoreGrade({codigoGradeCurricularAluno});
   }
 }
