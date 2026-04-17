@@ -114,7 +114,7 @@ export class AcessManagementController {
   const info = await this.usersService.switchStateUser(id, currentUser.sub);
 
   AccessLogHelper.logAccess(this.httpService, {
-    descricao: `Utilizador ${currentUser?.nome} alterou o estado do utilizador ${id}`,
+    descricao: `Utilizador ${currentUser?.username} alterou o estado do utilizador ${id}`,
     fkAcesso: 155,
     fkFuncionalidade: 232,
     fkUtilizadorResponsavel: currentUser.sub,
