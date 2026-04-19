@@ -794,89 +794,20 @@ async listarHorariosDisponiveisInscritosPorUc(
     search,
   } = filter;
 
-  const offset = (page - 1) * limit;
-  const calcularClasse = Number(anoCurricular) > 0;
+  const safePage = Number(page) > 0 ? Number(page) : 1;
+  const safeLimit = Number(limit) > 0 ? Number(limit) : 10;
+  const offset = (safePage - 1) * safeLimit;
+
   const searchValue =
     search && String(search).trim()
       ? `%${String(search).trim().toUpperCase()}%`
       : null;
 
-  const dataParamsSemClasse: Record<string, any> = {
-    anoLectivo_base: anoLectivo,
-    anoLectivo_bolsa: anoLectivo,
-
-    curso_base: curso,
-    curso_zero_base: curso,
-
-    semestre_base: semestre,
-    semestre_zero_base: semestre,
-
-    turno_base: turno,
-    turno_zero_base: turno,
-
-    estado_base: estado,
-    estado_zero_base: estado,
-
-    horario_base: horario,
-    horario_zero_base: horario,
-
-    unidadeCurricular_base: unidadeCurricular,
-    unidadeCurricular_zero_base: unidadeCurricular,
-
-    search_nome: searchValue,
-    search_matricula: searchValue,
-    search_curso: searchValue,
-    search_estado: searchValue,
-    search_horario: searchValue,
-
-    offset_rows: offset,
-    limit_rows: limit,
-  };
-
-  const countParamsSemClasse: Record<string, any> = {
-    anoLectivo_base: anoLectivo,
-
-    curso_base: curso,
-    curso_zero_base: curso,
-
-    semestre_base: semestre,
-    semestre_zero_base: semestre,
-
-    turno_base: turno,
-    turno_zero_base: turno,
-
-    estado_base: estado,
-    estado_zero_base: estado,
-
-    horario_base: horario,
-    horario_zero_base: horario,
-
-    unidadeCurricular_base: unidadeCurricular,
-    unidadeCurricular_zero_base: unidadeCurricular,
-
-    search_nome: searchValue,
-    search_matricula: searchValue,
-    search_curso: searchValue,
-    search_estado: searchValue,
-    search_horario: searchValue,
-  };
-
-  const dataParamsComClasse: Record<string, any> = {
-    ...dataParamsSemClasse,
-    anoLectivo_plano: anoLectivo,
-    anoCurricular_final: anoCurricular,
-  };
-
-  const countParamsComClasse: Record<string, any> = {
-    ...countParamsSemClasse,
-    anoLectivo_plano: anoLectivo,
-    anoCurricular_final: anoCurricular,
-  };
-
-  const countSqlSemClasse = `
-    SELECT COUNT(*) AS TOTAL
-    FROM (
-      SELECT DISTINCT tm.CODIGO
+  const sql = `
+    WITH base_matriculas AS (
+      SELECT DISTINCT
+        tm.CODIGO AS MATRICULA,
+        tm.CODIGO_CURSO AS CODIGO_CURSO
       FROM FK2_MGA_TB_SITUACAO_FINANCEIRA_ALUNO mtsfa
       INNER JOIN FK2_TB_ESTADO_MATRICULA tem
         ON tem.CODIGO = mtsfa.FK_TB_ESTADO_MATRICULA
@@ -884,65 +815,53 @@ async listarHorariosDisponiveisInscritosPorUc(
         ON tm.CODIGO = mtsfa.FK_MATRICULA
       INNER JOIN FK2_TB_CURSOS tc
         ON tc.CODIGO = tm.CODIGO_CURSO
-      INNER JOIN FK2_TB_ADMISSAO ta
-        ON ta.CODIGO = tm.CODIGO_ALUNO
-      INNER JOIN FK2_TB_PREINSCRICAO tp
-        ON tp.CODIGO = ta.PRE_INCRICAO
       INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
         ON tgca.CODIGO_MATRICULA = tm.CODIGO
       INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
         ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
       INNER JOIN FK2_MGH_TB_HORARIO mth
         ON JSON_VALUE(mth.REF_GRADE_CURRICULAR, '$.pk' RETURNING NUMBER NULL ON ERROR) = tgc.CODIGO
-      WHERE tgca.CODIGO_ANO_LECTIVO = :anoLectivo_base
+      WHERE tgca.CODIGO_ANO_LECTIVO = :1
         AND tgca.CODIGO_STATUS_GRADE_CURRICULAR NOT IN (4, 5)
-        AND (tc.CODIGO = :curso_base OR :curso_zero_base = 0)
-        AND (tgc.CODIGO_SEMESTRE = :semestre_base OR :semestre_zero_base = 0)
+        AND (tc.CODIGO = :2 OR :3 = 0)
+        AND (tgc.CODIGO_SEMESTRE = :4 OR :5 = 0)
         AND (
-          JSON_VALUE(mth.REF_PERIODICIDADE, '$.pkPeriodo' RETURNING NUMBER NULL ON ERROR) = :turno_base
-          OR :turno_zero_base = 0
+          JSON_VALUE(mth.REF_PERIODICIDADE, '$.pkPeriodo' RETURNING NUMBER NULL ON ERROR) = :6
+          OR :7 = 0
         )
-        AND (tem.CODIGO = :estado_base OR :estado_zero_base = 0)
-        AND (mth.PK_HORARIO = :horario_base OR :horario_zero_base = 0)
+        AND (tem.CODIGO = :8 OR :9 = 0)
+        AND (mth.PK_HORARIO = :10 OR :11 = 0)
         AND mth.FK_ESTADO_HORARIO_WF = 3
         AND (
-          JSON_VALUE(mth.REF_GRADE_CURRICULAR, '$.pk' RETURNING NUMBER NULL ON ERROR) = :unidadeCurricular_base
-          OR :unidadeCurricular_zero_base = 0
+          JSON_VALUE(mth.REF_GRADE_CURRICULAR, '$.pk' RETURNING NUMBER NULL ON ERROR) = :12
+          OR :13 = 0
         )
-        AND (
-          :search_nome IS NULL
-          OR UPPER(tp.NOME_COMPLETO) LIKE :search_nome
-          OR UPPER(TO_CHAR(tm.CODIGO)) LIKE :search_matricula
-          OR UPPER(NVL(tc.DESIGNACAO, '-')) LIKE :search_curso
-          OR UPPER(NVL(tem.DESIGNACAO, '-')) LIKE :search_estado
-          OR UPPER(NVL(mth.DESIGNACAO, '-')) LIKE :search_horario
-        )
-    )
-  `;
+    ),
 
-  const sqlComClasse = `
-    WITH base_estudantes AS (
-      SELECT DISTINCT
-        tm.CODIGO AS MATRICULA,
-        tp.NOME_COMPLETO AS NOME,
-        tc.DESIGNACAO AS CURSO,
-        tem.DESIGNACAO AS ESTADO,
-        tem.OBS AS COR,
-        mth.PK_HORARIO AS CODIGO_HORARIO,
-        mth.DESIGNACAO AS HORARIO,
-        tm.CODIGO_CURSO AS CODIGO_CURSO,
-        NVL(fn_tipo_estudante(fb.CODIGO, i.RENUNCIA, fb.CODIGO_TIPO_BOLSA), '-') AS TIPO_ALUNO
-      FROM FK2_MGA_TB_SITUACAO_FINANCEIRA_ALUNO mtsfa
-      INNER JOIN FK2_TB_ESTADO_MATRICULA tem
-        ON tem.CODIGO = mtsfa.FK_TB_ESTADO_MATRICULA
+    dados_estudante AS (
+      SELECT
+        bm.MATRICULA,
+        MAX(tp.NOME_COMPLETO) AS NOME,
+        MAX(tc.DESIGNACAO) AS CURSO,
+        MAX(tem.DESIGNACAO) AS ESTADO,
+        MAX(tem.OBS) AS COR,
+        MAX(mth.DESIGNACAO) AS HORARIO,
+        MAX(
+          NVL(fn_tipo_estudante(fb.CODIGO, i.RENUNCIA, fb.CODIGO_TIPO_BOLSA), '-')
+        ) AS TIPO_ALUNO
+      FROM base_matriculas bm
       INNER JOIN FK2_TB_MATRICULAS tm
-        ON tm.CODIGO = mtsfa.FK_MATRICULA
+        ON tm.CODIGO = bm.MATRICULA
       INNER JOIN FK2_TB_CURSOS tc
         ON tc.CODIGO = tm.CODIGO_CURSO
       INNER JOIN FK2_TB_ADMISSAO ta
         ON ta.CODIGO = tm.CODIGO_ALUNO
       INNER JOIN FK2_TB_PREINSCRICAO tp
         ON tp.CODIGO = ta.PRE_INCRICAO
+      INNER JOIN FK2_MGA_TB_SITUACAO_FINANCEIRA_ALUNO mtsfa
+        ON mtsfa.FK_MATRICULA = tm.CODIGO
+      INNER JOIN FK2_TB_ESTADO_MATRICULA tem
+        ON tem.CODIGO = mtsfa.FK_TB_ESTADO_MATRICULA
       INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
         ON tgca.CODIGO_MATRICULA = tm.CODIGO
       INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
@@ -951,26 +870,13 @@ async listarHorariosDisponiveisInscritosPorUc(
         ON JSON_VALUE(mth.REF_GRADE_CURRICULAR, '$.pk' RETURNING NUMBER NULL ON ERROR) = tgc.CODIGO
       LEFT JOIN FK2_TB_BOLSEIROS fb
         ON fb.CODIGO_MATRICULA = tm.CODIGO
-        AND fb.CODIGO_ANOLECTIVO = :anoLectivo_bolsa
-        AND fb.SEMESTRE = tgc.CODIGO_SEMESTRE
-        AND fb.STATUS_ = 0
+       AND fb.CODIGO_ANOLECTIVO = :14
+       AND fb.SEMESTRE = tgc.CODIGO_SEMESTRE
+       AND fb.STATUS_ = 0
       LEFT JOIN FK2_TB_INSTITUICAO i
         ON i.CODIGO = fb.CODIGO_INSTITUICAO
-      WHERE tgca.CODIGO_ANO_LECTIVO = :anoLectivo_base
-        AND tgca.CODIGO_STATUS_GRADE_CURRICULAR NOT IN (4, 5)
-        AND (tc.CODIGO = :curso_base OR :curso_zero_base = 0)
-        AND (tgc.CODIGO_SEMESTRE = :semestre_base OR :semestre_zero_base = 0)
-        AND (
-          JSON_VALUE(mth.REF_PERIODICIDADE, '$.pkPeriodo' RETURNING NUMBER NULL ON ERROR) = :turno_base
-          OR :turno_zero_base = 0
-        )
-        AND (tem.CODIGO = :estado_base OR :estado_zero_base = 0)
-        AND (mth.PK_HORARIO = :horario_base OR :horario_zero_base = 0)
-        AND mth.FK_ESTADO_HORARIO_WF = 3
-        AND (
-          JSON_VALUE(mth.REF_GRADE_CURRICULAR, '$.pk' RETURNING NUMBER NULL ON ERROR) = :unidadeCurricular_base
-          OR :unidadeCurricular_zero_base = 0
-        )
+      WHERE bm.MATRICULA IS NOT NULL
+      GROUP BY bm.MATRICULA
     ),
 
     plano_por_classe AS (
@@ -983,7 +889,7 @@ async listarHorariosDisponiveisInscritosPorUc(
         ON tpcc.CODIGO = tpcg.CODIGO_PLANO_CURRICULAR_CURSO
       INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
         ON tgc.CODIGO = tpcg.CODIGO_GRADE_CURRICULAR
-      WHERE tpcc.CODIGO_ANO_LECTIVO = :anoLectivo_plano
+      WHERE tpcc.CODIGO_ANO_LECTIVO = :15
       GROUP BY tpcc.CODIGO_CURSO, tgc.CODIGO_CLASSE
     ),
 
@@ -991,7 +897,7 @@ async listarHorariosDisponiveisInscritosPorUc(
       SELECT
         tgca.CODIGO_MATRICULA AS MATRICULA,
         tgc.CODIGO_CLASSE AS CLASSE,
-        COUNT(tgca.CODIGO) AS QTD_FEITAS
+        COUNT(*) AS QTD_FEITAS
       FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
       INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
         ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
@@ -1001,8 +907,8 @@ async listarHorariosDisponiveisInscritosPorUc(
 
     classes_avaliadas AS (
       SELECT
-        b.MATRICULA,
-        b.CODIGO_CURSO,
+        bm.MATRICULA,
+        bm.CODIGO_CURSO,
         p.CLASSE,
         p.QTD_PLANO,
         NVL(f.QTD_FEITAS, 0) AS QTD_FEITAS,
@@ -1010,11 +916,11 @@ async listarHorariosDisponiveisInscritosPorUc(
           WHEN NVL(f.QTD_FEITAS, 0) > (p.QTD_PLANO / 2) THEN 1
           ELSE 0
         END AS SUPEROU_METADE
-      FROM (SELECT DISTINCT MATRICULA, CODIGO_CURSO FROM base_estudantes) b
+      FROM base_matriculas bm
       INNER JOIN plano_por_classe p
-        ON p.CODIGO_CURSO = b.CODIGO_CURSO
+        ON p.CODIGO_CURSO = bm.CODIGO_CURSO
       LEFT JOIN feitas_por_classe f
-        ON f.MATRICULA = b.MATRICULA
+        ON f.MATRICULA = bm.MATRICULA
        AND f.CLASSE = p.CLASSE
     ),
 
@@ -1046,22 +952,26 @@ async listarHorariosDisponiveisInscritosPorUc(
 
     final_data AS (
       SELECT
-        b.*,
+        d.MATRICULA,
+        d.NOME,
+        d.CURSO,
+        d.ESTADO,
+        d.COR,
+        d.HORARIO,
+        d.TIPO_ALUNO,
         cf.ANO_CURRICULAR
-      FROM base_estudantes b
+      FROM dados_estudante d
       LEFT JOIN classe_final cf
-        ON cf.MATRICULA = b.MATRICULA
-      WHERE (
-        cf.ANO_CURRICULAR = :anoCurricular_final
-        OR :anoCurricular_final = 0
-      )
+        ON cf.MATRICULA = d.MATRICULA
+      WHERE
+        (:16 = 0 OR cf.ANO_CURRICULAR = :17)
         AND (
-          :search_nome IS NULL
-          OR UPPER(b.NOME) LIKE :search_nome
-          OR UPPER(TO_CHAR(b.MATRICULA)) LIKE :search_matricula
-          OR UPPER(NVL(b.CURSO, '-')) LIKE :search_curso
-          OR UPPER(NVL(b.ESTADO, '-')) LIKE :search_estado
-          OR UPPER(NVL(b.HORARIO, '-')) LIKE :search_horario
+          :18 IS NULL
+          OR UPPER(d.NOME) LIKE :19
+          OR UPPER(TO_CHAR(d.MATRICULA)) LIKE :20
+          OR UPPER(NVL(d.CURSO, '-')) LIKE :21
+          OR UPPER(NVL(d.ESTADO, '-')) LIKE :22
+          OR UPPER(NVL(d.HORARIO, '-')) LIKE :23
         )
     )
 
@@ -1071,20 +981,44 @@ async listarHorariosDisponiveisInscritosPorUc(
         f.*,
         ROW_NUMBER() OVER (ORDER BY f.NOME ASC) AS RN
       FROM final_data f
-    ) t
-    WHERE t.RN BETWEEN :offset_rows + 1 AND :offset_rows + :limit_rows
-    ORDER BY t.RN
+    )
+    WHERE RN BETWEEN :24 AND :25
+    ORDER BY RN
   `;
 
-  const countSqlComClasse = `
-    WITH base_estudantes AS (
+  const sqlParams = [
+    anoLectivo,               // :1
+    curso,                    // :2
+    curso,                    // :3
+    semestre,                 // :4
+    semestre,                 // :5
+    turno,                    // :6
+    turno,                    // :7
+    estado,                   // :8
+    estado,                   // :9
+    horario,                  // :10
+    horario,                  // :11
+    unidadeCurricular,        // :12
+    unidadeCurricular,        // :13
+    anoLectivo,               // :14
+    anoLectivo,               // :15
+    anoCurricular,            // :16
+    anoCurricular,            // :17
+    searchValue,              // :18
+    searchValue,              // :19
+    searchValue,              // :20
+    searchValue,              // :21
+    searchValue,              // :22
+    searchValue,              // :23
+    offset + 1,               // :24
+    offset + safeLimit,       // :25
+  ];
+
+  const countSql = `
+    WITH base_matriculas AS (
       SELECT DISTINCT
         tm.CODIGO AS MATRICULA,
-        tm.CODIGO_CURSO AS CODIGO_CURSO,
-        tp.NOME_COMPLETO AS NOME,
-        tc.DESIGNACAO AS CURSO,
-        tem.DESIGNACAO AS ESTADO,
-        mth.DESIGNACAO AS HORARIO
+        tm.CODIGO_CURSO AS CODIGO_CURSO
       FROM FK2_MGA_TB_SITUACAO_FINANCEIRA_ALUNO mtsfa
       INNER JOIN FK2_TB_ESTADO_MATRICULA tem
         ON tem.CODIGO = mtsfa.FK_TB_ESTADO_MATRICULA
@@ -1092,31 +1026,56 @@ async listarHorariosDisponiveisInscritosPorUc(
         ON tm.CODIGO = mtsfa.FK_MATRICULA
       INNER JOIN FK2_TB_CURSOS tc
         ON tc.CODIGO = tm.CODIGO_CURSO
-      INNER JOIN FK2_TB_ADMISSAO ta
-        ON ta.CODIGO = tm.CODIGO_ALUNO
-      INNER JOIN FK2_TB_PREINSCRICAO tp
-        ON tp.CODIGO = ta.PRE_INCRICAO
       INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
         ON tgca.CODIGO_MATRICULA = tm.CODIGO
       INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
         ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
       INNER JOIN FK2_MGH_TB_HORARIO mth
         ON JSON_VALUE(mth.REF_GRADE_CURRICULAR, '$.pk' RETURNING NUMBER NULL ON ERROR) = tgc.CODIGO
-      WHERE tgca.CODIGO_ANO_LECTIVO = :anoLectivo_base
+      WHERE tgca.CODIGO_ANO_LECTIVO = :1
         AND tgca.CODIGO_STATUS_GRADE_CURRICULAR NOT IN (4, 5)
-        AND (tc.CODIGO = :curso_base OR :curso_zero_base = 0)
-        AND (tgc.CODIGO_SEMESTRE = :semestre_base OR :semestre_zero_base = 0)
+        AND (tc.CODIGO = :2 OR :3 = 0)
+        AND (tgc.CODIGO_SEMESTRE = :4 OR :5 = 0)
         AND (
-          JSON_VALUE(mth.REF_PERIODICIDADE, '$.pkPeriodo' RETURNING NUMBER NULL ON ERROR) = :turno_base
-          OR :turno_zero_base = 0
+          JSON_VALUE(mth.REF_PERIODICIDADE, '$.pkPeriodo' RETURNING NUMBER NULL ON ERROR) = :6
+          OR :7 = 0
         )
-        AND (tem.CODIGO = :estado_base OR :estado_zero_base = 0)
-        AND (mth.PK_HORARIO = :horario_base OR :horario_zero_base = 0)
+        AND (tem.CODIGO = :8 OR :9 = 0)
+        AND (mth.PK_HORARIO = :10 OR :11 = 0)
         AND mth.FK_ESTADO_HORARIO_WF = 3
         AND (
-          JSON_VALUE(mth.REF_GRADE_CURRICULAR, '$.pk' RETURNING NUMBER NULL ON ERROR) = :unidadeCurricular_base
-          OR :unidadeCurricular_zero_base = 0
+          JSON_VALUE(mth.REF_GRADE_CURRICULAR, '$.pk' RETURNING NUMBER NULL ON ERROR) = :12
+          OR :13 = 0
         )
+    ),
+
+    dados_estudante AS (
+      SELECT
+        bm.MATRICULA,
+        MAX(tp.NOME_COMPLETO) AS NOME,
+        MAX(tc.DESIGNACAO) AS CURSO,
+        MAX(tem.DESIGNACAO) AS ESTADO,
+        MAX(mth.DESIGNACAO) AS HORARIO
+      FROM base_matriculas bm
+      INNER JOIN FK2_TB_MATRICULAS tm
+        ON tm.CODIGO = bm.MATRICULA
+      INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+      INNER JOIN FK2_TB_ADMISSAO ta
+        ON ta.CODIGO = tm.CODIGO_ALUNO
+      INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON tp.CODIGO = ta.PRE_INCRICAO
+      INNER JOIN FK2_MGA_TB_SITUACAO_FINANCEIRA_ALUNO mtsfa
+        ON mtsfa.FK_MATRICULA = tm.CODIGO
+      INNER JOIN FK2_TB_ESTADO_MATRICULA tem
+        ON tem.CODIGO = mtsfa.FK_TB_ESTADO_MATRICULA
+      INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        ON tgca.CODIGO_MATRICULA = tm.CODIGO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+        ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
+      INNER JOIN FK2_MGH_TB_HORARIO mth
+        ON JSON_VALUE(mth.REF_GRADE_CURRICULAR, '$.pk' RETURNING NUMBER NULL ON ERROR) = tgc.CODIGO
+      GROUP BY bm.MATRICULA
     ),
 
     plano_por_classe AS (
@@ -1129,7 +1088,7 @@ async listarHorariosDisponiveisInscritosPorUc(
         ON tpcc.CODIGO = tpcg.CODIGO_PLANO_CURRICULAR_CURSO
       INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
         ON tgc.CODIGO = tpcg.CODIGO_GRADE_CURRICULAR
-      WHERE tpcc.CODIGO_ANO_LECTIVO = :anoLectivo_plano
+      WHERE tpcc.CODIGO_ANO_LECTIVO = :14
       GROUP BY tpcc.CODIGO_CURSO, tgc.CODIGO_CLASSE
     ),
 
@@ -1137,7 +1096,7 @@ async listarHorariosDisponiveisInscritosPorUc(
       SELECT
         tgca.CODIGO_MATRICULA AS MATRICULA,
         tgc.CODIGO_CLASSE AS CLASSE,
-        COUNT(tgca.CODIGO) AS QTD_FEITAS
+        COUNT(*) AS QTD_FEITAS
       FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
       INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
         ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
@@ -1147,8 +1106,8 @@ async listarHorariosDisponiveisInscritosPorUc(
 
     classes_avaliadas AS (
       SELECT
-        b.MATRICULA,
-        b.CODIGO_CURSO,
+        bm.MATRICULA,
+        bm.CODIGO_CURSO,
         p.CLASSE,
         p.QTD_PLANO,
         NVL(f.QTD_FEITAS, 0) AS QTD_FEITAS,
@@ -1156,27 +1115,23 @@ async listarHorariosDisponiveisInscritosPorUc(
           WHEN NVL(f.QTD_FEITAS, 0) > (p.QTD_PLANO / 2) THEN 1
           ELSE 0
         END AS SUPEROU_METADE
-      FROM (SELECT DISTINCT MATRICULA, CODIGO_CURSO FROM base_estudantes) b
+      FROM base_matriculas bm
       INNER JOIN plano_por_classe p
-        ON p.CODIGO_CURSO = b.CODIGO_CURSO
+        ON p.CODIGO_CURSO = bm.CODIGO_CURSO
       LEFT JOIN feitas_por_classe f
-        ON f.MATRICULA = b.MATRICULA
+        ON f.MATRICULA = bm.MATRICULA
        AND f.CLASSE = p.CLASSE
     ),
 
     primeira_classe_pendente AS (
-      SELECT
-        MATRICULA,
-        MIN(CLASSE) AS ANO_CURRICULAR
+      SELECT MATRICULA, MIN(CLASSE) AS ANO_CURRICULAR
       FROM classes_avaliadas
       WHERE SUPEROU_METADE = 0
       GROUP BY MATRICULA
     ),
 
     ultima_classe AS (
-      SELECT
-        MATRICULA,
-        MAX(CLASSE) AS ULTIMA_CLASSE
+      SELECT MATRICULA, MAX(CLASSE) AS ULTIMA_CLASSE
       FROM classes_avaliadas
       GROUP BY MATRICULA
     ),
@@ -1191,34 +1146,49 @@ async listarHorariosDisponiveisInscritosPorUc(
     )
 
     SELECT COUNT(*) AS TOTAL
-    FROM (
-      SELECT DISTINCT b.MATRICULA
-      FROM base_estudantes b
-      LEFT JOIN classe_final cf
-        ON cf.MATRICULA = b.MATRICULA
-      WHERE (
-        cf.ANO_CURRICULAR = :anoCurricular_final
-        OR :anoCurricular_final = 0
+    FROM dados_estudante d
+    LEFT JOIN classe_final cf
+      ON cf.MATRICULA = d.MATRICULA
+    WHERE
+      (:15 = 0 OR cf.ANO_CURRICULAR = :16)
+      AND (
+        :17 IS NULL
+        OR UPPER(d.NOME) LIKE :18
+        OR UPPER(TO_CHAR(d.MATRICULA)) LIKE :19
+        OR UPPER(NVL(d.CURSO, '-')) LIKE :20
+        OR UPPER(NVL(d.ESTADO, '-')) LIKE :21
+        OR UPPER(NVL(d.HORARIO, '-')) LIKE :22
       )
-        AND (
-          :search_nome IS NULL
-          OR UPPER(b.NOME) LIKE :search_nome
-          OR UPPER(TO_CHAR(b.MATRICULA)) LIKE :search_matricula
-          OR UPPER(NVL(b.CURSO, '-')) LIKE :search_curso
-          OR UPPER(NVL(b.ESTADO, '-')) LIKE :search_estado
-          OR UPPER(NVL(b.HORARIO, '-')) LIKE :search_horario
-        )
-    )
   `;
 
-  const sql = sqlComClasse;
-  const countSql = calcularClasse ? countSqlComClasse : countSqlSemClasse;
-  const dataParams = dataParamsComClasse;
-  const countParams = calcularClasse ? countParamsComClasse : countParamsSemClasse;
+  const countParams = [
+    anoLectivo,               // :1
+    curso,                    // :2
+    curso,                    // :3
+    semestre,                 // :4
+    semestre,                 // :5
+    turno,                    // :6
+    turno,                    // :7
+    estado,                   // :8
+    estado,                   // :9
+    horario,                  // :10
+    horario,                  // :11
+    unidadeCurricular,        // :12
+    unidadeCurricular,        // :13
+    anoLectivo,               // :14
+    anoCurricular,            // :15
+    anoCurricular,            // :16
+    searchValue,              // :17
+    searchValue,              // :18
+    searchValue,              // :19
+    searchValue,              // :20
+    searchValue,              // :21
+    searchValue,              // :22
+  ];
 
   const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql, dataParams as any),
-    this.dataSource.query(countSql, countParams as any),
+    this.dataSource.query(sql, sqlParams),
+    this.dataSource.query(countSql, countParams),
   ]);
 
   const total = Number(countResult[0]?.TOTAL ?? 0);
@@ -1238,9 +1208,9 @@ async listarHorariosDisponiveisInscritosPorUc(
   return {
     data,
     total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
+    page: safePage,
+    limit: safeLimit,
+    totalPages: Math.ceil(total / safeLimit) || 1,
   };
 }
 
