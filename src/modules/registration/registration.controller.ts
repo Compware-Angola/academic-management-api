@@ -184,9 +184,41 @@ async isentarColisaoCurso(
 }
 
 
+/** Buscar estudante por número de matrícula. */
+@Get('estudante')
+@ApiOperation({ summary: 'Pesquisar estudante por número de matrícula' })
+@ApiResponse({ status: 200 })
+async findEstudantePorMatricula(@Query('matricula') matricula: number) {
+  return this.registrationService.findEstudantePorMatricula(Number(matricula));
+}
 
+/** Verificar se já existe isenção de colisão por matrícula. */
+@Get('colisoes/matricula/existe')
+@ApiOperation({ summary: 'Verificar colisão por matrícula' })
+@ApiResponse({ status: 200 })
+async verificarColisaoMatricula(
+  @Query('matricula') matricula: number,
+  @Query('anoLectivo') anoLectivo: number,
+) {
+  return this.registrationService.verificarColisaoMatricula(
+    Number(matricula),
+    Number(anoLectivo),
+  );
+}
 
-
+/** Verificar se já existe isenção de colisão por curso. */
+@Get('colisoes/curso/existe')
+@ApiOperation({ summary: 'Verificar colisão por curso' })
+@ApiResponse({ status: 200 })
+async verificarColisaoCurso(
+  @Query('curso') curso: number,
+  @Query('anoLectivo') anoLectivo: number,
+) {
+  return this.registrationService.verificarColisaoCurso(
+    Number(curso),
+    Number(anoLectivo),
+  );
+}
 
 
 }

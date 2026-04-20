@@ -759,127 +759,200 @@ export class DocenteGestaoService {
     return toLowerCaseKeys(result[0]);
   }
 
-  async listDocentes(filter: FilterDocenteDto) {
-    const { page = 1, limit = 25, area, search } = filter;
-    const offset = (page - 1) * limit;
+  
+async listDocentes(filter: FilterDocenteDto) {
+  const { page = 1, limit = 25, area, search } = filter;
+  const offset = (page - 1) * limit;
 
-    const params: Record<string, any> = {
-      offset,
-      limit_plus_offset: offset + limit,
-    };
+  const params: Record<string, any> = {
+    offset,
+    limit_plus_offset: offset + limit,
+  };
 
-    const countParams: Record<string, any> = {};
+  const countParams: Record<string, any> = {};
 
-    let whereClause = 'WHERE 1 = 1';
+  let whereClause = `
+    WHERE c.FK_ESTADO_CANDIDATURA = 6
+  `;
 
-    // filtro por área de formação
-    if (area !== undefined && area !== null && area !== 0) {
-      whereClause += ' AND fa.AREA_FORMACAO_ID = :area';
-      params.area = area;
-      countParams.area = area;
-    }
+  // áreas válidas do legado
+  const validAreas = [1, 2, 3];
 
-    // filtro de pesquisa
-    if (search && search.trim()) {
-      const term = `%${search.trim().toUpperCase()}%`;
+  // mapeamento observado
+  const areaToFaculdadeMap: Record<number, number[]> = {
+    1: [11, 9, 10], // Educação, Teologia e Ciências Humanas
+    2: [9],         // Direito
+    3: [10, 9],     // Administração, Contabilidade e Economia
+  };
+
+  if (area !== undefined && area !== null && Number(area) !== 0) {
+    const areaId = Number(area);
+
+    if (!validAreas.includes(areaId)) {
+      whereClause += ` AND 1 = 0`;
+    } else {
+      const faculdades = areaToFaculdadeMap[areaId] || [];
+
+      params.area = areaId;
+      countParams.area = areaId;
+
+      const faculdadeConditions = faculdades
+        .map((faculdadeId, index) => {
+          const key = `faculdade_${index}`;
+          params[key] = faculdadeId;
+          countParams[key] = faculdadeId;
+          return `c.FACULDADE = :${key}`;
+        })
+        .join(' OR ');
+
+      // pega o nome da área para fallback textual
+      params.area_nome = areaId;
+      countParams.area_nome = areaId;
 
       whereClause += `
+        AND (
+          (${faculdadeConditions})
+
+          OR (
+
+            c.FACULDADE IS NULL
+            AND (
+              EXISTS (
+                SELECT 1
+                FROM FK2_MGD_TB_FORMACAO_ACADEMICA fa
+                WHERE fa.FK_CANDIDATURA = c.CODIGO
+                  AND fa.AREA_FORMACAO_ID = :area
+              )
+
+              OR EXISTS (
+                SELECT 1
+                FROM FK2_MGD_TB_FORMACAO_ACADEMICA fa
+                INNER JOIN FK2_TB_CURSO_AREA_FORMACOES caf
+                  ON caf.CODIGO = fa.CURSO_AREA_FORMACAO_ID
+                WHERE fa.FK_CANDIDATURA = c.CODIGO
+                  AND caf.AREA_FORMACAO_ID = :area
+              )
+
+              OR EXISTS (
+                SELECT 1
+                FROM FK2_MGD_TB_FORMACAO_ACADEMICA fa
+                INNER JOIN FK2_TB_AREA_FORMACAO ar
+                  ON ar.CODIGO = :area_nome
+                WHERE fa.FK_CANDIDATURA = c.CODIGO
+                  AND UPPER(TRIM(DBMS_LOB.SUBSTR(fa.AREA_FORMACAO, 4000, 1))) =
+                      UPPER(TRIM(DBMS_LOB.SUBSTR(ar.DESIGNACAO, 4000, 1)))
+              )
+            )
+          )
+        )
+      `;
+    }
+  }
+
+  if (search && search.trim()) {
+    const term = `%${search.trim().toUpperCase()}%`;
+
+    whereClause += `
       AND (
-        UPPER(u.NOME) LIKE :search
-        OR UPPER(u.EMAIL) LIKE :search
-        OR UPPER(d.N_MECANOGRAFICO) LIKE :search
-        OR UPPER(esc.DESIGNACAO) LIKE :search
-        OR UPPER(cat.DESIGNACAO) LIKE :search
-        OR UPPER(grau."Designacao") LIKE :search
+        UPPER(NVL(tp.NOME_COMPLETO, '-')) LIKE :search
+        OR UPPER(NVL(tp.EMAIL, '-')) LIKE :search
+        OR UPPER(NVL(d.N_MECANOGRAFICO, '-')) LIKE :search
+        OR UPPER(NVL(esc.DESIGNACAO, '-')) LIKE :search
+        OR UPPER(NVL(cat.DESIGNACAO, '-')) LIKE :search
+        OR UPPER(NVL(grau."Designacao", '-')) LIKE :search
       )
     `;
 
-      params.search = term;
-      countParams.search = term;
-    }
+    params.search = term;
+    countParams.search = term;
+  }
 
-    const countSql = `
-    SELECT COUNT(DISTINCT d.CODIGO) AS total
-    FROM FK2_MGD_TB_DOCENTE d
-    LEFT JOIN FK2_MGD_TB_CANDIDATURA c
-      ON c.CODIGO = d.FK_CANDIDATURA
-    LEFT JOIN FK2_MGD_TB_FORMACAO_ACADEMICA fa
-      ON fa.FK_CANDIDATURA = c.CODIGO
-    LEFT JOIN FK2_MCA_TB_UTILIZADOR u
-      ON u.PK_UTILIZADOR = JSON_VALUE(d.CODIGO_UTILIZADOR, '$.pk')
-    LEFT JOIN FK2_TB_ESCALAO_DOCENTE esc
-      ON esc.CODIGO = d.FK_ESCALAO
-    LEFT JOIN FK2_TB_CATEGORIA_DOCENTE cat
-      ON cat.CODIGO = d.TB_CATEGORIA_DOCENTE
-    LEFT JOIN UMA_TB_GRAU_ACADEMICO grau
-      ON grau."Codigo" = c.GRAU_ACADEMICO
-    ${whereClause}
-  `;
-
-    const countResult = await this.dataSource.query(
-      countSql,
-      countParams as any,
-    );
-    const total = Number(countResult[0]?.TOTAL ?? 0);
-
-    const dataSql = `
-    SELECT *
+  const countSql = `
+    SELECT COUNT(*) AS TOTAL
     FROM (
-      SELECT
-        d.CODIGO AS codigo,
-        d.N_MECANOGRAFICO AS numero_mec,
-        u.NOME AS nome,
-        u.EMAIL AS email,
-        d.FACULDADE    As faculdadeId,
-        d.TOTAL_ANO_EXPERIENCIA as ano_experiencia,
-        d.PROPOSTA_DE_CONTRATACAO  as proposta_contratacao,
-        d.VALORHORA                as valor_hora,
-        d.COD_CONTRATO             as codigo_contrato,
-        d.DATAINICIODOCENCIA       as data_inicio_docencia,
-        d.APRECIACAO               as apreciacao,
-        d.CODIGO_VALIDACAO         as codigo_validacao,
-        d.FK_CANDIDATURA           as candidaturaId,
-        esc.DESIGNACAO AS escalao,
-        esc.CODIGO     As escalaoId,
-        cat.DESIGNACAO AS categoria,
-        cat.CODIGO     As categoriaId,
-        grau."Designacao" AS grau_academico,
-        fa.AREA_FORMACAO_ID AS area_formacao_id,
-        ROW_NUMBER() OVER (ORDER BY u.NOME ASC) AS rn
+      SELECT DISTINCT d.CODIGO
       FROM FK2_MGD_TB_DOCENTE d
-      LEFT JOIN FK2_MGD_TB_CANDIDATURA c
+      INNER JOIN FK2_MGD_TB_CANDIDATURA c
         ON c.CODIGO = d.FK_CANDIDATURA
-      LEFT JOIN FK2_MGD_TB_FORMACAO_ACADEMICA fa
-        ON fa.FK_CANDIDATURA = c.CODIGO
-      LEFT JOIN FK2_MCA_TB_UTILIZADOR u
-        ON u.PK_UTILIZADOR = JSON_VALUE(d.CODIGO_UTILIZADOR, '$.pk')
       LEFT JOIN FK2_TB_ESCALAO_DOCENTE esc
         ON esc.CODIGO = d.FK_ESCALAO
       LEFT JOIN FK2_TB_CATEGORIA_DOCENTE cat
         ON cat.CODIGO = d.TB_CATEGORIA_DOCENTE
       LEFT JOIN UMA_TB_GRAU_ACADEMICO grau
         ON grau."Codigo" = c.GRAU_ACADEMICO
+      LEFT JOIN FK2_TB_PESSOA tp
+        ON tp.PK_PESSOA = JSON_VALUE(c.FK_PESSOA, '$.pk_pessoa')
       ${whereClause}
-    ) t
-    WHERE rn BETWEEN (:offset + 1) AND :limit_plus_offset
-    ORDER BY rn
+    )
   `;
 
-    const result = await this.dataSource.query(dataSql, params as any);
+  const countResult = await this.dataSource.query(
+    countSql,
+    countParams as any,
+  );
 
-    const data = result.map((row: any) => {
-      const { RN, ...item } = row;
-      return item;
-    });
+  const total = Number(countResult[0]?.TOTAL ?? 0);
 
-    return {
-      data: await toLowerCaseKeys(data),
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit) || 1,
-    };
-  }
+  const dataSql = `
+    SELECT *
+    FROM (
+      SELECT
+        base.*,
+        ROW_NUMBER() OVER (ORDER BY base.nome ASC NULLS LAST) AS rn
+      FROM (
+        SELECT DISTINCT
+          d.CODIGO AS codigo,
+          d.N_MECANOGRAFICO AS numero_mec,
+          tp.NOME_COMPLETO AS nome,
+          tp.EMAIL AS email,
+          c.FACULDADE AS faculdadeid,
+          d.TOTAL_ANO_EXPERIENCIA AS ano_experiencia,
+          d.PROPOSTA_DE_CONTRATACAO AS proposta_contratacao,
+          d.VALORHORA AS valor_hora,
+          d.COD_CONTRATO AS codigo_contrato,
+          d.DATAINICIODOCENCIA AS data_inicio_docencia,
+          d.APRECIACAO AS apreciacao,
+          d.CODIGO_VALIDACAO AS codigo_validacao,
+          d.FK_CANDIDATURA AS candidaturaid,
+          esc.DESIGNACAO AS escalao,
+          esc.CODIGO AS escalaoid,
+          cat.DESIGNACAO AS categoria,
+          cat.CODIGO AS categoriaid,
+          grau."Designacao" AS grau_academico
+        FROM FK2_MGD_TB_DOCENTE d
+        INNER JOIN FK2_MGD_TB_CANDIDATURA c
+          ON c.CODIGO = d.FK_CANDIDATURA
+        LEFT JOIN FK2_TB_ESCALAO_DOCENTE esc
+          ON esc.CODIGO = d.FK_ESCALAO
+        LEFT JOIN FK2_TB_CATEGORIA_DOCENTE cat
+          ON cat.CODIGO = d.TB_CATEGORIA_DOCENTE
+        LEFT JOIN UMA_TB_GRAU_ACADEMICO grau
+          ON grau."Codigo" = c.GRAU_ACADEMICO
+        LEFT JOIN FK2_TB_PESSOA tp
+          ON tp.PK_PESSOA = JSON_VALUE(c.FK_PESSOA, '$.pk_pessoa')
+        ${whereClause}
+      ) base
+    ) t
+    WHERE t.rn BETWEEN (:offset + 1) AND :limit_plus_offset
+    ORDER BY t.rn
+  `;
+
+  const result = await this.dataSource.query(dataSql, params as any);
+
+  const data = result.map((row: any) => {
+    const { RN, rn, ...item } = row;
+    return item;
+  });
+
+  return {
+    data: await toLowerCaseKeys(data),
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit) || 1,
+  };
+}
+
 
   async listDocentesRegentes(filter: FilterDocenteRegenteDto) {
     const {

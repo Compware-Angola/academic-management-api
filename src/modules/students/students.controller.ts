@@ -43,6 +43,7 @@ import { StudentsEnrollmentPendentUCService } from './students-pendent-uc.servic
 import { AcademicHistoryEquivalenciaDTO } from './dto/academic-history-equivalencia.dto';
 import { AcademicHistoryMigracaoDadosDTO } from './dto/academic-history-migracao.dto';
 import { UpdateGradeCurricularAlunoHorarioDTO } from '../discipline/dto/update-grade-curri-curricular-aluno-horario';
+import { DefinirEspecialidadeDTO } from './dto/definir-especialidade.dto';
 
 @Controller('students')
 export class StudentsController {
@@ -260,4 +261,16 @@ deleteGrade(
   restoreGrade(@Param('codigoGradeCurricularAluno', ParseIntPipe) codigoGradeCurricularAluno: number) {
     return this.studentsService.restoreGrade({codigoGradeCurricularAluno});
   }
+
+  @Put('definir-especialidade')
+  @ApiOperation({ summary: 'Definir especialidade do estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Especialidade do estudante definida com sucesso',
+  })
+  definirEspecialidade(@Body(ValidationPipe) body: DefinirEspecialidadeDTO) {
+    return this.studentsService.definirEspecialidade(body);
+  }
+
+
 }
