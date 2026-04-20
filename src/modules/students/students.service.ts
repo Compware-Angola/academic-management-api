@@ -20,6 +20,7 @@ import { FilterMapaAnualFinalistasDto } from './dto/filter-mapa-anual-finalista.
 import { FilterRegistoPrimarioExamesAcessoDto } from './dto/filter-registo-primario-exames-acesso.dto';
 import { AcademicHistoryEquivalenciaDTO } from './dto/academic-history-equivalencia.dto';
 import { AcademicHistoryMigracaoDadosDTO } from './dto/academic-history-migracao.dto';
+import { DefinirEspecialidadeDTO } from './dto/definir-especialidade.dto';
 
 @Injectable()
 export class StudentsService {
@@ -1574,6 +1575,44 @@ async restoreGrade({codigoGradeCurricularAluno}: {codigoGradeCurricularAluno: nu
 return {
   message: 'Grade curricular restaurada com sucesso',
 };
+}
+
+
+async definirEspecialidade(dto: DefinirEspecialidadeDTO) {
+  const { codigoMatricula, codigoCursoEspecialidade } = dto;
+
+  const matriculaResult = await this.dataSource.query(
+    `SELECT ESTADO_MATRICULA FROM FK2_TB_MATRICULAS WHERE CODIGO = :1`,
+    [codigoMatricula],
+  );
+
+  const matriculas = toLowerCaseKeys(matriculaResult);
+
+ 
+  if (!matriculas || matriculas.length === 0) {
+    throw new NotFoundException('Matrícula não encontrada');
+  }
+
+  const matricula = matriculas[0];
+
+ 
+  if (matricula.estado_matricula?.toLowerCase() === 'diplomado') {
+    throw new BadRequestException('Não é possível definir especialidade para aluno diplomado');
+  }
+    await this.dataSource.query(
+      `
+      UPDATE FK2_TB_MATRICULAS
+      SET CODIGO_CURSO = :1,
+          UPDATED_AT = CURRENT_TIMESTAMP
+      WHERE CODIGO = :2
+      `,
+      [codigoCursoEspecialidade, codigoMatricula],
+    );
+
+    return {
+      message: 'Especialidade definida com sucesso',
+    };
+ 
 }
 
 
