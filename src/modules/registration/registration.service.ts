@@ -1989,7 +1989,69 @@ async listarColisoesIsentasPorCurso(filter: any) {
   };
 }
 
+/** Procura um estudante por número de matrícula e retorna dados básicos. */
+async findEstudantePorMatricula(matricula: number) {
+  const sql = `
+    SELECT
+      tm.CODIGO                           AS codigoMatricula,
+      tp.NOME_COMPLETO                    AS nomeCompleto,
+      tc.DESIGNACAO                       AS curso,
+      tp.BILHETE_IDENTIDADE               AS bilhete,
+      tp2.DESIGNACAO                      AS periodo
+    FROM FK2_TB_MATRICULAS tm
+    INNER JOIN FK2_TB_ADMISSAO ta ON ta.CODIGO = tm.CODIGO_ALUNO
+    INNER JOIN FK2_TB_PREINSCRICAO tp ON tp.CODIGO = ta.PRE_INCRICAO
+    INNER JOIN FK2_TB_CURSOS tc ON tc.CODIGO = tm.CODIGO_CURSO
+    INNER JOIN FK2_TB_PERIODOS tp2 ON tp2.CODIGO = tp.CODIGO_TURNO
+    WHERE tm.CODIGO = :1
+    FETCH FIRST 1 ROWS ONLY
+  `;
+  const result = await this.dataSource.query(sql, [matricula]);
+  if (!result || result.length === 0) {
+    throw new NotFoundException('Estudante não encontrado');
+  }
+  // normaliza as chaves em minúsculas para facilitar o acesso
+  const [student] = await toLowerCaseKeys(result);
+  return {
+    codigoMatricula: student.codigomatricula,
+    nomeCompleto: student.nomecompleto,
+    curso: student.curso,
+    bilhete: student.bilhete,
+    periodo: student.periodo,
+  };
+}
 
+/** Verifica se existe isenção de colisão por matrícula num ano lectivo. */
+async verificarColisaoMatricula(
+  matricula: number,
+  anoLectivo: number,
+): Promise<{ existe: boolean }> {
+  const sql = `
+    SELECT 1
+    FROM FK2_MGIM_TB_COLISAO_MATRICULA
+    WHERE CODIGO_MATRICULA = :1
+      AND CODIGO_ANOLECTIVO = :2
+    FETCH FIRST 1 ROWS ONLY
+  `;
+  const result = await this.dataSource.query(sql, [matricula, anoLectivo]);
+  return { existe: result && result.length > 0 };
+}
+
+/** Verifica se existe isenção de colisão por curso num ano lectivo. */
+async verificarColisaoCurso(
+  curso: number,
+  anoLectivo: number,
+): Promise<{ existe: boolean }> {
+  const sql = `
+    SELECT 1
+    FROM FK2_MGIM_TB_COLISAO_CURSO
+    WHERE CODIGO_CURSO = :1
+      AND CODIGO_ANOLECTIVO = :2
+    FETCH FIRST 1 ROWS ONLY
+  `;
+  const result = await this.dataSource.query(sql, [curso, anoLectivo]);
+  return { existe: result && result.length > 0 };
+}
 
 
 

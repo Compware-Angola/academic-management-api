@@ -760,7 +760,7 @@ export class DocenteGestaoService {
   }
 
   
- async listDocentes(filter: FilterDocenteDto) {
+async listDocentes(filter: FilterDocenteDto) {
   const { page = 1, limit = 25, area, search } = filter;
   const offset = (page - 1) * limit;
 
@@ -771,9 +771,14 @@ export class DocenteGestaoService {
 
   const countParams: Record<string, any> = {};
 
-  let whereClause = 'WHERE 1 = 1';
+  let whereClause = `
+    WHERE c.FK_ESTADO_CANDIDATURA = 6
+  `;
 
-  // Mapeamento observado no legado
+  // áreas válidas do legado
+  const validAreas = [1, 2, 3];
+
+  // mapeamento observado
   const areaToFaculdadeMap: Record<number, number[]> = {
     1: [11, 9, 10], // Educação, Teologia e Ciências Humanas
     2: [9],         // Direito
@@ -782,13 +787,16 @@ export class DocenteGestaoService {
 
   if (area !== undefined && area !== null && Number(area) !== 0) {
     const areaId = Number(area);
-    const faculdades = areaToFaculdadeMap[areaId] || [];
 
-    if (faculdades.length === 0) {
-      // Se vier uma área fora do mapeamento do legado, não traz nada
+    if (!validAreas.includes(areaId)) {
       whereClause += ` AND 1 = 0`;
     } else {
-      const faculdadeConditionsData = faculdades
+      const faculdades = areaToFaculdadeMap[areaId] || [];
+
+      params.area = areaId;
+      countParams.area = areaId;
+
+      const faculdadeConditions = faculdades
         .map((faculdadeId, index) => {
           const key = `faculdade_${index}`;
           params[key] = faculdadeId;
@@ -797,7 +805,47 @@ export class DocenteGestaoService {
         })
         .join(' OR ');
 
-      whereClause += ` AND (${faculdadeConditionsData})`;
+      // pega o nome da área para fallback textual
+      params.area_nome = areaId;
+      countParams.area_nome = areaId;
+
+      whereClause += `
+        AND (
+          (${faculdadeConditions})
+
+          OR (
+
+            c.FACULDADE IS NULL
+            AND (
+              EXISTS (
+                SELECT 1
+                FROM FK2_MGD_TB_FORMACAO_ACADEMICA fa
+                WHERE fa.FK_CANDIDATURA = c.CODIGO
+                  AND fa.AREA_FORMACAO_ID = :area
+              )
+
+              OR EXISTS (
+                SELECT 1
+                FROM FK2_MGD_TB_FORMACAO_ACADEMICA fa
+                INNER JOIN FK2_TB_CURSO_AREA_FORMACOES caf
+                  ON caf.CODIGO = fa.CURSO_AREA_FORMACAO_ID
+                WHERE fa.FK_CANDIDATURA = c.CODIGO
+                  AND caf.AREA_FORMACAO_ID = :area
+              )
+
+              OR EXISTS (
+                SELECT 1
+                FROM FK2_MGD_TB_FORMACAO_ACADEMICA fa
+                INNER JOIN FK2_TB_AREA_FORMACAO ar
+                  ON ar.CODIGO = :area_nome
+                WHERE fa.FK_CANDIDATURA = c.CODIGO
+                  AND UPPER(TRIM(DBMS_LOB.SUBSTR(fa.AREA_FORMACAO, 4000, 1))) =
+                      UPPER(TRIM(DBMS_LOB.SUBSTR(ar.DESIGNACAO, 4000, 1)))
+              )
+            )
+          )
+        )
+      `;
     }
   }
 
@@ -838,7 +886,11 @@ export class DocenteGestaoService {
     )
   `;
 
-  const countResult = await this.dataSource.query(countSql, countParams as any);
+  const countResult = await this.dataSource.query(
+    countSql,
+    countParams as any,
+  );
+
   const total = Number(countResult[0]?.TOTAL ?? 0);
 
   const dataSql = `
