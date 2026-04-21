@@ -117,7 +117,7 @@ export class StudentsController {
     return this.studentsService.listarRegistoPrimarioMatriculados(filter);
   }
 
-  @Patch('reset-password')
+  @Put('reset-password')
   @ApiOperation({ summary: 'Resetar senha do estudante' })
   @ApiResponse({
     status: 200,
