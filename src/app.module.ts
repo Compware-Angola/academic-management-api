@@ -35,6 +35,8 @@ import { APP_GUARD } from '@nestjs/core/constants';
 import { CustomThrottlerGuard } from './modules/common/guard/Custom-Throttler.guard';
 import { CursosModule } from './modules/cursos/cursos.module';
 
+import { DocumentsModule } from './modules/shared/documents/documents.module';
+
 
 @Module({
   imports: [
@@ -124,6 +126,7 @@ import { CursosModule } from './modules/cursos/cursos.module';
     StatisticsReportsModule,
     RegistrationModule,
     CursosModule,
+    DocumentsModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService,
