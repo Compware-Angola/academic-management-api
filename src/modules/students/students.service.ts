@@ -806,6 +806,7 @@ async listarRegistoPrimarioExamesAcesso(
   };
 }
 
+
 async listarRegistoPrimarioMatriculados(filter: any) {
   const {
     page = 1,
@@ -813,7 +814,7 @@ async listarRegistoPrimarioMatriculados(filter: any) {
     anoLectivo = 0,
     grau = 0,
     anoCurricular = 0,
-    estado = 2,
+    estado = 2, // 1 = novos | 0 = antigos | 2 = todos
     search,
   } = filter;
 
@@ -821,13 +822,25 @@ async listarRegistoPrimarioMatriculados(filter: any) {
   const safeLimit = Number(limit) > 0 ? Number(limit) : 10;
   const offset = (safePage - 1) * safeLimit;
 
+  const anoLectivoNum = Number(anoLectivo) || 0;
+  const grauNum = Number(grau) || 0;
+  const anoCurricularNum = Number(anoCurricular) || 0;
+  const estadoNum = Number(estado);
+
   const searchValue =
     search && String(search).trim()
       ? `%${String(search).trim().toUpperCase()}%`
       : null;
 
   const sql = `
-    WITH matriculas_filtradas AS (
+    WITH ano_lectivo_valido AS (
+      SELECT al.CODIGO
+      FROM FK2_TB_ANO_LECTIVO al
+      WHERE al.CODIGO = :1
+        AND al.DESIGNACAO <> '2025-2026'
+    ),
+
+    matriculas_filtradas AS (
       SELECT DISTINCT
         tm.CODIGO AS CODIGO_MATRICULA
       FROM FK2_TB_MATRICULAS tm
@@ -841,9 +854,8 @@ async listarRegistoPrimarioMatriculados(filter: any) {
         ON tgca.CODIGO_MATRICULA = tm.CODIGO
       INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
         ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
-      WHERE (tp.ANOLECTIVO = :1 OR :2 = 0)
-        AND (tc.TIPO_CANDIDATURA = :3 OR :4 = 0)
-        AND (tgc.CODIGO_CLASSE = :5 OR :6 = 0)
+      WHERE (:2 = 0 OR tc.TIPO_CANDIDATURA = :3)
+        AND (:4 = 0 OR tgc.CODIGO_CLASSE = :5)
     ),
 
     base_estudantes AS (
@@ -862,7 +874,8 @@ async listarRegistoPrimarioMatriculados(filter: any) {
         MAX(tc.DESIGNACAO) AS CURSO,
         MAX(tgc.CODIGO_CLASSE) AS CODIGO_CLASSE,
         MAX(tp.ANOLECTIVO) AS ANO_PREINSCRICAO,
-        MAX(tm.ESTADO_MATRICULA) AS ESTADO_MATRICULA
+        MAX(tm.ESTADO_MATRICULA) AS ESTADO_MATRICULA,
+        MAX(tgca.CODIGO_ANO_LECTIVO) AS ANO_LECTIVO_GRADE
       FROM matriculas_filtradas mf
       INNER JOIN FK2_TB_MATRICULAS tm
         ON tm.CODIGO = mf.CODIGO_MATRICULA
@@ -892,7 +905,7 @@ async listarRegistoPrimarioMatriculados(filter: any) {
         CODIGO_MATRICULA,
         COUNT(*) AS TOTAL_INSCRICOES
       FROM FK2_TB_GRADE_CURRICULAR_ALUNO
-      WHERE CODIGO_ANO_LECTIVO = :7
+      WHERE CODIGO_ANO_LECTIVO = :6
       GROUP BY CODIGO_MATRICULA
     ),
 
@@ -901,7 +914,7 @@ async listarRegistoPrimarioMatriculados(filter: any) {
         CODIGO_MATRICULA,
         COUNT(*) AS TOTAL_APROVADAS
       FROM FK2_TB_GRADE_CURRICULAR_ALUNO
-      WHERE CODIGO_ANO_LECTIVO = :8
+      WHERE CODIGO_ANO_LECTIVO = :7
         AND CODIGO_STATUS_GRADE_CURRICULAR = 3
       GROUP BY CODIGO_MATRICULA
     ),
@@ -925,17 +938,28 @@ async listarRegistoPrimarioMatriculados(filter: any) {
         ON i.CODIGO_MATRICULA = b.CODIGO_MATRICULA
       LEFT JOIN aprovadas a
         ON a.CODIGO_MATRICULA = b.CODIGO_MATRICULA
-      WHERE (
-        :9 = 2
-        OR (:10 = 1 AND b.ANO_PREINSCRICAO = :11)
-        OR (:12 = 0 AND b.ANO_PREINSCRICAO <> :13)
+      WHERE EXISTS (
+        SELECT 1
+        FROM ano_lectivo_valido av
+        WHERE av.CODIGO = :8
       )
+        AND b.ANO_LECTIVO_GRADE IS NOT NULL
         AND (
-          :14 IS NULL
-          OR UPPER(b.NOME_COMPLETO) LIKE :15
-          OR UPPER(NVL(b.BILHETE_IDENTIDADE, '-')) LIKE :16
-          OR UPPER(NVL(b.CURSO, '-')) LIKE :17
-          OR UPPER(NVL(b.FACULDADE, '-')) LIKE :18
+          :9 = 2
+          AND b.ANO_LECTIVO_GRADE <= :10
+
+          OR :11 = 1
+          AND b.ANO_LECTIVO_GRADE = :12
+
+          OR :13 = 0
+          AND b.ANO_LECTIVO_GRADE < :14
+        )
+        AND (
+          :15 IS NULL
+          OR UPPER(b.NOME_COMPLETO) LIKE :16
+          OR UPPER(NVL(b.BILHETE_IDENTIDADE, '-')) LIKE :17
+          OR UPPER(NVL(b.CURSO, '-')) LIKE :18
+          OR UPPER(NVL(b.FACULDADE, '-')) LIKE :19
         )
     )
 
@@ -946,35 +970,43 @@ async listarRegistoPrimarioMatriculados(filter: any) {
         ROW_NUMBER() OVER (ORDER BY f.NOME_COMPLETO ASC) AS RN
       FROM final_data f
     ) t
-    WHERE t.RN BETWEEN :19 AND :20
+    WHERE t.RN BETWEEN :20 AND :21
     ORDER BY t.RN
   `;
 
   const sqlParams = [
-    anoLectivo,   // :1
-    anoLectivo,   // :2
-    grau,         // :3
-    grau,         // :4
-    anoCurricular,// :5
-    anoCurricular,// :6
-    anoLectivo,   // :7
-    anoLectivo,   // :8
-    estado,       // :9
-    estado,       // :10
-    anoLectivo,   // :11
-    estado,       // :12
-    anoLectivo,   // :13
-    searchValue,  // :14
-    searchValue,  // :15
-    searchValue,  // :16
-    searchValue,  // :17
-    searchValue,  // :18
-    offset + 1,   // :19
-    offset + safeLimit, // :20
+    anoLectivoNum,   // :1
+    grauNum,         // :2
+    grauNum,         // :3
+    anoCurricularNum,// :4
+    anoCurricularNum,// :5
+    anoLectivoNum,   // :6
+    anoLectivoNum,   // :7
+    anoLectivoNum,   // :8
+    estadoNum,       // :9
+    anoLectivoNum,   // :10
+    estadoNum,       // :11
+    anoLectivoNum,   // :12
+    estadoNum,       // :13
+    anoLectivoNum,   // :14
+    searchValue,     // :15
+    searchValue,     // :16
+    searchValue,     // :17
+    searchValue,     // :18
+    searchValue,     // :19
+    offset + 1,      // :20
+    offset + safeLimit, // :21
   ];
 
   const countSql = `
-    WITH matriculas_filtradas AS (
+    WITH ano_lectivo_valido AS (
+      SELECT al.CODIGO
+      FROM FK2_TB_ANO_LECTIVO al
+      WHERE al.CODIGO = :1
+        AND al.DESIGNACAO <> '2025-2026'
+    ),
+
+    matriculas_filtradas AS (
       SELECT DISTINCT
         tm.CODIGO AS CODIGO_MATRICULA
       FROM FK2_TB_MATRICULAS tm
@@ -988,9 +1020,8 @@ async listarRegistoPrimarioMatriculados(filter: any) {
         ON tgca.CODIGO_MATRICULA = tm.CODIGO
       INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
         ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
-      WHERE (tp.ANOLECTIVO = :1 OR :2 = 0)
-        AND (tc.TIPO_CANDIDATURA = :3 OR :4 = 0)
-        AND (tgc.CODIGO_CLASSE = :5 OR :6 = 0)
+      WHERE (:2 = 0 OR tc.TIPO_CANDIDATURA = :3)
+        AND (:4 = 0 OR tgc.CODIGO_CLASSE = :5)
     ),
 
     base_estudantes AS (
@@ -1000,7 +1031,7 @@ async listarRegistoPrimarioMatriculados(filter: any) {
         MAX(tp.BILHETE_IDENTIDADE) AS BILHETE_IDENTIDADE,
         MAX(tc.DESIGNACAO) AS CURSO,
         MAX(tf.DESIGNACAO) AS FACULDADE,
-        MAX(tp.ANOLECTIVO) AS ANO_PREINSCRICAO
+        MAX(tgca.CODIGO_ANO_LECTIVO) AS ANO_LECTIVO_GRADE
       FROM matriculas_filtradas mf
       INNER JOIN FK2_TB_MATRICULAS tm
         ON tm.CODIGO = mf.CODIGO_MATRICULA
@@ -1012,42 +1043,56 @@ async listarRegistoPrimarioMatriculados(filter: any) {
         ON tc.CODIGO = tm.CODIGO_CURSO
       INNER JOIN FK2_TB_FACULDADE tf
         ON tf.CODIGO = tc.FACULDADE_ID
+      LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        ON tgca.CODIGO_MATRICULA = tm.CODIGO
       GROUP BY tm.CODIGO
     )
 
     SELECT COUNT(*) AS TOTAL
     FROM base_estudantes b
-    WHERE (
-      :7 = 2
-      OR (:8 = 1 AND b.ANO_PREINSCRICAO = :9)
-      OR (:10 = 0 AND b.ANO_PREINSCRICAO <> :11)
+    WHERE EXISTS (
+      SELECT 1
+      FROM ano_lectivo_valido av
+      WHERE av.CODIGO = :6
     )
+      AND b.ANO_LECTIVO_GRADE IS NOT NULL
       AND (
-        :12 IS NULL
-        OR UPPER(b.NOME_COMPLETO) LIKE :13
-        OR UPPER(NVL(b.BILHETE_IDENTIDADE, '-')) LIKE :14
-        OR UPPER(NVL(b.CURSO, '-')) LIKE :15
-        OR UPPER(NVL(b.FACULDADE, '-')) LIKE :16
+        :7 = 2
+        AND b.ANO_LECTIVO_GRADE <= :8
+
+        OR :9 = 1
+        AND b.ANO_LECTIVO_GRADE = :10
+
+        OR :11 = 0
+        AND b.ANO_LECTIVO_GRADE < :12
+      )
+      AND (
+        :13 IS NULL
+        OR UPPER(b.NOME_COMPLETO) LIKE :14
+        OR UPPER(NVL(b.BILHETE_IDENTIDADE, '-')) LIKE :15
+        OR UPPER(NVL(b.CURSO, '-')) LIKE :16
+        OR UPPER(NVL(b.FACULDADE, '-')) LIKE :17
       )
   `;
 
   const countParams = [
-    anoLectivo,   // :1
-    anoLectivo,   // :2
-    grau,         // :3
-    grau,         // :4
-    anoCurricular,// :5
-    anoCurricular,// :6
-    estado,       // :7
-    estado,       // :8
-    anoLectivo,   // :9
-    estado,       // :10
-    anoLectivo,   // :11
-    searchValue,  // :12
-    searchValue,  // :13
-    searchValue,  // :14
-    searchValue,  // :15
-    searchValue,  // :16
+    anoLectivoNum,   // :1
+    grauNum,         // :2
+    grauNum,         // :3
+    anoCurricularNum,// :4
+    anoCurricularNum,// :5
+    anoLectivoNum,   // :6
+    estadoNum,       // :7
+    anoLectivoNum,   // :8
+    estadoNum,       // :9
+    anoLectivoNum,   // :10
+    estadoNum,       // :11
+    anoLectivoNum,   // :12
+    searchValue,     // :13
+    searchValue,     // :14
+    searchValue,     // :15
+    searchValue,     // :16
+    searchValue,     // :17
   ];
 
   const [result, countResult] = await Promise.all([
