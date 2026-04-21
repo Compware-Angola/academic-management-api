@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, BadRequestException } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { DocumentsService } from './documents.service';
 import { CreateDocumentoUCDto } from './dto/create-document.dto';
@@ -18,5 +18,12 @@ export class DocumentsController {
     return this.documentsService.generateCode(dto);
   }
 
+  @Get("validate-document")
+  async validateDocument(@Query("code") code: string,@Query("tipo_docs") tipo_docs:number) {
+    if (!code) {
+      throw new BadRequestException("O parâmetro 'code' é obrigatório");
+    }
 
+    return await this.documentsService.validateDocs(code,tipo_docs);
+  }
 }
