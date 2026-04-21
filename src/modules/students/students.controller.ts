@@ -45,6 +45,8 @@ import { AcademicHistoryMigracaoDadosDTO } from './dto/academic-history-migracao
 import { UpdateGradeCurricularAlunoHorarioDTO } from '../discipline/dto/update-grade-curri-curricular-aluno-horario';
 import { FindStudentClassInfoDTO } from './dto/find-student-info.dto';
 
+import { DefinirEspecialidadeDTO } from './dto/definir-especialidade.dto';
+
 @Controller('students')
 export class StudentsController {
   constructor(
@@ -277,4 +279,16 @@ deleteGrade(
   restoreGrade(@Param('codigoGradeCurricularAluno', ParseIntPipe) codigoGradeCurricularAluno: number) {
     return this.studentsService.restoreGrade({codigoGradeCurricularAluno});
   }
+
+  @Put('definir-especialidade')
+  @ApiOperation({ summary: 'Definir especialidade do estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Especialidade do estudante definida com sucesso',
+  })
+  definirEspecialidade(@Body(ValidationPipe) body: DefinirEspecialidadeDTO) {
+    return this.studentsService.definirEspecialidade(body);
+  }
+
+
 }
