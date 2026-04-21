@@ -24,6 +24,7 @@ import { AcademicHistoryMigracaoDadosDTO } from './dto/academic-history-migracao
 import { FindStudentClassInfoDTO } from './dto/find-student-info.dto';
 
 import { DefinirEspecialidadeDTO } from './dto/definir-especialidade.dto';
+import { formatarDataExtenso, notaExtenso } from '../util/diploma.util';
 
 @Injectable()
 export class StudentsService {
@@ -1989,6 +1990,400 @@ async changeCourse(dto: ChangeCourseDTO) {
     } as any);
     return result && result.length > 0;
   }
+
+async diplomarAluno(
+  body: {
+    codigoMatricula: number;
+    dataConclusao?: Date | string;
+    imprimeCartaConclusao?: boolean;
+  },
+  usuarioLogado: any,
+) {
+  const {
+    codigoMatricula,
+    dataConclusao,
+    imprimeCartaConclusao = false,
+  } = body;
+
+  if (!codigoMatricula) {
+    throw new BadRequestException('Código da matrícula é obrigatório');
+  }
+
+  const anoLectivoAtual = await this.anoLectivoUtil.getAnoAtualId();
+
+  if (!anoLectivoAtual) {
+    throw new BadRequestException('Ano lectivo actual não encontrado');
+  }
+
+  const dataConclusaoFinal = dataConclusao ? new Date(dataConclusao) : new Date();
+
+  if (Number.isNaN(dataConclusaoFinal.getTime())) {
+    throw new BadRequestException('Data de conclusão inválida');
+  }
+
+  return this.dataSource.transaction(async (manager) => {
+    const matriculaResult = await manager.query(
+      `
+      SELECT
+        M.CODIGO,
+        M.ESTADO_MATRICULA,
+        M.CODIGO_CURSO
+      FROM FK2_TB_MATRICULAS M
+      WHERE M.CODIGO = :codigoMatricula
+      `,
+      { codigoMatricula } as any,
+    );
+
+    if (!matriculaResult?.length) {
+      throw new NotFoundException('Matrícula não encontrada');
+    }
+
+    const matricula = matriculaResult[0];
+    const estadoMatricula = String(
+      matricula.ESTADO_MATRICULA || '',
+    ).toLowerCase();
+
+    if (estadoMatricula === 'diplomado') {
+      throw new BadRequestException('O estudante já está diplomado');
+    }
+
+    // Verifica se o estudante reúne condições para diplomar
+    const elegibilidadeResult = await manager.query(
+      `
+      SELECT
+        NVL((
+          SELECT COUNT(*)
+          FROM FK2_TB_GRADE_CURRICULAR_ALUNO GCA
+          INNER JOIN FK2_TB_GRADE_CURRICULAR GC
+            ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
+          WHERE GCA.CODIGO_MATRICULA = :codigoMatricula
+            AND GCA.CODIGO_STATUS_GRADE_CURRICULAR = 3
+            AND GC.CODIGO_CURSO = :codigoCurso
+        ), 0) AS TOTAL_FEITAS,
+        NVL((
+          SELECT COUNT(*)
+          FROM FK2_TB_GRADE_CURRICULAR GC
+          WHERE GC.CODIGO_CURSO = :codigoCurso
+            AND GC.STATUS_ = 1
+        ), 0) AS TOTAL_CURSO
+      FROM DUAL
+      `,
+      {
+        codigoMatricula,
+        codigoCurso: matricula.CODIGO_CURSO,
+      } as any,
+    );
+
+    const totalFeitas = Number(elegibilidadeResult?.[0]?.TOTAL_FEITAS ?? 0);
+    const totalCurso = Number(elegibilidadeResult?.[0]?.TOTAL_CURSO ?? 0);
+
+    if (!totalCurso || totalFeitas < totalCurso) {
+      throw new BadRequestException(
+        'O estudante não se encontra em condições para ser diplomado',
+      );
+    }
+
+    // Média final
+    const notaResult = await manager.query(
+      `
+      SELECT
+        NVL(ROUND(AVG(GCA.NOTA), 0), 0) AS NOTA_FINAL
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO GCA
+      INNER JOIN FK2_TB_GRADE_CURRICULAR GC
+        ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
+      WHERE GCA.CODIGO_MATRICULA = :codigoMatricula
+        AND GCA.CODIGO_STATUS_GRADE_CURRICULAR = 3
+        AND GC.CODIGO_CURSO = :codigoCurso
+      `,
+      {
+        codigoMatricula,
+        codigoCurso: matricula.CODIGO_CURSO,
+      } as any,
+    );
+
+    const notaFinal = Number(notaResult?.[0]?.NOTA_FINAL ?? 0);
+
+    // Atualiza estado da matrícula
+    await manager.query(
+      `
+      UPDATE FK2_TB_MATRICULAS
+      SET ESTADO_MATRICULA = 'diplomado',
+          UPDATED_AT = SYSDATE
+      WHERE CODIGO = :codigoMatricula
+      `,
+      { codigoMatricula } as any,
+    );
+
+    const refUtilizador =
+      usuarioLogado?.sub || usuarioLogado?.name
+        ? JSON.stringify({
+            pk: usuarioLogado?.sub ?? null,
+            desc: usuarioLogado?.name ?? null,
+          })
+        : null;
+
+    // Verifica se já existe conclusão para esta matrícula
+    const conclusaoExistente = await manager.query(
+      `
+      SELECT CODIGO
+      FROM FK2_CONCLUSAO_CURSO_ALUNO
+      WHERE CODIGO_MATRICULA = :codigoMatricula
+      `,
+      { codigoMatricula } as any,
+    );
+
+    if (conclusaoExistente?.length) {
+      await manager.query(
+        `
+        UPDATE FK2_CONCLUSAO_CURSO_ALUNO
+        SET DATA_CONCLUSAO = :dataConclusao,
+            NOTA = :notaFinal,
+            ANO_LECTIVO = :anoLectivo,
+            URLDIPLOMA = '-',
+            REF_UTILIZADOR = :refUtilizador
+        WHERE CODIGO_MATRICULA = :codigoMatricula
+        `,
+        {
+          codigoMatricula,
+          dataConclusao: dataConclusaoFinal,
+          notaFinal,
+          anoLectivo: anoLectivoAtual,
+          refUtilizador,
+        } as any,
+      );
+    } else {
+      await manager.query(
+        `
+        INSERT INTO FK2_CONCLUSAO_CURSO_ALUNO (
+          CODIGO_MATRICULA,
+          DATA_CONCLUSAO,
+          NOTA,
+          URLDIPLOMA,
+          ANO_LECTIVO,
+          REF_UTILIZADOR
+        ) VALUES (
+          :codigoMatricula,
+          :dataConclusao,
+          :notaFinal,
+          '-',
+          :anoLectivo,
+          :refUtilizador
+        )
+        `,
+        {
+          codigoMatricula,
+          dataConclusao: dataConclusaoFinal,
+          notaFinal,
+          anoLectivo: anoLectivoAtual,
+          refUtilizador,
+        } as any,
+      );
+    }
+
+    // Opcional: cria declaração de fim de curso
+    if (imprimeCartaConclusao) {
+      const ultimoDocumentoResult = await manager.query(`
+        SELECT NVL(MAX(CODIGO), 0) AS ULTIMO_CODIGO
+        FROM FK2_TB_DOCUMENTOS_UC
+      `);
+
+      const proximoCodigoBase =
+        Number(ultimoDocumentoResult?.[0]?.ULTIMO_CODIGO ?? 0) + 1;
+
+      const codigoDocumento = await gerarHashExterno(
+        String(proximoCodigoBase),
+      );
+
+      await manager.query(
+        `
+        INSERT INTO FK2_TB_DOCUMENTOS_UC (
+          DOCUMENTO,
+          ANO_LETIVO,
+          UTILIZADOR,
+          DATAREGISTO,
+          STATUS_,
+          CODIGO_DOCUMENTO,
+          CODIGO_MATRICULA,
+          TIPO_DOCUMENTO,
+          REF_UTILIZADOR
+        ) VALUES (
+          'Declaracão de Fim de Curso',
+          :anoLectivo,
+          :utilizador,
+          SYSDATE,
+          'Ativo',
+          :codigoDocumento,
+          :codigoMatricula,
+          8,
+          :refUtilizador
+        )
+        `,
+        {
+          anoLectivo: anoLectivoAtual,
+          utilizador: usuarioLogado?.sub ?? null,
+          codigoDocumento,
+          codigoMatricula,
+          refUtilizador,
+        } as any,
+      );
+    }
+
+    // Log
+    await manager.query(
+      `
+      INSERT INTO FK2_MGA_TB_LOG_DIPLOMAR (
+        DESCRICAO,
+        FK_MATRICULA,
+        FK_UTILIZADOR_RESPONSAVEL,
+        CREATED_AT
+      ) VALUES (
+        'Diplomado',
+        :codigoMatricula,
+        :utilizadorResponsavel,
+        SYSDATE
+      )
+      `,
+      {
+        codigoMatricula,
+        utilizadorResponsavel: usuarioLogado?.sub ?? null,
+      } as any,
+    );
+
+    return {
+      success: true,
+      message: 'Estudante diplomado com sucesso',
+      data: {
+        codigoMatricula,
+        estadoMatricula: 'diplomado',
+        notaFinal,
+        anoLectivo: anoLectivoAtual,
+        dataConclusao: dataConclusaoFinal,
+        cartaConclusaoGerada: imprimeCartaConclusao,
+      },
+    };
+  });
+}
+
+async gerarDiploma(
+  body: {
+    codigoMatricula: number;
+    segundaViaDiploma?: boolean;
+  },
+) {
+  const { codigoMatricula, segundaViaDiploma = false } = body;
+
+  if (!codigoMatricula) {
+    throw new BadRequestException('Código da matrícula é obrigatório');
+  }
+
+  const result = await this.dataSource.query(
+    `
+    SELECT
+      M.CODIGO AS CODIGO_MATRICULA,
+      M.ESTADO_MATRICULA,
+      CCA.DATA_CONCLUSAO,
+      CCA.NOTA,
+      CUR.DESIGNACAO AS CURSO,
+      TC.ID AS TIPO_CANDIDATURA_ID,
+      TC.DESIGNACAO AS TIPO_CANDIDATURA,
+      PRE.NOME_COMPLETO,
+      PRE.DATA_NASCIMENTO,
+      PRE.NATURALIDADE,
+      PRE.PAI,
+      PRE.MAE,
+      PRE.BILHETE_IDENTIDADE,
+      PRE.SEXO,
+      TID.DESCRICAO AS TIPO_DOCUMENTO_NOME
+    FROM FK2_TB_MATRICULAS M
+    INNER JOIN FK2_TB_ADMISSAO ADM
+      ON ADM.CODIGO = M.CODIGO_ALUNO
+    INNER JOIN FK2_TB_PREINSCRICAO PRE
+      ON PRE.CODIGO = ADM.PRE_INCRICAO
+    INNER JOIN FK2_TB_CURSOS CUR
+      ON CUR.CODIGO = M.CODIGO_CURSO
+    LEFT JOIN FK2_TB_TIPO_CANDIDATURA TC
+      ON TC.ID = PRE.CODIGO_TIPO_CANDIDATURA
+    LEFT JOIN FK2_TB_TIPO_IDENTIFICACAO TID
+      ON TID.CODIGO = PRE.TIPO_IDENTIFICACAO
+    LEFT JOIN FK2_CONCLUSAO_CURSO_ALUNO CCA
+      ON CCA.CODIGO_MATRICULA = M.CODIGO
+    WHERE M.CODIGO = :codigoMatricula
+    `,
+    { codigoMatricula } as any,
+  );
+
+  if (!result?.length) {
+    throw new NotFoundException('Matrícula não encontrada');
+  }
+
+  const aluno = result[0];
+
+  if (!aluno.DATA_CONCLUSAO) {
+    throw new BadRequestException(
+      'Faltam dados do aluno diplomado. Conclusão do curso não encontrada',
+    );
+  }
+
+  if (String(aluno.ESTADO_MATRICULA || '').toLowerCase() !== 'diplomado') {
+    throw new BadRequestException(
+      'O estudante não está diplomado, não é possível gerar o diploma',
+    );
+  }
+
+  const reitorResult = await this.dataSource.query(
+    `
+    SELECT DIRECTOR
+    FROM FK2_TB_DADOS_INSTITUICAO
+    WHERE DIRECTOR IS NOT NULL
+    ORDER BY CODIGO DESC
+    FETCH FIRST 1 ROWS ONLY
+    `,
+  );
+
+  const reitor = reitorResult?.[0]?.DIRECTOR?.trim?.() || '';
+
+  const cursoOriginal = String(aluno.CURSO || '');
+  let cursoDiploma = cursoOriginal;
+  let nivelAcademico = 'Licenciatura';
+
+  if (cursoOriginal.includes('M - ')) {
+    cursoDiploma = `Mestrado em${cursoOriginal.substring(3)}`;
+    nivelAcademico = 'defesa de dissertação';
+  } else if (cursoOriginal.includes('D - ')) {
+    cursoDiploma = `Doutoramento ${cursoOriginal.substring(1)}`;
+    nivelAcademico = 'defesa de dissertação';
+  }
+
+  return {
+    success: true,
+    message: 'Dados do diploma gerados com sucesso',
+    data: {
+      codigoMatricula: Number(aluno.CODIGO_MATRICULA),
+      nomeAluno: aluno.NOME_COMPLETO,
+      curso: cursoDiploma,
+      dataNascimento: formatarDataExtenso(aluno.DATA_NASCIMENTO),
+      dataConclusao: formatarDataExtenso(aluno.DATA_CONCLUSAO),
+      dataEmissaoDocumento: formatarDataExtenso(new Date()),
+      naturalidade: aluno.NATURALIDADE || '',
+      nomePai: aluno.PAI || '',
+      nomeMae: aluno.MAE || '',
+      nivelAcademico,
+      bilhete: aluno.BILHETE_IDENTIDADE || '',
+      notaFinal: String(aluno.NOTA ?? ''),
+      notaFinalExtenso: notaExtenso(Number(aluno.NOTA ?? 0)),
+      genero: aluno.SEXO || '',
+      nomeDocumento: aluno.TIPO_DOCUMENTO_NOME || '',
+      reitor,
+      viaDiploma: segundaViaDiploma ? '2ª via' : '1ª',
+      tipoCandidaturaId: aluno.TIPO_CANDIDATURA_ID ?? null,
+      tipoCandidatura: aluno.TIPO_CANDIDATURA ?? '',
+      template:
+        Number(aluno.TIPO_CANDIDATURA_ID) === 1
+          ? 'diploma_ortoga'
+          : 'diploma_ortoga_mestrado',
+    },
+  };
+}
 
 
 }
