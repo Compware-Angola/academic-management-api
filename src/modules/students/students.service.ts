@@ -20,6 +20,7 @@ import { FilterMapaAnualFinalistasDto } from './dto/filter-mapa-anual-finalista.
 import { FilterRegistoPrimarioExamesAcessoDto } from './dto/filter-registo-primario-exames-acesso.dto';
 import { AcademicHistoryEquivalenciaDTO } from './dto/academic-history-equivalencia.dto';
 import { AcademicHistoryMigracaoDadosDTO } from './dto/academic-history-migracao.dto';
+import { FindStudentClassInfoDTO } from './dto/find-student-info.dto';
 
 @Injectable()
 export class StudentsService {
@@ -29,69 +30,112 @@ export class StudentsService {
   }
 
 
-  async getProfileEstatistic(codigoMatricula: number): Promise<any> {
-    const sql = `
+async getProfileEstatistic(codigoMatricula: number, anoLectivo?: number): Promise<any> {
+  const anoLectivoFilter = anoLectivo
+    ? `AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo`
+    : `AND ftgca.CODIGO_ANO_LECTIVO = (
+          SELECT MAX(CODIGO_ANO_LECTIVO)
+          FROM FK2_TB_GRADE_CURRICULAR_ALUNO
+          WHERE CODIGO_MATRICULA = m.CODIGO
+            AND CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+      )`;
+
+  const sql = `
     SELECT
-    m.codigo               AS codigo_matricula,
-    p.BILHETE_IDENTIDADE   AS bi,
-    c.designacao           AS curso,
-    c.codigo               AS curso_codigo,
-    pe.DESIGNACAO          AS periodo,
-    pe.codigo              AS periodo_codigo,
-    m.ESTADO_MATRICULA     AS estado,
-    p.Nome_Completo        AS nome_completo,
-    p.Bilhete_Identidade   AS bi_aluno,
-    p.Email                AS email,
-    p.Contactos_Telefonicos AS contacto,
-    p.CONTACTO_DE_EMERGENCIA AS contacto_alternativo,
-    p.Data_Nascimento      AS data_nascimento,
-    p.DATA_EMISSAO_BI      AS data_emissao_bi,
-    p.DATA_VALIDADE_BI     AS data_validade_bi,
-    p.PAI                  AS pai,
-    p.MAE                  AS mae,
-    p.CODIGO_OCUPACAO      AS ocupacao_codigo,
-    p.CODIGO_PROFISSAO     AS profissao_codigo,
-    p.NATURALIDADE         AS naturalidade,
-    nac.DESIGNACAO         AS nacionalidade,
-    p.ESTADO_CIVIL         AS estado_civil,
-    p.SEXO                 AS sexo,
-    fac.DESIGNACAO         AS faculdade,
-    tpc.DESIGNACAO         AS grau,
-    pr.DESIGNACAO          AS regime,
-    p.MORADA_COMPLETA      AS morada,
-    p.SALDO_RESET       AS saldo_atual,
-    p.SALDO_RESET_ANTER AS saldo_anterior,
-    u.FOTO                 AS foto
-FROM FK2_TB_MATRICULAS m
-INNER JOIN FK2_TB_ADMISSAO a
-    ON a.codigo = m.CODIGO_ALUNO
-INNER JOIN FK2_TB_PREINSCRICAO p
-    ON p.codigo = a.PRE_INCRICAO
-INNER JOIN FK2_USERS u
-    ON u.ID = p.USER_ID
-INNER JOIN FK2_TB_CURSOS c
-    ON c.codigo = m.CODIGO_CURSO
-INNER JOIN FK2_TB_FACULDADE fac
-    ON fac.codigo = c.FACULDADE_ID
-INNER JOIN FK2_TB_PERIODOS pe
-    ON pe.codigo = p.CODIGO_TURNO
-INNER JOIN FK2_TB_NACIONALIDADES nac
-    ON nac.CODIGO = p.CODIGO_NACIONALIDADE
-INNER JOIN FK2_TB_TIPO_CANDIDATURA tpc
-    ON tpc.ID = p.CODIGO_TIPO_CANDIDATURA
-INNER JOIN FK2_TB_PERIODOS pr
-    ON pr.CODIGO = p.CODIGO_TURNO
-WHERE m.codigo = :codigoMatricula
+        m.codigo               AS codigo_matricula,
+        p.BILHETE_IDENTIDADE   AS bi,
+        c.designacao           AS curso,
+        c.codigo               AS curso_codigo,
+        pe.DESIGNACAO          AS periodo,
+        pe.codigo              AS periodo_codigo,
+        m.ESTADO_MATRICULA     AS estado,
+        p.Nome_Completo        AS nome_completo,
+        p.Bilhete_Identidade   AS bi_aluno,
+        p.Email                AS email,
+        p.Contactos_Telefonicos AS contacto,
+        p.CONTACTO_DE_EMERGENCIA AS contacto_alternativo,
+        p.Data_Nascimento      AS data_nascimento,
+        p.DATA_EMISSAO_BI      AS data_emissao_bi,
+        p.DATA_VALIDADE_BI     AS data_validade_bi,
+        p.PAI                  AS pai,
+        p.MAE                  AS mae,
+        p.CODIGO_OCUPACAO      AS ocupacao_codigo,
+        p.CODIGO_PROFISSAO     AS profissao_codigo,
+        p.NATURALIDADE         AS naturalidade,
+        nac.DESIGNACAO         AS nacionalidade,
+        p.ESTADO_CIVIL         AS estado_civil,
+        p.SEXO                 AS sexo,
+        fac.DESIGNACAO         AS faculdade,
+        tpc.DESIGNACAO         AS grau,
+        pr.DESIGNACAO          AS regime,
+        p.MORADA_COMPLETA      AS morada,
+        p.SALDO_RESET          AS saldo_atual,
+        p.SALDO_RESET_ANTER    AS saldo_anterior,
+        u.FOTO                 AS foto,
 
-    `;
+        -- Classe com mais grades curriculares inscritas
+        (
+            SELECT cl.DESIGNACAO
+            FROM FK2_TB_GRADE_CURRICULAR_ALUNO ftgca
+            LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc
+                ON ftgc.CODIGO = ftgca.CODIGO_GRADE_CURRICULAR
+            LEFT JOIN FK2_TB_CLASSES cl
+                ON cl.CODIGO = ftgc.CODIGO_CLASSE
+            WHERE ftgca.CODIGO_MATRICULA = m.CODIGO
+              AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+              ${anoLectivoFilter}
+            GROUP BY cl.CODIGO, cl.DESIGNACAO
+            ORDER BY COUNT(ftgca.CODIGO) DESC
+            FETCH FIRST 1 ROWS ONLY
+        ) AS classe,
 
-    const result = await this.dataSource.query(sql, {
-      codigoMatricula,
-    } as any);
+        (
+            SELECT cl.CODIGO
+            FROM FK2_TB_GRADE_CURRICULAR_ALUNO ftgca
+            LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc
+                ON ftgc.CODIGO = ftgca.CODIGO_GRADE_CURRICULAR
+            LEFT JOIN FK2_TB_CLASSES cl
+                ON cl.CODIGO = ftgc.CODIGO_CLASSE
+            WHERE ftgca.CODIGO_MATRICULA = m.CODIGO
+              AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+              ${anoLectivoFilter}
+            GROUP BY cl.CODIGO, cl.DESIGNACAO
+            ORDER BY COUNT(ftgca.CODIGO) DESC
+            FETCH FIRST 1 ROWS ONLY
+        ) AS classe_codigo
 
-    return toLowerCaseKeys(result[0]) || null;
+    FROM FK2_TB_MATRICULAS m
+    INNER JOIN FK2_TB_ADMISSAO a
+        ON a.codigo = m.CODIGO_ALUNO
+    INNER JOIN FK2_TB_PREINSCRICAO p
+        ON p.codigo = a.PRE_INCRICAO
+    INNER JOIN FK2_USERS u
+        ON u.ID = p.USER_ID
+    INNER JOIN FK2_TB_CURSOS c
+        ON c.codigo = m.CODIGO_CURSO
+    INNER JOIN FK2_TB_FACULDADE fac
+        ON fac.codigo = c.FACULDADE_ID
+    INNER JOIN FK2_TB_PERIODOS pe
+        ON pe.codigo = p.CODIGO_TURNO
+    INNER JOIN FK2_TB_NACIONALIDADES nac
+        ON nac.CODIGO = p.CODIGO_NACIONALIDADE
+    INNER JOIN FK2_TB_TIPO_CANDIDATURA tpc
+        ON tpc.ID = p.CODIGO_TIPO_CANDIDATURA
+    INNER JOIN FK2_TB_PERIODOS pr
+        ON pr.CODIGO = p.CODIGO_TURNO
+    WHERE m.codigo = :codigoMatricula
+  `;
+
+  const queryParams: any = { codigoMatricula };
+
+  if (anoLectivo) {
+    queryParams.anoLectivo = anoLectivo;
   }
 
+  const result = await this.dataSource.query(sql, queryParams);
+
+  return toLowerCaseKeys(result[0]) || null;
+}
   async getSugestoes(search: string): Promise<any[]> {
     if (!search || search.trim().length < 2) {
       return [];
@@ -229,7 +273,138 @@ WHERE m.codigo = :codigoMatricula
       totalPages,
     };
   }
+async findStudentClassInfo(filters: FindStudentClassInfoDTO) {
+  const { numeroDeMatricula, anoLectivo } = filters;
 
+  const params: any = {};
+  const conditions: string[] = ['1=1'];
+
+  if (numeroDeMatricula) {
+    conditions.push(`ftgca.CODIGO_MATRICULA = :numeroDeMatricula`);
+    params.numeroDeMatricula = numeroDeMatricula;
+  }
+
+  if (anoLectivo) {
+    conditions.push(`ftgca.CODIGO_ANO_LECTIVO = :anoLectivo`);
+    params.anoLectivo = anoLectivo;
+  }
+
+  const whereClause = conditions.join(' AND ');
+
+  const sql = `
+    SELECT
+        -- Dados da Classe
+        cl.CODIGO                   AS CODIGO_CLASSE,
+        cl.DESIGNACAO               AS CLASSE,
+        COUNT(ftgca.CODIGO)         AS TOTAL_GRADES_INSCRITAS,
+
+        -- Dados da Matrícula
+        m.CODIGO                    AS CODIGO_MATRICULA,
+        m.ESTADO_MATRICULA          AS ESTADO,
+
+        -- Dados Pessoais
+        p.NOME_COMPLETO             AS NOME_COMPLETO,
+        p.BILHETE_IDENTIDADE        AS BI,
+        p.EMAIL                     AS EMAIL,
+        p.CONTACTOS_TELEFONICOS     AS CONTACTO,
+        p.CONTACTO_DE_EMERGENCIA    AS CONTACTO_ALTERNATIVO,
+        p.DATA_NASCIMENTO           AS DATA_NASCIMENTO,
+        p.DATA_EMISSAO_BI           AS DATA_EMISSAO_BI,
+        p.DATA_VALIDADE_BI          AS DATA_VALIDADE_BI,
+        p.PAI                       AS PAI,
+        p.MAE                       AS MAE,
+        p.NATURALIDADE              AS NATURALIDADE,
+        p.ESTADO_CIVIL              AS ESTADO_CIVIL,
+        p.SEXO                      AS SEXO,
+        p.MORADA_COMPLETA           AS MORADA,
+
+        -- Nacionalidade
+        nac.DESIGNACAO              AS NACIONALIDADE,
+
+        -- Curso e Faculdade
+        c.CODIGO                    AS CURSO_CODIGO,
+        c.DESIGNACAO                AS CURSO,
+        fac.DESIGNACAO              AS FACULDADE,
+
+        -- Período / Turno
+        pe.CODIGO                   AS PERIODO_CODIGO,
+        pe.DESIGNACAO               AS PERIODO,
+
+        -- Grau e Regime
+        tpc.DESIGNACAO              AS GRAU,
+        pr.DESIGNACAO               AS REGIME,
+
+        -- Foto
+        u.FOTO                      AS FOTO,
+
+        -- Ano Lectivo
+        alt.DESIGNACAO              AS ANO_LECTIVO,
+        alt.STATUS_                 AS STATUS_LECTIVO,
+        alt.ESTADO                  AS STATUS_LECTIVO2
+
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO ftgca
+        LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc
+            ON ftgc.CODIGO = ftgca.CODIGO_GRADE_CURRICULAR
+        LEFT JOIN FK2_TB_CLASSES cl
+            ON cl.CODIGO = ftgc.CODIGO_CLASSE
+        LEFT JOIN FK2_TB_ANO_LECTIVO alt
+            ON alt.CODIGO = ftgca.CODIGO_ANO_LECTIVO
+
+        INNER JOIN FK2_TB_MATRICULAS m
+            ON m.CODIGO = ftgca.CODIGO_MATRICULA
+        INNER JOIN FK2_TB_ADMISSAO a
+            ON a.CODIGO = m.CODIGO_ALUNO
+        INNER JOIN FK2_TB_PREINSCRICAO p
+            ON p.CODIGO = a.PRE_INCRICAO
+        INNER JOIN FK2_USERS u
+            ON u.ID = p.USER_ID
+        INNER JOIN FK2_TB_CURSOS c
+            ON c.CODIGO = m.CODIGO_CURSO
+        INNER JOIN FK2_TB_FACULDADE fac
+            ON fac.CODIGO = c.FACULDADE_ID
+        INNER JOIN FK2_TB_PERIODOS pe
+            ON pe.CODIGO = p.CODIGO_TURNO
+        INNER JOIN FK2_TB_NACIONALIDADES nac
+            ON nac.CODIGO = p.CODIGO_NACIONALIDADE
+        INNER JOIN FK2_TB_TIPO_CANDIDATURA tpc
+            ON tpc.ID = p.CODIGO_TIPO_CANDIDATURA
+        INNER JOIN FK2_TB_PERIODOS pr
+            ON pr.CODIGO = p.CODIGO_TURNO
+
+    WHERE ${whereClause}
+
+    GROUP BY
+        cl.CODIGO, cl.DESIGNACAO,
+        m.CODIGO, m.ESTADO_MATRICULA,
+        p.NOME_COMPLETO, p.BILHETE_IDENTIDADE, p.EMAIL,
+        p.CONTACTOS_TELEFONICOS, p.CONTACTO_DE_EMERGENCIA,
+        p.DATA_NASCIMENTO, p.DATA_EMISSAO_BI, p.DATA_VALIDADE_BI,
+        p.PAI, p.MAE,
+        p.NATURALIDADE, p.ESTADO_CIVIL, p.SEXO,
+        p.MORADA_COMPLETA,
+        nac.DESIGNACAO,
+        c.CODIGO, c.DESIGNACAO,
+        fac.DESIGNACAO,
+        pe.CODIGO, pe.DESIGNACAO,
+        tpc.DESIGNACAO,
+        pr.DESIGNACAO,
+        u.FOTO,
+        alt.DESIGNACAO,
+        alt.STATUS_,
+        alt.ESTADO
+
+    ORDER BY TOTAL_GRADES_INSCRITAS DESC
+    FETCH FIRST 1 ROWS ONLY
+  `;
+
+  const result = await this.dataSource.query(sql, params);
+
+  if (!result || result.length === 0) return null;
+
+  const [data] = await toLowerCaseKeys(result);
+
+  return data;
+}
 
  async listarMapaAnualFinalistas(filter: FilterMapaAnualFinalistasDto) {
   const {

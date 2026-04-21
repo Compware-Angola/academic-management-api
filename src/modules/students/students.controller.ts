@@ -43,6 +43,7 @@ import { StudentsEnrollmentPendentUCService } from './students-pendent-uc.servic
 import { AcademicHistoryEquivalenciaDTO } from './dto/academic-history-equivalencia.dto';
 import { AcademicHistoryMigracaoDadosDTO } from './dto/academic-history-migracao.dto';
 import { UpdateGradeCurricularAlunoHorarioDTO } from '../discipline/dto/update-grade-curri-curricular-aluno-horario';
+import { FindStudentClassInfoDTO } from './dto/find-student-info.dto';
 
 @Controller('students')
 export class StudentsController {
@@ -70,7 +71,23 @@ export class StudentsController {
   findCadeiras(@Query(ValidationPipe) query: FindStudentsDTO) {
     return this.studentsService.findStudents(query);
   }
-
+  @Get('classe-info')
+  @ApiOperation({
+    summary: 'Buscar classe e informações do estudante',
+    description:
+      'Retorna a classe com maior número de grades curriculares inscritas e os dados do estudante para um determinado ano lectivo',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Dados do estudante e classe retornados com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Estudante não encontrado',
+  })
+  async findStudentClassInfo(@Query(ValidationPipe) filters: FindStudentClassInfoDTO) {
+    return this.studentsService.findStudentClassInfo(filters);
+  }
   @Get('mapa-anual-finalistas')
   @ApiOperation({ summary: 'Mapa anual de estudantes finalistas' })
   @ApiResponse({ status: 200 })
