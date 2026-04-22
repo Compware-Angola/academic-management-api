@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CreateDocumentoUCDto } from './dto/create-document.dto';
 import { toLowerCaseKeys } from 'src/modules/util/toLowerCaseKeys';
+import { DecodedUserPayload } from 'src/modules/common/types/token-validation-response.interface';
 
 
 @Injectable()
@@ -12,7 +13,7 @@ export class DocumentsService {
     private readonly dataSource: DataSource,
   ) { }
 
-async generateCode(dto:CreateDocumentoUCDto): Promise<{ codigo: string }> {
+async generateCode(dto:CreateDocumentoUCDto,user:DecodedUserPayload): Promise<{ codigo: string }> {
   const codigo = this.createRandomCode();
 
   await this.dataSource.query(
@@ -46,8 +47,8 @@ async generateCode(dto:CreateDocumentoUCDto): Promise<{ codigo: string }> {
       codigoMatricula: dto.codigoMatricula,
       tipoDocumento: dto.tipoDocumento,
       refUtilizador: JSON.stringify({
-        pk: 1556,
-        desc: 'Margarida da Silva Rodrigues',
+        pk: user?.sub,
+        desc: user?.nome,
         corLetra: 'black',
         disponivel: false,
       })
