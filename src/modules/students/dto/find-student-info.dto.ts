@@ -1,6 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsNotEmpty, IsNumber } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional } from 'class-validator';
 
 export class FindStudentClassInfoDTO {
   @ApiProperty({
@@ -8,16 +8,16 @@ export class FindStudentClassInfoDTO {
     example: 40014,
   })
   @IsNotEmpty()
-    @Type(() => Number)
+  @Type(() => Number)
   @IsNumber()
   numeroDeMatricula: number;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Código do ano lectivo',
     example: 17,
   })
-  @IsNotEmpty()
-    @Type(() => Number)
+  @IsOptional()
+  @Type(() => Number)
   @IsNumber()
-  anoLectivo: number;
+  anoLectivo?: number;
 }

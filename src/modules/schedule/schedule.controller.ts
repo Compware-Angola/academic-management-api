@@ -40,6 +40,7 @@ import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { GetAulasOcupadasDto } from './dto/get-aulas-ocupadas.dto';
 import { ScheduleParamDto } from './dto/parametros.dto';
+import { UpdateScheduleParamDto } from './dto/update-schedule-params.dto';
 
 @ApiTags('schedule')
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -106,6 +107,10 @@ export class ScheduleController {
     return this.scheduleService.scheduleParams(query)
 
   }
+  @Patch('parametros/:pk')
+async updateScheduleParam(@Param('pk') pk: string, @Body() body: UpdateScheduleParamDto, @Req() req:any) {
+  return this.scheduleService.updateScheduleParam(body,req.user.sub);
+}
 
   @Get('with-permission')
   @ApiOperation({

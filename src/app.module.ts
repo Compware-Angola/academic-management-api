@@ -36,6 +36,8 @@ import { CustomThrottlerGuard } from './modules/common/guard/Custom-Throttler.gu
 import { CursosModule } from './modules/cursos/cursos.module';
 
 import { DocumentsModule } from './modules/shared/documents/documents.module';
+import { TopicosModule } from './modules/topicos/topicos.module';
+import { PerguntasModule } from './modules/perguntas/perguntas.module';
 
 
 @Module({
@@ -127,6 +129,8 @@ import { DocumentsModule } from './modules/shared/documents/documents.module';
     RegistrationModule,
     CursosModule,
     DocumentsModule,
+    TopicosModule,
+    PerguntasModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService,

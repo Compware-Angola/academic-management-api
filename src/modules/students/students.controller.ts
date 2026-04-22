@@ -47,6 +47,12 @@ import { FindStudentClassInfoDTO } from './dto/find-student-info.dto';
 
 import { DefinirEspecialidadeDTO } from './dto/definir-especialidade.dto';
 
+import { DiplomarAlunoDTO } from './dto/diplomar-aluno.dto';
+import { GerarDiplomaDTO } from './dto/gerar-diploma.dto';
+
+import { GerarCertificadoDto } from './dto/gerar-certificado.dto';
+
+
 @Controller('students')
 export class StudentsController {
   constructor(
@@ -289,6 +295,53 @@ deleteGrade(
   definirEspecialidade(@Body(ValidationPipe) body: DefinirEspecialidadeDTO) {
     return this.studentsService.definirEspecialidade(body);
   }
+
+  @Put('diplomar')
+  @ApiOperation({
+    summary: 'Diplomar estudante',
+    description:
+      'Define a matrícula do estudante como diplomado, regista a conclusão do curso e cria o log da operação.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Estudante diplomado com sucesso',
+  })
+  async diplomarAluno(@Body() dto: DiplomarAlunoDTO, @Req() req: any) {
+    const usuarioLogado = req.user;
+    return this.studentsService.diplomarAluno(dto, usuarioLogado);
+  }
+
+  
+  @Post('gerar-diploma')
+  @ApiOperation({
+    summary: 'Gerar dados do diploma do estudante',
+    description:
+      'Obtém os dados necessários para renderização do diploma no frontend.',
+  })
+  @ApiBody({ type: GerarDiplomaDTO })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Dados do diploma gerados com sucesso',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Erro ao gerar diploma',
+  })
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  async gerarDiploma(@Body() dto: GerarDiplomaDTO) {
+    return this.studentsService.gerarDiploma(dto);
+  }
+
+  @Get('notas-certificado')
+  @ApiOperation({ summary: 'Obter notas do estudante para certificado' })
+  @ApiResponse({
+    status: 200,
+    description: 'Notas do estudante obtidas com sucesso',
+  })
+  obterNotasCertificado(@Query(ValidationPipe) query: GerarCertificadoDto) {
+    return this.studentsService.obterNotasCertificado(query);
+  }
+
 
 
 }
