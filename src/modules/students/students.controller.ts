@@ -10,9 +10,18 @@ import {
   HttpStatus,
   UseGuards,
   Req,
+  Patch,
+  Post,
+  Delete,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { StudentsService } from './students.service';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
+
+import { FilterMapaAnualFinalistasDto } from './dto/filter-mapa-anual-finalista.dto';
+import { FilterRegistoPrimarioExamesAcessoDto } from './dto/filter-registo-primario-exames-acesso.dto';
+import { FilterRegistoPrimarioMatriculadosDto } from './dto/filter-registo-primario-matriculados.dto';
+
 import {
   FindStudentsDTO,
   ResetStudentPasswordDTO,
@@ -27,12 +36,25 @@ import { ChangeCourseDTO } from './dto/change-course.dto';
 
 import { StudentNoteService } from './sudents-notes.service';
 import { FindStudentNoteDTO } from './dto/find-student-notes.dto';
+import { CreateStudentEnrollmentUC } from './dto/create-student-enrollment-uc';
+import { StudentsEnrollmentUCService } from './students-enrollment-uc.service';
+import { FindPendentUCDTO } from './dto/find-pendent-uc.dto';
+import { StudentsEnrollmentPendentUCService } from './students-pendent-uc.service';
+import { AcademicHistoryEquivalenciaDTO } from './dto/academic-history-equivalencia.dto';
+import { AcademicHistoryMigracaoDadosDTO } from './dto/academic-history-migracao.dto';
+import { UpdateGradeCurricularAlunoHorarioDTO } from '../discipline/dto/update-grade-curri-curricular-aluno-horario';
+import { FindStudentClassInfoDTO } from './dto/find-student-info.dto';
+
+import { DefinirEspecialidadeDTO } from './dto/definir-especialidade.dto';
+import { GerarCertificadoDto } from './dto/gerar-certificado.dto';
 
 @Controller('students')
 export class StudentsController {
   constructor(
     private readonly studentsService: StudentsService,
     private readonly studentNoteService: StudentNoteService,
+    private readonly studentEnrollment: StudentsEnrollmentUCService,
+    private readonly studentsEnrollmentPendentUCService: StudentsEnrollmentPendentUCService,
   ) {}
   @Get('estatistic/:codigoMatricula')
   async getProfile(@Param('codigoMatricula') codigoMatricula: number) {
@@ -51,6 +73,49 @@ export class StudentsController {
   })
   findCadeiras(@Query(ValidationPipe) query: FindStudentsDTO) {
     return this.studentsService.findStudents(query);
+  }
+  @Get('classe-info')
+  @ApiOperation({
+    summary: 'Buscar classe e informações do estudante',
+    description:
+      'Retorna a classe com maior número de grades curriculares inscritas e os dados do estudante para um determinado ano lectivo',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Dados do estudante e classe retornados com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Estudante não encontrado',
+  })
+  async findStudentClassInfo(@Query(ValidationPipe) filters: FindStudentClassInfoDTO) {
+    return this.studentsService.findStudentClassInfo(filters);
+  }
+  @Get('mapa-anual-finalistas')
+  @ApiOperation({ summary: 'Mapa anual de estudantes finalistas' })
+  @ApiResponse({ status: 200 })
+  async listarMapaAnualFinalistas(
+    @Query() filter: FilterMapaAnualFinalistasDto,
+  ) {
+    return this.studentsService.listarMapaAnualFinalistas(filter);
+  }
+
+  @Get('registo-primario-exames-acesso')
+  @ApiOperation({ summary: 'Listar registo primário de exames de acesso' })
+  @ApiResponse({ status: 200 })
+  async listarRegistoPrimarioExamesAcesso(
+    @Query() filter: FilterRegistoPrimarioExamesAcessoDto,
+  ) {
+    return this.studentsService.listarRegistoPrimarioExamesAcesso(filter);
+  }
+
+  @Get('registo-primario-matriculados')
+  @ApiOperation({ summary: 'Listar registo primário de matriculados' })
+  @ApiResponse({ status: 200 })
+  async listarRegistoPrimarioMatriculados(
+    @Query() filter: FilterRegistoPrimarioMatriculadosDto,
+  ) {
+    return this.studentsService.listarRegistoPrimarioMatriculados(filter);
   }
 
   @Put('reset-password')
@@ -142,4 +207,99 @@ export class StudentsController {
   findStudentNotes(@Query(ValidationPipe) query: FindStudentNoteDTO) {
     return this.studentNoteService.findAll(query);
   }
+
+  @Post('/enrollment/uc')
+  @ApiOperation({ summary: 'Fazer inscrição em UC' })
+  @ApiBody({ type: CreateStudentEnrollmentUC })
+  @ApiResponse({
+    status: 200,
+    description: 'Fazer inscrição em UC',
+  })
+  async createEnrollmentUc(
+    @Body(ValidationPipe) body: CreateStudentEnrollmentUC,
+  ) {
+    return this.studentEnrollment.enrollmentUc(body);
+  }
+  @Get('/enrollment/pendent-uc')
+  @ApiOperation({ summary: 'Listar Uc pendentes de um estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Listar Uc pendentes de um estudante',
+    type: FindPendentUCDTO,
+  })
+  findPendetUc(@Query(ValidationPipe) query: FindPendentUCDTO) {
+    return this.studentsEnrollmentPendentUCService.findPendent(query);
+  }
+
+  @Get('academic-history-equivalencia')
+  @ApiOperation({ summary: 'Obter histórico acadêmico do estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Histórico acadêmico do estudante obtido com sucesso',
+  })
+  academicHistoryEquivalencia(@Query(ValidationPipe) query: AcademicHistoryEquivalenciaDTO) {
+    return this.studentsService.academicHistoryEquivalencia(query);
+  }
+
+  @Get('academic-history-migracao-dados')
+  @ApiOperation({ summary: 'Obter histórico acadêmico do estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Histórico acadêmico do estudante obtido com sucesso',
+  })
+  academicHistoryMigracaoDados(@Query(ValidationPipe) query: AcademicHistoryMigracaoDadosDTO) {
+    return this.studentsService.academicHistoryMigracaoDados(query);
+  }
+
+  @Put('horario-grade-curricular')
+  @ApiOperation({ summary: 'Atualizar horário da grade curricular' })
+  @ApiResponse({
+    status: 200,
+    description: 'Horário da grade curricular atualizado com sucesso',
+  })
+  updateHorarioGradeCurricular(@Body(ValidationPipe) body: UpdateGradeCurricularAlunoHorarioDTO) {
+    return this.studentsService.updateHorarioGradeCurricular(body);
+  }
+
+@Delete('grade-curricular/:codigoGradeCurricularAluno')
+deleteGrade(
+  @Param('codigoGradeCurricularAluno', ParseIntPipe)
+  codigoGradeCurricularAluno: number
+) {
+  return this.studentsService.deleteGrade({
+    codigoGradeCurricularAluno,
+  });
+}
+
+  @Put('restore-grade-curricular/:codigoGradeCurricularAluno')
+  @ApiOperation({ summary: 'Restaurar grade curricular' })
+  @ApiResponse({
+    status: 200,
+    description: 'Grade curricular restaurada com sucesso',
+  })
+  restoreGrade(@Param('codigoGradeCurricularAluno', ParseIntPipe) codigoGradeCurricularAluno: number) {
+    return this.studentsService.restoreGrade({codigoGradeCurricularAluno});
+  }
+
+  @Put('definir-especialidade')
+  @ApiOperation({ summary: 'Definir especialidade do estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Especialidade do estudante definida com sucesso',
+  })
+  definirEspecialidade(@Body(ValidationPipe) body: DefinirEspecialidadeDTO) {
+    return this.studentsService.definirEspecialidade(body);
+  }
+
+  @Get('notas-certificado')
+  @ApiOperation({ summary: 'Obter notas do estudante para certificado' })
+  @ApiResponse({
+    status: 200,
+    description: 'Notas do estudante obtidas com sucesso',
+  })
+  obterNotasCertificado(@Query(ValidationPipe) query: GerarCertificadoDto) {
+    return this.studentsService.obterNotasCertificado(query);
+  }
+
+
 }

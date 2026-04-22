@@ -3,8 +3,13 @@ import { Controller, Post, Body, HttpCode, HttpStatus, Get, Query } from '@nestj
 import { ApiTags, ApiOperation, ApiBody } from '@nestjs/swagger';
 import { EnrollmentService } from './enrollment.service';
 import { EnrollmentDto } from './dto/create-enrollment.dto';
+
 import { EstudantesService } from './estatiticas.service';
 import { EstudanteDTO } from './dto/estudante.dto';
+
+import { EnrollmentRegistrationsUCService } from './registrations.at.UC.service';
+import { EnrollmentRegistrationsUCDto } from './dto/registrations.at.UC.dto';
+
 
 @ApiTags('enrollment') 
 @Controller('enrollment')
@@ -29,7 +34,6 @@ export class EnrollmentController {
   }
 
 
-
   @Get("estatisticas")
   @HttpCode(HttpStatus.OK)
   async findEstudantes(
@@ -37,4 +41,5 @@ export class EnrollmentController {
   ) {
    return this.estudantesService.findEstudantes(estudanteDto);
   }
+
 }

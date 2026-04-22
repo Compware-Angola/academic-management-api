@@ -14,6 +14,16 @@ export class FindAttendanceTestDto {
   @Type(() => Number)
   docente?: number;
 
+    @ApiProperty({
+    description: 'Periodo de prova',
+    example: 5,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  periodoId?: number;
+
   @ApiProperty({
     description: 'ID da Disciplina',
     example: 10,

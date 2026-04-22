@@ -1,0 +1,7 @@
+export const STATUS_GRADE = {
+  REPROVADO: 1,
+  CURSO: 2,
+  SUCESSO: 3,
+  PENDENTE: 4,
+  ELIMINADO: 5,
+};
