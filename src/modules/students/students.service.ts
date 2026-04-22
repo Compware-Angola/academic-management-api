@@ -344,7 +344,11 @@ async findStudentClassInfo(filters: FindStudentClassInfoDTO) {
         -- Ano Lectivo
         alt.DESIGNACAO              AS ANO_LECTIVO,
         alt.STATUS_                 AS STATUS_LECTIVO,
-        alt.ESTADO                  AS STATUS_LECTIVO2
+        alt.ESTADO                  AS STATUS_LECTIVO2,
+
+        -- conclusao
+         cca.DATA_CONCLUSAO        AS DATA_CONCLUSAO ,
+        cca.NOTA                    AS  NOTA_OBTIDA
 
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO ftgca
         LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc
@@ -374,6 +378,8 @@ async findStudentClassInfo(filters: FindStudentClassInfoDTO) {
             ON tpc.ID = p.CODIGO_TIPO_CANDIDATURA
         INNER JOIN FK2_TB_PERIODOS pr
             ON pr.CODIGO = p.CODIGO_TURNO
+               LEFT JOIN FK2_CONCLUSAO_CURSO_ALUNO cca
+      ON CCA.CODIGO_MATRICULA = m.CODIGO
 
     WHERE ${whereClause}
 
@@ -395,7 +401,10 @@ async findStudentClassInfo(filters: FindStudentClassInfoDTO) {
         u.FOTO,
         alt.DESIGNACAO,
         alt.STATUS_,
-        alt.ESTADO
+        alt.ESTADO,
+         cca.NOTA ,
+          cca.DATA_CONCLUSAO
+
 
     ORDER BY TOTAL_GRADES_INSCRITAS DESC
     FETCH FIRST 1 ROWS ONLY
