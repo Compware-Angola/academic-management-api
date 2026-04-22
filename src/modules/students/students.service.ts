@@ -20,13 +20,9 @@ import { FilterMapaAnualFinalistasDto } from './dto/filter-mapa-anual-finalista.
 import { FilterRegistoPrimarioExamesAcessoDto } from './dto/filter-registo-primario-exames-acesso.dto';
 import { AcademicHistoryEquivalenciaDTO } from './dto/academic-history-equivalencia.dto';
 import { AcademicHistoryMigracaoDadosDTO } from './dto/academic-history-migracao.dto';
-
 import { FindStudentClassInfoDTO } from './dto/find-student-info.dto';
-
 import { DefinirEspecialidadeDTO } from './dto/definir-especialidade.dto';
-
 import { formatarDataExtenso, notaExtenso } from '../util/diploma.util';
-
 import { GerarCertificadoDto } from './dto/gerar-certificado.dto';
 
 

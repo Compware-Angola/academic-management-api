@@ -2,20 +2,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNumber, IsOptional, IsObject } from 'class-validator';
 
 
-export class RefUtilizadorDto {
-  @ApiProperty({ example: 1556 })
-  pk: number;
-
-  @ApiProperty({ example: 'Margarida da Silva Rodrigues' })
-  desc: string;
-
-  @ApiProperty({ example: 'black' })
-  corLetra: string;
-
-  @ApiProperty({ example: false })
-  disponivel: boolean;
-}
-
 
 export class CreateDocumentoUCDto {
   @ApiProperty({ example: 'Certificado Com Notas' })
@@ -42,11 +28,6 @@ export class CreateDocumentoUCDto {
   @ApiProperty({ example: 7 })
   @IsNumber()
   tipoDocumento: number;
-  @ApiProperty({ type: RefUtilizadorDto })
-  @IsObject()
-  refUtilizador: RefUtilizadorDto;
 
-  @ApiProperty({ example: '115246' })
-  @IsString()
-  codigo: string;
+
 }
