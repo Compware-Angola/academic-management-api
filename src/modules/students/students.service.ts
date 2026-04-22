@@ -2374,7 +2374,7 @@ async gerarDiploma(
       genero: aluno.SEXO || '',
       nomeDocumento: aluno.TIPO_DOCUMENTO_NOME || '',
       reitor,
-      viaDiploma: segundaViaDiploma ? '2ª via' : '1ª',
+      viaDiploma: segundaViaDiploma ? '2ª via' : '',
       tipoCandidaturaId: aluno.TIPO_CANDIDATURA_ID ?? null,
       tipoCandidatura: aluno.TIPO_CANDIDATURA ?? '',
       template:
