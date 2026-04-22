@@ -24,7 +24,11 @@ import { AcademicHistoryMigracaoDadosDTO } from './dto/academic-history-migracao
 import { FindStudentClassInfoDTO } from './dto/find-student-info.dto';
 
 import { DefinirEspecialidadeDTO } from './dto/definir-especialidade.dto';
+
 import { formatarDataExtenso, notaExtenso } from '../util/diploma.util';
+
+import { GerarCertificadoDto } from './dto/gerar-certificado.dto';
+
 
 @Injectable()
 export class StudentsService {
@@ -1990,6 +1994,9 @@ async changeCourse(dto: ChangeCourseDTO) {
     } as any);
     return result && result.length > 0;
   }
+async obterNotasCertificado(dto: GerarCertificadoDto) {
+    const { matriculaId, anoMin, anoMax } = dto;
+
 
 async diplomarAluno(
   body: {
@@ -2385,5 +2392,41 @@ async gerarDiploma(
   };
 }
 
+    const min = Math.min(anoMin, anoMax);
+    const max = Math.max(anoMin, anoMax);
+
+    const sql = `
+      SELECT 
+          g.codigo,
+          TRIM(d.designacao) AS disciplina, 
+          al.nota,
+          g.HORASTEORICAS as horas_teoricas,
+          g.HORASTEORICOSPRATICAS as horas_teorico_praticas,
+          g.HORASPRATICAS as horas_praticas,
+          dur.DESIGNACAO AS duracao_nome,
+          an.DESIGNACAO AS ano_lectivo_nome,
+          g.CODIGO_SEMESTRE as semestre,
+          g.CODIGO_CLASSE AS classe
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
+      INNER JOIN FK2_TB_GRADE_CURRICULAR g  ON g.codigo = al.CODIGO_GRADE_CURRICULAR
+      INNER JOIN FK2_TB_DISCIPLINAS d       ON d.codigo = g.CODIGO_DISCIPLINA
+      INNER JOIN FK2_TB_DURACAO dur         ON dur.CODIGO = d.DURACAO
+      INNER JOIN FK2_TB_ANO_LECTIVO an      ON an.CODIGO = al.CODIGO_ANO_LECTIVO
+      WHERE al.CODIGO_STATUS_GRADE_CURRICULAR = 3 
+        AND al.NOTA >= 10 
+        AND al.CODIGO_MATRICULA = :matriculaId
+        AND g.CODIGO_CLASSE BETWEEN :min AND :max
+      ORDER BY 
+          g.CODIGO_CLASSE ASC, 
+          g.CODIGO_SEMESTRE ASC, 
+          NLSSORT(TRIM(d.designacao), 'NLS_SORT=BINARY_AI') ASC
+    `;
+
+    
+      const result = await this.dataSource.query(sql, [matriculaId, min, max]);
+      return toLowerCaseKeys(result);
+    
+  
+}
 
 }

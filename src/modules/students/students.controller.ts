@@ -46,8 +46,12 @@ import { UpdateGradeCurricularAlunoHorarioDTO } from '../discipline/dto/update-g
 import { FindStudentClassInfoDTO } from './dto/find-student-info.dto';
 
 import { DefinirEspecialidadeDTO } from './dto/definir-especialidade.dto';
+
 import { DiplomarAlunoDTO } from './dto/diplomar-aluno.dto';
 import { GerarDiplomaDTO } from './dto/gerar-diploma.dto';
+
+import { GerarCertificadoDto } from './dto/gerar-certificado.dto';
+
 
 @Controller('students')
 export class StudentsController {
@@ -327,5 +331,17 @@ deleteGrade(
   async gerarDiploma(@Body() dto: GerarDiplomaDTO) {
     return this.studentsService.gerarDiploma(dto);
   }
+
+  @Get('notas-certificado')
+  @ApiOperation({ summary: 'Obter notas do estudante para certificado' })
+  @ApiResponse({
+    status: 200,
+    description: 'Notas do estudante obtidas com sucesso',
+  })
+  obterNotasCertificado(@Query(ValidationPipe) query: GerarCertificadoDto) {
+    return this.studentsService.obterNotasCertificado(query);
+  }
+
+
 
 }
