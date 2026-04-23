@@ -20,6 +20,11 @@ import { FilterMapaAnualFinalistasDto } from './dto/filter-mapa-anual-finalista.
 import { FilterRegistoPrimarioExamesAcessoDto } from './dto/filter-registo-primario-exames-acesso.dto';
 import { AcademicHistoryEquivalenciaDTO } from './dto/academic-history-equivalencia.dto';
 import { AcademicHistoryMigracaoDadosDTO } from './dto/academic-history-migracao.dto';
+import { FindStudentClassInfoDTO } from './dto/find-student-info.dto';
+import { DefinirEspecialidadeDTO } from './dto/definir-especialidade.dto';
+import { formatarDataExtenso, notaExtenso } from '../util/diploma.util';
+import { GerarCertificadoDto } from './dto/gerar-certificado.dto';
+
 
 @Injectable()
 export class StudentsService {
@@ -29,69 +34,112 @@ export class StudentsService {
   }
 
 
-  async getProfileEstatistic(codigoMatricula: number): Promise<any> {
-    const sql = `
+async getProfileEstatistic(codigoMatricula: number, anoLectivo?: number): Promise<any> {
+  const anoLectivoFilter = anoLectivo
+    ? `AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo`
+    : `AND ftgca.CODIGO_ANO_LECTIVO = (
+          SELECT MAX(CODIGO_ANO_LECTIVO)
+          FROM FK2_TB_GRADE_CURRICULAR_ALUNO
+          WHERE CODIGO_MATRICULA = m.CODIGO
+            AND CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+      )`;
+
+  const sql = `
     SELECT
-    m.codigo               AS codigo_matricula,
-    p.BILHETE_IDENTIDADE   AS bi,
-    c.designacao           AS curso,
-    c.codigo               AS curso_codigo,
-    pe.DESIGNACAO          AS periodo,
-    pe.codigo              AS periodo_codigo,
-    m.ESTADO_MATRICULA     AS estado,
-    p.Nome_Completo        AS nome_completo,
-    p.Bilhete_Identidade   AS bi_aluno,
-    p.Email                AS email,
-    p.Contactos_Telefonicos AS contacto,
-    p.CONTACTO_DE_EMERGENCIA AS contacto_alternativo,
-    p.Data_Nascimento      AS data_nascimento,
-    p.DATA_EMISSAO_BI      AS data_emissao_bi,
-    p.DATA_VALIDADE_BI     AS data_validade_bi,
-    p.PAI                  AS pai,
-    p.MAE                  AS mae,
-    p.CODIGO_OCUPACAO      AS ocupacao_codigo,
-    p.CODIGO_PROFISSAO     AS profissao_codigo,
-    p.NATURALIDADE         AS naturalidade,
-    nac.DESIGNACAO         AS nacionalidade,
-    p.ESTADO_CIVIL         AS estado_civil,
-    p.SEXO                 AS sexo,
-    fac.DESIGNACAO         AS faculdade,
-    tpc.DESIGNACAO         AS grau,
-    pr.DESIGNACAO          AS regime,
-    p.MORADA_COMPLETA      AS morada,
-    p.SALDO_RESET       AS saldo_atual,
-    p.SALDO_RESET_ANTER AS saldo_anterior,
-    u.FOTO                 AS foto
-FROM FK2_TB_MATRICULAS m
-INNER JOIN FK2_TB_ADMISSAO a
-    ON a.codigo = m.CODIGO_ALUNO
-INNER JOIN FK2_TB_PREINSCRICAO p
-    ON p.codigo = a.PRE_INCRICAO
-INNER JOIN FK2_USERS u
-    ON u.ID = p.USER_ID
-INNER JOIN FK2_TB_CURSOS c
-    ON c.codigo = m.CODIGO_CURSO
-INNER JOIN FK2_TB_FACULDADE fac
-    ON fac.codigo = c.FACULDADE_ID
-INNER JOIN FK2_TB_PERIODOS pe
-    ON pe.codigo = p.CODIGO_TURNO
-INNER JOIN FK2_TB_NACIONALIDADES nac
-    ON nac.CODIGO = p.CODIGO_NACIONALIDADE
-INNER JOIN FK2_TB_TIPO_CANDIDATURA tpc
-    ON tpc.ID = p.CODIGO_TIPO_CANDIDATURA
-INNER JOIN FK2_TB_PERIODOS pr
-    ON pr.CODIGO = p.CODIGO_TURNO
-WHERE m.codigo = :codigoMatricula
+        m.codigo               AS codigo_matricula,
+        p.BILHETE_IDENTIDADE   AS bi,
+        c.designacao           AS curso,
+        c.codigo               AS curso_codigo,
+        pe.DESIGNACAO          AS periodo,
+        pe.codigo              AS periodo_codigo,
+        m.ESTADO_MATRICULA     AS estado,
+        p.Nome_Completo        AS nome_completo,
+        p.Bilhete_Identidade   AS bi_aluno,
+        p.Email                AS email,
+        p.Contactos_Telefonicos AS contacto,
+        p.CONTACTO_DE_EMERGENCIA AS contacto_alternativo,
+        p.Data_Nascimento      AS data_nascimento,
+        p.DATA_EMISSAO_BI      AS data_emissao_bi,
+        p.DATA_VALIDADE_BI     AS data_validade_bi,
+        p.PAI                  AS pai,
+        p.MAE                  AS mae,
+        p.CODIGO_OCUPACAO      AS ocupacao_codigo,
+        p.CODIGO_PROFISSAO     AS profissao_codigo,
+        p.NATURALIDADE         AS naturalidade,
+        nac.DESIGNACAO         AS nacionalidade,
+        p.ESTADO_CIVIL         AS estado_civil,
+        p.SEXO                 AS sexo,
+        fac.DESIGNACAO         AS faculdade,
+        tpc.DESIGNACAO         AS grau,
+        pr.DESIGNACAO          AS regime,
+        p.MORADA_COMPLETA      AS morada,
+        p.SALDO_RESET          AS saldo_atual,
+        p.SALDO_RESET_ANTER    AS saldo_anterior,
+        u.FOTO                 AS foto,
 
-    `;
+        -- Classe com mais grades curriculares inscritas
+        (
+            SELECT cl.DESIGNACAO
+            FROM FK2_TB_GRADE_CURRICULAR_ALUNO ftgca
+            LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc
+                ON ftgc.CODIGO = ftgca.CODIGO_GRADE_CURRICULAR
+            LEFT JOIN FK2_TB_CLASSES cl
+                ON cl.CODIGO = ftgc.CODIGO_CLASSE
+            WHERE ftgca.CODIGO_MATRICULA = m.CODIGO
+              AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+              ${anoLectivoFilter}
+            GROUP BY cl.CODIGO, cl.DESIGNACAO
+            ORDER BY COUNT(ftgca.CODIGO) DESC
+            FETCH FIRST 1 ROWS ONLY
+        ) AS classe,
 
-    const result = await this.dataSource.query(sql, {
-      codigoMatricula,
-    } as any);
+        (
+            SELECT cl.CODIGO
+            FROM FK2_TB_GRADE_CURRICULAR_ALUNO ftgca
+            LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc
+                ON ftgc.CODIGO = ftgca.CODIGO_GRADE_CURRICULAR
+            LEFT JOIN FK2_TB_CLASSES cl
+                ON cl.CODIGO = ftgc.CODIGO_CLASSE
+            WHERE ftgca.CODIGO_MATRICULA = m.CODIGO
+              AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+              ${anoLectivoFilter}
+            GROUP BY cl.CODIGO, cl.DESIGNACAO
+            ORDER BY COUNT(ftgca.CODIGO) DESC
+            FETCH FIRST 1 ROWS ONLY
+        ) AS classe_codigo
 
-    return toLowerCaseKeys(result[0]) || null;
+    FROM FK2_TB_MATRICULAS m
+    INNER JOIN FK2_TB_ADMISSAO a
+        ON a.codigo = m.CODIGO_ALUNO
+    INNER JOIN FK2_TB_PREINSCRICAO p
+        ON p.codigo = a.PRE_INCRICAO
+    INNER JOIN FK2_USERS u
+        ON u.ID = p.USER_ID
+    INNER JOIN FK2_TB_CURSOS c
+        ON c.codigo = m.CODIGO_CURSO
+    INNER JOIN FK2_TB_FACULDADE fac
+        ON fac.codigo = c.FACULDADE_ID
+    INNER JOIN FK2_TB_PERIODOS pe
+        ON pe.codigo = p.CODIGO_TURNO
+    INNER JOIN FK2_TB_NACIONALIDADES nac
+        ON nac.CODIGO = p.CODIGO_NACIONALIDADE
+    INNER JOIN FK2_TB_TIPO_CANDIDATURA tpc
+        ON tpc.ID = p.CODIGO_TIPO_CANDIDATURA
+    INNER JOIN FK2_TB_PERIODOS pr
+        ON pr.CODIGO = p.CODIGO_TURNO
+    WHERE m.codigo = :codigoMatricula
+  `;
+
+  const queryParams: any = { codigoMatricula };
+
+  if (anoLectivo) {
+    queryParams.anoLectivo = anoLectivo;
   }
 
+  const result = await this.dataSource.query(sql, queryParams);
+
+  return toLowerCaseKeys(result[0]) || null;
+}
   async getSugestoes(search: string): Promise<any[]> {
     if (!search || search.trim().length < 2) {
       return [];
@@ -229,7 +277,147 @@ WHERE m.codigo = :codigoMatricula
       totalPages,
     };
   }
+async findStudentClassInfo(filters: FindStudentClassInfoDTO) {
+  const { numeroDeMatricula, anoLectivo } = filters;
 
+  const params: any = {};
+  const conditions: string[] = ['1=1'];
+
+  if (numeroDeMatricula) {
+    conditions.push(`ftgca.CODIGO_MATRICULA = :numeroDeMatricula`);
+    params.numeroDeMatricula = numeroDeMatricula;
+  }
+
+  if (anoLectivo) {
+    conditions.push(`ftgca.CODIGO_ANO_LECTIVO = :anoLectivo`);
+    params.anoLectivo = anoLectivo;
+  }
+
+  const whereClause = conditions.join(' AND ');
+
+  const sql = `
+    SELECT
+        -- Dados da Classe
+        cl.CODIGO                   AS CODIGO_CLASSE,
+        cl.DESIGNACAO               AS CLASSE,
+        COUNT(ftgca.CODIGO)         AS TOTAL_GRADES_INSCRITAS,
+
+        -- Dados da Matrícula
+        m.CODIGO                    AS CODIGO_MATRICULA,
+        m.ESTADO_MATRICULA          AS ESTADO,
+
+        -- Dados Pessoais
+        p.NOME_COMPLETO             AS NOME_COMPLETO,
+        p.BILHETE_IDENTIDADE        AS BI,
+        p.EMAIL                     AS EMAIL,
+        p.CONTACTOS_TELEFONICOS     AS CONTACTO,
+        p.CONTACTO_DE_EMERGENCIA    AS CONTACTO_ALTERNATIVO,
+        p.DATA_NASCIMENTO           AS DATA_NASCIMENTO,
+        p.DATA_EMISSAO_BI           AS DATA_EMISSAO_BI,
+        p.DATA_VALIDADE_BI          AS DATA_VALIDADE_BI,
+        p.PAI                       AS PAI,
+        p.MAE                       AS MAE,
+        p.NATURALIDADE              AS NATURALIDADE,
+        p.ESTADO_CIVIL              AS ESTADO_CIVIL,
+        p.SEXO                      AS SEXO,
+        p.MORADA_COMPLETA           AS MORADA,
+
+        -- Nacionalidade
+        nac.DESIGNACAO              AS NACIONALIDADE,
+
+        -- Curso e Faculdade
+        c.CODIGO                    AS CURSO_CODIGO,
+        c.DESIGNACAO                AS CURSO,
+        fac.DESIGNACAO              AS FACULDADE,
+
+        -- Período / Turno
+        pe.CODIGO                   AS PERIODO_CODIGO,
+        pe.DESIGNACAO               AS PERIODO,
+
+        -- Grau e Regime
+        tpc.DESIGNACAO              AS GRAU,
+        pr.DESIGNACAO               AS REGIME,
+
+        -- Foto
+        u.FOTO                      AS FOTO,
+
+        -- Ano Lectivo
+        alt.DESIGNACAO              AS ANO_LECTIVO,
+        alt.STATUS_                 AS STATUS_LECTIVO,
+        alt.ESTADO                  AS STATUS_LECTIVO2,
+
+        -- conclusao
+         cca.DATA_CONCLUSAO        AS DATA_CONCLUSAO ,
+        cca.NOTA                    AS  NOTA_OBTIDA
+
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO ftgca
+        LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc
+            ON ftgc.CODIGO = ftgca.CODIGO_GRADE_CURRICULAR
+        LEFT JOIN FK2_TB_CLASSES cl
+            ON cl.CODIGO = ftgc.CODIGO_CLASSE
+        LEFT JOIN FK2_TB_ANO_LECTIVO alt
+            ON alt.CODIGO = ftgca.CODIGO_ANO_LECTIVO
+
+        INNER JOIN FK2_TB_MATRICULAS m
+            ON m.CODIGO = ftgca.CODIGO_MATRICULA
+        INNER JOIN FK2_TB_ADMISSAO a
+            ON a.CODIGO = m.CODIGO_ALUNO
+        INNER JOIN FK2_TB_PREINSCRICAO p
+            ON p.CODIGO = a.PRE_INCRICAO
+        INNER JOIN FK2_USERS u
+            ON u.ID = p.USER_ID
+        INNER JOIN FK2_TB_CURSOS c
+            ON c.CODIGO = m.CODIGO_CURSO
+        INNER JOIN FK2_TB_FACULDADE fac
+            ON fac.CODIGO = c.FACULDADE_ID
+        INNER JOIN FK2_TB_PERIODOS pe
+            ON pe.CODIGO = p.CODIGO_TURNO
+        INNER JOIN FK2_TB_NACIONALIDADES nac
+            ON nac.CODIGO = p.CODIGO_NACIONALIDADE
+        INNER JOIN FK2_TB_TIPO_CANDIDATURA tpc
+            ON tpc.ID = p.CODIGO_TIPO_CANDIDATURA
+        INNER JOIN FK2_TB_PERIODOS pr
+            ON pr.CODIGO = p.CODIGO_TURNO
+               LEFT JOIN FK2_CONCLUSAO_CURSO_ALUNO cca
+      ON CCA.CODIGO_MATRICULA = m.CODIGO
+
+    WHERE ${whereClause}
+
+    GROUP BY
+        cl.CODIGO, cl.DESIGNACAO,
+        m.CODIGO, m.ESTADO_MATRICULA,
+        p.NOME_COMPLETO, p.BILHETE_IDENTIDADE, p.EMAIL,
+        p.CONTACTOS_TELEFONICOS, p.CONTACTO_DE_EMERGENCIA,
+        p.DATA_NASCIMENTO, p.DATA_EMISSAO_BI, p.DATA_VALIDADE_BI,
+        p.PAI, p.MAE,
+        p.NATURALIDADE, p.ESTADO_CIVIL, p.SEXO,
+        p.MORADA_COMPLETA,
+        nac.DESIGNACAO,
+        c.CODIGO, c.DESIGNACAO,
+        fac.DESIGNACAO,
+        pe.CODIGO, pe.DESIGNACAO,
+        tpc.DESIGNACAO,
+        pr.DESIGNACAO,
+        u.FOTO,
+        alt.DESIGNACAO,
+        alt.STATUS_,
+        alt.ESTADO,
+         cca.NOTA ,
+          cca.DATA_CONCLUSAO
+
+
+    ORDER BY TOTAL_GRADES_INSCRITAS DESC
+    FETCH FIRST 1 ROWS ONLY
+  `;
+
+  const result = await this.dataSource.query(sql, params);
+
+  if (!result || result.length === 0) return null;
+
+  const [data] = await toLowerCaseKeys(result);
+
+  return data;
+}
 
  async listarMapaAnualFinalistas(filter: FilterMapaAnualFinalistasDto) {
   const {
@@ -628,6 +816,7 @@ async listarRegistoPrimarioExamesAcesso(
   };
 }
 
+
 async listarRegistoPrimarioMatriculados(filter: any) {
   const {
     page = 1,
@@ -635,74 +824,90 @@ async listarRegistoPrimarioMatriculados(filter: any) {
     anoLectivo = 0,
     grau = 0,
     anoCurricular = 0,
-    estado = 2,
+    estado = 2, // 1 = novos | 0 = antigos | 2 = todos
     search,
   } = filter;
 
-  const offset = (page - 1) * limit;
+  const safePage = Number(page) > 0 ? Number(page) : 1;
+  const safeLimit = Number(limit) > 0 ? Number(limit) : 10;
+  const offset = (safePage - 1) * safeLimit;
 
-  const dataParams: Record<string, any> = {
-    anoLectivo,
-    anoLectivo_zero: anoLectivo,
-    grau,
-    grau_zero: grau,
-    anoCurricular,
-    anoCurricular_zero: anoCurricular,
-    estado,
-    offset,
-    limit,
-  };
+  const anoLectivoNum = Number(anoLectivo) || 0;
+  const grauNum = Number(grau) || 0;
+  const anoCurricularNum = Number(anoCurricular) || 0;
+  const estadoNum = Number(estado);
 
-  const countParams: Record<string, any> = {
-    anoLectivo,
-    anoLectivo_zero: anoLectivo,
-    grau,
-    grau_zero: grau,
-    anoCurricular,
-    anoCurricular_zero: anoCurricular,
-    estado,
-  };
-
-  if (search && search.trim()) {
-    const searchValue = `%${search.trim().toUpperCase()}%`;
-    dataParams.search = searchValue;
-    countParams.search = searchValue;
-  } else {
-    dataParams.search = null;
-    countParams.search = null;
-  }
+  const searchValue =
+    search && String(search).trim()
+      ? `%${String(search).trim().toUpperCase()}%`
+      : null;
 
   const sql = `
-    WITH base_estudantes AS (
+    WITH ano_lectivo_valido AS (
+      SELECT al.CODIGO
+      FROM FK2_TB_ANO_LECTIVO al
+      WHERE al.CODIGO = :1
+        AND al.DESIGNACAO <> '2025-2026'
+    ),
+
+    matriculas_filtradas AS (
       SELECT DISTINCT
-        tm.CODIGO AS CODIGO_MATRICULA,
-        tp.NOME_COMPLETO,
-        tp.BILHETE_IDENTIDADE,
-        tp.SEXO,
-        FLOOR(MONTHS_BETWEEN(SYSDATE, tp.DATA_NASCIMENTO) / 12) AS IDADE,
-        tp.DATA_NASCIMENTO,
-        tpr.DESIGNACAO AS PROVINCIA,
-        tm2.DESIGNACAO AS MUNICIPIO,
-        tn.DESIGNACAO AS PAIS,
-        tp.CODIGO_TURNO,
-        tf.DESIGNACAO AS FACULDADE,
-        tc.DESIGNACAO AS CURSO,
-        tgc.CODIGO_CLASSE,
-        tp.ANOLECTIVO AS ANO_PREINSCRICAO,
-        tm.ESTADO_MATRICULA
+        tm.CODIGO AS CODIGO_MATRICULA
       FROM FK2_TB_MATRICULAS tm
-      INNER JOIN FK2_TB_ADMISSAO ta ON ta.CODIGO = tm.CODIGO_ALUNO
-      INNER JOIN FK2_TB_PREINSCRICAO tp ON tp.CODIGO = ta.PRE_INCRICAO
-      INNER JOIN FK2_TB_CURSOS tc ON tc.CODIGO = tm.CODIGO_CURSO
-      INNER JOIN FK2_TB_FACULDADE tf ON tf.CODIGO = tc.FACULDADE_ID
-      INNER JOIN FK2_TB_NACIONALIDADES tn ON tn.CODIGO = tp.CODIGO_NACIONALIDADE
-      LEFT JOIN FK2_TB_PROVINCIAS tpr ON tpr.CODIGO = tp.CODIGO_PROVINCIA_RESIDENCIA_PERMANENTE
-      LEFT JOIN FK2_TB_MUNICIPIOS tm2 ON tm2.CODIGO = tp.CODIGO_MUNICIPIO
-      INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca ON tgca.CODIGO_MATRICULA = tm.CODIGO
-      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
-      WHERE (tp.ANOLECTIVO = :anoLectivo OR :anoLectivo_zero = 0)
-        AND (tc.TIPO_CANDIDATURA = :grau OR :grau_zero = 0)
-        AND (tgc.CODIGO_CLASSE = :anoCurricular OR :anoCurricular_zero = 0)
+      INNER JOIN FK2_TB_ADMISSAO ta
+        ON ta.CODIGO = tm.CODIGO_ALUNO
+      INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON tp.CODIGO = ta.PRE_INCRICAO
+      INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        ON tgca.CODIGO_MATRICULA = tm.CODIGO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+        ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
+      WHERE (:2 = 0 OR tc.TIPO_CANDIDATURA = :3)
+        AND (:4 = 0 OR tgc.CODIGO_CLASSE = :5)
+    ),
+
+    base_estudantes AS (
+      SELECT
+        tm.CODIGO AS CODIGO_MATRICULA,
+        MAX(tp.NOME_COMPLETO) AS NOME_COMPLETO,
+        MAX(tp.BILHETE_IDENTIDADE) AS BILHETE_IDENTIDADE,
+        MAX(tp.SEXO) AS SEXO,
+        MAX(FLOOR(MONTHS_BETWEEN(SYSDATE, tp.DATA_NASCIMENTO) / 12)) AS IDADE,
+        MAX(tp.DATA_NASCIMENTO) AS DATA_NASCIMENTO,
+        MAX(tpr.DESIGNACAO) AS PROVINCIA,
+        MAX(tm2.DESIGNACAO) AS MUNICIPIO,
+        MAX(tn.DESIGNACAO) AS PAIS,
+        MAX(tp.CODIGO_TURNO) AS CODIGO_TURNO,
+        MAX(tf.DESIGNACAO) AS FACULDADE,
+        MAX(tc.DESIGNACAO) AS CURSO,
+        MAX(tgc.CODIGO_CLASSE) AS CODIGO_CLASSE,
+        MAX(tp.ANOLECTIVO) AS ANO_PREINSCRICAO,
+        MAX(tm.ESTADO_MATRICULA) AS ESTADO_MATRICULA,
+        MAX(tgca.CODIGO_ANO_LECTIVO) AS ANO_LECTIVO_GRADE
+      FROM matriculas_filtradas mf
+      INNER JOIN FK2_TB_MATRICULAS tm
+        ON tm.CODIGO = mf.CODIGO_MATRICULA
+      INNER JOIN FK2_TB_ADMISSAO ta
+        ON ta.CODIGO = tm.CODIGO_ALUNO
+      INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON tp.CODIGO = ta.PRE_INCRICAO
+      INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+      INNER JOIN FK2_TB_FACULDADE tf
+        ON tf.CODIGO = tc.FACULDADE_ID
+      INNER JOIN FK2_TB_NACIONALIDADES tn
+        ON tn.CODIGO = tp.CODIGO_NACIONALIDADE
+      LEFT JOIN FK2_TB_PROVINCIAS tpr
+        ON tpr.CODIGO = tp.CODIGO_PROVINCIA_RESIDENCIA_PERMANENTE
+      LEFT JOIN FK2_TB_MUNICIPIOS tm2
+        ON tm2.CODIGO = tp.CODIGO_MUNICIPIO
+      LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        ON tgca.CODIGO_MATRICULA = tm.CODIGO
+      LEFT JOIN FK2_TB_GRADE_CURRICULAR tgc
+        ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
+      GROUP BY tm.CODIGO
     ),
 
     inscricoes AS (
@@ -710,7 +915,7 @@ async listarRegistoPrimarioMatriculados(filter: any) {
         CODIGO_MATRICULA,
         COUNT(*) AS TOTAL_INSCRICOES
       FROM FK2_TB_GRADE_CURRICULAR_ALUNO
-      WHERE CODIGO_ANO_LECTIVO = :anoLectivo
+      WHERE CODIGO_ANO_LECTIVO = :6
       GROUP BY CODIGO_MATRICULA
     ),
 
@@ -719,7 +924,7 @@ async listarRegistoPrimarioMatriculados(filter: any) {
         CODIGO_MATRICULA,
         COUNT(*) AS TOTAL_APROVADAS
       FROM FK2_TB_GRADE_CURRICULAR_ALUNO
-      WHERE CODIGO_ANO_LECTIVO = :anoLectivo
+      WHERE CODIGO_ANO_LECTIVO = :7
         AND CODIGO_STATUS_GRADE_CURRICULAR = 3
       GROUP BY CODIGO_MATRICULA
     ),
@@ -739,20 +944,33 @@ async listarRegistoPrimarioMatriculados(filter: any) {
         END AS PERIODO_ESTUDO,
         NVL(TO_CHAR(b.ESTADO_MATRICULA), 'Inactivo') AS SITUACAO_ACADEMICA
       FROM base_estudantes b
-      LEFT JOIN inscricoes i ON i.CODIGO_MATRICULA = b.CODIGO_MATRICULA
-      LEFT JOIN aprovadas a ON a.CODIGO_MATRICULA = b.CODIGO_MATRICULA
-      WHERE (
-        :estado = 2
-        OR (:estado = 1 AND b.ANO_PREINSCRICAO = :anoLectivo)
-        OR (:estado = 0 AND b.ANO_PREINSCRICAO <> :anoLectivo)
+      LEFT JOIN inscricoes i
+        ON i.CODIGO_MATRICULA = b.CODIGO_MATRICULA
+      LEFT JOIN aprovadas a
+        ON a.CODIGO_MATRICULA = b.CODIGO_MATRICULA
+      WHERE EXISTS (
+        SELECT 1
+        FROM ano_lectivo_valido av
+        WHERE av.CODIGO = :8
       )
-      AND (
-        :search IS NULL
-        OR UPPER(b.NOME_COMPLETO) LIKE :search
-        OR UPPER(NVL(b.BILHETE_IDENTIDADE, '-')) LIKE :search
-        OR UPPER(NVL(b.CURSO, '-')) LIKE :search
-        OR UPPER(NVL(b.FACULDADE, '-')) LIKE :search
-      )
+        AND b.ANO_LECTIVO_GRADE IS NOT NULL
+        AND (
+          :9 = 2
+          AND b.ANO_LECTIVO_GRADE <= :10
+
+          OR :11 = 1
+          AND b.ANO_LECTIVO_GRADE = :12
+
+          OR :13 = 0
+          AND b.ANO_LECTIVO_GRADE < :14
+        )
+        AND (
+          :15 IS NULL
+          OR UPPER(b.NOME_COMPLETO) LIKE :16
+          OR UPPER(NVL(b.BILHETE_IDENTIDADE, '-')) LIKE :17
+          OR UPPER(NVL(b.CURSO, '-')) LIKE :18
+          OR UPPER(NVL(b.FACULDADE, '-')) LIKE :19
+        )
     )
 
     SELECT *
@@ -762,52 +980,134 @@ async listarRegistoPrimarioMatriculados(filter: any) {
         ROW_NUMBER() OVER (ORDER BY f.NOME_COMPLETO ASC) AS RN
       FROM final_data f
     ) t
-    WHERE t.RN BETWEEN :offset + 1 AND :offset + :limit
+    WHERE t.RN BETWEEN :20 AND :21
     ORDER BY t.RN
   `;
 
+  const sqlParams = [
+    anoLectivoNum,   // :1
+    grauNum,         // :2
+    grauNum,         // :3
+    anoCurricularNum,// :4
+    anoCurricularNum,// :5
+    anoLectivoNum,   // :6
+    anoLectivoNum,   // :7
+    anoLectivoNum,   // :8
+    estadoNum,       // :9
+    anoLectivoNum,   // :10
+    estadoNum,       // :11
+    anoLectivoNum,   // :12
+    estadoNum,       // :13
+    anoLectivoNum,   // :14
+    searchValue,     // :15
+    searchValue,     // :16
+    searchValue,     // :17
+    searchValue,     // :18
+    searchValue,     // :19
+    offset + 1,      // :20
+    offset + safeLimit, // :21
+  ];
+
   const countSql = `
-    WITH base_estudantes AS (
+    WITH ano_lectivo_valido AS (
+      SELECT al.CODIGO
+      FROM FK2_TB_ANO_LECTIVO al
+      WHERE al.CODIGO = :1
+        AND al.DESIGNACAO <> '2025-2026'
+    ),
+
+    matriculas_filtradas AS (
       SELECT DISTINCT
-        tm.CODIGO AS CODIGO_MATRICULA,
-        tp.NOME_COMPLETO,
-        tp.BILHETE_IDENTIDADE,
-        tc.DESIGNACAO AS CURSO,
-        tf.DESIGNACAO AS FACULDADE,
-        tp.ANOLECTIVO AS ANO_PREINSCRICAO
+        tm.CODIGO AS CODIGO_MATRICULA
       FROM FK2_TB_MATRICULAS tm
-      INNER JOIN FK2_TB_ADMISSAO ta ON ta.CODIGO = tm.CODIGO_ALUNO
-      INNER JOIN FK2_TB_PREINSCRICAO tp ON tp.CODIGO = ta.PRE_INCRICAO
-      INNER JOIN FK2_TB_CURSOS tc ON tc.CODIGO = tm.CODIGO_CURSO
-      INNER JOIN FK2_TB_FACULDADE tf ON tf.CODIGO = tc.FACULDADE_ID
-      INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca ON tgca.CODIGO_MATRICULA = tm.CODIGO
-      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
-      WHERE (tp.ANOLECTIVO = :anoLectivo OR :anoLectivo_zero = 0)
-        AND (tc.TIPO_CANDIDATURA = :grau OR :grau_zero = 0)
-        AND (tgc.CODIGO_CLASSE = :anoCurricular OR :anoCurricular_zero = 0)
+      INNER JOIN FK2_TB_ADMISSAO ta
+        ON ta.CODIGO = tm.CODIGO_ALUNO
+      INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON tp.CODIGO = ta.PRE_INCRICAO
+      INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        ON tgca.CODIGO_MATRICULA = tm.CODIGO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
+        ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
+      WHERE (:2 = 0 OR tc.TIPO_CANDIDATURA = :3)
+        AND (:4 = 0 OR tgc.CODIGO_CLASSE = :5)
+    ),
+
+    base_estudantes AS (
+      SELECT
+        tm.CODIGO AS CODIGO_MATRICULA,
+        MAX(tp.NOME_COMPLETO) AS NOME_COMPLETO,
+        MAX(tp.BILHETE_IDENTIDADE) AS BILHETE_IDENTIDADE,
+        MAX(tc.DESIGNACAO) AS CURSO,
+        MAX(tf.DESIGNACAO) AS FACULDADE,
+        MAX(tgca.CODIGO_ANO_LECTIVO) AS ANO_LECTIVO_GRADE
+      FROM matriculas_filtradas mf
+      INNER JOIN FK2_TB_MATRICULAS tm
+        ON tm.CODIGO = mf.CODIGO_MATRICULA
+      INNER JOIN FK2_TB_ADMISSAO ta
+        ON ta.CODIGO = tm.CODIGO_ALUNO
+      INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON tp.CODIGO = ta.PRE_INCRICAO
+      INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+      INNER JOIN FK2_TB_FACULDADE tf
+        ON tf.CODIGO = tc.FACULDADE_ID
+      LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
+        ON tgca.CODIGO_MATRICULA = tm.CODIGO
+      GROUP BY tm.CODIGO
     )
+
     SELECT COUNT(*) AS TOTAL
-    FROM (
-      SELECT DISTINCT b.CODIGO_MATRICULA
-      FROM base_estudantes b
-      WHERE (
-        :estado = 2
-        OR (:estado = 1 AND b.ANO_PREINSCRICAO = :anoLectivo)
-        OR (:estado = 0 AND b.ANO_PREINSCRICAO <> :anoLectivo)
+    FROM base_estudantes b
+    WHERE EXISTS (
+      SELECT 1
+      FROM ano_lectivo_valido av
+      WHERE av.CODIGO = :6
+    )
+      AND b.ANO_LECTIVO_GRADE IS NOT NULL
+      AND (
+        :7 = 2
+        AND b.ANO_LECTIVO_GRADE <= :8
+
+        OR :9 = 1
+        AND b.ANO_LECTIVO_GRADE = :10
+
+        OR :11 = 0
+        AND b.ANO_LECTIVO_GRADE < :12
       )
       AND (
-        :search IS NULL
-        OR UPPER(b.NOME_COMPLETO) LIKE :search
-        OR UPPER(NVL(b.BILHETE_IDENTIDADE, '-')) LIKE :search
-        OR UPPER(NVL(b.CURSO, '-')) LIKE :search
-        OR UPPER(NVL(b.FACULDADE, '-')) LIKE :search
+        :13 IS NULL
+        OR UPPER(b.NOME_COMPLETO) LIKE :14
+        OR UPPER(NVL(b.BILHETE_IDENTIDADE, '-')) LIKE :15
+        OR UPPER(NVL(b.CURSO, '-')) LIKE :16
+        OR UPPER(NVL(b.FACULDADE, '-')) LIKE :17
       )
-    )
   `;
 
+  const countParams = [
+    anoLectivoNum,   // :1
+    grauNum,         // :2
+    grauNum,         // :3
+    anoCurricularNum,// :4
+    anoCurricularNum,// :5
+    anoLectivoNum,   // :6
+    estadoNum,       // :7
+    anoLectivoNum,   // :8
+    estadoNum,       // :9
+    anoLectivoNum,   // :10
+    estadoNum,       // :11
+    anoLectivoNum,   // :12
+    searchValue,     // :13
+    searchValue,     // :14
+    searchValue,     // :15
+    searchValue,     // :16
+    searchValue,     // :17
+  ];
+
   const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql, dataParams as any),
-    this.dataSource.query(countSql, countParams as any),
+    this.dataSource.query(sql, sqlParams),
+    this.dataSource.query(countSql, countParams),
   ]);
 
   const total = Number(countResult[0]?.TOTAL ?? 0);
@@ -833,9 +1133,9 @@ async listarRegistoPrimarioMatriculados(filter: any) {
   return {
     data,
     total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
+    page: safePage,
+    limit: safeLimit,
+    totalPages: Math.ceil(total / safeLimit) || 1,
   };
 }
 
@@ -1508,6 +1808,114 @@ async updateHorarioGradeCurricular({codigoGradeCurricularAluno, horarioID}: {cod
   };
 }
 
+async deleteGrade({codigoGradeCurricularAluno}: {codigoGradeCurricularAluno: number}) {
+  console.log({codigoGradeCurricularAluno})
+  const gradeCurricularResult = await this.dataSource.query(
+    `
+    SELECT 
+      al.CODIGO_STATUS_GRADE_CURRICULAR as codigo_status_grade_curricular
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
+    WHERE al.CODIGO = :1
+    `,
+    [codigoGradeCurricularAluno],
+  );
+  console.log({gradeCurricularResult})
+  const [gradeCurricular] = toLowerCaseKeys(gradeCurricularResult);
+
+  if (!gradeCurricular) {
+    throw new BadRequestException('Grade curricular não encontrada');
+  }
+
+  if (gradeCurricular.codigo_status_grade_curricular === 3) {
+    throw new BadRequestException(
+      'Não é possível deletar grade curricular Concluida',
+    );
+  }
+
+
+  await this.dataSource.query(
+    `
+    UPDATE FK2_TB_GRADE_CURRICULAR_ALUNO
+    SET CODIGO_STATUS_GRADE_CURRICULAR = 5
+    WHERE CODIGO = :1
+    `,
+    [codigoGradeCurricularAluno],
+  );
+  return {
+    message: 'Grade curricular deletada com sucesso',
+  };
+}
+
+async restoreGrade({codigoGradeCurricularAluno}: {codigoGradeCurricularAluno: number}) {
+  const gradeCurricularResult = await this.dataSource.query(
+    `
+    SELECT 
+      al.CODIGO_STATUS_GRADE_CURRICULAR as codigo_status_grade_curricular
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
+    WHERE al.CODIGO = :1
+    `,
+    [codigoGradeCurricularAluno],
+  );
+
+  const [gradeCurricular] = toLowerCaseKeys(gradeCurricularResult);
+
+  if (!gradeCurricular) {
+    throw new BadRequestException('Grade curricular não encontrada');
+  }
+
+  await this.dataSource.query(
+    `
+    UPDATE FK2_TB_GRADE_CURRICULAR_ALUNO
+    SET CODIGO_STATUS_GRADE_CURRICULAR = 2
+    WHERE CODIGO = :1
+    `,
+    [codigoGradeCurricularAluno],
+  );
+return {
+  message: 'Grade curricular restaurada com sucesso',
+};
+}
+
+
+async definirEspecialidade(dto: DefinirEspecialidadeDTO) {
+  const { codigoMatricula, codigoCursoEspecialidade } = dto;
+
+  const matriculaResult = await this.dataSource.query(
+    `SELECT ESTADO_MATRICULA FROM FK2_TB_MATRICULAS WHERE CODIGO = :1`,
+    [codigoMatricula],
+  );
+
+  const matriculas = toLowerCaseKeys(matriculaResult);
+
+ 
+  if (!matriculas || matriculas.length === 0) {
+    throw new NotFoundException('Matrícula não encontrada');
+  }
+
+  const matricula = matriculas[0];
+
+ 
+  if (matricula.estado_matricula?.toLowerCase() === 'diplomado') {
+    throw new BadRequestException('Não é possível definir especialidade para aluno diplomado');
+  }
+    await this.dataSource.query(
+      `
+      UPDATE FK2_TB_MATRICULAS
+      SET CODIGO_CURSO = :1,
+          UPDATED_AT = CURRENT_TIMESTAMP
+      WHERE CODIGO = :2
+      `,
+      [codigoCursoEspecialidade, codigoMatricula],
+    );
+
+    return {
+      message: 'Especialidade definida com sucesso',
+    };
+ 
+}
+
+
+
 async changeCourse(dto: ChangeCourseDTO) {
     const { PoloId, matriculaId, cursoId } = dto;
      let  mudarCurso = true;
@@ -1591,6 +1999,436 @@ async changeCourse(dto: ChangeCourseDTO) {
     } as any);
     return result && result.length > 0;
   }
+async obterNotasCertificado(dto: GerarCertificadoDto) {
+    const { matriculaId, anoMin, anoMax } = dto;
+
+    const min = Math.min(anoMin, anoMax);
+    const max = Math.max(anoMin, anoMax);
+
+    const sql = `
+      SELECT 
+          g.codigo,
+          TRIM(d.designacao) AS disciplina, 
+          al.nota,
+          g.HORASTEORICAS as horas_teoricas,
+          g.HORASTEORICOSPRATICAS as horas_teorico_praticas,
+          g.HORASPRATICAS as horas_praticas,
+          dur.DESIGNACAO AS duracao_nome,
+          an.DESIGNACAO AS ano_lectivo_nome,
+          g.CODIGO_SEMESTRE as semestre,
+          g.CODIGO_CLASSE AS classe
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
+      INNER JOIN FK2_TB_GRADE_CURRICULAR g  ON g.codigo = al.CODIGO_GRADE_CURRICULAR
+      INNER JOIN FK2_TB_DISCIPLINAS d       ON d.codigo = g.CODIGO_DISCIPLINA
+      INNER JOIN FK2_TB_DURACAO dur         ON dur.CODIGO = d.DURACAO
+      INNER JOIN FK2_TB_ANO_LECTIVO an      ON an.CODIGO = al.CODIGO_ANO_LECTIVO
+      WHERE al.CODIGO_STATUS_GRADE_CURRICULAR = 3 
+        AND al.NOTA >= 10 
+        AND al.CODIGO_MATRICULA = :matriculaId
+        AND g.CODIGO_CLASSE BETWEEN :min AND :max
+      ORDER BY 
+          g.CODIGO_CLASSE ASC, 
+          g.CODIGO_SEMESTRE ASC, 
+          NLSSORT(TRIM(d.designacao), 'NLS_SORT=BINARY_AI') ASC
+    `;
+
+    
+      const result = await this.dataSource.query(sql, [matriculaId, min, max]);
+      return toLowerCaseKeys(result);
+    
+  }
 
 
+async diplomarAluno(
+  body: {
+    codigoMatricula: number;
+    dataConclusao?: Date | string;
+    imprimeCartaConclusao?: boolean;
+  },
+  usuarioLogado: any,
+) {
+  const {
+    codigoMatricula,
+    dataConclusao,
+    imprimeCartaConclusao = false,
+  } = body;
+
+  if (!codigoMatricula) {
+    throw new BadRequestException('Código da matrícula é obrigatório');
+  }
+
+  const anoLectivoAtual = await this.anoLectivoUtil.getAnoAtualId();
+
+  if (!anoLectivoAtual) {
+    throw new BadRequestException('Ano lectivo actual não encontrado');
+  }
+
+  const dataConclusaoFinal = dataConclusao ? new Date(dataConclusao) : new Date();
+
+  if (Number.isNaN(dataConclusaoFinal.getTime())) {
+    throw new BadRequestException('Data de conclusão inválida');
+  }
+
+  return this.dataSource.transaction(async (manager) => {
+    const matriculaResult = await manager.query(
+      `
+      SELECT
+        M.CODIGO,
+        M.ESTADO_MATRICULA,
+        M.CODIGO_CURSO
+      FROM FK2_TB_MATRICULAS M
+      WHERE M.CODIGO = :codigoMatricula
+      `,
+      { codigoMatricula } as any,
+    );
+
+    if (!matriculaResult?.length) {
+      throw new NotFoundException('Matrícula não encontrada');
+    }
+
+    const matricula = matriculaResult[0];
+    const estadoMatricula = String(
+      matricula.ESTADO_MATRICULA || '',
+    ).toLowerCase();
+
+    if (estadoMatricula === 'diplomado') {
+      throw new BadRequestException('O estudante já está diplomado');
+    }
+
+    // Verifica se o estudante reúne condições para diplomar
+    const elegibilidadeResult = await manager.query(
+      `
+      SELECT
+        NVL((
+          SELECT COUNT(*)
+          FROM FK2_TB_GRADE_CURRICULAR_ALUNO GCA
+          INNER JOIN FK2_TB_GRADE_CURRICULAR GC
+            ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
+          WHERE GCA.CODIGO_MATRICULA = :codigoMatricula
+            AND GCA.CODIGO_STATUS_GRADE_CURRICULAR = 3
+            AND GC.CODIGO_CURSO = :codigoCurso
+        ), 0) AS TOTAL_FEITAS,
+        NVL((
+          SELECT COUNT(*)
+          FROM FK2_TB_GRADE_CURRICULAR GC
+          WHERE GC.CODIGO_CURSO = :codigoCurso
+            AND GC.STATUS_ = 1
+        ), 0) AS TOTAL_CURSO
+      FROM DUAL
+      `,
+      {
+        codigoMatricula,
+        codigoCurso: matricula.CODIGO_CURSO,
+      } as any,
+    );
+
+    const totalFeitas = Number(elegibilidadeResult?.[0]?.TOTAL_FEITAS ?? 0);
+    const totalCurso = Number(elegibilidadeResult?.[0]?.TOTAL_CURSO ?? 0);
+
+    if (!totalCurso || totalFeitas < totalCurso) {
+      throw new BadRequestException(
+        'O estudante não se encontra em condições para ser diplomado',
+      );
+    }
+
+    // Média final
+    const notaResult = await manager.query(
+      `
+      SELECT
+        NVL(ROUND(AVG(GCA.NOTA), 0), 0) AS NOTA_FINAL
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO GCA
+      INNER JOIN FK2_TB_GRADE_CURRICULAR GC
+        ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
+      WHERE GCA.CODIGO_MATRICULA = :codigoMatricula
+        AND GCA.CODIGO_STATUS_GRADE_CURRICULAR = 3
+        AND GC.CODIGO_CURSO = :codigoCurso
+      `,
+      {
+        codigoMatricula,
+        codigoCurso: matricula.CODIGO_CURSO,
+      } as any,
+    );
+
+    const notaFinal = Number(notaResult?.[0]?.NOTA_FINAL ?? 0);
+
+    // Atualiza estado da matrícula
+    await manager.query(
+      `
+      UPDATE FK2_TB_MATRICULAS
+      SET ESTADO_MATRICULA = 'diplomado',
+          UPDATED_AT = SYSDATE
+      WHERE CODIGO = :codigoMatricula
+      `,
+      { codigoMatricula } as any,
+    );
+
+    const refUtilizador =
+      usuarioLogado?.sub || usuarioLogado?.name
+        ? JSON.stringify({
+            pk: usuarioLogado?.sub ?? null,
+            desc: usuarioLogado?.name ?? null,
+          })
+        : null;
+
+    // Verifica se já existe conclusão para esta matrícula
+    const conclusaoExistente = await manager.query(
+      `
+      SELECT CODIGO
+      FROM FK2_CONCLUSAO_CURSO_ALUNO
+      WHERE CODIGO_MATRICULA = :codigoMatricula
+      `,
+      { codigoMatricula } as any,
+    );
+
+    if (conclusaoExistente?.length) {
+      await manager.query(
+        `
+        UPDATE FK2_CONCLUSAO_CURSO_ALUNO
+        SET DATA_CONCLUSAO = :dataConclusao,
+            NOTA = :notaFinal,
+            ANO_LECTIVO = :anoLectivo,
+            URLDIPLOMA = '-',
+            REF_UTILIZADOR = :refUtilizador
+        WHERE CODIGO_MATRICULA = :codigoMatricula
+        `,
+        {
+          codigoMatricula,
+          dataConclusao: dataConclusaoFinal,
+          notaFinal,
+          anoLectivo: anoLectivoAtual,
+          refUtilizador,
+        } as any,
+      );
+    } else {
+      await manager.query(
+        `
+        INSERT INTO FK2_CONCLUSAO_CURSO_ALUNO (
+          CODIGO_MATRICULA,
+          DATA_CONCLUSAO,
+          NOTA,
+          URLDIPLOMA,
+          ANO_LECTIVO,
+          REF_UTILIZADOR
+        ) VALUES (
+          :codigoMatricula,
+          :dataConclusao,
+          :notaFinal,
+          '-',
+          :anoLectivo,
+          :refUtilizador
+        )
+        `,
+        {
+          codigoMatricula,
+          dataConclusao: dataConclusaoFinal,
+          notaFinal,
+          anoLectivo: anoLectivoAtual,
+          refUtilizador,
+        } as any,
+      );
+    }
+
+    // Opcional: cria declaração de fim de curso
+    if (imprimeCartaConclusao) {
+      const ultimoDocumentoResult = await manager.query(`
+        SELECT NVL(MAX(CODIGO), 0) AS ULTIMO_CODIGO
+        FROM FK2_TB_DOCUMENTOS_UC
+      `);
+
+      const proximoCodigoBase =
+        Number(ultimoDocumentoResult?.[0]?.ULTIMO_CODIGO ?? 0) + 1;
+
+      const codigoDocumento = await gerarHashExterno(
+        String(proximoCodigoBase),
+      );
+
+      await manager.query(
+        `
+        INSERT INTO FK2_TB_DOCUMENTOS_UC (
+          DOCUMENTO,
+          ANO_LETIVO,
+          UTILIZADOR,
+          DATAREGISTO,
+          STATUS_,
+          CODIGO_DOCUMENTO,
+          CODIGO_MATRICULA,
+          TIPO_DOCUMENTO,
+          REF_UTILIZADOR
+        ) VALUES (
+          'Declaracão de Fim de Curso',
+          :anoLectivo,
+          :utilizador,
+          SYSDATE,
+          'Ativo',
+          :codigoDocumento,
+          :codigoMatricula,
+          8,
+          :refUtilizador
+        )
+        `,
+        {
+          anoLectivo: anoLectivoAtual,
+          utilizador: usuarioLogado?.sub ?? null,
+          codigoDocumento,
+          codigoMatricula,
+          refUtilizador,
+        } as any,
+      );
+    }
+
+    // Log
+    await manager.query(
+      `
+      INSERT INTO FK2_MGA_TB_LOG_DIPLOMAR (
+        DESCRICAO,
+        FK_MATRICULA,
+        FK_UTILIZADOR_RESPONSAVEL,
+        CREATED_AT
+      ) VALUES (
+        'Diplomado',
+        :codigoMatricula,
+        :utilizadorResponsavel,
+        SYSDATE
+      )
+      `,
+      {
+        codigoMatricula,
+        utilizadorResponsavel: usuarioLogado?.sub ?? null,
+      } as any,
+    );
+
+    return {
+      success: true,
+      message: 'Estudante diplomado com sucesso',
+      data: {
+        codigoMatricula,
+        estadoMatricula: 'diplomado',
+        notaFinal,
+        anoLectivo: anoLectivoAtual,
+        dataConclusao: dataConclusaoFinal,
+        cartaConclusaoGerada: imprimeCartaConclusao,
+      },
+    };
+  });
+}
+async gerarDiploma(
+  body: {
+    codigoMatricula: number;
+    segundaViaDiploma?: boolean;
+  },
+) {
+  const { codigoMatricula, segundaViaDiploma = false } = body;
+
+  if (!codigoMatricula) {
+    throw new BadRequestException('Código da matrícula é obrigatório');
+  }
+
+  const result = await this.dataSource.query(
+    `
+    SELECT
+      M.CODIGO AS CODIGO_MATRICULA,
+      M.ESTADO_MATRICULA,
+      CCA.DATA_CONCLUSAO,
+      CCA.NOTA,
+      CUR.DESIGNACAO AS CURSO,
+      TC.ID AS TIPO_CANDIDATURA_ID,
+      TC.DESIGNACAO AS TIPO_CANDIDATURA,
+      PRE.NOME_COMPLETO,
+      PRE.DATA_NASCIMENTO,
+      PRE.NATURALIDADE,
+      PRE.PAI,
+      PRE.MAE,
+      PRE.BILHETE_IDENTIDADE,
+      PRE.SEXO,
+      TID.DESCRICAO AS TIPO_DOCUMENTO_NOME
+    FROM FK2_TB_MATRICULAS M
+    INNER JOIN FK2_TB_ADMISSAO ADM
+      ON ADM.CODIGO = M.CODIGO_ALUNO
+    INNER JOIN FK2_TB_PREINSCRICAO PRE
+      ON PRE.CODIGO = ADM.PRE_INCRICAO
+    INNER JOIN FK2_TB_CURSOS CUR
+      ON CUR.CODIGO = M.CODIGO_CURSO
+    LEFT JOIN FK2_TB_TIPO_CANDIDATURA TC
+      ON TC.ID = PRE.CODIGO_TIPO_CANDIDATURA
+    LEFT JOIN FK2_TB_TIPO_IDENTIFICACAO TID
+      ON TID.CODIGO = PRE.TIPO_IDENTIFICACAO
+    LEFT JOIN FK2_CONCLUSAO_CURSO_ALUNO CCA
+      ON CCA.CODIGO_MATRICULA = M.CODIGO
+    WHERE M.CODIGO = :codigoMatricula
+    `,
+    { codigoMatricula } as any,
+  );
+
+  if (!result?.length) {
+    throw new NotFoundException('Matrícula não encontrada');
+  }
+
+  const aluno = result[0];
+
+  if (!aluno.DATA_CONCLUSAO) {
+    throw new BadRequestException(
+      'Faltam dados do aluno diplomado. Conclusão do curso não encontrada',
+    );
+  }
+
+  if (String(aluno.ESTADO_MATRICULA || '').toLowerCase() !== 'diplomado') {
+    throw new BadRequestException(
+      'O estudante não está diplomado, não é possível gerar o diploma',
+    );
+  }
+
+  const reitorResult = await this.dataSource.query(
+    `
+    SELECT DIRECTOR
+    FROM FK2_TB_DADOS_INSTITUICAO
+    WHERE DIRECTOR IS NOT NULL
+    ORDER BY CODIGO DESC
+    FETCH FIRST 1 ROWS ONLY
+    `,
+  );
+
+  const reitor = reitorResult?.[0]?.DIRECTOR?.trim?.() || '';
+
+  const cursoOriginal = String(aluno.CURSO || '');
+  let cursoDiploma = cursoOriginal;
+  let nivelAcademico = 'Licenciatura';
+
+  if (cursoOriginal.includes('M - ')) {
+    cursoDiploma = `Mestrado em${cursoOriginal.substring(3)}`;
+    nivelAcademico = 'defesa de dissertação';
+  } else if (cursoOriginal.includes('D - ')) {
+    cursoDiploma = `Doutoramento ${cursoOriginal.substring(1)}`;
+    nivelAcademico = 'defesa de dissertação';
+  }
+
+  return {
+    success: true,
+    message: 'Dados do diploma gerados com sucesso',
+    data: {
+      codigoMatricula: Number(aluno.CODIGO_MATRICULA),
+      nomeAluno: aluno.NOME_COMPLETO,
+      curso: cursoDiploma,
+      dataNascimento: formatarDataExtenso(aluno.DATA_NASCIMENTO),
+      dataConclusao: formatarDataExtenso(aluno.DATA_CONCLUSAO),
+      dataEmissaoDocumento: formatarDataExtenso(new Date()),
+      naturalidade: aluno.NATURALIDADE || '',
+      nomePai: aluno.PAI || '',
+      nomeMae: aluno.MAE || '',
+      nivelAcademico,
+      bilhete: aluno.BILHETE_IDENTIDADE || '',
+      notaFinal: String(aluno.NOTA ?? ''),
+      notaFinalExtenso: notaExtenso(Number(aluno.NOTA ?? 0)),
+      genero: aluno.SEXO || '',
+      nomeDocumento: aluno.TIPO_DOCUMENTO_NOME || '',
+      reitor,
+      viaDiploma: segundaViaDiploma ? '2ª via' : '',
+      tipoCandidaturaId: aluno.TIPO_CANDIDATURA_ID ?? null,
+      tipoCandidatura: aluno.TIPO_CANDIDATURA ?? '',
+      template:
+        Number(aluno.TIPO_CANDIDATURA_ID) === 1
+          ? 'diploma_ortoga'
+          : 'diploma_ortoga_mestrado',
+    },
+  };
+}
 }

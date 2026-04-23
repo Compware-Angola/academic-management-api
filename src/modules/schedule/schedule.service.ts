@@ -24,6 +24,7 @@ import { promptToCreateAndEditService } from '../academic_activities/prompt-to-c
 import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
 import { ScheduleParamDto } from './dto/parametros.dto';
+import { UpdateScheduleParamDto } from './dto/update-schedule-params.dto';
 
 @Injectable()
 export class ScheduleService {
@@ -2268,7 +2269,7 @@ WHERE ${baseWhere}
         P.DESIGNACAO,
         P.DESCRICAO,
         P.SIGLA,
-      --  P.ARGS,
+       P.ARGS,
         P.OBS,
         P.ORDEM,
         P.ACTIVE_STATE
@@ -2298,7 +2299,7 @@ WHERE ${baseWhere}
         P.DESIGNACAO,
         P.DESCRICAO,
         P.SIGLA,
-      --  P.ARGS,
+       P.ARGS,
         P.OBS,
         P.ORDEM,
         P.ACTIVE_STATE
@@ -2330,7 +2331,7 @@ WHERE ${baseWhere}
         P.DESIGNACAO,
         P.DESCRICAO,
         P.SIGLA,
-      --  P.ARGS,
+       P.ARGS,
         P.OBS,
         P.ORDEM,
         P.ACTIVE_STATE
@@ -2352,6 +2353,111 @@ WHERE ${baseWhere}
     } as any);
   }
 
+
+
+async updateScheduleParam(dto: UpdateScheduleParamDto,last_updated_by:number) {
+  const {
+    pk_parametro,
+    designacao,
+    descricao,
+    sigla,
+    args,
+    obs,
+    ordem,
+    active_state,
+    
+  } = dto;
+
+  // 1. Verifica se existe
+  const checkQuery = `
+    SELECT PK_PARAMETRO
+    FROM FK2_MGH_TB_PARAMETRO
+    WHERE PK_PARAMETRO = :pk
+  `;
+  const existing = await this.dataSource.query(checkQuery, { pk: pk_parametro } as any);
+
+  if (!existing || existing.length === 0) {
+    throw new NotFoundException(
+      `Parâmetro com PK ${pk_parametro} não encontrado.`,
+    );
+  }
+
+  // 2. Serializa args para string se vier como objeto
+  const argsSerialized =
+    args !== undefined
+      ? typeof args === 'string'
+        ? args
+        : JSON.stringify(args)
+      : undefined;
+
+  // 3. Monta SET dinâmico apenas com os campos enviados
+  const setClauses: string[] = ['UPDATED_AT = SYSDATE'];
+  const params: Record<string, unknown> = { pk: pk_parametro };
+
+  if (designacao !== undefined) {
+    setClauses.push('DESIGNACAO = :designacao');
+    params['designacao'] = designacao;
+  }
+  if (descricao !== undefined) {
+    setClauses.push('DESCRICAO = :descricao');
+    params['descricao'] = descricao;
+  }
+  if (sigla !== undefined) {
+    setClauses.push('SIGLA = :sigla');
+    params['sigla'] = sigla;
+  }
+  if (argsSerialized !== undefined) {
+    setClauses.push('ARGS = :args');
+    params['args'] = argsSerialized;
+  }
+  if (obs !== undefined) {
+    setClauses.push('OBS = :obs');
+    params['obs'] = obs;
+  }
+  if (ordem !== undefined) {
+    setClauses.push('ORDEM = :ordem');
+    params['ordem'] = ordem;
+  }
+  if (active_state !== undefined) {
+    setClauses.push('ACTIVE_STATE = :active_state');
+    params['active_state'] = active_state;
+  }
+  if (last_updated_by !== undefined) {
+    setClauses.push('LAST_UPDATED_BY = :last_updated_by');
+    params['last_updated_by'] = last_updated_by;
+  }
+
+  // 4. Executa o UPDATE
+  const updateQuery = `
+    UPDATE FK2_MGH_TB_PARAMETRO
+    SET ${setClauses.join(', ')}
+    WHERE PK_PARAMETRO = :pk
+  `;
+
+  await this.dataSource.query(updateQuery, params as any);
+
+  // 5. Retorna o registo atualizado
+  const selectQuery = `
+    SELECT
+      P.PK_PARAMETRO,
+      P.DESIGNACAO,
+      P.DESCRICAO,
+      P.SIGLA,
+      P.ARGS,
+      P.OBS,
+      P.ORDEM,
+      P.ACTIVE_STATE
+    FROM FK2_MGH_TB_PARAMETRO P
+    WHERE P.PK_PARAMETRO = :pk
+  `;
+
+  const result = await this.dataSource.query(selectQuery, { pk: pk_parametro } as any);
+
+  return {
+    success: true,
+    menssage:"Parametros Atualizados !" ,
+  };
+}
   private async createOrUpdateHorario(
     userId: number = 1,
     dto: CreateScheduleDto,

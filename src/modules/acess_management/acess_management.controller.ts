@@ -14,6 +14,7 @@ import {
   HttpStatus,
   Headers,
   Req,
+  Patch,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreatePersonUserDto } from './dto/create-person-user.dto';
@@ -91,6 +92,39 @@ export class AcessManagementController {
     });
     return userDateResponse;
   }
+   @Patch('user/:id/toggle-status')
+    @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+     @RequiredPermissions(PermissionTypeDetails.BLOQUEAR_ACESSOS.sigla)
+  @ApiOperation({ 
+    summary: 'Alterna o estado ativo/inativo de um utilizador (Toggle)', 
+    description: 'Troca o ACTIVE_STATE entre 1 (ativo) e 0 (inativo)'
+  })
+  @ApiParam({ name: 'id', description: 'ID do utilizador (PK_UTILIZADOR)', type: Number })
+  @ApiResponse({ status: 200, description: 'Estado alterado com sucesso.' })
+  @ApiResponse({ status: 404, description: 'Utilizador não encontrado.' })
+  @ApiResponse({ status: 403, description: 'Acesso negado.' })
+  @HttpCode(HttpStatus.OK)
+  async toggleUserStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: any,
+  ) {
+     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+
+     const currentUser = req.user;
+  const info = await this.usersService.switchStateUser(id, currentUser.sub);
+
+  AccessLogHelper.logAccess(this.httpService, {
+    descricao: `Utilizador ${currentUser?.username} alterou o estado do utilizador ${id}`,
+    fkAcesso: 155,
+    fkFuncionalidade: 232,
+    fkUtilizadorResponsavel: currentUser.sub,
+    fkOperacaoLog: 7,
+    ip: ip,
+  });
+
+  return info;
+  }
+
 
   @Post('novo-acesso')
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)

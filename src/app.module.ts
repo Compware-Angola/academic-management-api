@@ -33,6 +33,11 @@ import { RegistrationModule } from './modules/registration/registration.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'; 
 import { APP_GUARD } from '@nestjs/core/constants';
 import { CustomThrottlerGuard } from './modules/common/guard/Custom-Throttler.guard';
+import { CursosModule } from './modules/cursos/cursos.module';
+
+import { DocumentsModule } from './modules/shared/documents/documents.module';
+import { TopicosModule } from './modules/topicos/topicos.module';
+import { PerguntasModule } from './modules/perguntas/perguntas.module';
 
 
 @Module({
@@ -122,6 +127,10 @@ import { CustomThrottlerGuard } from './modules/common/guard/Custom-Throttler.gu
     ExamesDeAcessoModule,
     StatisticsReportsModule,
     RegistrationModule,
+    CursosModule,
+    DocumentsModule,
+    TopicosModule,
+    PerguntasModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService,
