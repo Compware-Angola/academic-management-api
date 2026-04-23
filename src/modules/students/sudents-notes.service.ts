@@ -32,12 +32,14 @@ export class StudentNoteService {
       anoLectivo,
       codigoMatricula,
     );
+    console.log(gradesDoEstudante);
     for (const grades of gradesDoEstudante) {
       try {
         const pautaDoAluno = await this.processarNotasHorario(
           codigoMatricula,
           grades,
         );
+
         pautas.push(pautaDoAluno);
       } catch (error) {
         console.log(error);
@@ -141,7 +143,10 @@ export class StudentNoteService {
                 AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
                 AND ftgca.CODIGO_MATRICULA = :numeroDeMatricula
                 AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo
-                AND ftgca.OBSERVACAO NOT LIKE :obs
+              AND (
+                  ftgca.OBSERVACAO IS NULL
+                  OR ftgca.OBSERVACAO NOT LIKE :obs
+              )
             ORDER BY CODIGO_GRADE_CURRICULAR ASC
         `,
         {

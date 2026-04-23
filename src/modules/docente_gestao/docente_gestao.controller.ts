@@ -23,11 +23,16 @@ import { FilterDocenteDto } from './dto/filter-docente.dto';
 import { FilterDocenteRegenteDto } from './dto/filter-docente-regente.dto';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
-import { ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CreateAfectacaoDTO } from './dto/create-afectaco.dto';
 import { FilterDocenteContratoDto } from './dto/filter-docente-contrato.dto';
 import { DefinirRegenteDto } from './dto/definir-regente.dto';
-
 
 @ApiTags('docente-gestao')
 //@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -102,27 +107,32 @@ export class DocenteGestaoController {
     return this.service.updateDocente(codigo, dto);
   }
 
-@Get('docentes')
-@ApiOperation({ summary: 'Listar todos os professores por área de formação' })
-@ApiResponse({ status: 200 })
-async listDocentes(@Query() dto: FilterDocenteDto) {
-  return this.service.listDocentes(dto);
-}
+  @Get('docentes')
+  @ApiOperation({ summary: 'Listar todos os professores por área de formação' })
+  @ApiResponse({ status: 200 })
+  async listDocentes(@Query() dto: FilterDocenteDto) {
+    return this.service.listDocentes(dto);
+  }
 
-@Get('regentes')
-@ApiOperation({ summary: 'Listar docentes regentes com filtros' })
-@ApiResponse({ status: 200 })
-@ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
-@ApiQuery({ name: 'limit', required: false, type: Number, example: 25 })
-@ApiQuery({ name: 'ano_lectivo', required: false, type: Number, example: 17 })
-@ApiQuery({ name: 'curso', required: false, type: Number, example: 12 })
-@ApiQuery({ name: 'classe', required: false, type: Number, example: 3 })
-@ApiQuery({ name: 'semestre', required: false, type: Number, example: 1 })
-@ApiQuery({ name: 'estado', required: false, type: Number, example: 0 })
-@ApiQuery({ name: 'search', required: false, type: String, example: 'Topografia' })
-async listDocentesRegentes(@Query() dto: FilterDocenteRegenteDto) {
-  return this.service.listDocentesRegentes(dto);
-}
+  @Get('regentes')
+  @ApiOperation({ summary: 'Listar docentes regentes com filtros' })
+  @ApiResponse({ status: 200 })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 25 })
+  @ApiQuery({ name: 'ano_lectivo', required: false, type: Number, example: 17 })
+  @ApiQuery({ name: 'curso', required: false, type: Number, example: 12 })
+  @ApiQuery({ name: 'classe', required: false, type: Number, example: 3 })
+  @ApiQuery({ name: 'semestre', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'estado', required: false, type: Number, example: 0 })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    example: 'Topografia',
+  })
+  async listDocentesRegentes(@Query() dto: FilterDocenteRegenteDto) {
+    return this.service.listDocentesRegentes(dto);
+  }
 
   @Get('area-formacao-all')
   @ApiOperation({ summary: 'Listar todas as áreas de formação ativas' })
@@ -132,12 +142,12 @@ async listDocentesRegentes(@Query() dto: FilterDocenteRegenteDto) {
   }
 
   @Get('docentes-com-contrato')
-@ApiOperation({ summary: 'Listar docentes com contrato' })
-@ApiResponse({ status: 200 })
-async listarDocentesComContrato(@Query() filter: FilterDocenteContratoDto) {
-  return this.service.listarDocentesComContrato(filter);
-}
-  
+  @ApiOperation({ summary: 'Listar docentes com contrato' })
+  @ApiResponse({ status: 200 })
+  async listarDocentesComContrato(@Query() filter: FilterDocenteContratoDto) {
+    return this.service.listarDocentesComContrato(filter);
+  }
+
   @Post('regentes/definir')
   @ApiOperation({ summary: 'Definir docente regente para uma UC' })
   @ApiResponse({ status: 201, description: 'Regente definido com sucesso' })
@@ -145,5 +155,4 @@ async listarDocentesComContrato(@Query() filter: FilterDocenteContratoDto) {
   async definirRegente(@Body() dto: DefinirRegenteDto) {
     return this.service.definirRegente(dto);
   }
-  
 }
