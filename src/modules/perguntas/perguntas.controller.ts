@@ -16,6 +16,8 @@ import { UpdatePerguntaDto } from './dto/update-pergunta.dto';
 import { FilterPerguntaDto } from './dto/filter-pergunta.dto';
 import { CreateRespostaDto } from './dto/create-resposta.dto';
 import { UpdateRespostaDto } from './dto/update-resposta.dto';
+import { FilterDisciplinaDto } from './dto/filter-disciplina.dto';
+import { FilterTipoPerguntaDto } from './dto/filter-tipo-pergunta.dto';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 
 @Controller('exames-de-acesso/perguntas')
@@ -93,5 +95,21 @@ export class PerguntasController {
   })
   removeResposta(@Param('id', ParseIntPipe) id: number) {
     return this.perguntasService.removeResposta(id);
+  }
+
+  @Get('disciplinas')
+  @ApiOperation({
+    summary: 'Lista disciplinas de admissão com paginação',
+  })
+  findDisciplinas(@Query(ValidationPipe) filtros: FilterDisciplinaDto) {
+    return this.perguntasService.findDisciplinas(filtros);
+  }
+
+  @Get('tipos-pergunta')
+  @ApiOperation({
+    summary: 'Lista tipos de pergunta com paginação',
+  })
+  findTiposPergunta(@Query(ValidationPipe) filtros: FilterTipoPerguntaDto) {
+    return this.perguntasService.findTiposPergunta(filtros);
   }
 }
