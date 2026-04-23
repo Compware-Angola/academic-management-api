@@ -45,17 +45,7 @@ import { AcademicHistoryMigracaoDadosDTO } from './dto/academic-history-migracao
 import { UpdateGradeCurricularAlunoHorarioDTO } from '../discipline/dto/update-grade-curri-curricular-aluno-horario';
 import { StudentsChangeCourse } from './students-change.course.service';
 import { StudentsResultPlanService } from './students-result-plan.service';
-
 import { FindStudentClassInfoDTO } from './dto/find-student-info.dto';
-
-import { DefinirEspecialidadeDTO } from './dto/definir-especialidade.dto';
-
-import { DiplomarAlunoDTO } from './dto/diplomar-aluno.dto';
-import { GerarDiplomaDTO } from './dto/gerar-diploma.dto';
-
-import { GerarCertificadoDto } from './dto/gerar-certificado.dto';
-
-
 
 @Controller('students')
 export class StudentsController {
