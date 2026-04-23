@@ -630,59 +630,94 @@ async listarRegistoPrimarioExamesAcesso(
     search,
   } = filter;
 
+  if (!anoLectivo || anoLectivo === 0) {
+    throw new BadRequestException('O ano lectivo é obrigatório');
+  }
+
+  if (!grau || grau === 0) {
+    throw new BadRequestException('O grau é obrigatório');
+  }
+
   const offset = (page - 1) * limit;
 
   const baseParams: Record<string, any> = {
     anoLectivo,
-    anoLectivo_zero: anoLectivo,
     grau,
-    grau_zero: grau,
   };
 
   let searchClause = '';
   if (search && search.trim()) {
     searchClause = `
       AND (
-        UPPER(b.NOME_COMPLETO) LIKE :search
-        OR UPPER(NVL(b.BILHETE_IDENTIDADE, '-')) LIKE :search
+        UPPER(t.NOME_COMPLETO) LIKE :search
+        OR UPPER(NVL(t.BILHETE_IDENTIDADE, '-')) LIKE :search
       )
     `;
     baseParams.search = `%${search.trim().toUpperCase()}%`;
   }
 
-  const cte = `
-    WITH notas_candidatura AS (
+  const sql = `
+  SELECT *
+  FROM (
+    SELECT
+      t.*,
+      ROW_NUMBER() OVER (ORDER BY t.NOME_COMPLETO ASC) AS RN
+    FROM (
       SELECT
-        cp.CANDIDATO_ID,
-        thp.ANO_LECTIVO_ID,
-        MAX(cp.NOTA) AS NOTA
-      FROM FK2_CANDIDATO_PROVAS cp
-      INNER JOIN FK2_TB_HORARIO_PROVA thp
-        ON thp.ID = cp.HORARIO_PROVA_ID
-      WHERE cp.TEMPO IS NOT NULL
-      GROUP BY cp.CANDIDATO_ID, thp.ANO_LECTIVO_ID
-    ),
-
-    base_dados AS (
-      SELECT
-        tp.CODIGO,
         tp.NOME_COMPLETO,
         tp.BILHETE_IDENTIDADE,
         tp.SEXO,
+        EXTRACT(YEAR FROM CURRENT_DATE) - EXTRACT(YEAR FROM tp.DATA_NASCIMENTO) AS IDADE,
         tp.DATA_NASCIMENTO,
         tpr.DESIGNACAO AS PROVINCIA_RESIDENCIA,
         tn.DESIGNACAO AS PAIS_ORIGEM,
         tm.DESIGNACAO AS MUNICIPIO,
-        tp.CODIGO_TURNO AS PERIODO_CODIGO,
+        CASE
+          WHEN tp.CODIGO_TURNO = 5 THEN 'Regular'
+          ELSE 'Pós-Laboral'
+        END AS PERIODO_ESTUDO,
         tc.DESIGNACAO AS CURSO,
-        tf.DESIGNACAO AS FACULDADE,
+        CASE
+          WHEN NVL(ta.MEDIAFINAL, 0) > 0 THEN ta.MEDIAFINAL
+          ELSE NVL((
+            SELECT cp.NOTA
+            FROM FK2_CANDIDATO_PROVAS cp
+            INNER JOIN FK2_TB_HORARIO_PROVA thp
+              ON thp.ID = cp.HORARIO_PROVA_ID
+            WHERE cp.TEMPO IS NOT NULL
+              AND cp.CANDIDATO_ID = tp.CODIGO
+              AND thp.ANO_LECTIVO_ID = :anoLectivo
+              AND ROWNUM = 1
+          ), 0)
+        END AS NOTA_EXAME_ACESSO,
         tp.INSTITUICAO_FORMACAO AS ESCOLA_ENSINO_MEDIO,
-        tp.CODIGO_OCUPACAO AS OCUPADO,
-        NVL(ne.DESIGNACAO, 'N/A') AS NECESSIDADE_ESPECIAL,
+        CASE
+          WHEN tp.CODIGO_OCUPACAO NOT IN (6, 7, 9) THEN 'Sim'
+          ELSE 'Não'
+        END AS TRABALHADOR,
+        tf.DESIGNACAO AS UNIDADE_ORGANICA,
+        ne.DESIGNACAO AS NECESSIDADE_ESPECIAL,
         tha.DESIGNACAO AS PROVENIENCIA,
         tp.CURSO_ENSINO_MEDIO,
-        ta.MEDIAFINAL,
-        nc.NOTA AS NOTA_CANDIDATURA
+        'SIM' AS ESTUDANTE_MATRICULADO_PRIMEIRA_VEZ,
+        CASE
+          WHEN (
+            CASE
+              WHEN NVL(ta.MEDIAFINAL, 0) > 0 THEN ta.MEDIAFINAL
+              ELSE NVL((
+                SELECT cp.NOTA
+                FROM FK2_CANDIDATO_PROVAS cp
+                INNER JOIN FK2_TB_HORARIO_PROVA thp
+                  ON thp.ID = cp.HORARIO_PROVA_ID
+                WHERE cp.TEMPO IS NOT NULL
+                  AND cp.CANDIDATO_ID = tp.CODIGO
+                  AND thp.ANO_LECTIVO_ID = :anoLectivo
+                  AND ROWNUM = 1
+              ), 0)
+            END
+          ) > 9.4 THEN 'SIM'
+          ELSE 'NÃO'
+        END AS ADMISSAO
       FROM FK2_TB_PREINSCRICAO tp
       INNER JOIN FK2_TB_PROVINCIAS tpr
         ON tpr.CODIGO = tp.CODIGO_PROVINCIA_RESIDENCIA_PERMANENTE
@@ -696,78 +731,47 @@ async listarRegistoPrimarioExamesAcesso(
         ON tf.CODIGO = tc.FACULDADE_ID
       LEFT JOIN FK2_TB_ADMISSAO ta
         ON ta.PRE_INCRICAO = tp.CODIGO
-      LEFT JOIN FK2_NECESSIDADE_ESPECIAIS ne
+      INNER JOIN FK2_NECESSIDADE_ESPECIAIS ne
         ON ne.ID = tp.NECESSIDADE_ESPECIAL_ID
-      LEFT JOIN FK2_TB_HABILITACAO_ANTERIOR tha
+      INNER JOIN FK2_TB_HABILITACAO_ANTERIOR tha
         ON tha.CODIGO = tp.CODIGO_HABILITACAO_ANTERIOR
-      LEFT JOIN notas_candidatura nc
-        ON nc.CANDIDATO_ID = tp.CODIGO
-       AND nc.ANO_LECTIVO_ID = tp.ANOLECTIVO
-      WHERE (tp.ANOLECTIVO = :anoLectivo OR :anoLectivo_zero = 0)
-        AND (tp.CODIGO_TIPO_CANDIDATURA = :grau OR :grau_zero = 0)
-    ),
-
-    final_data AS (
-      SELECT
-        b.NOME_COMPLETO,
-        b.BILHETE_IDENTIDADE,
-        b.SEXO,
-        FLOOR(MONTHS_BETWEEN(SYSDATE, b.DATA_NASCIMENTO) / 12) AS IDADE,
-        b.DATA_NASCIMENTO,
-        b.PROVINCIA_RESIDENCIA,
-        b.PAIS_ORIGEM,
-        b.MUNICIPIO,
-        CASE
-          WHEN b.PERIODO_CODIGO = 5 THEN 'Regular'
-          ELSE 'Pós-Laboral'
-        END AS PERIODO_ESTUDO,
-        b.CURSO,
-        CASE
-          WHEN NVL(b.MEDIAFINAL, 0) > 0 THEN b.MEDIAFINAL
-          ELSE NVL(b.NOTA_CANDIDATURA, 0)
-        END AS NOTA_EXAME_ACESSO,
-        b.ESCOLA_ENSINO_MEDIO,
-        b.FACULDADE AS UNIDADE_ORGANICA,
-        b.NECESSIDADE_ESPECIAL,
-        b.PROVENIENCIA,
-        b.CURSO_ENSINO_MEDIO,
-        CASE
-          WHEN b.OCUPADO NOT IN (6, 7, 9) THEN 'Sim'
-          ELSE 'Não'
-        END AS TRABALHADOR,
-        'SIM' AS ESTUDANTE_MATRICULADO_PRIMEIRA_VEZ,
-        CASE
-          WHEN (
-            CASE
-              WHEN NVL(b.MEDIAFINAL, 0) > 0 THEN b.MEDIAFINAL
-              ELSE NVL(b.NOTA_CANDIDATURA, 0)
-            END
-          ) > 9.4 THEN 'SIM'
-          ELSE 'NÃO'
-        END AS ADMISSAO
-      FROM base_dados b
-      WHERE 1 = 1
-      ${searchClause}
-    )
-  `;
-
-  const sql = `
-    ${cte}
-    SELECT *
-    FROM (
-      SELECT
-        f.*,
-        ROW_NUMBER() OVER (ORDER BY f.NOME_COMPLETO ASC) AS RN
-      FROM final_data f
+      WHERE tp.ANOLECTIVO = :anoLectivo
+        AND tp.CODIGO_TIPO_CANDIDATURA = :grau
     ) t
-    WHERE t.RN BETWEEN :offset + 1 AND :offset + :limit
-    ORDER BY t.RN
-  `;
+    WHERE 1 = 1
+    ${searchClause}
+  ) pag
+  WHERE pag.RN BETWEEN :offset + 1 AND :offset + :limit
+  ORDER BY pag.RN
+`;
 
   const countSql = `
-    ${cte}
     SELECT COUNT(*) AS TOTAL
-    FROM final_data
+    FROM (
+      SELECT
+        tp.CODIGO
+      FROM FK2_TB_PREINSCRICAO tp
+      INNER JOIN FK2_TB_PROVINCIAS tpr
+        ON tpr.CODIGO = tp.CODIGO_PROVINCIA_RESIDENCIA_PERMANENTE
+      INNER JOIN FK2_TB_NACIONALIDADES tn
+        ON tn.CODIGO = tp.CODIGO_NACIONALIDADE
+      LEFT JOIN FK2_TB_MUNICIPIOS tm
+        ON tm.CODIGO = tp.CODIGO_MUNICIPIO
+      INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tp.CURSO_CANDIDATURA
+      INNER JOIN FK2_TB_FACULDADE tf
+        ON tf.CODIGO = tc.FACULDADE_ID
+      LEFT JOIN FK2_TB_ADMISSAO ta
+        ON ta.PRE_INCRICAO = tp.CODIGO
+      INNER JOIN FK2_NECESSIDADE_ESPECIAIS ne
+        ON ne.ID = tp.NECESSIDADE_ESPECIAL_ID
+      INNER JOIN FK2_TB_HABILITACAO_ANTERIOR tha
+        ON tha.CODIGO = tp.CODIGO_HABILITACAO_ANTERIOR
+      WHERE tp.ANOLECTIVO = :anoLectivo
+        AND tp.CODIGO_TIPO_CANDIDATURA = :grau
+    ) t
+    WHERE 1 = 1
+    ${searchClause}
   `;
 
   const dataParams = {
@@ -781,7 +785,7 @@ async listarRegistoPrimarioExamesAcesso(
     this.dataSource.query(countSql, baseParams as any),
   ]);
 
-  const total = Number(countResult[0]?.TOTAL ?? 0);
+  const total = Number(countResult?.[0]?.TOTAL ?? 0);
 
   const data = result.map((row: any, index: number) => ({
     numero: offset + index + 1,
@@ -837,140 +841,109 @@ async listarRegistoPrimarioMatriculados(filter: any) {
   const anoCurricularNum = Number(anoCurricular) || 0;
   const estadoNum = Number(estado);
 
+  if (!anoLectivoNum || anoLectivoNum === 0) {
+    throw new BadRequestException('O ano lectivo é obrigatório');
+  }
+
   const searchValue =
     search && String(search).trim()
       ? `%${String(search).trim().toUpperCase()}%`
       : null;
 
+  let estadoClause = '';
+
+  if (estadoNum === 1) {
+    // estudantes novos
+    estadoClause = `
+      AND tp.ANOLECTIVO = :5
+    `;
+  } else if (estadoNum === 0) {
+    // estudantes antigos
+    estadoClause = `
+      AND tp.ANOLECTIVO != :5
+    `;
+  } else {
+    // todos
+    estadoClause = '';
+  }
+
   const sql = `
-    WITH ano_lectivo_valido AS (
-      SELECT al.CODIGO
-      FROM FK2_TB_ANO_LECTIVO al
-      WHERE al.CODIGO = :1
-        AND al.DESIGNACAO <> '2025-2026'
-    ),
-
-    matriculas_filtradas AS (
+    WITH base_estudantes AS (
       SELECT DISTINCT
+        tp.NOME_COMPLETO AS NOME_COMPLETO,
+        tp.BILHETE_IDENTIDADE AS BILHETE_IDENTIDADE,
+        tp.SEXO AS SEXO,
+        FLOOR(MONTHS_BETWEEN(SYSDATE, tp.DATA_NASCIMENTO) / 12) AS IDADE,
+        tp.DATA_NASCIMENTO AS DATA_NASCIMENTO,
+        tpr.DESIGNACAO AS PROVINCIA,
+        tm2.DESIGNACAO AS MUNICIPIO,
+        tn.DESIGNACAO AS PAIS,
+        CASE
+          WHEN tp.CODIGO_TURNO = 5 THEN 'Regular'
+          ELSE 'Pós-Laboral'
+        END AS PERIODO_ESTUDO,
+        tf.DESIGNACAO AS FACULDADE,
+        tc.DESIGNACAO AS CURSO,
+        (
+          SELECT MAX(tc3.CLASSE)
+          FROM FK2_TB_CONFIRMACOES tc3
+          WHERE tc3.CODIGO_MATRICULA = tm.CODIGO
+            AND (tc3.CLASSE = :1 OR :2 = 0)
+        ) AS CLASSE,
+        tm.ESTADO_MATRICULA AS ESTADO_MATRICULA,
         tm.CODIGO AS CODIGO_MATRICULA
-      FROM FK2_TB_MATRICULAS tm
-      INNER JOIN FK2_TB_ADMISSAO ta
-        ON ta.CODIGO = tm.CODIGO_ALUNO
-      INNER JOIN FK2_TB_PREINSCRICAO tp
-        ON tp.CODIGO = ta.PRE_INCRICAO
-      INNER JOIN FK2_TB_CURSOS tc
-        ON tc.CODIGO = tm.CODIGO_CURSO
-      INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
-        ON tgca.CODIGO_MATRICULA = tm.CODIGO
-      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
-        ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
-      WHERE (:2 = 0 OR tc.TIPO_CANDIDATURA = :3)
-        AND (:4 = 0 OR tgc.CODIGO_CLASSE = :5)
-    ),
-
-    base_estudantes AS (
-      SELECT
-        tm.CODIGO AS CODIGO_MATRICULA,
-        MAX(tp.NOME_COMPLETO) AS NOME_COMPLETO,
-        MAX(tp.BILHETE_IDENTIDADE) AS BILHETE_IDENTIDADE,
-        MAX(tp.SEXO) AS SEXO,
-        MAX(FLOOR(MONTHS_BETWEEN(SYSDATE, tp.DATA_NASCIMENTO) / 12)) AS IDADE,
-        MAX(tp.DATA_NASCIMENTO) AS DATA_NASCIMENTO,
-        MAX(tpr.DESIGNACAO) AS PROVINCIA,
-        MAX(tm2.DESIGNACAO) AS MUNICIPIO,
-        MAX(tn.DESIGNACAO) AS PAIS,
-        MAX(tp.CODIGO_TURNO) AS CODIGO_TURNO,
-        MAX(tf.DESIGNACAO) AS FACULDADE,
-        MAX(tc.DESIGNACAO) AS CURSO,
-        MAX(tgc.CODIGO_CLASSE) AS CODIGO_CLASSE,
-        MAX(tp.ANOLECTIVO) AS ANO_PREINSCRICAO,
-        MAX(tm.ESTADO_MATRICULA) AS ESTADO_MATRICULA,
-        MAX(tgca.CODIGO_ANO_LECTIVO) AS ANO_LECTIVO_GRADE
-      FROM matriculas_filtradas mf
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO g
       INNER JOIN FK2_TB_MATRICULAS tm
-        ON tm.CODIGO = mf.CODIGO_MATRICULA
+        ON g.CODIGO_MATRICULA = tm.CODIGO
+      INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
       INNER JOIN FK2_TB_ADMISSAO ta
         ON ta.CODIGO = tm.CODIGO_ALUNO
       INNER JOIN FK2_TB_PREINSCRICAO tp
-        ON tp.CODIGO = ta.PRE_INCRICAO
-      INNER JOIN FK2_TB_CURSOS tc
-        ON tc.CODIGO = tm.CODIGO_CURSO
+        ON ta.PRE_INCRICAO = tp.CODIGO
       INNER JOIN FK2_TB_FACULDADE tf
         ON tf.CODIGO = tc.FACULDADE_ID
-      INNER JOIN FK2_TB_NACIONALIDADES tn
-        ON tn.CODIGO = tp.CODIGO_NACIONALIDADE
       LEFT JOIN FK2_TB_PROVINCIAS tpr
         ON tpr.CODIGO = tp.CODIGO_PROVINCIA_RESIDENCIA_PERMANENTE
+      LEFT JOIN FK2_TB_NACIONALIDADES tn
+        ON tn.CODIGO = tp.CODIGO_NACIONALIDADE
       LEFT JOIN FK2_TB_MUNICIPIOS tm2
         ON tm2.CODIGO = tp.CODIGO_MUNICIPIO
-      LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
-        ON tgca.CODIGO_MATRICULA = tm.CODIGO
-      LEFT JOIN FK2_TB_GRADE_CURRICULAR tgc
-        ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
-      GROUP BY tm.CODIGO
+      LEFT JOIN FK2_TB_CONFIRMACOES tcf
+        ON tcf.CODIGO_MATRICULA = tm.CODIGO
+      WHERE g.CODIGO_STATUS_GRADE_CURRICULAR IN (2)
+        AND g.CODIGO_ANO_LECTIVO = :3
+        AND (tc.TIPO_CANDIDATURA = :4 OR :4 = 0)
+        ${estadoClause}
     ),
 
-    inscricoes AS (
+    taxa_aproveitamento AS (
       SELECT
-        CODIGO_MATRICULA,
-        COUNT(*) AS TOTAL_INSCRICOES
-      FROM FK2_TB_GRADE_CURRICULAR_ALUNO
-      WHERE CODIGO_ANO_LECTIVO = :6
-      GROUP BY CODIGO_MATRICULA
-    ),
-
-    aprovadas AS (
-      SELECT
-        CODIGO_MATRICULA,
-        COUNT(*) AS TOTAL_APROVADAS
-      FROM FK2_TB_GRADE_CURRICULAR_ALUNO
-      WHERE CODIGO_ANO_LECTIVO = :7
-        AND CODIGO_STATUS_GRADE_CURRICULAR = 3
-      GROUP BY CODIGO_MATRICULA
+        g.CODIGO_MATRICULA,
+        COUNT(*) AS TOTAL_DISCIPLINAS,
+        SUM(CASE WHEN g.CODIGO_STATUS_GRADE_CURRICULAR = 3 THEN 1 ELSE 0 END) AS TOTAL_APROVADAS
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO g
+      WHERE g.CODIGO_ANO_LECTIVO = :6
+      GROUP BY g.CODIGO_MATRICULA
     ),
 
     final_data AS (
       SELECT
         b.*,
-        NVL(i.TOTAL_INSCRICOES, 0) AS TOTAL_INSCRICOES,
-        NVL(a.TOTAL_APROVADAS, 0) AS TOTAL_APROVADAS,
         CASE
-          WHEN NVL(i.TOTAL_INSCRICOES, 0) = 0 THEN 0
-          ELSE ROUND((NVL(a.TOTAL_APROVADAS, 0) * 100) / i.TOTAL_INSCRICOES, 2)
-        END AS TAXA_APROVEITAMENTO,
-        CASE
-          WHEN b.CODIGO_TURNO = 5 THEN 'Regular'
-          ELSE 'Pós-Laboral'
-        END AS PERIODO_ESTUDO,
-        NVL(TO_CHAR(b.ESTADO_MATRICULA), 'Inactivo') AS SITUACAO_ACADEMICA
+          WHEN NVL(t.TOTAL_DISCIPLINAS, 0) = 0 THEN 0
+          ELSE ROUND((NVL(t.TOTAL_APROVADAS, 0) * 100) / t.TOTAL_DISCIPLINAS, 2)
+        END AS TAXA_APROVEITAMENTO
       FROM base_estudantes b
-      LEFT JOIN inscricoes i
-        ON i.CODIGO_MATRICULA = b.CODIGO_MATRICULA
-      LEFT JOIN aprovadas a
-        ON a.CODIGO_MATRICULA = b.CODIGO_MATRICULA
-      WHERE EXISTS (
-        SELECT 1
-        FROM ano_lectivo_valido av
-        WHERE av.CODIGO = :8
+      LEFT JOIN taxa_aproveitamento t
+        ON t.CODIGO_MATRICULA = b.CODIGO_MATRICULA
+      WHERE (
+        :7 IS NULL
+        OR UPPER(b.NOME_COMPLETO) LIKE :8
+        OR UPPER(NVL(b.BILHETE_IDENTIDADE, '-')) LIKE :9
+        OR UPPER(NVL(b.CURSO, '-')) LIKE :10
+        OR UPPER(NVL(b.FACULDADE, '-')) LIKE :11
       )
-        AND b.ANO_LECTIVO_GRADE IS NOT NULL
-        AND (
-          :9 = 2
-          AND b.ANO_LECTIVO_GRADE <= :10
-
-          OR :11 = 1
-          AND b.ANO_LECTIVO_GRADE = :12
-
-          OR :13 = 0
-          AND b.ANO_LECTIVO_GRADE < :14
-        )
-        AND (
-          :15 IS NULL
-          OR UPPER(b.NOME_COMPLETO) LIKE :16
-          OR UPPER(NVL(b.BILHETE_IDENTIDADE, '-')) LIKE :17
-          OR UPPER(NVL(b.CURSO, '-')) LIKE :18
-          OR UPPER(NVL(b.FACULDADE, '-')) LIKE :19
-        )
     )
 
     SELECT *
@@ -980,134 +953,152 @@ async listarRegistoPrimarioMatriculados(filter: any) {
         ROW_NUMBER() OVER (ORDER BY f.NOME_COMPLETO ASC) AS RN
       FROM final_data f
     ) t
-    WHERE t.RN BETWEEN :20 AND :21
+    WHERE t.RN BETWEEN :12 AND :13
     ORDER BY t.RN
   `;
 
-  const sqlParams = [
-    anoLectivoNum,   // :1
-    grauNum,         // :2
-    grauNum,         // :3
-    anoCurricularNum,// :4
-    anoCurricularNum,// :5
-    anoLectivoNum,   // :6
-    anoLectivoNum,   // :7
-    anoLectivoNum,   // :8
-    estadoNum,       // :9
-    anoLectivoNum,   // :10
-    estadoNum,       // :11
-    anoLectivoNum,   // :12
-    estadoNum,       // :13
-    anoLectivoNum,   // :14
-    searchValue,     // :15
-    searchValue,     // :16
-    searchValue,     // :17
-    searchValue,     // :18
-    searchValue,     // :19
-    offset + 1,      // :20
-    offset + safeLimit, // :21
+  let sqlParams: any[] = [];
+
+if (estadoNum === 1 || estadoNum === 0) {
+  sqlParams = [
+    anoCurricularNum,   // :1
+    anoCurricularNum,   // :2
+    anoLectivoNum,      // :3
+    grauNum,            // :4
+    grauNum,            // :4 repetido
+    anoLectivoNum,      // :5
+    anoLectivoNum,      // :6
+    searchValue,        // :7
+    searchValue,        // :8
+    searchValue,        // :9
+    searchValue,        // :10
+    searchValue,        // :11
+    offset + 1,         // :12
+    offset + safeLimit, // :13
   ];
+} else {
+  // estado = 2 (todos)
+  sqlParams = [
+    anoCurricularNum,   // :1
+    anoCurricularNum,   // :2
+    anoLectivoNum,      // :3
+    grauNum,            // :4
+    grauNum,            // :4 repetido
+    anoLectivoNum,      // :6
+    searchValue,        // :7
+    searchValue,        // :8
+    searchValue,        // :9
+    searchValue,        // :10
+    searchValue,        // :11
+    offset + 1,         // :12
+    offset + safeLimit, // :13
+  ];
+}
 
   const countSql = `
-    WITH ano_lectivo_valido AS (
-      SELECT al.CODIGO
-      FROM FK2_TB_ANO_LECTIVO al
-      WHERE al.CODIGO = :1
-        AND al.DESIGNACAO <> '2025-2026'
-    ),
-
-    matriculas_filtradas AS (
+    WITH base_estudantes AS (
       SELECT DISTINCT
+        tp.NOME_COMPLETO AS NOME_COMPLETO,
+        tp.BILHETE_IDENTIDADE AS BILHETE_IDENTIDADE,
+        tf.DESIGNACAO AS FACULDADE,
+        tc.DESIGNACAO AS CURSO,
         tm.CODIGO AS CODIGO_MATRICULA
-      FROM FK2_TB_MATRICULAS tm
-      INNER JOIN FK2_TB_ADMISSAO ta
-        ON ta.CODIGO = tm.CODIGO_ALUNO
-      INNER JOIN FK2_TB_PREINSCRICAO tp
-        ON tp.CODIGO = ta.PRE_INCRICAO
-      INNER JOIN FK2_TB_CURSOS tc
-        ON tc.CODIGO = tm.CODIGO_CURSO
-      INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
-        ON tgca.CODIGO_MATRICULA = tm.CODIGO
-      INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
-        ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR
-      WHERE (:2 = 0 OR tc.TIPO_CANDIDATURA = :3)
-        AND (:4 = 0 OR tgc.CODIGO_CLASSE = :5)
-    ),
-
-    base_estudantes AS (
-      SELECT
-        tm.CODIGO AS CODIGO_MATRICULA,
-        MAX(tp.NOME_COMPLETO) AS NOME_COMPLETO,
-        MAX(tp.BILHETE_IDENTIDADE) AS BILHETE_IDENTIDADE,
-        MAX(tc.DESIGNACAO) AS CURSO,
-        MAX(tf.DESIGNACAO) AS FACULDADE,
-        MAX(tgca.CODIGO_ANO_LECTIVO) AS ANO_LECTIVO_GRADE
-      FROM matriculas_filtradas mf
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO g
       INNER JOIN FK2_TB_MATRICULAS tm
-        ON tm.CODIGO = mf.CODIGO_MATRICULA
+        ON g.CODIGO_MATRICULA = tm.CODIGO
+      INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
       INNER JOIN FK2_TB_ADMISSAO ta
         ON ta.CODIGO = tm.CODIGO_ALUNO
       INNER JOIN FK2_TB_PREINSCRICAO tp
-        ON tp.CODIGO = ta.PRE_INCRICAO
-      INNER JOIN FK2_TB_CURSOS tc
-        ON tc.CODIGO = tm.CODIGO_CURSO
+        ON ta.PRE_INCRICAO = tp.CODIGO
       INNER JOIN FK2_TB_FACULDADE tf
         ON tf.CODIGO = tc.FACULDADE_ID
-      LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
-        ON tgca.CODIGO_MATRICULA = tm.CODIGO
-      GROUP BY tm.CODIGO
+      LEFT JOIN FK2_TB_CONFIRMACOES tcf
+        ON tcf.CODIGO_MATRICULA = tm.CODIGO
+      WHERE g.CODIGO_STATUS_GRADE_CURRICULAR IN (2)
+        AND g.CODIGO_ANO_LECTIVO = :1
+        AND (tc.TIPO_CANDIDATURA = :2 OR :2 = 0)
+        ${estadoClause}
     )
-
     SELECT COUNT(*) AS TOTAL
     FROM base_estudantes b
-    WHERE EXISTS (
-      SELECT 1
-      FROM ano_lectivo_valido av
-      WHERE av.CODIGO = :6
+    WHERE (
+      :6 IS NULL
+      OR UPPER(b.NOME_COMPLETO) LIKE :7
+      OR UPPER(NVL(b.BILHETE_IDENTIDADE, '-')) LIKE :8
+      OR UPPER(NVL(b.CURSO, '-')) LIKE :9
+      OR UPPER(NVL(b.FACULDADE, '-')) LIKE :10
     )
-      AND b.ANO_LECTIVO_GRADE IS NOT NULL
-      AND (
-        :7 = 2
-        AND b.ANO_LECTIVO_GRADE <= :8
-
-        OR :9 = 1
-        AND b.ANO_LECTIVO_GRADE = :10
-
-        OR :11 = 0
-        AND b.ANO_LECTIVO_GRADE < :12
-      )
-      AND (
-        :13 IS NULL
-        OR UPPER(b.NOME_COMPLETO) LIKE :14
-        OR UPPER(NVL(b.BILHETE_IDENTIDADE, '-')) LIKE :15
-        OR UPPER(NVL(b.CURSO, '-')) LIKE :16
-        OR UPPER(NVL(b.FACULDADE, '-')) LIKE :17
-      )
   `;
 
-  const countParams = [
-    anoLectivoNum,   // :1
-    grauNum,         // :2
-    grauNum,         // :3
-    anoCurricularNum,// :4
-    anoCurricularNum,// :5
-    anoLectivoNum,   // :6
-    estadoNum,       // :7
-    anoLectivoNum,   // :8
-    estadoNum,       // :9
-    anoLectivoNum,   // :10
-    estadoNum,       // :11
-    anoLectivoNum,   // :12
-    searchValue,     // :13
-    searchValue,     // :14
-    searchValue,     // :15
-    searchValue,     // :16
-    searchValue,     // :17
-  ];
+  let countSqlFinal = countSql;
+  let countParams: any[] = [];
+
+  if (estadoNum === 1 || estadoNum === 0) {
+    countParams = [
+  anoLectivoNum, // :1
+  grauNum,       // :2
+  grauNum,       // :2 repetido
+  anoLectivoNum, // :5
+  searchValue,   // :6
+  searchValue,   // :7
+  searchValue,   // :8
+  searchValue,   // :9
+  searchValue,   // :10
+];
+  } else {
+    countSqlFinal = `
+      WITH base_estudantes AS (
+        SELECT DISTINCT
+          tp.NOME_COMPLETO AS NOME_COMPLETO,
+          tp.BILHETE_IDENTIDADE AS BILHETE_IDENTIDADE,
+          tf.DESIGNACAO AS FACULDADE,
+          tc.DESIGNACAO AS CURSO,
+          tm.CODIGO AS CODIGO_MATRICULA
+        FROM FK2_TB_GRADE_CURRICULAR_ALUNO g
+        INNER JOIN FK2_TB_MATRICULAS tm
+          ON g.CODIGO_MATRICULA = tm.CODIGO
+        INNER JOIN FK2_TB_CURSOS tc
+          ON tc.CODIGO = tm.CODIGO_CURSO
+        INNER JOIN FK2_TB_ADMISSAO ta
+          ON ta.CODIGO = tm.CODIGO_ALUNO
+        INNER JOIN FK2_TB_PREINSCRICAO tp
+          ON ta.PRE_INCRICAO = tp.CODIGO
+        INNER JOIN FK2_TB_FACULDADE tf
+          ON tf.CODIGO = tc.FACULDADE_ID
+        LEFT JOIN FK2_TB_CONFIRMACOES tcf
+          ON tcf.CODIGO_MATRICULA = tm.CODIGO
+        WHERE g.CODIGO_STATUS_GRADE_CURRICULAR IN (2)
+          AND g.CODIGO_ANO_LECTIVO = :1
+          AND (tc.TIPO_CANDIDATURA = :2 OR :2 = 0)
+      )
+      SELECT COUNT(*) AS TOTAL
+      FROM base_estudantes b
+      WHERE (
+        :3 IS NULL
+        OR UPPER(b.NOME_COMPLETO) LIKE :4
+        OR UPPER(NVL(b.BILHETE_IDENTIDADE, '-')) LIKE :5
+        OR UPPER(NVL(b.CURSO, '-')) LIKE :6
+        OR UPPER(NVL(b.FACULDADE, '-')) LIKE :7
+      )
+    `;
+
+    countParams = [
+      anoLectivoNum, // :1
+      grauNum,       // :2
+      grauNum,       // :2 repetido
+      searchValue,   // :3
+      searchValue,   // :4
+      searchValue,   // :5
+      searchValue,   // :6
+      searchValue,   // :7
+    ];
+  }
 
   const [result, countResult] = await Promise.all([
     this.dataSource.query(sql, sqlParams),
-    this.dataSource.query(countSql, countParams),
+    this.dataSource.query(countSqlFinal, countParams),
   ]);
 
   const total = Number(countResult[0]?.TOTAL ?? 0);
@@ -1125,8 +1116,8 @@ async listarRegistoPrimarioMatriculados(filter: any) {
     periodo_estudo: row.PERIODO_ESTUDO,
     unidade_organica: row.FACULDADE,
     nome_curso_inscrito_ensino_superior: row.CURSO,
-    ano_frequencia: row.CODIGO_CLASSE,
-    situacao_academica: row.SITUACAO_ACADEMICA,
+    ano_frequencia: row.CLASSE,
+    situacao_academica: row.ESTADO_MATRICULA,
     aproveitamento_anual: row.TAXA_APROVEITAMENTO,
   }));
 
