@@ -64,6 +64,18 @@ export class FindDisciplinaAlunoDTO {
   page?: number = 1;
 
   @ApiPropertyOptional({
+    description: 'Ignorar Eliminados',
+    example: 1,
+    minimum: 1,
+    default: 1,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  ignorarEliminados?: number;
+
+  @ApiPropertyOptional({
     description: 'Quantidade de registros por página (máximo 100)',
     example: 25,
     minimum: 1,

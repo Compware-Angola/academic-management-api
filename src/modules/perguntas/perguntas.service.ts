@@ -10,6 +10,8 @@ import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { UpdatePerguntaDto } from './dto/update-pergunta.dto';
 import { CreateRespostaDto } from './dto/create-resposta.dto';
 import { UpdateRespostaDto } from './dto/update-resposta.dto';
+import { FilterDisciplinaDto } from './dto/filter-disciplina.dto';
+import { FilterTipoPerguntaDto } from './dto/filter-tipo-pergunta.dto';
 
 @Injectable()
 export class PerguntasService {
@@ -128,7 +130,8 @@ export class PerguntasService {
   }
 
   async update(id: number, updateTopicoDto: UpdatePerguntaDto) {
-    const { descricao, disciplinaId, tipoPerguntaId, cotacao } = updateTopicoDto;
+    const { descricao, disciplinaId, tipoPerguntaId, cotacao } =
+      updateTopicoDto;
 
     const perguntaExists = await this.dataSource.query(
       `SELECT ID FROM FK2_PERGUNTAS WHERE ID = :1`,
@@ -151,7 +154,7 @@ export class PerguntasService {
 
     if (tipoPerguntaId !== undefined) {
       updates.push(`TIPO_PERGUNTA_ID = :${paramIndex}`);
-      parameters.push(descricao);
+      parameters.push(tipoPerguntaId);
       paramIndex++;
     }
 
@@ -221,7 +224,9 @@ export class PerguntasService {
     );
 
     if (!perguntaExists || perguntaExists.length === 0) {
-      throw new NotFoundException(`Pergunta com ID ${perguntaId} não encontrada`);
+      throw new NotFoundException(
+        `Pergunta com ID ${perguntaId} não encontrada`,
+      );
     }
 
     const tipoRespostaExists = await this.dataSource.query(
@@ -355,6 +360,126 @@ export class PerguntasService {
 
     return {
       message: 'Resposta removida com sucesso',
+    };
+  }
+
+  async findDisciplinas(filtros: FilterDisciplinaDto) {
+    const { designacao, id, page = 1, limit = 10 } = filtros;
+
+    const offset = (page - 1) * limit;
+
+    let query = `
+      SELECT 
+        DESIGNACAO,
+        ID
+      FROM FK2_DISCIPLINA_ADMISSAO
+      WHERE 1=1
+    `;
+
+    const parameters: any[] = [];
+    let paramIndex = 1;
+
+    if (designacao) {
+      query += ` AND UPPER(DESIGNACAO) LIKE :${paramIndex}`;
+      parameters.push(`%${designacao.toUpperCase()}%`);
+      paramIndex++;
+    }
+
+    if (id) {
+      query += ` AND ID = :${paramIndex}`;
+      parameters.push(id);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY DESIGNACAO`;
+
+    const countQuery = `
+      SELECT COUNT(*) AS TOTAL
+      FROM FK2_DISCIPLINA_ADMISSAO
+      WHERE 1=1
+      ${designacao ? ` AND UPPER(DESIGNACAO) LIKE :1` : ''}
+      ${id ? ` AND ID = :${designacao ? 2 : 1}` : ''}
+    `;
+
+    const countResult = await this.dataSource.query(
+      countQuery,
+      parameters.slice(0, paramIndex - 1),
+    );
+    const total = parseInt(countResult[0]?.TOTAL || '0', 10);
+
+    query += ` OFFSET :${paramIndex} ROWS FETCH NEXT :${paramIndex + 1} ROWS ONLY`;
+    parameters.push(offset, limit);
+
+    const result = await this.dataSource.query(query, parameters);
+
+    return {
+      data: toLowerCaseKeys(result),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async findTiposPergunta(filtros: FilterTipoPerguntaDto) {
+    const { designacao, codigo, page = 1, limit = 10 } = filtros;
+
+    const offset = (page - 1) * limit;
+
+    let query = `
+      SELECT 
+        DESIGNACAO,
+        CODIGO
+      FROM FK2_TB_TIPO_PERGUNTA
+      WHERE 1=1
+    `;
+
+    const parameters: any[] = [];
+    let paramIndex = 1;
+
+    if (designacao) {
+      query += ` AND UPPER(DESIGNACAO) LIKE :${paramIndex}`;
+      parameters.push(`%${designacao.toUpperCase()}%`);
+      paramIndex++;
+    }
+
+    if (codigo) {
+      query += ` AND CODIGO = :${paramIndex}`;
+      parameters.push(codigo);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY DESIGNACAO`;
+
+    const countQuery = `
+      SELECT COUNT(*) AS TOTAL
+      FROM FK2_TB_TIPO_PERGUNTA
+      WHERE 1=1
+      ${designacao ? ` AND UPPER(DESIGNACAO) LIKE :1` : ''}
+      ${codigo ? ` AND CODIGO = :${designacao ? 2 : 1}` : ''}
+    `;
+
+    const countResult = await this.dataSource.query(
+      countQuery,
+      parameters.slice(0, paramIndex - 1),
+    );
+    const total = parseInt(countResult[0]?.TOTAL || '0', 10);
+
+    query += ` OFFSET :${paramIndex} ROWS FETCH NEXT :${paramIndex + 1} ROWS ONLY`;
+    parameters.push(offset, limit);
+
+    const result = await this.dataSource.query(query, parameters);
+
+    return {
+      data: toLowerCaseKeys(result),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 }

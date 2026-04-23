@@ -52,6 +52,8 @@ import { GerarDiplomaDTO } from './dto/gerar-diploma.dto';
 
 import { GerarCertificadoDto } from './dto/gerar-certificado.dto';
 
+import { StudentsChangeCourse } from './students-change.course.service';
+import { StudentsResultPlanService } from './students-result-plan.service';
 
 @Controller('students')
 export class StudentsController {
@@ -60,6 +62,8 @@ export class StudentsController {
     private readonly studentNoteService: StudentNoteService,
     private readonly studentEnrollment: StudentsEnrollmentUCService,
     private readonly studentsEnrollmentPendentUCService: StudentsEnrollmentPendentUCService,
+    private readonly studentsChangeCourse: StudentsChangeCourse,
+    private readonly studentsResultPlanService: StudentsResultPlanService,
   ) {}
   @Get('estatistic/:codigoMatricula')
   async getProfile(@Param('codigoMatricula') codigoMatricula: number) {
@@ -93,7 +97,9 @@ export class StudentsController {
     status: 404,
     description: 'Estudante não encontrado',
   })
-  async findStudentClassInfo(@Query(ValidationPipe) filters: FindStudentClassInfoDTO) {
+  async findStudentClassInfo(
+    @Query(ValidationPipe) filters: FindStudentClassInfoDTO,
+  ) {
     return this.studentsService.findStudentClassInfo(filters);
   }
   @Get('mapa-anual-finalistas')
@@ -242,7 +248,9 @@ export class StudentsController {
     status: 200,
     description: 'Histórico acadêmico do estudante obtido com sucesso',
   })
-  academicHistoryEquivalencia(@Query(ValidationPipe) query: AcademicHistoryEquivalenciaDTO) {
+  academicHistoryEquivalencia(
+    @Query(ValidationPipe) query: AcademicHistoryEquivalenciaDTO,
+  ) {
     return this.studentsService.academicHistoryEquivalencia(query);
   }
 
@@ -252,7 +260,9 @@ export class StudentsController {
     status: 200,
     description: 'Histórico acadêmico do estudante obtido com sucesso',
   })
-  academicHistoryMigracaoDados(@Query(ValidationPipe) query: AcademicHistoryMigracaoDadosDTO) {
+  academicHistoryMigracaoDados(
+    @Query(ValidationPipe) query: AcademicHistoryMigracaoDadosDTO,
+  ) {
     return this.studentsService.academicHistoryMigracaoDados(query);
   }
 
@@ -262,19 +272,21 @@ export class StudentsController {
     status: 200,
     description: 'Horário da grade curricular atualizado com sucesso',
   })
-  updateHorarioGradeCurricular(@Body(ValidationPipe) body: UpdateGradeCurricularAlunoHorarioDTO) {
+  updateHorarioGradeCurricular(
+    @Body(ValidationPipe) body: UpdateGradeCurricularAlunoHorarioDTO,
+  ) {
     return this.studentsService.updateHorarioGradeCurricular(body);
   }
 
-@Delete('grade-curricular/:codigoGradeCurricularAluno')
-deleteGrade(
-  @Param('codigoGradeCurricularAluno', ParseIntPipe)
-  codigoGradeCurricularAluno: number
-) {
-  return this.studentsService.deleteGrade({
-    codigoGradeCurricularAluno,
-  });
-}
+  @Delete('grade-curricular/:codigoGradeCurricularAluno')
+  deleteGrade(
+    @Param('codigoGradeCurricularAluno', ParseIntPipe)
+    codigoGradeCurricularAluno: number,
+  ) {
+    return this.studentsService.deleteGrade({
+      codigoGradeCurricularAluno,
+    });
+  }
 
   @Put('restore-grade-curricular/:codigoGradeCurricularAluno')
   @ApiOperation({ summary: 'Restaurar grade curricular' })
@@ -282,8 +294,11 @@ deleteGrade(
     status: 200,
     description: 'Grade curricular restaurada com sucesso',
   })
-  restoreGrade(@Param('codigoGradeCurricularAluno', ParseIntPipe) codigoGradeCurricularAluno: number) {
-    return this.studentsService.restoreGrade({codigoGradeCurricularAluno});
+  restoreGrade(
+    @Param('codigoGradeCurricularAluno', ParseIntPipe)
+    codigoGradeCurricularAluno: number,
+  ) {
+    return this.studentsService.restoreGrade({ codigoGradeCurricularAluno });
   }
 
   @Put('definir-especialidade')
@@ -311,7 +326,6 @@ deleteGrade(
     return this.studentsService.diplomarAluno(dto, usuarioLogado);
   }
 
-  
   @Post('gerar-diploma')
   @ApiOperation({
     summary: 'Gerar dados do diploma do estudante',
@@ -342,6 +356,25 @@ deleteGrade(
     return this.studentsService.obterNotasCertificado(query);
   }
 
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+  @Put('mudar-curso')
+  @ApiOperation({ summary: 'Mudar curso de um aluno' })
+  @ApiResponse({
+    status: 200,
+    description: 'Mudar curso de um aluno',
+  })
+  updateCurso(@Body(ValidationPipe) body: ChangeCourseDTO, @Req() req: any) {
+    const user = req.user;
+    return this.studentsChangeCourse.mudarCurso(user.sub, body);
+  }
 
-
+  @Get('resultado-plano/:matricula')
+  @ApiOperation({ summary: 'Obter histórico acadêmico do estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Histórico acadêmico do estudante obtido com sucesso',
+  })
+  findResultadoPlano(@Param('matricula', ParseIntPipe) matricula: number) {
+    return this.studentsResultPlanService.findPlan(matricula);
+  }
 }
