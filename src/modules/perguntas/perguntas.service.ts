@@ -154,7 +154,7 @@ export class PerguntasService {
 
     if (tipoPerguntaId !== undefined) {
       updates.push(`TIPO_PERGUNTA_ID = :${paramIndex}`);
-      parameters.push(descricao);
+      parameters.push(tipoPerguntaId);
       paramIndex++;
     }
 
