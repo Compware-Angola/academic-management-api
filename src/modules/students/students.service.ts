@@ -688,16 +688,16 @@ async listarRegistoPrimarioExamesAcesso(
     grau,
   };
 
-  let searchClause = '';
-  if (search && search.trim()) {
-    searchClause = `
-      AND (
-        UPPER(t.NOME_COMPLETO) LIKE :search
-        OR UPPER(NVL(t.BILHETE_IDENTIDADE, '-')) LIKE :search
-      )
-    `;
-    baseParams.search = `%${search.trim().toUpperCase()}%`;
-  }
+  let innerSearchClause = "";
+if (search && search.trim()) {
+  innerSearchClause = `
+    AND (
+      UPPER(tp.NOME_COMPLETO) LIKE :search
+      OR UPPER(NVL(tp.BILHETE_IDENTIDADE, '-')) LIKE :search
+    )
+  `;
+  baseParams.search = `%${search.trim().toUpperCase()}%`;
+}
 
   const sql = `
   SELECT *
@@ -779,10 +779,10 @@ async listarRegistoPrimarioExamesAcesso(
       INNER JOIN FK2_TB_HABILITACAO_ANTERIOR tha
         ON tha.CODIGO = tp.CODIGO_HABILITACAO_ANTERIOR
       WHERE tp.ANOLECTIVO = :anoLectivo
-        AND tp.CODIGO_TIPO_CANDIDATURA = :grau
+  AND tp.CODIGO_TIPO_CANDIDATURA = :grau
+  ${innerSearchClause}
     ) t
-    WHERE 1 = 1
-    ${searchClause}
+
   ) pag
   WHERE pag.RN BETWEEN :offset + 1 AND :offset + :limit
   ORDER BY pag.RN
@@ -811,10 +811,9 @@ async listarRegistoPrimarioExamesAcesso(
       INNER JOIN FK2_TB_HABILITACAO_ANTERIOR tha
         ON tha.CODIGO = tp.CODIGO_HABILITACAO_ANTERIOR
       WHERE tp.ANOLECTIVO = :anoLectivo
-        AND tp.CODIGO_TIPO_CANDIDATURA = :grau
+  AND tp.CODIGO_TIPO_CANDIDATURA = :grau
+  ${innerSearchClause}
     ) t
-    WHERE 1 = 1
-    ${searchClause}
   `;
 
   const dataParams = {
