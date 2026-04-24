@@ -43,8 +43,6 @@ import { StudentsEnrollmentPendentUCService } from './students-pendent-uc.servic
 import { AcademicHistoryEquivalenciaDTO } from './dto/academic-history-equivalencia.dto';
 import { AcademicHistoryMigracaoDadosDTO } from './dto/academic-history-migracao.dto';
 import { UpdateGradeCurricularAlunoHorarioDTO } from '../discipline/dto/update-grade-curri-curricular-aluno-horario';
-import { StudentsChangeCourse } from './students-change.course.service';
-import { StudentsResultPlanService } from './students-result-plan.service';
 import { FindStudentClassInfoDTO } from './dto/find-student-info.dto';
 
 import { DefinirEspecialidadeDTO } from './dto/definir-especialidade.dto';
@@ -307,11 +305,25 @@ export class StudentsController {
   @ApiOperation({ summary: 'Definir especialidade do estudante' })
   @ApiResponse({
     status: 200,
-    description: 'Mudar curso de um aluno',
+    description: 'Especialidade do estudante definida com sucesso',
   })
-  updateCurso(@Body(ValidationPipe) body: ChangeCourseDTO, @Req() req: any) {
-    const user = req.user;
-    return this.studentsChangeCourse.mudarCurso(user.sub, body);
+  definirEspecialidade(@Body(ValidationPipe) body: DefinirEspecialidadeDTO) {
+    return this.studentsService.definirEspecialidade(body);
+  }
+
+  @Put('diplomar')
+  @ApiOperation({
+    summary: 'Diplomar estudante',
+    description:
+      'Define a matrícula do estudante como diplomado, regista a conclusão do curso e cria o log da operação.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Estudante diplomado com sucesso',
+  })
+  async diplomarAluno(@Body() dto: DiplomarAlunoDTO, @Req() req: any) {
+    const usuarioLogado = req.user;
+    return this.studentsService.diplomarAluno(dto, usuarioLogado);
   }
 
   @Post('gerar-diploma')
@@ -338,10 +350,10 @@ export class StudentsController {
   @ApiOperation({ summary: 'Obter notas do estudante para certificado' })
   @ApiResponse({
     status: 200,
-    description: 'Histórico acadêmico do estudante obtido com sucesso',
+    description: 'Notas do estudante obtidas com sucesso',
   })
-  findResultadoPlano(@Param('matricula', ParseIntPipe) matricula: number) {
-    return this.studentsResultPlanService.findPlan(matricula);
+  obterNotasCertificado(@Query(ValidationPipe) query: GerarCertificadoDto) {
+    return this.studentsService.obterNotasCertificado(query);
   }
 
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
