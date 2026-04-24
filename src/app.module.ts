@@ -38,6 +38,7 @@ import { CursosModule } from './modules/cursos/cursos.module';
 import { DocumentsModule } from './modules/shared/documents/documents.module';
 import { TopicosModule } from './modules/topicos/topicos.module';
 import { PerguntasModule } from './modules/perguntas/perguntas.module';
+import { ProvasModule } from './modules/provas/provas.module';
 
 
 @Module({
@@ -131,6 +132,7 @@ import { PerguntasModule } from './modules/perguntas/perguntas.module';
     DocumentsModule,
     TopicosModule,
     PerguntasModule,
+    ProvasModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService,

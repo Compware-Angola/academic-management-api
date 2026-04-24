@@ -18,6 +18,7 @@ import { CreateRespostaDto } from './dto/create-resposta.dto';
 import { UpdateRespostaDto } from './dto/update-resposta.dto';
 import { FilterDisciplinaDto } from './dto/filter-disciplina.dto';
 import { FilterTipoPerguntaDto } from './dto/filter-tipo-pergunta.dto';
+import { FilterTipoRespostaDto } from './dto/filter-tipo-resposta.dto';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 
 @Controller('exames-de-acesso/perguntas')
@@ -60,6 +61,14 @@ export class PerguntasController {
     @Body(ValidationPipe) updatePerguntaDto: UpdatePerguntaDto,
   ) {
     return this.perguntasService.update(id, updatePerguntaDto);
+  }
+
+  @Delete(':id')
+  @ApiOperation({
+    summary: 'Remove uma pergunta (soft delete)',
+  })
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.perguntasService.remove(id);
   }
 
   @Get(':id/respostas')
@@ -111,5 +120,13 @@ export class PerguntasController {
   })
   findTiposPergunta(@Query(ValidationPipe) filtros: FilterTipoPerguntaDto) {
     return this.perguntasService.findTiposPergunta(filtros);
+  }
+
+  @Get('tipos-resposta')
+  @ApiOperation({
+    summary: 'Lista tipos de resposta com paginação',
+  })
+  findTiposResposta(@Query(ValidationPipe) filtros: FilterTipoRespostaDto) {
+    return this.perguntasService.findTiposResposta(filtros);
   }
 }
