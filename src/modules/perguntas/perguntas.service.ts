@@ -12,6 +12,7 @@ import { CreateRespostaDto } from './dto/create-resposta.dto';
 import { UpdateRespostaDto } from './dto/update-resposta.dto';
 import { FilterDisciplinaDto } from './dto/filter-disciplina.dto';
 import { FilterTipoPerguntaDto } from './dto/filter-tipo-pergunta.dto';
+import { FilterTipoRespostaDto } from './dto/filter-tipo-resposta.dto';
 
 @Injectable()
 export class PerguntasService {
@@ -38,6 +39,7 @@ export class PerguntasService {
          , FK2_DISCIPLINA_ADMISSAO D
       WHERE P.TIPO_PERGUNTA_ID = TP.CODIGO
         AND P.DISCIPLINA_ID = D.ID
+        AND P.DELETED_AT IS NULL
     `;
 
     const parameters: any[] = [];
@@ -70,6 +72,7 @@ export class PerguntasService {
          , FK2_DISCIPLINA_ADMISSAO D
       WHERE P.TIPO_PERGUNTA_ID = TP.CODIGO
         AND P.DISCIPLINA_ID = D.ID
+        AND P.DELETED_AT IS NULL
       ${descricao ? ` AND UPPER(P.DESCRICAO) LIKE :1` : ''}
       ${disciplinaId ? ` AND P.DISCIPLINA_ID = :${disciplinaId ? 2 : 1}` : ''}
       ${id ? ` AND P.ID = :${id ? 2 : 1}` : ''}
@@ -480,6 +483,89 @@ export class PerguntasService {
         total,
         totalPages: Math.ceil(total / limit),
       },
+    };
+  }
+
+  async findTiposResposta(filtros: FilterTipoRespostaDto) {
+    const { designacao, codigo, page = 1, limit = 10 } = filtros;
+
+    const offset = (page - 1) * limit;
+
+    let query = `
+      SELECT 
+        DESIGNCAO,
+        CODIGO
+      FROM FK2_TB_TIPO_RESPOSTA
+      WHERE 1=1
+    `;
+
+    const parameters: any[] = [];
+    let paramIndex = 1;
+
+    if (designacao) {
+      query += ` AND UPPER(DESIGNCAO) LIKE :${paramIndex}`;
+      parameters.push(`%${designacao.toUpperCase()}%`);
+      paramIndex++;
+    }
+
+    if (codigo) {
+      query += ` AND CODIGO = :${paramIndex}`;
+      parameters.push(codigo);
+      paramIndex++;
+    }
+
+    query += ` ORDER BY DESIGNCAO`;
+
+    const countQuery = `
+      SELECT COUNT(*) AS TOTAL
+      FROM FK2_TB_TIPO_RESPOSTA
+      WHERE 1=1
+      ${designacao ? ` AND UPPER(DESIGNCAO) LIKE :1` : ''}
+      ${codigo ? ` AND CODIGO = :${designacao ? 2 : 1}` : ''}
+    `;
+
+    const countResult = await this.dataSource.query(
+      countQuery,
+      parameters.slice(0, paramIndex - 1),
+    );
+    const total = parseInt(countResult[0]?.TOTAL || '0', 10);
+
+    query += ` OFFSET :${paramIndex} ROWS FETCH NEXT :${paramIndex + 1} ROWS ONLY`;
+    parameters.push(offset, limit);
+
+    const result = await this.dataSource.query(query, parameters);
+
+    return {
+      data: toLowerCaseKeys(result),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async remove(id: number) {
+    const perguntaExists = await this.dataSource.query(
+      `SELECT ID FROM FK2_PERGUNTAS WHERE ID = :1 AND DELETED_AT IS NULL`,
+      [id],
+    );
+
+    if (!perguntaExists || perguntaExists.length === 0) {
+      throw new NotFoundException(`Pergunta com ID ${id} não encontrada`);
+    }
+
+    const query = `
+      UPDATE FK2_PERGUNTAS
+      SET DELETED_AT = SYSDATE
+      WHERE ID = :1
+    `;
+
+    await this.dataSource.query(query, [id]);
+
+    return {
+      message: 'Pergunta removida com sucesso',
     };
   }
 }
