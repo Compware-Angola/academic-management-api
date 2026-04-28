@@ -11,15 +11,18 @@ import { StudentsChangeCourse } from './students-change.course.service';
 import { StudentsResultPlanService } from './students-result-plan.service';
 import { BeginningStudentProcessController } from './beginning-student-process.controller';
 import { BeginningStudentProcessService } from './beginning-student-process.service';
+import { PreRegistrationController } from './pre-registration.controller';
+import { PreRegistrationService } from './pre-registration.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([AcademicYear])],
-  controllers: [StudentsController, BeginningStudentProcessController],
+  controllers: [StudentsController, BeginningStudentProcessController, PreRegistrationController],
 
   providers: [
     StudentsService,
     AnoLectivoUtil,
     StudentNoteService,
+    PreRegistrationService,
     StudentsEnrollmentUCService,
     StudentsEnrollmentPendentUCService,
     StudentsChangeCourse,
