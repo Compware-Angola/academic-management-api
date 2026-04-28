@@ -1,5 +1,16 @@
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { PerguntaProvaDto } from './pergunta-prova.dto';
+import { CursoProvaDto } from './curso-prova.dto';
+import { DisciplinaProvaDto } from './disciplina-prova.dto';
 
 export class UpdateProvaDto {
   @ApiPropertyOptional({
@@ -37,18 +48,35 @@ export class UpdateProvaDto {
   descricao?: string;
 
   @ApiPropertyOptional({
-    description: 'IDs das perguntas (separados por vírgula)',
-    example: '1,2,3,4,5',
+    type: [PerguntaProvaDto],
+    description: 'Lista de perguntas da prova',
+    example: [{ id: 1 }, { id: 2 }, { id: 3 }],
   })
   @IsOptional()
-  @IsString()
-  perguntas?: string;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PerguntaProvaDto)
+  perguntas?: PerguntaProvaDto[];
 
   @ApiPropertyOptional({
-    description: 'IDs dos cursos (separados por vírgula)',
-    example: '1,2,3',
+    type: [CursoProvaDto],
+    description: 'Lista de cursos da prova',
+    example: [{ id: 1 }, { id: 2 }],
   })
   @IsOptional()
-  @IsString()
-  cursos?: string;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CursoProvaDto)
+  cursos?: CursoProvaDto[];
+
+  @ApiPropertyOptional({
+    type: [DisciplinaProvaDto],
+    description: 'Lista de disciplinas da prova',
+    example: [{ id: 1 }, { id: 2 }],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DisciplinaProvaDto)
+  disciplinas?: DisciplinaProvaDto[];
 }

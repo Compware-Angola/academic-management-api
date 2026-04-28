@@ -29,6 +29,14 @@ export class ProvasController {
     return this.provasService.findAll(filtros);
   }
 
+  @Get(':id')
+  @ApiOperation({
+    summary: 'Detalha uma prova específica com perguntas e respostas',
+  })
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.provasService.findOne(id);
+  }
+
   @Post()
   @ApiOperation({
     summary: 'Cria uma nova prova',
