@@ -19,7 +19,9 @@ export class BeginningStudentProcessService {
         // Verifica duplicados
         await this.assertUniqueEmail(dto.email);
         await this.assertUniqueDocument(dto.numero_documento);
-        await this.assertUniquePhone(dto.telefone);
+        if (dto.telefone) {
+            await this.assertUniquePhone(dto.telefone);
+        }
 
         const hashedPassword: string = await gerarHashExterno(dto.password);
         const anoCorrente = await this.anoLectivoUtil.getAnoAtualId();
