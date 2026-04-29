@@ -53,10 +53,11 @@ export class CreateUserDto {
     numero_documento: string;
 
     @ApiProperty({ example: 'joao.silva', description: 'Nome de utilizador único' })
-    @IsNotEmpty({ message: 'O username é obrigatório' })
+    @IsOptional()
     @IsString()
     @MaxLength(100)
-    username: string;
+    @Type(() => String)
+    username?: string;
 
     @ApiProperty({ example: 'Senha@123', description: 'Palavra-passe (mín. 8 caracteres)' })
     @IsNotEmpty({ message: 'A palavra-passe é obrigatória' })

@@ -128,4 +128,18 @@ export class PreRegistrationController {
     remove(@Param('codigo', ParseIntPipe) codigo: number) {
         return this.service.remove(codigo);
     }
+
+    // ─── Ficha de inscrição completa ───────────────────────────────────────────
+    @Get('ficha/:userId')
+    @ApiOperation({
+        summary: 'Ficha de inscrição completa do candidato',
+        description:
+            'Retorna todos os dados agregados do utilizador + pré-inscrição + cursos + turnos + ano lectivo + polo + necessidade especial.',
+    })
+    @ApiParam({ name: 'userId', type: Number, description: 'ID do utilizador (FK2_USERS.ID)' })
+    @ApiResponse({ status: 200, description: 'Ficha de inscrição' })
+    @ApiResponse({ status: 404, description: 'Candidato não encontrado' })
+    getFichaInscricao(@Param('userId', ParseIntPipe) userId: number) {
+        return this.service.getFichaInscricao(userId);
+    }
 }
