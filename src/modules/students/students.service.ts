@@ -24,6 +24,7 @@ import { FindStudentClassInfoDTO } from './dto/find-student-info.dto';
 import { DefinirEspecialidadeDTO } from './dto/definir-especialidade.dto';
 import { formatarDataExtenso, notaExtenso } from '../util/diploma.util';
 import { GerarCertificadoDto } from './dto/gerar-certificado.dto';
+import { ListarDiplomadosDTO } from './dto/listar-diplomados-dto';
 
 
 @Injectable()
@@ -2462,6 +2463,61 @@ async gerarDiploma(
           ? 'diploma_ortoga'
           : 'diploma_ortoga_mestrado',
     },
+  };
+}
+
+async listarEstudantesDiplomados(filter: ListarDiplomadosDTO) {
+  const {
+    anoLectivo,
+    codigoCurso = 0,
+    genero = 'todos',
+    tipoCandidatura = 0,
+  } = filter;
+
+  const sql = `
+    SELECT 
+      tm.CODIGO AS matricula,
+      tp.NOME_COMPLETO AS nome,
+      tp.BILHETE_IDENTIDADE AS bilhete,
+      tp.DATA_NASCIMENTO AS data_nascimento,
+      tc.CODIGO AS codigo_curso,
+      tc.DESIGNACAO AS curso,
+      ttc.ID AS codigo_tipo_candidatura,
+      ttc.DESIGNACAO AS tipo_candidatura,
+      tm.DATA_MATRICULA AS data_matricula,
+      cca.DATA_CONCLUSAO AS data_conclusao,
+      tp.SEXO AS genero,
+      EXTRACT(YEAR FROM SYSDATE) - EXTRACT(YEAR FROM tp.DATA_NASCIMENTO) AS idade,
+      cca.NOTA AS media
+    FROM FK2_CONCLUSAO_CURSO_ALUNO cca
+    INNER JOIN FK2_TB_MATRICULAS tm 
+      ON tm.CODIGO = cca.CODIGO_MATRICULA
+    INNER JOIN FK2_TB_CURSOS tc 
+      ON tc.CODIGO = tm.CODIGO_CURSO
+    INNER JOIN FK2_TB_ADMISSAO ta 
+      ON ta.CODIGO = tm.CODIGO_ALUNO
+    INNER JOIN FK2_TB_PREINSCRICAO tp 
+      ON tp.CODIGO = ta.PRE_INCRICAO
+    INNER JOIN FK2_TB_TIPO_CANDIDATURA ttc 
+      ON ttc.ID = tp.CODIGO_TIPO_CANDIDATURA
+    WHERE cca.ANO_LECTIVO = :anoLectivo
+      AND (:codigoCurso = 0 OR tc.CODIGO = :codigoCurso)
+      AND (:genero = 'todos' OR tp.SEXO = :genero)
+      AND (:tipoCandidatura = 0 OR tp.CODIGO_TIPO_CANDIDATURA = :tipoCandidatura)
+    ORDER BY tp.NOME_COMPLETO
+  `;
+
+  const result = await this.dataSource.query(sql, {
+    anoLectivo,
+    codigoCurso,
+    genero,
+    tipoCandidatura,
+  } as any);
+
+  return {
+    success: true,
+    data: toLowerCaseKeys(result),
+    total: result.length,
   };
 }
 
