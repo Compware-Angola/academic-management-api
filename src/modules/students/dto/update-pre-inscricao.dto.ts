@@ -6,9 +6,11 @@ import {
     IsEmail,
     IsDateString,
     IsNumber,
+    IsBoolean,
 } from 'class-validator';
 
-export class CreatePreRegistrationDto {
+
+export class UpdatePreRegistrationDto {
 
     // === Dados da Inscrição ===
     @ApiPropertyOptional({ example: 1 })
