@@ -52,12 +52,7 @@ export class CreateUserDto {
     @MaxLength(50)
     numero_documento: string;
 
-    @ApiProperty({ example: 'joao.silva', description: 'Nome de utilizador único' })
-    @IsOptional()
-    @IsString()
-    @MaxLength(100)
-    @Type(() => String)
-    username?: string;
+
 
     @ApiProperty({ example: 'Senha@123', description: 'Palavra-passe (mín. 8 caracteres)' })
     @IsNotEmpty({ message: 'A palavra-passe é obrigatória' })
