@@ -405,7 +405,292 @@ export class PreRegistrationService {
             },
         };
     }
+    //
+    //
+    //
 
+    //  FICHA DE INSCRIÇÃO COMPLETA
+    // ─────────────────────────────────────────────
+    async getFichaInscricao(userId: number) {
+        const rows = await this.dataSource.query(
+            `
+      SELECT
+        us.id                               AS user_id,
+        us.name                             AS nome_completo_user,
+        us.email                            AS email_user,
+        us.telefone                         AS telefone,
+        us.numero_documento                 AS numero_documento,
+        us.foto,
+        us.updated_at                       AS data_actualizacao,
+
+        p.CODIGO                            AS codigo_preinscricao,
+        p.NOME_COMPLETO,
+        p.SEXO,
+        p.ESTADO_CIVIL,
+        p.CONTACTO_DE_EMERGENCIA,
+        p.TIPO_IDENTIFICACAO,
+        p.DATA_NASCIMENTO,
+        p.EMAIL                             AS email_preinscricao,
+        p.BILHETE_IDENTIDADE,
+        p.CONTACTOS_TELEFONICOS,
+        p.NUMERO_IDENTIFICACAO_FISCAL,
+        p.MORADA_COMPLETA,
+        p.NATURALIDADE,
+        p.PROVINCIA_ORIGEM,
+        p.CODIGO_NACIONALIDADE,
+        p.LOCAL_EMISSAO_BI,
+        p.DATA_EMISSAO_BI,
+        p.DATA_VALIDADE_BI,
+        p.NOME_PESSOA_CONTACTO_TELEFONE,
+        p.DESLOCADO_PERMANENTE,
+
+        -- Formação anterior
+        p.INSTITUICAO_FORMACAO,
+        p.INSTITUICAO_FORMACAO_ACESSO,
+        p.DATA_CONCLUSAO,
+        p.MEDIA_FINAL,
+        p.NUMERO_ORDEM_MEDICOS,
+        p.CODIGO_HABILITACAO_ANTERIOR,
+        p.CODIGO_TIPO_ESTABELECIMENTO_SECUNDARIO,
+        p.CODIGO_PAIS_HABILITACAO_ANTERIOR,
+        p.CURSO_ENSINO_MEDIO,
+
+        -- Dados profissionais
+        p.INSTITUICAO_EXERCE_FUNCAO,
+        p.DATA_INICIO_TRABALHO,
+        p.PROVINCIA_TRABALHO,
+
+        -- Família
+        p.PAI,
+        p.MAE,
+        p.OCUPACAO_PAI,
+        p.OCUPACAO_MAE,
+        p.OCUPACAO_CONJUGE,
+        p.PROFISSAO_PAI,
+        p.PROFISSAO_MAE,
+        p.PROFISSAO_CONJUGE,
+        p.GRAU_ACADEMICO_PAI,
+        p.GRAU_ACADEMICO_MAE,
+        p.GRAU_ACADEMICO_CONJUGE,
+
+        -- Candidatura / controlo
+        p.DATA_PREESCRINCAO                 AS data_candidatura,
+        p.DATA_ULTIMA_ACTUALIZACAO          AS data_ultima_atualizacao,
+        p.ESTADO,
+        p.ESTADO_PREISCRICAO_CANDIDATO,
+        p.PERMITIR_INSCRICAO,
+        p.CANAL,
+        p.CODIGO_TIPO_CANDIDATURA,
+        p.CODIGO_FORMA_INGRESSO,
+        p.SALDO,
+        p.SALDO_ANTERIOR,
+        p.SALDO_RESET,
+        p.SALDO_RESET_ANTER,
+        p.DESCONTO,
+        p.OBS_SALDO,
+        p.OBS_DESCONTO,
+        p.ISENCAO_MULTA,
+        p.CODIGO_VALIDACAO_EMAIL,
+        p.ESTADO_ATUALIZACAO_EMAIL,
+        p.CREATED_AT,
+        p.UPDATED_AT,
+
+        -- Opção 1 (curso principal)
+        p.CURSO_CANDIDATURA                 AS curso_opcao1_codigo,
+        cr1.DESIGNACAO                      AS curso_opcao1_designacao,
+        cr1.DURACAO                         AS curso_opcao1_duracao,
+
+        -- Opção 2
+        p.CURSOOPCIONAL1_ID                 AS curso_opcao2_codigo,
+        cr2.DESIGNACAO                      AS curso_opcao2_designacao,
+
+        -- Opção 3
+        p.CURSOOPCIONAL2_ID                 AS curso_opcao3_codigo,
+        cr3.DESIGNACAO                      AS curso_opcao3_designacao,
+
+        -- Turno Opção 1
+        p.CODIGO_TURNO                      AS turno_opcao1_codigo,
+        per1.DESIGNACAO                     AS turno_opcao1_designacao,
+
+        -- Turno Opção 2
+        p.CODIGO_TURNO_OPTIONAL             AS turno_opcao2_codigo,
+        per2.DESIGNACAO                     AS turno_opcao2_designacao,
+
+        -- Ano lectivo
+        al.DESIGNACAO                       AS ano_lectivo,
+        al.CODIGO                           AS ano_lectivo_codigo,
+
+        -- Polo
+        polos.ID                            AS polo_id,
+        polos.DESIGNACAO                    AS polo,
+
+        -- Necessidade especial
+        ne.ID                               AS necessidade_especial_id,
+        ne.DESIGNACAO                       AS necessidade_especial
+
+      FROM fk2_users                        us
+        INNER JOIN fk2_tb_preinscricao      p     ON p.USER_ID              = us.ID
+        LEFT  JOIN fk2_tb_cursos            cr1   ON cr1.CODIGO             = p.CURSO_CANDIDATURA
+        LEFT  JOIN fk2_tb_cursos            cr2   ON cr2.CODIGO             = p.CURSOOPCIONAL1_ID
+        LEFT  JOIN fk2_tb_cursos            cr3   ON cr3.CODIGO             = p.CURSOOPCIONAL2_ID
+        LEFT  JOIN fk2_tb_periodos          per1  ON per1.CODIGO            = p.CODIGO_TURNO
+        LEFT  JOIN fk2_tb_periodos          per2  ON per2.CODIGO            = p.CODIGO_TURNO_OPTIONAL
+        LEFT  JOIN fk2_tb_ano_lectivo       al    ON al.CODIGO              = us.ANO_LECTIVO_ID
+        LEFT  JOIN fk2_polos                polos ON polos.ID               = p.POLO_ID
+        LEFT  JOIN fk2_necessidade_especiais ne   ON ne.ID                  = p.NECESSIDADE_ESPECIAL_ID
+      WHERE us.ID = :userId
+      `,
+            { userId } as any,
+        );
+
+        if (!rows.length)
+            throw new NotFoundException(
+                `Nenhuma ficha de inscrição encontrada para o utilizador ${userId}`,
+            );
+
+        // Devolve a ficha com cursos e turnos organizados em arrays para facilitar o front-end
+        const row = rows[0];
+
+        return {
+            // ── Utilizador ────────────────────────────────────
+            utilizador: {
+                user_id: row.USER_ID,
+                nome: row.NOME_COMPLETO_USER,
+                email: row.EMAIL_USER,
+                telefone: row.TELEFONE,
+                numero_documento: row.NUMERO_DOCUMENTO,
+                foto: row.FOTO,
+                data_actualizacao: row.DATA_ACTUALIZACAO,
+            },
+
+            // ── Dados pessoais ────────────────────────────────
+            dados_pessoais: {
+                nome_completo: row.NOME_COMPLETO,
+                sexo: row.SEXO,
+                data_nascimento: row.DATA_NASCIMENTO,
+                estado_civil: row.ESTADO_CIVIL,
+                naturalidade: row.NATURALIDADE,
+                provincia_origem: row.PROVINCIA_ORIGEM,
+                codigo_nacionalidade: row.CODIGO_NACIONALIDADE,
+                contactos_telefonicos: row.CONTACTOS_TELEFONICOS,
+                contacto_de_emergencia: row.CONTACTO_DE_EMERGENCIA,
+                nome_pessoa_contacto: row.NOME_PESSOA_CONTACTO_TELEFONE,
+                morada_completa: row.MORADA_COMPLETA,
+                email: row.EMAIL_PREINSCRICAO,
+                deslocado_permanente: row.DESLOCADO_PERMANENTE === 1,
+                necessidade_especial_id: row.NECESSIDADE_ESPECIAL_ID,
+                necessidade_especial: row.NECESSIDADE_ESPECIAL,
+            },
+
+            // ── Documento ─────────────────────────────────────
+            documento: {
+                tipo_identificacao: row.TIPO_IDENTIFICACAO,
+                bilhete_identidade: row.BILHETE_IDENTIDADE,
+                numero_documento: row.NUMERO_DOCUMENTO,
+                nif: row.NUMERO_IDENTIFICACAO_FISCAL,
+                local_emissao_bi: row.LOCAL_EMISSAO_BI,
+                data_emissao_bi: row.DATA_EMISSAO_BI,
+                data_validade_bi: row.DATA_VALIDADE_BI,
+            },
+
+            // ── Formação anterior ─────────────────────────────
+            formacao_anterior: {
+                instituicao_formacao: row.INSTITUICAO_FORMACAO,
+                instituicao_formacao_acesso: row.INSTITUICAO_FORMACAO_ACESSO,
+                data_conclusao: row.DATA_CONCLUSAO,
+                media_final: row.MEDIA_FINAL,
+                numero_ordem_medicos: row.NUMERO_ORDEM_MEDICOS,
+                curso_ensino_medio: row.CURSO_ENSINO_MEDIO,
+                codigo_habilitacao_anterior: row.CODIGO_HABILITACAO_ANTERIOR,
+                codigo_tipo_estabelecimento_secundario: row.CODIGO_TIPO_ESTABELECIMENTO_SECUNDARIO,
+                codigo_pais_habilitacao_anterior: row.CODIGO_PAIS_HABILITACAO_ANTERIOR,
+            },
+
+            // ── Dados profissionais ───────────────────────────
+            dados_profissionais: {
+                instituicao_exerce_funcao: row.INSTITUICAO_EXERCE_FUNCAO,
+                data_inicio_trabalho: row.DATA_INICIO_TRABALHO,
+                provincia_trabalho: row.PROVINCIA_TRABALHO,
+            },
+
+            // ── Família ───────────────────────────────────────
+            familia: {
+                pai: row.PAI,
+                mae: row.MAE,
+                ocupacao_pai: row.OCUPACAO_PAI,
+                ocupacao_mae: row.OCUPACAO_MAE,
+                ocupacao_conjuge: row.OCUPACAO_CONJUGE,
+                profissao_pai: row.PROFISSAO_PAI,
+                profissao_mae: row.PROFISSAO_MAE,
+                profissao_conjuge: row.PROFISSAO_CONJUGE,
+                grau_academico_pai: row.GRAU_ACADEMICO_PAI,
+                grau_academico_mae: row.GRAU_ACADEMICO_MAE,
+                grau_academico_conjuge: row.GRAU_ACADEMICO_CONJUGE,
+            },
+
+            // ── Candidatura ───────────────────────────────────
+            candidatura: {
+                codigo_preinscricao: row.CODIGO_PREINSCRICAO,
+                data_candidatura: row.DATA_CANDIDATURA,
+                data_ultima_atualizacao: row.DATA_ULTIMA_ATUALIZACAO,
+                estado: row.ESTADO,
+                estado_candidato: row.ESTADO_PREISCRICAO_CANDIDATO,
+                permitir_inscricao: row.PERMITIR_INSCRICAO === 1,
+                canal: row.CANAL,
+                codigo_tipo_candidatura: row.CODIGO_TIPO_CANDIDATURA,
+                codigo_forma_ingresso: row.CODIGO_FORMA_INGRESSO,
+                ano_lectivo: row.ANO_LECTIVO,
+                ano_lectivo_codigo: row.ANO_LECTIVO_CODIGO,
+                polo_id: row.POLO_ID,
+                polo: row.POLO,
+            },
+
+            // ── Opções de curso ───────────────────────────────
+            opcoes_curso: [
+                {
+                    opcao: 1,
+                    codigo: row.CURSO_OPCAO1_CODIGO,
+                    designacao: row.CURSO_OPCAO1_DESIGNACAO,
+                    duracao: row.CURSO_OPCAO1_DURACAO,
+                    turno_codigo: row.TURNO_OPCAO1_CODIGO,
+                    turno: row.TURNO_OPCAO1_DESIGNACAO,
+                },
+                {
+                    opcao: 2,
+                    codigo: row.CURSO_OPCAO2_CODIGO,
+                    designacao: row.CURSO_OPCAO2_DESIGNACAO,
+                    turno_codigo: row.TURNO_OPCAO2_CODIGO,
+                    turno: row.TURNO_OPCAO2_DESIGNACAO,
+                },
+                {
+                    opcao: 3,
+                    codigo: row.CURSO_OPCAO3_CODIGO,
+                    designacao: row.CURSO_OPCAO3_DESIGNACAO,
+                },
+            ].filter((o) => o.codigo != null),
+
+            // ── Financeiro ────────────────────────────────────
+            financeiro: {
+                saldo: row.SALDO,
+                saldo_anterior: row.SALDO_ANTERIOR,
+                saldo_reset: row.SALDO_RESET,
+                saldo_reset_anterior: row.SALDO_RESET_ANTER,
+                desconto: row.DESCONTO,
+                obs_saldo: row.OBS_SALDO,
+                obs_desconto: row.OBS_DESCONTO,
+                isencao_multa: row.ISENCAO_MULTA,
+            },
+
+            // ── Email / validação ─────────────────────────────
+            validacao: {
+                codigo_validacao_email: row.CODIGO_VALIDACAO_EMAIL,
+                estado_atualizacao_email: row.ESTADO_ATUALIZACAO_EMAIL,
+            },
+
+            created_at: row.CREATED_AT,
+            updated_at: row.UPDATED_AT,
+        };
+    }
     // ─────────────────────────────────────────────
     //  FIND ONE
     // ─────────────────────────────────────────────
