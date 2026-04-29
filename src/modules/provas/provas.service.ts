@@ -12,7 +12,7 @@ import { gerarHashExterno } from '../util/hash.util';
 
 @Injectable()
 export class ProvasService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   async findAll(filtros: FilterProvaDto) {
     const {
@@ -432,9 +432,9 @@ export class ProvasService {
       userId,
       duracao,
       texto || null,
-      perguntasJson,
-      disciplinasJson,
-      cursosJson,
+      perguntas,
+      disciplinas,
+      cursos,
     ]);
 
     return {
