@@ -24,10 +24,7 @@ export class BeginningStudentProcessService {
         }
 
         const hashedPassword: string = await gerarHashExterno(dto.password);
-        const anoCorrente = await this.anoLectivoUtil.getAnoAtualId();
-        if (!anoCorrente) {
-            throw new BadRequestException('Ano letivo atual não encontrado');
-        }
+        const anoCorrente = await this.anoLectivoUtil.getAnoAtualId() ?? null;
 
 
         const result = await this.dataSource.query(
@@ -86,7 +83,7 @@ export class BeginningStudentProcessService {
                 faculdade: dto.faculdade ?? null,
                 estado: dto.estado ?? 1,
                 foto: null,
-                anoLectivoId: dto.ano_lectivo_id ?? null,
+                anoLectivoId: anoCorrente,
                 password: hashedPassword,
                 outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
             } as any,
