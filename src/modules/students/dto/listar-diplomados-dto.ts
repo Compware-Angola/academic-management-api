@@ -26,4 +26,16 @@ export class ListarDiplomadosDTO {
   @Transform(({ value }) => Number(value))
   @IsInt()
   tipoCandidatura?: number;
+
+@ApiPropertyOptional()
+@Transform(({ value }) => Number(value))
+@IsOptional()
+@IsInt()
+page?: number;
+
+@ApiPropertyOptional()
+@Transform(({ value }) => Number(value))
+@IsOptional()
+@IsInt()
+limit?: number;
 }
