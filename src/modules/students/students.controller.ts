@@ -16,7 +16,7 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { StudentsService } from './students.service';
-import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 
 import { FilterMapaAnualFinalistasDto } from './dto/filter-mapa-anual-finalista.dto';
 import { FilterRegistoPrimarioExamesAcessoDto } from './dto/filter-registo-primario-exames-acesso.dto';
@@ -54,6 +54,7 @@ import { GerarCertificadoDto } from './dto/gerar-certificado.dto';
 
 import { StudentsChangeCourse } from './students-change.course.service';
 import { StudentsResultPlanService } from './students-result-plan.service';
+import { ListarDiplomadosDTO } from './dto/listar-diplomados-dto';
 
 @Controller('students')
 export class StudentsController {
@@ -377,4 +378,24 @@ export class StudentsController {
   findResultadoPlano(@Param('matricula', ParseIntPipe) matricula: number) {
     return this.studentsResultPlanService.findPlan(matricula);
   }
+
+@Get('diplomados')
+@ApiOperation({ summary: 'Listar estudantes diplomados' })
+@ApiQuery({ name: 'anoLectivo', required: true, type: Number })
+@ApiQuery({ name: 'codigoCurso', required: false, type: Number })
+@ApiQuery({
+  name: 'genero',
+  required: false,
+  enum: ['todos', 'Masculino', 'Feminino'],
+})
+@ApiQuery({ name: 'tipoCandidatura', required: false, type: Number })
+@ApiResponse({
+  status: HttpStatus.OK,
+  description: 'Lista de estudantes diplomados obtida com sucesso',
+})
+@UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+listarEstudantesDiplomados(@Query() query: ListarDiplomadosDTO) {
+  return this.studentsService.listarEstudantesDiplomados(query);
+}
+
 }
