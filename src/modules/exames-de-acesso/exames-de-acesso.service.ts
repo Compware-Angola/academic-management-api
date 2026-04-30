@@ -1083,6 +1083,72 @@ async buscaProvaMarcacoes(filtros: FilterProvaMarcacaoDto) {
     });
   }
 
+  async lancarNotaManual(codigoCandidato: number, nota: number | null) {
+    return await this.dataSource.transaction(async (manager) => {
+      const sqlCheck = `
+        SELECT FK2_TB_PREINSCRICAO.CODIGO,
+               (SELECT 1 FROM FK2_TB_ADMISSAO WHERE FK2_TB_ADMISSAO.PRE_INCRICAO = FK2_TB_PREINSCRICAO.CODIGO AND ROWNUM = 1) AS ADMISSAO
+          FROM FK2_TB_PREINSCRICAO
+         WHERE FK2_TB_PREINSCRICAO.CODIGO = :1
+      `;
+      const candidates = await manager.query(sqlCheck, [codigoCandidato]);
+
+      if (candidates.length === 0) {
+        throw new HttpException(
+          'Candidato não encontrado.',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      const candidate = candidates[0];
+
+      if (candidate.ADMISSAO) {
+        throw new HttpException(
+          'Candidato já possui admissão.',
+          HttpStatus.CONFLICT,
+        );
+      }
+
+      const status = nota === null || Number(nota) < 10 ? 0 : 1;
+
+      const sqlUpdate = `
+        UPDATE FK2_CANDIDATO_PROVAS
+           SET NOTA = :1, STATUS_ = :2, UPDATED_AT = SYSDATE
+         WHERE CANDIDATO_ID = :3
+      `;
+      await manager.query(sqlUpdate, [nota, status, codigoCandidato]);
+
+      if (nota === null || Number(nota) < 10) {
+        return {
+          message: 'Nota lançada com sucesso. Candidato reprovado.',
+          nota: nota,
+          status: 'Reprovado',
+        };
+      }
+
+      const sqlInsertAdmissao = `
+        INSERT INTO FK2_TB_ADMISSAO (PRE_INCRICAO, MEDIAFINAL, DATA, RESULTADO, CANAL, POLO_ID) 
+        VALUES (:1, :2, SYSDATE, 'Admitido(a)', 1, 1)
+      `;
+      await manager.query(sqlInsertAdmissao, [codigoCandidato, nota]);
+      const sqlGetAdmissao = `
+        SELECT CODIGO FROM FK2_TB_ADMISSAO 
+        WHERE PRE_INCRICAO = :1 
+        ORDER BY DATA DESC 
+        FETCH FIRST 1 ROWS ONLY
+      `;
+      const admissaoResult = await manager.query(sqlGetAdmissao, [codigoCandidato]);
+      const codigoAdmissao = admissaoResult[0]?.CODIGO;
+
+      return {
+        message: 'Nota lançada e candidato admitido com sucesso.',
+        nota: nota,
+        status: 'Admitido',
+        codigoAdmissao,
+      };
+    });
+  }
+
   async lancarNotaArquitectura(codigoCandidato: number, notaPratica: number) {
     return await this.dataSource.transaction(async (manager) => {
       const sqlFetch = `

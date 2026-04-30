@@ -10,6 +10,7 @@ import { FilterProvaMarcacaoDto } from './dto/filter-prova-marcacao.dto';
 import { AdmitirCandidatoPublicoDto } from './dto/admitir-candidato-publico.dto';
 import { FilterCandidatoAdmitidoDto } from './dto/filter-candidato-admitido.dto';
 import { LancarNotaArquitecturaDto } from './dto/lancar-nota-arquitectura.dto';
+import { LancarNotaManualDto } from './dto/lancar-nota-manual.dto';
 import { FilterResultadosFinaisDto } from './dto/filter-resultados-finais.dto';
 import { FilterEstatisticaCandidatosDto } from './dto/filter-estatistica-candidatos.dto';
 import { HttpService } from '@nestjs/axios';
@@ -195,6 +196,22 @@ export class ExamesDeAcessoController {
     });
     return result;
   }
+
+  @Post('lancar-nota-manual/:codigoCandidato')
+  @ApiOperation({
+    summary: 'Lança nota manual para um candidato',
+  })
+  lancarNotaManual(
+    @Param('codigoCandidato', ParseIntPipe) codigoCandidato: number,
+    @Body() dto: LancarNotaManualDto,
+  ) {
+    const result = this.examesAcessoService.lancarNotaManual(
+      codigoCandidato,
+      dto.nota,
+    );
+    return result;
+  }
+
   @Patch('resetar-prova/:codigoCandidato')
   @ApiOperation({ summary: 'Reseta a prova de um candidato' })
   @ApiResponse({ status: 200, description: 'Prova resetada com sucesso' })
