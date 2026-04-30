@@ -11,6 +11,7 @@ import {
     HttpStatus,
     ParseIntPipe,
     Req,
+    UseGuards,
 } from '@nestjs/common';
 import {
     ApiTags,
@@ -24,6 +25,8 @@ import { PreRegistrationService } from './pre-registration.service';
 import { CreatePreRegistrationDto } from './dto/create-pre-inscricao.dto';
 import { UpdatePreRegistrationDto } from './dto/update-pre-inscricao.dto';
 import { QueryPreRegistrationDto } from './dto/queryPreRegistrationDto';
+import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 
 @ApiTags('Pré-Inscrições')
 @Controller('pre-inscricoes')
@@ -33,6 +36,7 @@ export class PreRegistrationController {
     // ─────────────────────────────────────────────
     //  CREATE
     // ─────────────────────────────────────────────
+    @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
     @Post()
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({ summary: 'Criar nova pré-inscrição' })
@@ -41,7 +45,7 @@ export class PreRegistrationController {
     @ApiResponse({ status: 400, description: 'Dados inválidos' })
     create(@Body() dto: CreatePreRegistrationDto, @Req() req: any) {
         const usuarioLogado = req.user;
-        return this.service.create(dto, usuarioLogado);
+        return this.service.create(dto, usuarioLogado.sub);
 
     }
 
