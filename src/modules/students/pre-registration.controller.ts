@@ -10,6 +10,7 @@ import {
     HttpCode,
     HttpStatus,
     ParseIntPipe,
+    Req,
 } from '@nestjs/common';
 import {
     ApiTags,
@@ -38,8 +39,10 @@ export class PreRegistrationController {
     @ApiResponse({ status: 201, description: 'Pré-inscrição criada com sucesso' })
     @ApiResponse({ status: 409, description: 'BI ou Email já registado' })
     @ApiResponse({ status: 400, description: 'Dados inválidos' })
-    create(@Body() dto: CreatePreRegistrationDto) {
-        return this.service.create(dto);
+    create(@Body() dto: CreatePreRegistrationDto, @Req() req: any) {
+        const usuarioLogado = req.user;
+        return this.service.create(dto, usuarioLogado);
+
     }
 
     // ─────────────────────────────────────────────

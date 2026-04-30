@@ -22,7 +22,7 @@ export class PreRegistrationService {
     // ─────────────────────────────────────────────
     //  CREATE
     // ─────────────────────────────────────────────
-    async create(dto: CreatePreRegistrationDto, userId?: number) {
+    async create(dto: CreatePreRegistrationDto, userId: number) {
         await this.assertUniqueBI(dto.bilheteIdentidade);
         await this.assertUniqueEmail(dto.email);
 
