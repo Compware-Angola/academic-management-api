@@ -6,7 +6,7 @@ import { FindStudentNoteDTO } from './dto/find-student-notes.dto';
 @Injectable()
 export class StudentNoteService {
   private anoAtualPrincipal: number;
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   async findAll(dto: FindStudentNoteDTO) {
     const { anoLectivo, codigoMatricula, page = 1, limit = 20 } = dto;
@@ -268,6 +268,8 @@ export class StudentNoteService {
 
       const getNota = (tipo: number) =>
         avaliacoes.find((a) => a.TIPO_AVALIACAO === tipo) || null;
+      console.log("<------------    AVALIACOES    ------------>", avaliacoes)
+
 
       const nota1f = getNota(2);
       const nota2f = getNota(3);
@@ -427,7 +429,7 @@ export class StudentNoteService {
           } else {
             const mediaFreq = this.round(
               nota1f!.NOTA! * (peso_primeira_freq / 100) +
-                nota2f!.NOTA! * (peso_segunda_freq / 100),
+              nota2f!.NOTA! * (peso_segunda_freq / 100),
             );
 
             if (hasPratica) {
@@ -577,7 +579,7 @@ export class StudentNoteService {
 
             media = this.round(
               notaTeorica * ((100 - peso_pratica) / 100) +
-                notaPra!.NOTA! * (peso_pratica / 100),
+              notaPra!.NOTA! * (peso_pratica / 100),
             );
 
             if (media >= 10) {

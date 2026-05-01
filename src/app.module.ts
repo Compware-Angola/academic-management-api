@@ -30,7 +30,7 @@ import { DropdownFiltersModule } from './modules/shared/dropdown_filters/dropdow
 import { ExamesDeAcessoModule } from './modules/exames-de-acesso/exames-de-acesso.module';
 import { StatisticsReportsModule } from './modules/shared/statistics-reports/statistics-reports.module';
 import { RegistrationModule } from './modules/registration/registration.module';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'; 
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core/constants';
 import { CustomThrottlerGuard } from './modules/common/guard/Custom-Throttler.guard';
 import { CursosModule } from './modules/cursos/cursos.module';
@@ -44,16 +44,16 @@ import { VagasModule } from './modules/vagas/vagas.module';
 
 @Module({
   imports: [
-       ConfigModule.forRoot({
+    ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: (() => {
         switch (process.env.NODE_ENV) {
           case 'production':
-            return '.env.prod';       
+            return '.env.prod';
           case 'preprod':
-            return '.env.preprod';    
+            return '.env.preprod';
           default:
-            return '.env.dev';        
+            return '.env.dev';
         }
       })(),
     }),
@@ -66,43 +66,43 @@ import { VagasModule } from './modules/vagas/vagas.module';
     ]),
     */
     HttpModule,
-   TypeOrmModule.forRootAsync({
-  imports: [ConfigModule],
-  inject: [ConfigService],
-  useFactory: (config: ConfigService) => {
-    const isSSL = config.get<string>('DB_SSL') === 'true';
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const isSSL = config.get<string>('DB_SSL') === 'true';
 
-    return {
-      type: 'oracle' as const,
-      host: config.get<string>('DB_HOST'),
-      port: config.get<number>('DB_PORT', 1521),
-      username: config.get<string>('DB_USERNAME'),
-      password: config.get<string>('DB_PASSWORD'),
-      sid: config.get<string>('DB_SID'),
+        return {
+          type: 'oracle' as const,
+          host: config.get<string>('DB_HOST'),
+          port: config.get<number>('DB_PORT', 1521),
+          username: config.get<string>('DB_USERNAME'),
+          password: config.get<string>('DB_PASSWORD'),
+          sid: config.get<string>('DB_SID'),
 
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: false,
-      logging: ['query', 'error'],
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          synchronize: false,
+          logging: ['query', 'error'],
 
-      // ==================== CONFIGURAÇÃO DO POOL ====================
-      poolSize: 20,                 // ← Número máximo de conexões (ajusta conforme teu servidor)
+          // ==================== CONFIGURAÇÃO DO POOL ====================
+          poolSize: 20,                 // ← Número máximo de conexões (ajusta conforme teu servidor)
 
-      extra: {
-        poolMin: 5,                 // mínimo de conexões abertas
-        poolMax: 30,                // máximo de conexões (importante!)
-        poolIncrement: 5,
-        queueTimeout: 120000,       // 120 segundos (aumentado)
-        queueMax: 100,              // máximo de requisições em espera
-        poolTimeout: 60,            // segundos que uma conexão idle pode ficar no pool
-        poolPingInterval: 60,       // verifica conexões inválidas
-        connectTimeout: 15000,      // timeout para criar nova conexão
-        // callTimeout: 30000,      // timeout para cada query (descomenta se quiseres)
+          extra: {
+            poolMin: 5,                 // mínimo de conexões abertas
+            poolMax: 30,                // máximo de conexões (importante!)
+            poolIncrement: 5,
+            queueTimeout: 120000,       // 120 segundos (aumentado)
+            queueMax: 100,              // máximo de requisições em espera
+            poolTimeout: 60,            // segundos que uma conexão idle pode ficar no pool
+            poolPingInterval: 60,       // verifica conexões inválidas
+            connectTimeout: 15000,      // timeout para criar nova conexão
+            // callTimeout: 30000,      // timeout para cada query (descomenta se quiseres)
 
-        ...(isSSL ? { ssl: { rejectUnauthorized: true } } : {}),
+            ...(isSSL ? { ssl: { rejectUnauthorized: true } } : {}),
+          },
+        };
       },
-    };
-  },
-}),
+    }),
 
     AssessmentModule,
     RoonModule,
@@ -138,15 +138,15 @@ import { VagasModule } from './modules/vagas/vagas.module';
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService,
-    
+
     /*
     {
       provide: APP_GUARD,
       useClass: CustomThrottlerGuard, 
     },
     */
-  
-  
+
+
   ],
 })
-export class AppModule {}
+export class AppModule { }
