@@ -17,7 +17,7 @@ export class StudentsProvasController {
         });
 
     }
-    @Get('especail/:anoLectivo/:codigoMatricula')
+    @Get('epoca-especial/:anoLectivo/:codigoMatricula')
     async cadeirasEpocaEspecial(@Param() params: FindProvasEpocaEspecialDto) {
         return this.studentsProvasService.cadeirasEpocaEspecial({
             anoLectivo: params.anoLectivo,
