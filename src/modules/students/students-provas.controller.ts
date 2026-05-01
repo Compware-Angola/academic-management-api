@@ -1,7 +1,7 @@
 import { Controller, Get, Param } from "@nestjs/common";
 import { StudentNoteService } from "./sudents-notes.service";
 import { ApiTags } from "@nestjs/swagger";
-import { FindProvasRecursoDto } from "./dto/recursos.dto";
+import { FindProvasEpocaEspecialDto, FindProvasRecursoDto } from "./dto/recursos.dto";
 import { StudentsProvasService } from "./students-provas.service";
 
 @ApiTags('Provas')
@@ -16,5 +16,12 @@ export class StudentsProvasController {
             codigoMatricula: params.codigoMatricula,
         });
 
+    }
+    @Get('especail/:anoLectivo/:codigoMatricula')
+    async cadeirasEpocaEspecial(@Param() params: FindProvasEpocaEspecialDto) {
+        return this.studentsProvasService.cadeirasEpocaEspecial({
+            anoLectivo: params.anoLectivo,
+            codigoMatricula: params.codigoMatricula,
+        });
     }
 }

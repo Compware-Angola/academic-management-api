@@ -15,3 +15,17 @@ export class FindProvasRecursoDto {
     @Type(() => Number)
     codigoMatricula: number;
 }
+
+export class FindProvasEpocaEspecialDto {
+    @ApiProperty({ description: 'Ano letivo', example: 2026 })
+    @IsNotEmpty()
+    @IsNumber()
+    @Type(() => Number)
+    anoLectivo: number;
+
+    @ApiProperty({ description: 'Código da matrícula', example: 12345 })
+    @IsNotEmpty()
+    @IsNumber()
+    @Type(() => Number)
+    codigoMatricula: number;
+}

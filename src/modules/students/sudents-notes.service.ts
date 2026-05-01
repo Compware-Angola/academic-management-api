@@ -268,9 +268,6 @@ export class StudentNoteService {
 
       const getNota = (tipo: number) =>
         avaliacoes.find((a) => a.TIPO_AVALIACAO === tipo) || null;
-      console.log("<------------    AVALIACOES    ------------>", avaliacoes)
-
-
       const nota1f = getNota(2);
       const nota2f = getNota(3);
       const notaEx = getNota(6);
