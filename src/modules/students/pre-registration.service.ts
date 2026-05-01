@@ -606,6 +606,83 @@ export class PreRegistrationService {
             updated_at: row.UPDATED_AT,
         };
     }
+
+    // INFORMAÇÕES GERAIS DO CANDIDATO
+    async getCandidaturaUserData(userId: number): Promise<any> {
+        const result = await this.dataSource.query(
+            `
+    SELECT
+      us.id                         AS user_id,
+      p.Nome_Completo,
+      p.email                      AS email,
+      p.contactos_telefonicos                   AS telefone,
+      p.bilhete_identidade           AS numero_documento,
+      p.Codigo                      AS codigo_preinscricao,
+      a.data                        AS data_admissao,
+      hp.data_realizacao            AS data_prova,
+      hp.hora_inicio,
+      hp.hora_fim,
+      tc.STATUS_                    AS status_prova,
+
+      CASE
+        WHEN p.Codigo  IS NULL                                 THEN 'SEM_PRE_INSCRICAO'
+        WHEN tc.id     IS NULL                                 THEN 'SEM_ADMISSAO'
+        WHEN tc.STATUS_ = 0 AND hp.data_realizacao > SYSDATE  THEN 'AGUARDANDO_DIA_DA_PROVA'
+        WHEN tc.STATUS_ = 0 AND hp.data_realizacao <= SYSDATE THEN 'AGUARDANDO_RESULTADO'
+        WHEN a.mediafinal < 10                                 THEN 'NAO_ADMITIDO'
+        WHEN a.mediafinal >= 10 AND m.Codigo IS NULL           THEN 'ADMITIDO_SEM_MATRICULA'
+        WHEN a.mediafinal >= 10 AND m.Codigo IS NOT NULL       THEN 'ALUNO_MATRICULADO'
+        ELSE                                                        'ALUNO_MATRICULADO'
+      END AS estado_aluno
+
+    FROM fk2_users us
+
+      LEFT JOIN (
+        SELECT * FROM (
+          SELECT p.*, ROW_NUMBER() OVER (PARTITION BY p.user_id ORDER BY p.Codigo DESC) AS rn
+          FROM fk2_tb_preinscricao p
+        ) WHERE rn = 1
+      ) p ON p.user_id = us.id
+
+      LEFT JOIN (
+        SELECT * FROM (
+          SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.pre_incricao ORDER BY a.codigo DESC) AS rn
+          FROM fk2_tb_admissao a
+        ) WHERE rn = 1
+      ) a ON a.pre_incricao = p.Codigo
+
+      LEFT JOIN (
+        SELECT * FROM (
+          SELECT m.*, ROW_NUMBER() OVER (PARTITION BY m.Codigo_Aluno ORDER BY m.Codigo DESC) AS rn
+          FROM fk2_tb_matriculas m
+        ) WHERE rn = 1
+      ) m ON m.Codigo_Aluno = a.codigo
+
+      LEFT JOIN (
+        SELECT * FROM (
+          SELECT tc.*, ROW_NUMBER() OVER (PARTITION BY tc.candidato_id ORDER BY tc.id DESC) AS rn
+          FROM fk2_candidato_provas tc
+        ) WHERE rn = 1
+      ) tc ON tc.candidato_id = p.Codigo
+
+      LEFT JOIN (
+        SELECT * FROM (
+          SELECT hp.*, ROW_NUMBER() OVER (PARTITION BY hp.id ORDER BY hp.id DESC) AS rn
+          FROM FK2_TB_HORARIO_PROVA hp
+        ) WHERE rn = 1
+      ) hp ON hp.id = tc.HORARIO_PROVA_ID
+
+    WHERE us.id = :userId
+    `,
+            { userId } as any,
+        );
+
+        if (!result || result.length === 0) {
+            throw new NotFoundException('Utilizador não encontrado');
+        }
+
+        return toLowerCaseKeys(result[0]);
+    }
     // ─────────────────────────────────────────────
     //  FIND ONE
     // ─────────────────────────────────────────────
