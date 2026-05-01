@@ -2474,78 +2474,103 @@ async listarEstudantesDiplomados(filter: ListarDiplomadosDTO) {
     tipoCandidatura = 0,
     page = 1,
     limit = 10,
+    search
   } = filter;
 
   const offset = (page - 1) * limit;
 
-  const sql = `
-    SELECT * FROM (
-      SELECT 
-        tm.CODIGO AS matricula,
-        tp.NOME_COMPLETO AS nome,
-        tp.BILHETE_IDENTIDADE AS bilhete,
-        tp.DATA_NASCIMENTO AS data_nascimento,
-        tc.CODIGO AS codigo_curso,
-        tc.DESIGNACAO AS curso,
-        ttc.ID AS codigo_tipo_candidatura,
-        ttc.DESIGNACAO AS tipo_candidatura,
-        tm.DATA_MATRICULA AS data_matricula,
-        cca.DATA_CONCLUSAO AS data_conclusao,
-        tp.SEXO AS genero,
-        EXTRACT(YEAR FROM SYSDATE) - EXTRACT(YEAR FROM tp.DATA_NASCIMENTO) AS idade,
-        cca.NOTA AS media
-      FROM FK2_CONCLUSAO_CURSO_ALUNO cca
-      INNER JOIN FK2_TB_MATRICULAS tm ON tm.CODIGO = cca.CODIGO_MATRICULA
-      INNER JOIN FK2_TB_CURSOS tc ON tc.CODIGO = tm.CODIGO_CURSO
-      INNER JOIN FK2_TB_ADMISSAO ta ON ta.CODIGO = tm.CODIGO_ALUNO
-      INNER JOIN FK2_TB_PREINSCRICAO tp ON tp.CODIGO = ta.PRE_INCRICAO
-      INNER JOIN FK2_TB_TIPO_CANDIDATURA ttc ON ttc.ID = tp.CODIGO_TIPO_CANDIDATURA
-      WHERE cca.ANO_LECTIVO = :anoLectivo
-        AND (:codigoCurso = 0 OR tc.CODIGO = :codigoCurso)
-        AND (:genero = 'todos' OR tp.SEXO = :genero)
-        AND (:tipoCandidatura = 0 OR tp.CODIGO_TIPO_CANDIDATURA = :tipoCandidatura)
-      ORDER BY tp.NOME_COMPLETO
-    )
-    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
-  `;
-
-  const countSql = `
-    SELECT COUNT(*) AS total
-    FROM FK2_CONCLUSAO_CURSO_ALUNO cca
-    INNER JOIN FK2_TB_MATRICULAS tm ON tm.CODIGO = cca.CODIGO_MATRICULA
-    INNER JOIN FK2_TB_CURSOS tc ON tc.CODIGO = tm.CODIGO_CURSO
-    INNER JOIN FK2_TB_ADMISSAO ta ON ta.CODIGO = tm.CODIGO_ALUNO
-    INNER JOIN FK2_TB_PREINSCRICAO tp ON tp.CODIGO = ta.PRE_INCRICAO
-    WHERE cca.ANO_LECTIVO = :anoLectivo
-      AND (:codigoCurso = 0 OR tc.CODIGO = :codigoCurso)
-      AND (:genero = 'todos' OR tp.SEXO = :genero)
-      AND (:tipoCandidatura = 0 OR tp.CODIGO_TIPO_CANDIDATURA = :tipoCandidatura)
-  `;
-
-  const data = await this.dataSource.query(sql, {
+  const params : any = {
     anoLectivo,
     codigoCurso,
     genero,
     tipoCandidatura,
     offset,
-    limit,
-  } as any);
+    limit: offset + limit,
+  };
 
-  const countResult = await this.dataSource.query(countSql, {
-    anoLectivo,
-    codigoCurso,
-    genero,
-    tipoCandidatura,
-  } as any);
+  params.search = search?.trim()
+  ? `%${search.trim().toUpperCase()}%`
+  : null;
 
-  const total = countResult[0]?.TOTAL || 0;
+  const sql = `
+    SELECT *
+    FROM (
+      SELECT
+        dados.*,
+        ROW_NUMBER() OVER (ORDER BY dados.NOME ASC) AS rn,
+        COUNT(*) OVER () AS total_registros
+      FROM (
+        SELECT DISTINCT
+          tm.CODIGO AS matricula,
+          tp.NOME_COMPLETO AS nome,
+          tp.BILHETE_IDENTIDADE AS bilhete,
+          NVL(fn_tipo_estudante(fb.CODIGO, i.RENUNCIA, fb.CODIGO_TIPO_BOLSA), '-') AS tipo_aluno,
+          tp.DATA_NASCIMENTO AS data_nascimento,
+          tc.CODIGO AS codigo_curso,
+          tc.DESIGNACAO AS curso,
+          ttc.ID AS codigo_tipo_candidatura,
+          ttc.DESIGNACAO AS tipo_candidatura,
+          tm.DATA_MATRICULA AS data_matricula,
+          cca.DATA_CONCLUSAO AS data_conclusao,
+          tp.SEXO AS genero,
+          EXTRACT(YEAR FROM SYSDATE) - EXTRACT(YEAR FROM tp.DATA_NASCIMENTO) AS idade,
+          cca.NOTA AS media
+        FROM FK2_CONCLUSAO_CURSO_ALUNO cca
+        INNER JOIN FK2_TB_MATRICULAS tm
+          ON tm.CODIGO = cca.CODIGO_MATRICULA
+        INNER JOIN FK2_TB_CURSOS tc
+          ON tc.CODIGO = tm.CODIGO_CURSO
+        INNER JOIN FK2_TB_ADMISSAO ta
+          ON ta.CODIGO = tm.CODIGO_ALUNO
+        INNER JOIN FK2_TB_PREINSCRICAO tp
+          ON tp.CODIGO = ta.PRE_INCRICAO
+        INNER JOIN FK2_TB_TIPO_CANDIDATURA ttc
+          ON ttc.ID = tp.CODIGO_TIPO_CANDIDATURA
+
+        LEFT JOIN FK2_TB_BOLSEIROS fb
+          ON fb.CODIGO_MATRICULA = tm.CODIGO
+         AND fb.CODIGO_ANOLECTIVO = cca.ANO_LECTIVO
+         AND fb.STATUS_ = 0
+
+        LEFT JOIN FK2_TB_INSTITUICAO i
+          ON i.CODIGO = fb.CODIGO_INSTITUICAO
+
+        WHERE cca.ANO_LECTIVO = :anoLectivo
+          AND (:codigoCurso = 0 OR tc.CODIGO = :codigoCurso)
+          AND (:genero = 'todos' OR tp.SEXO = :genero)
+          AND (:tipoCandidatura = 0 OR tp.CODIGO_TIPO_CANDIDATURA = :tipoCandidatura)
+          AND (
+            :search IS NULL
+            OR UPPER(tp.NOME_COMPLETO) LIKE :search
+            OR UPPER(tp.BILHETE_IDENTIDADE) LIKE :search
+            OR UPPER(TO_CHAR(tm.CODIGO)) LIKE :search
+            OR UPPER(tc.DESIGNACAO) LIKE :search
+          )
+      ) dados
+    )
+    WHERE rn > :offset
+      AND rn <= :limit
+    ORDER BY rn
+  `;
+
+  
+
+  const result = await this.dataSource.query(sql, params as any);
+
+  const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
+
+  const data = result.map((row: any) => {
+    const { RN, TOTAL_REGISTROS, ...item } = row;
+    return item;
+  });
 
   return {
     success: true,
-    data: toLowerCaseKeys(data),
+    data: await toLowerCaseKeys(data),
     total,
     page,
-    totalPages: Math.ceil(total / limit),
+    limit,
+    totalPages: Math.ceil(total / limit) || 1,
   };
 }
 
