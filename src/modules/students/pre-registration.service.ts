@@ -688,7 +688,22 @@ export class PreRegistrationService {
             throw new NotFoundException('Utilizador não encontrado');
         }
 
-        return toLowerCaseKeys(result[0]);
+        const data = result.map((row: any) => {
+            const listaProvas = row.LISTA_DE_PROVAS
+                ? row.LISTA_DE_PROVAS.replace(/^Prova de\s*/i, '')
+                    .split(/<br>/i)[0]
+                    .split(',')
+                    .map((s: string) => s.trim())
+                    .filter((s: string) => s.length > 0)
+                : [];
+
+            return {
+                ...row,
+                lista_de_provas: listaProvas,
+            };
+        });
+
+        return toLowerCaseKeys(data);
     }
     // ─────────────────────────────────────────────
     //  FIND ONE
