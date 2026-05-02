@@ -623,6 +623,9 @@ export class PreRegistrationService {
       hp.hora_inicio,
       hp.hora_fim,
       tc.STATUS_                    AS status_prova,
+      pr.DESCRICAO                  AS lista_de_provas, 
+      s.DESIGNACAO                   AS sala_de_prova,
+
 
       CASE
         WHEN p.Codigo  IS NULL                                 THEN 'SEM_PRE_INSCRICAO'
@@ -672,7 +675,11 @@ export class PreRegistrationService {
         ) WHERE rn = 1
       ) hp ON hp.id = tc.HORARIO_PROVA_ID
 
+      LEFT JOIN fk2_provas pr ON pr.id = tc.prova_id
+      LEFT JOIN fk2_tb_salas s on s.codigo = hp.sala_id
+
     WHERE us.id = :userId
+  
     `,
             { userId } as any,
         );
