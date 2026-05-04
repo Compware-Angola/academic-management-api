@@ -1021,13 +1021,22 @@ export class ExamesDeAcessoService {
         };
       });
     } catch (error) {
-      // Se já é uma HttpException (BadRequest, NotFound, Conflict...), relança direto
-      if (error instanceof HttpException) {
-        throw error;
+      console.error('Erro completo:', error);
+
+      // Se já tem status HTTP, reaproveita
+      if (error?.status) {
+        throw new HttpException(
+          error.response || error.message,
+          error.status,
+        );
       }
-      // Erro inesperado de banco ou outro
-      throw new InternalServerErrorException(
-        'Erro inesperado ao atribuir prova.',
+
+      throw new HttpException(
+        {
+          message: 'Erro inesperado ao atribuir prova.',
+          detail: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

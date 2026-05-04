@@ -60,6 +60,7 @@ export class PreRegistrationService {
             CODIGO_TIPO_CANDIDATURA,
             CODIGO_TURNO,
             ANOLECTIVO,
+            CODIGO_NACIONALIDADE,
             CREATED_AT,
             UPDATED_AT
         ) VALUES (
@@ -90,6 +91,7 @@ export class PreRegistrationService {
             :codigoTipoCandidatura,
             :codigoTurno,
             :anoLectivo,
+            :codigoNacionalidade,
             SYSDATE,
             SYSDATE
         )
@@ -122,6 +124,7 @@ export class PreRegistrationService {
                 codigoTipoCandidatura: dto.codigoTipoCandidatura ?? null,
                 codigoTurno: dto.codigoTurno ?? null,
                 anoLectivo: anoLectivo ?? null,
+                codigoNacionalidade: dto.codigoNacionalidade ?? null,
                 outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
             } as any,
         );

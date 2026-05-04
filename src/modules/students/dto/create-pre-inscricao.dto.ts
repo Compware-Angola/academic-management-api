@@ -174,16 +174,17 @@ export class CreatePreRegistrationDto {
     @IsString()
     mae?: string;
 
+    @ApiProperty({ example: 1 })
+    @IsNotEmpty()
+    @IsNumber()
+    codigoNacionalidade?: number;
+
     /*
     @ApiPropertyOptional({ example: 'Luanda' })
     @IsOptional()
     @IsString()
     naturalidade?: string;
 
-    @ApiPropertyOptional({ example: 1 })
-    @IsOptional()
-    @IsNumber()
-    codigoNacionalidade?: number;
 
     @ApiPropertyOptional({ example: 2 }) @IsOptional() @IsNumber() ocupacaoPai?: number;
     @ApiPropertyOptional({ example: 3 }) @IsOptional() @IsNumber() ocupacaoMae?: number;

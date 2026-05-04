@@ -114,27 +114,27 @@ export class ExamesDeAcessoController {
   @Get('estatistica/candidatos')
   @ApiOperation({ summary: 'Estatística de candidatos inscritos por dia e turno' })
   @ApiResponse({ status: 200, description: 'Retorna estatísticas de candidatos' })
-  buscaEstatisticaCandidatos(@Query() filtros: FilterEstatisticaCandidatosDto) {
-    return this.examesAcessoService.buscaEstatisticaCandidatos(filtros);
+  async buscaEstatisticaCandidatos(@Query() filtros: FilterEstatisticaCandidatosDto) {
+    return await this.examesAcessoService.buscaEstatisticaCandidatos(filtros);
   }
 
   @Get('estatistica/dia')
   @ApiOperation({ summary: 'Estatística de candidatos inscritos por dia' })
   @ApiResponse({ status: 200, description: 'Retorna estatísticas de candidatos por dia' })
-  buscaEstatisticaPorDia(@Query() filtros: FilterEstatisticaCandidatosDto) {
-    return this.examesAcessoService.buscaEstatisticaPorDia(filtros);
+  async buscaEstatisticaPorDia(@Query() filtros: FilterEstatisticaCandidatosDto) {
+    return await this.examesAcessoService.buscaEstatisticaPorDia(filtros);
   }
 
   @Post('atribuir-prova/:codigoCandidato')
   @ApiOperation({ summary: 'Atribui prova para um candidato' })
   @ApiResponse({ status: 200, description: 'Prova atribuída com sucesso' })
-  atribuirProva(
+  async atribuirProva(
     @Param('codigoCandidato', ParseIntPipe) codigoCandidato: number,
     @Req() req: any,
   ) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const user = req.user;
-    const result = this.examesAcessoService.atribuirProva(codigoCandidato);
+    const result = await this.examesAcessoService.atribuirProva(codigoCandidato);
     AccessLogHelper.logAccess(this.httpService, {
       descricao: `Prova atribuída para candidato ${codigoCandidato} por ${user?.username || 'unknown user'}`,
       fkAcesso: 6,
