@@ -24,3 +24,12 @@ export type AvaliacaoItem = {
     semestre: string;
     unidadeCurricular: string;
 }
+
+export type ServicoPagamento = {
+    codigo: number;
+    descricao: string;
+    preco: number;
+    taxa_iva: number;
+    sigla: string;
+}
+    
