@@ -687,15 +687,15 @@ export class PreRegistrationService {
 
 
    CASE
-  WHEN p.Codigo    IS NULL                                          THEN 'SEM_PRE_INSCRICAO'
-  WHEN tc.id       IS NULL                                          THEN 'SEM_ADMISSAO'
-  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) = TRUNC(SYSDATE) THEN 'DIA_DA_PROVA'
-  WHEN tc.STATUS_  = 0 AND hp.data_realizacao > SYSDATE            THEN 'AGUARDANDO_DIA_DA_PROVA'
-  WHEN tc.STATUS_  = 0 AND hp.data_realizacao < SYSDATE            THEN 'AGUARDANDO_RESULTADO'
-  WHEN a.mediafinal < 10                                            THEN 'NAO_ADMITIDO'
-  WHEN a.mediafinal >= 10 AND m.Codigo IS NULL                      THEN 'ADMITIDO_SEM_MATRICULA'
-  WHEN a.mediafinal >= 10 AND m.Codigo IS NOT NULL                  THEN 'ALUNO_MATRICULADO'
-  ELSE                                                                   'ALUNO_MATRICULADO'
+  WHEN p.Codigo    IS NULL                                                    THEN 'SEM_PRE_INSCRICAO'
+  WHEN tc.id       IS NULL                                                    THEN 'SEM_ADMISSAO'
+  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) = TRUNC(SYSDATE)        THEN 'DIA_DA_PROVA'
+  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) > TRUNC(SYSDATE)        THEN 'AGUARDANDO_DIA_DA_PROVA'
+  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) < TRUNC(SYSDATE)        THEN 'AGUARDANDO_RESULTADO'
+  WHEN a.mediafinal < 10                                                      THEN 'NAO_ADMITIDO'
+  WHEN a.mediafinal >= 10 AND m.Codigo IS NULL                                THEN 'ADMITIDO_SEM_MATRICULA'
+  WHEN a.mediafinal >= 10 AND m.Codigo IS NOT NULL                            THEN 'ALUNO_MATRICULADO'
+  ELSE                                                                             'ALUNO_MATRICULADO'
 END AS estado_aluno
 
     FROM fk2_users us
