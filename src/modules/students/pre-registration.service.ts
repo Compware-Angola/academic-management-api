@@ -10,6 +10,7 @@ import { CreatePreRegistrationDto } from './dto/create-pre-inscricao.dto';
 import { UpdatePreRegistrationDto } from './dto/update-pre-inscricao.dto';
 import { QueryPreRegistrationDto } from './dto/queryPreRegistrationDto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
+import { AnoLectivoUtil } from '../util/current-academic-year';
 
 
 @Injectable()
@@ -17,6 +18,7 @@ export class PreRegistrationService {
     constructor(
         @InjectDataSource()
         private readonly dataSource: DataSource,
+        private readonly anoLectivoUtil: AnoLectivoUtil
     ) { }
 
     // ─────────────────────────────────────────────
@@ -25,6 +27,8 @@ export class PreRegistrationService {
     async create(dto: CreatePreRegistrationDto, userId: number) {
         await this.assertUniqueBI(dto.bilheteIdentidade);
         await this.assertUniqueEmail(dto.email);
+
+        const anoLectivo = await this.anoLectivoUtil.getAnoAtualId() ?? null;
 
         const result = await this.dataSource.query(
             `
@@ -53,6 +57,9 @@ export class PreRegistrationService {
             CURSOOPCIONAL2_ID,
             USER_ID,
             ESTADO_PREISCRICAO_CANDIDATO,
+            CODIGO_TIPO_CANDIDATURA,
+            CODIGO_TURNO,
+            ANOLECTIVO,
             CREATED_AT,
             UPDATED_AT
         ) VALUES (
@@ -80,6 +87,9 @@ export class PreRegistrationService {
             :cursoOpcional2Id,
             :userId,
             1,
+            :codigoTipoCandidatura,
+            :codigoTurno,
+            :anoLectivo,
             SYSDATE,
             SYSDATE
         )
@@ -109,6 +119,9 @@ export class PreRegistrationService {
                 cursoOpcional1Id: dto.cursoOpcional1Id ?? null,
                 cursoOpcional2Id: dto.cursoOpcional2Id ?? null,
                 userId: userId ?? null,
+                codigoTipoCandidatura: dto.codigoTipoCandidatura ?? null,
+                codigoTurno: dto.codigoTurno ?? null,
+                anoLectivo: anoLectivo ?? null,
                 outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
             } as any,
         );
@@ -648,6 +661,7 @@ export class PreRegistrationService {
             `
     SELECT
       us.id                         AS user_id,
+      
       p.Nome_Completo,
       p.email                      AS email,
       p.contactos_telefonicos                   AS telefone,
@@ -667,6 +681,7 @@ export class PreRegistrationService {
         WHEN tc.id     IS NULL                                 THEN 'SEM_ADMISSAO'
         WHEN tc.STATUS_ = 0 AND hp.data_realizacao > SYSDATE  THEN 'AGUARDANDO_DIA_DA_PROVA'
         WHEN tc.STATUS_ = 0 AND hp.data_realizacao <= SYSDATE THEN 'AGUARDANDO_RESULTADO'
+        WHEN hp.data_realizacao = SYSDATE                      THEN 'DIA_DA_PROVA'
         WHEN a.mediafinal < 10                                 THEN 'NAO_ADMITIDO'
         WHEN a.mediafinal >= 10 AND m.Codigo IS NULL           THEN 'ADMITIDO_SEM_MATRICULA'
         WHEN a.mediafinal >= 10 AND m.Codigo IS NOT NULL       THEN 'ALUNO_MATRICULADO'
@@ -722,7 +737,6 @@ export class PreRegistrationService {
         if (!result || result.length === 0) {
             throw new NotFoundException('Utilizador não encontrado');
         }
-
         const data = result.map((row: any) => {
             const listaProvas = row.LISTA_DE_PROVAS
                 ? row.LISTA_DE_PROVAS.replace(/^Prova de\s*/i, '')
@@ -738,7 +752,23 @@ export class PreRegistrationService {
             };
         });
 
-        return toLowerCaseKeys(data);
+        const invoice = await this.getInvoce(
+            result[0]?.codigo_preinscricao || result[0]?.CODIGO_PREINSCRICAO,
+        );
+
+        const payments = invoice
+            ? { has_invoice: true, is_payed: Number(invoice.estado) === 1 }
+            : { has_invoice: false };
+
+        return toLowerCaseKeys({ ...data[0], payments });
+    }
+    private async getInvoce(codigo: number) {
+        const rows = await this.dataSource.query(
+            `SELECT * FROM FK2_FACTURA WHERE CODIGO_PREINSCRICAO = :codigo`,
+            { codigo } as any,
+        );
+
+        return toLowerCaseKeys(rows[0]);
     }
     // ─────────────────────────────────────────────
     //  FIND ONE

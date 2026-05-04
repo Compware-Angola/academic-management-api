@@ -70,6 +70,15 @@ export class CreatePreRegistrationDto {
     @IsString()
     numeroIdentificacaoFiscal: string;
     */
+    @ApiProperty({ example: 1 })
+    @IsNotEmpty()
+    @IsNumber()
+    codigoTurno: number;
+
+    @ApiPropertyOptional({ example: 2 })
+    @IsOptional()
+    @IsNumber()
+    codigoTurnoOptional?: number;
 
     @ApiProperty({ example: 'Feminino' })
     @IsNotEmpty()
@@ -211,10 +220,6 @@ export class CreatePreRegistrationDto {
     @IsNumber()
     canal?: number;
 
-    @ApiPropertyOptional({ example: 1 })
-    @IsOptional()
-    @IsNumber()
-    codigoTipoCandidatura?: number;
 
     @ApiPropertyOptional({ example: 2 })
     @IsOptional()
@@ -244,6 +249,11 @@ export class CreatePreRegistrationDto {
     @IsString()
     dataPreescricao?: string;
     */
+
+    @ApiPropertyOptional({ example: 1 })
+    @IsOptional()
+    @IsNumber()
+    codigoTipoCandidatura?: number;
     @ApiPropertyOptional({ example: 2 })
     @IsOptional()
     @IsNumber()
