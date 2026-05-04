@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { StudentNoteService } from "./sudents-notes.service";
 import { FindProvasRecursoDto } from "./dto/recursos.dto";
+import { PrazosService } from "../prazos/prazos.service";
 
 interface AvaliacaoItem {
     obs: string[];
@@ -31,7 +32,8 @@ interface AvaliacaoItem {
 
 @Injectable()
 export class StudentsProvasService {
-    constructor(private readonly studentNoteService: StudentNoteService) { }
+    constructor(private readonly studentNoteService: StudentNoteService, 
+                private readonly prazosService: PrazosService) { }
 
     // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -75,6 +77,14 @@ export class StudentsProvasService {
     // ─── Cadeiras para Recurso ───────────────────────────────────────────────────
 
     async cadeirasRecurso(dto: FindProvasRecursoDto) {
+
+        const prazoInscricoesRecurso = await this.prazosService.prazoInscricoesRecurso(dto.anoLectivo);
+        console.log(prazoInscricoesRecurso);
+        
+        if (prazoInscricoesRecurso.podeInscrever) {
+            return prazoInscricoesRecurso;
+        }
+
         const { data } = await this.studentNoteService.findAll({
             anoLectivo: dto.anoLectivo,
             codigoMatricula: dto.codigoMatricula,
