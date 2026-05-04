@@ -659,6 +659,7 @@ export class PreRegistrationService {
     }
 
     // INFORMAÇÕES GERAIS DO CANDIDATO
+
     async getCandidaturaUserData(userId: number): Promise<any> {
         const result = await this.dataSource.query(
             `
@@ -672,8 +673,14 @@ export class PreRegistrationService {
       p.Codigo                      AS codigo_preinscricao,
       a.data                        AS data_admissao,
       hp.data_realizacao            AS data_prova,
-      hp.hora_inicio,
-      hp.hora_fim,
+      SUBSTR(TO_CHAR(NUMTODSINTERVAL(
+           TO_NUMBER(DBMS_LOB.SUBSTR(hp.HORA_INICIO, 4000, 1)) / 86400000000000,
+           'DAY'
+         )), 12, 5) AS HORA_INICIO,
+       SUBSTR(TO_CHAR(NUMTODSINTERVAL(
+           TO_NUMBER(DBMS_LOB.SUBSTR(hp.HORA_FIM, 4000, 1)) / 86400000000000,
+           'DAY'
+         )), 12, 5) AS HORA_FIM,
       tc.STATUS_                    AS status_prova,
       pr.DESCRICAO                  AS lista_de_provas, 
       s.DESIGNACAO                   AS sala_de_prova,

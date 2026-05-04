@@ -18,7 +18,7 @@ import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { AccessLogHelper } from '../common/helpers/access-log.helper';
 import { ApiKeyGuard } from '../common/guard/api-key.guard';
 
-//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('exames-de-acesso')
 @ApiTags('Exames de acesso')
 export class ExamesDeAcessoController {
