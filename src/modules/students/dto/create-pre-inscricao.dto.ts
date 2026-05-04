@@ -211,10 +211,6 @@ export class CreatePreRegistrationDto {
     @IsNumber()
     canal?: number;
 
-    @ApiPropertyOptional({ example: 1 })
-    @IsOptional()
-    @IsNumber()
-    codigoTipoCandidatura?: number;
 
     @ApiPropertyOptional({ example: 2 })
     @IsOptional()
@@ -244,6 +240,11 @@ export class CreatePreRegistrationDto {
     @IsString()
     dataPreescricao?: string;
     */
+
+    @ApiPropertyOptional({ example: 1 })
+    @IsOptional()
+    @IsNumber()
+    codigoTipoCandidatura?: number;
     @ApiPropertyOptional({ example: 2 })
     @IsOptional()
     @IsNumber()
