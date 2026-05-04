@@ -53,6 +53,8 @@ export class PreRegistrationService {
             CURSOOPCIONAL2_ID,
             USER_ID,
             ESTADO_PREISCRICAO_CANDIDATO,
+            CODIGO_TIPO_CANDIDATURA,
+            CODIGO_TURNO,
             CREATED_AT,
             UPDATED_AT
         ) VALUES (
@@ -80,6 +82,8 @@ export class PreRegistrationService {
             :cursoOpcional2Id,
             :userId,
             1,
+            :codigoTipoCandidatura,
+            :codigoTurno,
             SYSDATE,
             SYSDATE
         )
@@ -109,6 +113,8 @@ export class PreRegistrationService {
                 cursoOpcional1Id: dto.cursoOpcional1Id ?? null,
                 cursoOpcional2Id: dto.cursoOpcional2Id ?? null,
                 userId: userId ?? null,
+                codigoTipoCandidatura: dto.codigoTipoCandidatura ?? null,
+                codigoTurno: dto.codigoTurno ?? null,
                 outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
             } as any,
         );

@@ -70,6 +70,15 @@ export class CreatePreRegistrationDto {
     @IsString()
     numeroIdentificacaoFiscal: string;
     */
+    @ApiProperty({ example: 1 })
+    @IsNotEmpty()
+    @IsNumber()
+    codigoTurno: number;
+
+    @ApiPropertyOptional({ example: 2 })
+    @IsOptional()
+    @IsNumber()
+    codigoTurnoOptional?: number;
 
     @ApiProperty({ example: 'Feminino' })
     @IsNotEmpty()
