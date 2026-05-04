@@ -149,7 +149,7 @@ export class PreRegistrationController {
     getFichaInscricao(@Param('userId', ParseIntPipe) userId: number) {
         return this.service.getFichaInscricao(userId);
     }
-    //@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+    @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
     @Get('candidatura/info-gerais')
     @ApiOperation({
         summary: 'Informações gerais do candidato (pre-inscrição + admissao + matricula + prova)',
@@ -159,7 +159,7 @@ export class PreRegistrationController {
     @ApiResponse({ status: 200, description: 'Dados do candidato' })
     @ApiResponse({ status: 404, description: 'Utilizador não encontrado' })
     getCandidaturaUserData(@Req() req: any) {
-        // const usuarioLogado = req.user;
-        return this.service.getCandidaturaUserData(123);
+        const usuarioLogado = req.user;
+        return this.service.getCandidaturaUserData(usuarioLogado.sub);
     }
 }

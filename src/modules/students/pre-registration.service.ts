@@ -648,6 +648,7 @@ export class PreRegistrationService {
             `
     SELECT
       us.id                         AS user_id,
+      
       p.Nome_Completo,
       p.email                      AS email,
       p.contactos_telefonicos                   AS telefone,
@@ -667,6 +668,7 @@ export class PreRegistrationService {
         WHEN tc.id     IS NULL                                 THEN 'SEM_ADMISSAO'
         WHEN tc.STATUS_ = 0 AND hp.data_realizacao > SYSDATE  THEN 'AGUARDANDO_DIA_DA_PROVA'
         WHEN tc.STATUS_ = 0 AND hp.data_realizacao <= SYSDATE THEN 'AGUARDANDO_RESULTADO'
+        WHEN hp.data_realizacao = SYSDATE                      THEN 'DIA_DA_PROVA'
         WHEN a.mediafinal < 10                                 THEN 'NAO_ADMITIDO'
         WHEN a.mediafinal >= 10 AND m.Codigo IS NULL           THEN 'ADMITIDO_SEM_MATRICULA'
         WHEN a.mediafinal >= 10 AND m.Codigo IS NOT NULL       THEN 'ALUNO_MATRICULADO'
@@ -722,7 +724,6 @@ export class PreRegistrationService {
         if (!result || result.length === 0) {
             throw new NotFoundException('Utilizador não encontrado');
         }
-
         const data = result.map((row: any) => {
             const listaProvas = row.LISTA_DE_PROVAS
                 ? row.LISTA_DE_PROVAS.replace(/^Prova de\s*/i, '')
@@ -738,7 +739,24 @@ export class PreRegistrationService {
             };
         });
 
-        return toLowerCaseKeys(data);
+        const invoice = await this.getInvoce(
+            result[0]?.codigo_preinscricao || result[0]?.CODIGO_PREINSCRICAO,
+        );
+
+        const payments = invoice
+            ? { has_invoice: true, is_payed: Number(invoice.estado) === 1 }
+            : { has_invoice: false };
+
+        return toLowerCaseKeys({ ...data[0], payments });
+    }
+    private async getInvoce(codigo: number) {
+        const rows = await this.dataSource.query(
+            `SELECT * FROM FK2_FACTURA WHERE CODIGO_PREINSCRICAO = :codigo`,
+            { codigo } as any,
+        );
+        if (!rows.length)
+            throw new NotFoundException(`Pré-inscrição com código ${codigo} não encontrada`);
+        return toLowerCaseKeys(rows[0]);
     }
     // ─────────────────────────────────────────────
     //  FIND ONE
