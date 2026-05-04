@@ -10,6 +10,7 @@ import { CreatePreRegistrationDto } from './dto/create-pre-inscricao.dto';
 import { UpdatePreRegistrationDto } from './dto/update-pre-inscricao.dto';
 import { QueryPreRegistrationDto } from './dto/queryPreRegistrationDto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
+import { AnoLectivoUtil } from '../util/current-academic-year';
 
 
 @Injectable()
@@ -17,6 +18,7 @@ export class PreRegistrationService {
     constructor(
         @InjectDataSource()
         private readonly dataSource: DataSource,
+        private readonly anoLectivoUtil: AnoLectivoUtil
     ) { }
 
     // ─────────────────────────────────────────────
@@ -25,6 +27,8 @@ export class PreRegistrationService {
     async create(dto: CreatePreRegistrationDto, userId: number) {
         await this.assertUniqueBI(dto.bilheteIdentidade);
         await this.assertUniqueEmail(dto.email);
+
+        const anoLectivo = await this.anoLectivoUtil.getAnoAtualId() ?? null;
 
         const result = await this.dataSource.query(
             `
@@ -55,6 +59,7 @@ export class PreRegistrationService {
             ESTADO_PREISCRICAO_CANDIDATO,
             CODIGO_TIPO_CANDIDATURA,
             CODIGO_TURNO,
+            ANOLECTIVO,
             CREATED_AT,
             UPDATED_AT
         ) VALUES (
@@ -84,6 +89,7 @@ export class PreRegistrationService {
             1,
             :codigoTipoCandidatura,
             :codigoTurno,
+            :anoLectivo,
             SYSDATE,
             SYSDATE
         )
@@ -115,6 +121,7 @@ export class PreRegistrationService {
                 userId: userId ?? null,
                 codigoTipoCandidatura: dto.codigoTipoCandidatura ?? null,
                 codigoTurno: dto.codigoTurno ?? null,
+                anoLectivo: anoLectivo ?? null,
                 outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
             } as any,
         );

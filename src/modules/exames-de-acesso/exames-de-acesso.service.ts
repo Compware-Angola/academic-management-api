@@ -916,7 +916,7 @@ export class ExamesDeAcessoService {
       `;
 
         const candidates = await manager.query(sqlCandidate, [codigoCandidato]);
-        console.log(candidates);
+
 
         if (candidates.length === 0) {
           throw new BadRequestException(
