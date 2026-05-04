@@ -672,7 +672,7 @@ export class PreRegistrationService {
       p.bilhete_identidade           AS numero_documento,
       p.Codigo                      AS codigo_preinscricao,
       a.data                        AS data_admissao,
-      hp.data_realizacao            AS data_prova,
+     TRUNC(hp.data_realizacao) AS data_prova,
       SUBSTR(TO_CHAR(NUMTODSINTERVAL(
            TO_NUMBER(DBMS_LOB.SUBSTR(hp.HORA_INICIO, 4000, 1)) / 86400000000000,
            'DAY'
