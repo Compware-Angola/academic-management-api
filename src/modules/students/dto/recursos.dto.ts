@@ -1,31 +1,48 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, OmitType } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsNotEmpty, IsNumber } from "class-validator";
+import { IsArray, IsNotEmpty, IsNumber } from "class-validator";
 
-export class FindProvasRecursoDto {
-    @ApiProperty({ description: 'Ano letivo', example: 2026 })
+export class FindCadeirasRecursoDto {
+    @ApiProperty({ description: 'Ano letivo', example: 22 })
     @IsNotEmpty()
     @IsNumber()
     @Type(() => Number)
     anoLectivo: number;
 
-    @ApiProperty({ description: 'Código da matrícula', example: 12345 })
+    @ApiProperty({ description: 'Código da matrícula', example: 48030 })
     @IsNotEmpty()
     @IsNumber()
     @Type(() => Number)
     codigoMatricula: number;
 }
 
-export class FindProvasEpocaEspecialDto {
-    @ApiProperty({ description: 'Ano letivo', example: 2026 })
+export class FindCadeirasEpocaEspecialDto {
+    @ApiProperty({ description: 'Ano letivo', example: 22 })
     @IsNotEmpty()
     @IsNumber()
     @Type(() => Number)
     anoLectivo: number;
 
-    @ApiProperty({ description: 'Código da matrícula', example: 12345 })
+    @ApiProperty({ description: 'Código da matrícula', example: 22 })
     @IsNotEmpty()
     @IsNumber()
     @Type(() => Number)
     codigoMatricula: number;
 }
+
+export class InscricaoRecursoDTO {
+    @ApiProperty({ description: 'Código da grade curricular do aluno', example: [1328779,1466070] })
+    @IsNotEmpty()
+    @IsArray()
+    @Type(() => Number)
+    codigoGradeAluno: number[];
+
+    @ApiProperty({ description: 'Código da matrícula', example: 48030 })
+    @IsNotEmpty()
+    @IsNumber()
+    @Type(() => Number)
+    codigoMatricula: number;
+}
+
+
+export class CriarInscricaoRecursoBodyDTO extends OmitType(InscricaoRecursoDTO, ['codigoMatricula'] as const) {}
