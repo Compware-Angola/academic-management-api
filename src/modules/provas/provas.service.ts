@@ -395,7 +395,7 @@ export class ProvasService {
       throw new BadRequestException(`Usuário com ID ${userId} não encontrado`);
     }
 
-    senhaProva = await gerarHashExterno(senhaProva);
+    //TODO senhaProva = await gerarHashExterno(senhaProva);
 
     const query = `
       INSERT INTO FK2_PROVAS (
@@ -480,7 +480,7 @@ export class ProvasService {
     let paramIndex = 1;
 
     if (senhaProva !== undefined) {
-      senhaProva = await gerarHashExterno(senhaProva);
+      // TODO senhaProva = await gerarHashExterno(senhaProva);
       updates.push(`SENHA_PROVA = :${paramIndex}`);
       parameters.push(senhaProva);
       paramIndex++;
