@@ -1,41 +1,21 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { StudentNoteService } from "./sudents-notes.service";
-import { FindProvasRecursoDto } from "./dto/recursos.dto";
+import { FindCadeirasEpocaEspecialDto, FindCadeirasRecursoDto, InscricaoRecursoDTO } from "./dto/recursos.dto";
 import { PrazosService } from "../prazos/prazos.service";
+import { DataSource } from "typeorm";
+import { toLowerCaseKeys } from "../util/toLowerCaseKeys";
+import { AvaliacaoItem } from "./types";
 
-interface AvaliacaoItem {
-    obs: string[];
-    formula: string[];
-    nota1f: string;
-    nota2f: string;
-    notaEx: string;
-    notaRec: string;
-    notaPra: string;
-    notaOr: string;
-    notaOrRec: string;
-    notaMel: string;
-    notaEE: string;
-    notaOEE: string;
-    ano: string;
-    codigoGradeAluno: number;
-    disciplina: string;
-    duracao: string;
-    gradeCurricula: number;
-    matricula: number;
-    media: string;
-    nome_completo: string;
-    num_matricula: string;
-    resultado: string;
-    semestre: string;
-    unidadeCurricular: string;
-}
+const CODIGO_TIPO_AVALIACAO_RECURSO = 7
+const SIGLA_SERVICO_RECURSO = 'IaEdRurso'
+
 
 @Injectable()
 export class StudentsProvasService {
-    constructor(private readonly studentNoteService: StudentNoteService, 
-                private readonly prazosService: PrazosService) { }
-
-    // ─── Helpers ────────────────────────────────────────────────────────────────
+    constructor(
+        private readonly dataSource: DataSource,
+        private readonly studentNoteService: StudentNoteService, 
+        private readonly prazosService: PrazosService) { }
 
     private temNota(valor: string | null | undefined): boolean {
         return valor !== '' && valor !== null && valor !== undefined;
@@ -74,41 +54,39 @@ export class StudentsProvasService {
         };
     }
 
-    // ─── Cadeiras para Recurso ───────────────────────────────────────────────────
+async cadeirasRecurso(dto: FindCadeirasRecursoDto) {
+    const { data } = await this.studentNoteService.findAll({
+        anoLectivo: dto.anoLectivo,
+        codigoMatricula: dto.codigoMatricula,
+    });
 
-    async cadeirasRecurso(dto: FindProvasRecursoDto) {
+    const cadeirasElegiveis = data.filter((cadeira: AvaliacaoItem) => {
+        const reprovado = cadeira.resultado === 'Reprovado';
+        const naoPassouEtapasPosExame = !this.jaPassouPorEtapaAposExame(cadeira)
+        return reprovado && naoPassouEtapasPosExame;
+    })
 
-        const prazoInscricoesRecurso = await this.prazosService.prazoInscricoesRecurso(dto.anoLectivo);
-        console.log(prazoInscricoesRecurso);
-        
-        if (prazoInscricoesRecurso.podeInscrever) {
-            return prazoInscricoesRecurso;
-        }
-
-        const { data } = await this.studentNoteService.findAll({
-            anoLectivo: dto.anoLectivo,
-            codigoMatricula: dto.codigoMatricula,
-        });
-
-        const cadeirasParaRecurso = data.filter((cadeira: AvaliacaoItem) => {
-            const reprovado = cadeira.resultado === 'Reprovado';
-            const naoPassouEtapasPosExame = !this.jaPassouPorEtapaAposExame(cadeira);
-
-            return reprovado && naoPassouEtapasPosExame;
-        });
-
-        return {
-            total: cadeirasParaRecurso.length,
-            matricula: dto.codigoMatricula,
-            anoLectivo: dto.anoLectivo,
-            nomeCompleto: cadeirasParaRecurso[0]?.nome_completo ?? null,
-            cadeiras: cadeirasParaRecurso.map(this.mapearCadeira.bind(this)),
-        };
+    if (cadeirasElegiveis.length === 0) {
+        return { total: 0, cadeiras: [] }
     }
 
-    // ─── Cadeiras para Época Especial ────────────────────────────────────────────
+    const idsCadeiras = cadeirasElegiveis.map(c => c.codigoGradeAluno);
+    
 
-    async cadeirasEpocaEspecial(dto: FindProvasRecursoDto) {
+    const listaIdsInscritos = await this.cadeirasInscritasNoTipoAvaliacao(dto.codigoMatricula, CODIGO_TIPO_AVALIACAO_RECURSO, idsCadeiras);
+    const cadeirasParaRecurso = cadeirasElegiveis.filter(
+        c => !listaIdsInscritos.includes(c.codigoGradeAluno)
+    );
+
+    return {
+        total: cadeirasParaRecurso.length,
+        matricula: dto.codigoMatricula,
+        anoLectivo: dto.anoLectivo,
+        nomeCompleto: data[0]?.nome_completo ?? null,
+        cadeiras: cadeirasParaRecurso.map(this.mapearCadeira.bind(this)),
+    };
+}
+    async cadeirasEpocaEspecial(dto: FindCadeirasEpocaEspecialDto) {
         const { data } = await this.studentNoteService.findAll({
             anoLectivo: dto.anoLectivo,
             codigoMatricula: dto.codigoMatricula,
@@ -116,23 +94,15 @@ export class StudentsProvasService {
 
         const cadeirasParaEE = data.filter((cadeira: AvaliacaoItem) => {
             const reprovado = cadeira.resultado === 'Reprovado';
-
-            // Já fez EE ou Oral EE — não pode se inscrever novamente
             const jaFezEpocaEspecial =
                 this.temNota(cadeira.notaEE) ||
                 this.temNota(cadeira.notaOEE);
-
-            // Cenário 1: não fez nem Recurso nem Oral de Recurso
             const foiDiretoSemRecurso =
                 !this.temNota(cadeira.notaRec) &&
                 !this.temNota(cadeira.notaOrRec);
-
-            // Cenário 2: fez Recurso e reprovou (com ou sem Oral de Recurso)
             const fezRecursoEReprovou =
                 this.temNota(cadeira.notaRec) &&
                 cadeira.resultado === 'Reprovado';
-
-            // Cenário 3: fez Oral de Recurso e reprovou
             const fezOralRecursoEReprovou =
                 this.temNota(cadeira.notaOrRec) &&
                 cadeira.resultado === 'Reprovado';
@@ -152,12 +122,83 @@ export class StudentsProvasService {
             nomeCompleto: cadeirasParaEE[0]?.nome_completo ?? null,
             cadeiras: cadeirasParaEE.map((cadeira: AvaliacaoItem) => ({
                 ...this.mapearCadeira(cadeira),
-                // inclui também as notas de recurso para contexto
                 notasRecurso: {
-                    notaRec: cadeira.notaRec || null, // R  - Recurso
-                    notaOrRec: cadeira.notaOrRec || null, // OR - Oral de Recurso
+                    notaRec: cadeira.notaRec || null,
+                    notaOrRec: cadeira.notaOrRec || null,
                 },
             })),
         };
     }
+
+    async inscricaoRecurso(dto: InscricaoRecursoDTO) {
+        const anoLectivo = await this.anoLectivoCorrente();
+        
+     const prazo = await this.prazosService.prazoInscricoesRecurso(anoLectivo.codigo);
+        if(!prazo.podeInscrever){
+            throw new BadRequestException(prazo.mensagem);
+        }
+
+        const servico = await this.buscarPrecoServico(SIGLA_SERVICO_RECURSO, anoLectivo.codigo);
+        if(!servico){
+            throw new BadRequestException('Nenhum serviço encontrado para o recurso');
+        }
+        return prazo;
+    }
+
+    private async anoLectivoCorrente(){
+        const anoLectivoSql = `
+             SELECT CODIGO, DESIGNACAO
+            FROM FK2_TB_ANO_LECTIVO
+            WHERE ESTADO = 'Activo'
+        `;
+        const [anoLectivo] = await this.dataSource.query(anoLectivoSql);
+        if(!anoLectivo){
+            throw new BadRequestException('Nenhum ano lectivo corrente encontrado');
+        }
+        return toLowerCaseKeys(anoLectivo) as {codigo: number, designacao: string};
+    }
+
+    private async cadeirasInscritasNoTipoAvaliacao(codigoMatricula: number, codigoTipoAvaliacao: number, codigoGradeAluno: number[]){
+        
+        const idsCadeiras = codigoGradeAluno.join(', ');
+
+        const sqlInscricoes = `
+            SELECT CODIGO_GRADE_ALUNO 
+            FROM FK2_TB_HISTORICO_INSCRICOES_AVALIACOES 
+            WHERE CODIGO_MATRICULA = :codigoMatricula 
+            AND CODIGO_GRADE_ALUNO IN (${idsCadeiras})
+            AND CODIGO_TIPO_AVALIACAO = :codigoTipoAvaliacao
+        `;
+
+        const inscricoesRealizadas = toLowerCaseKeys(await this.dataSource.query(
+            sqlInscricoes, 
+            [codigoMatricula, codigoTipoAvaliacao]
+        ));
+
+        const listaIdsInscritos = inscricoesRealizadas.map(ins => ins.codigo_grade_aluno);
+        return listaIdsInscritos;
+    }
+
+    private async buscarPrecoServico(sigla: string, codigoAno: number) {
+    const sql = `
+    SELECT 
+    TS.CODIGO,
+    TS.DESCRICAO,
+    TS.PRECO,
+    TT.TAXA AS TAXA_IVA,
+    TS.SIGLA
+FROM FK2_TB_TIPO_SERVICOS TS
+LEFT JOIN FK2_TIPO_TAXAS TT ON TT.ID = TS.TAXA_IVA_ID
+WHERE TS.SIGLA = :sigla 
+  AND TS.CODIGO_ANO_LECTIVO = :codigoAno
+  AND TS.ESTADO = 'Ativo'
+  AND ROWNUM = 1
+    `;
+
+    const [servico] = await this.dataSource.query(sql, [sigla, codigoAno]);
+
+    return servico ? toLowerCaseKeys(servico) as {codigo: number, descricao: string, preco: number, taxa_iva: number, sigla: string} : null;
+
 }
+}
+
