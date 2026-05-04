@@ -760,8 +760,7 @@ export class PreRegistrationService {
             `SELECT * FROM FK2_FACTURA WHERE CODIGO_PREINSCRICAO = :codigo`,
             { codigo } as any,
         );
-        if (!rows.length)
-            throw new NotFoundException(`Pré-inscrição com código ${codigo} não encontrada`);
+
         return toLowerCaseKeys(rows[0]);
     }
     // ─────────────────────────────────────────────
