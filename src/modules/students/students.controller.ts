@@ -444,5 +444,13 @@ export class StudentsController {
   listarEstudantesDiplomados(@Query() query: ListarDiplomadosDTO) {
     return this.studentsService.listarEstudantesDiplomados(query);
   }
-
+  @Get('resultado-plano/:matricula')
+  @ApiOperation({ summary: 'Obter histórico acadêmico do estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Histórico acadêmico do estudante obtido com sucesso',
+  })
+  findResultadoPlano(@Param('matricula', ParseIntPipe) matricula: number) {
+    return this.studentsResultPlanService.findPlan(matricula);
+  }
 }
