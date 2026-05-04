@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
     IsString,
     IsNotEmpty,
@@ -6,15 +7,24 @@ import {
     IsEmail,
     IsDateString,
     IsNumber,
+    IsArray,
+    ValidateNested,
 } from 'class-validator';
+
+export class DocumentDto {
+    @ApiProperty({ example: 1 })
+    @IsNumber()
+    typeDocumentId: number;
+
+    @ApiProperty({ example: 'document.pdf' })
+    @IsString()
+    fileName: string;
+}
 
 export class CreatePreRegistrationDto {
 
     // === Dados da Inscrição ===
-    @ApiPropertyOptional({ example: 1 })
-    @IsOptional()
-    @IsNumber()
-    naturazaInscricao?: number;
+
 
     @ApiProperty({ example: 10 })
     @IsNotEmpty()
@@ -47,15 +57,28 @@ export class CreatePreRegistrationDto {
     @IsDateString()
     dataValidadeBI?: string;
 
+    /*
     @ApiPropertyOptional({ example: 1 })
     @IsOptional()
     @IsNumber()
     localEmissaoBI?: number;
+    */
 
+    /*
     @ApiProperty({ example: '1234567890' })
     @IsNotEmpty()
     @IsString()
     numeroIdentificacaoFiscal: string;
+    */
+    @ApiProperty({ example: 1 })
+    @IsNotEmpty()
+    @IsNumber()
+    codigoTurno: number;
+
+    @ApiPropertyOptional({ example: 2 })
+    @IsOptional()
+    @IsNumber()
+    codigoTurnoOptional?: number;
 
     @ApiProperty({ example: 'Feminino' })
     @IsNotEmpty()
@@ -92,10 +115,12 @@ export class CreatePreRegistrationDto {
     @IsEmail()
     email: string;
 
+    /*
     @ApiPropertyOptional({ example: 'Pai' })
     @IsOptional()
     @IsString()
     nomePessoaContactoTelefone?: string;
+    */
 
     // === Formação ===
     @ApiPropertyOptional({ example: 5 })
@@ -113,12 +138,15 @@ export class CreatePreRegistrationDto {
     @IsNumber()
     mediaFinal?: number;
 
+    /*
     @ApiPropertyOptional({ example: '12345' })
     @IsOptional()
     @IsString()
     numeroOrdemMedicos?: string;
+    */
 
     // === Profissional ===
+    /*
     @ApiPropertyOptional({ example: 'Hospital Josina Machel' })
     @IsOptional()
     @IsString()
@@ -133,6 +161,7 @@ export class CreatePreRegistrationDto {
     @IsOptional()
     @IsNumber()
     provinciaTrabalho?: number;
+    */
 
     // === Família ===
     @ApiPropertyOptional({ example: 'João Manuel dos Santos' })
@@ -145,15 +174,17 @@ export class CreatePreRegistrationDto {
     @IsString()
     mae?: string;
 
+    @ApiProperty({ example: 1 })
+    @IsNotEmpty()
+    @IsNumber()
+    codigoNacionalidade?: number;
+
+    /*
     @ApiPropertyOptional({ example: 'Luanda' })
     @IsOptional()
     @IsString()
     naturalidade?: string;
 
-    @ApiPropertyOptional({ example: 1 })
-    @IsOptional()
-    @IsNumber()
-    codigoNacionalidade?: number;
 
     @ApiPropertyOptional({ example: 2 }) @IsOptional() @IsNumber() ocupacaoPai?: number;
     @ApiPropertyOptional({ example: 3 }) @IsOptional() @IsNumber() ocupacaoMae?: number;
@@ -166,8 +197,10 @@ export class CreatePreRegistrationDto {
     @ApiPropertyOptional({ example: 4 }) @IsOptional() @IsNumber() grauAcademicoPai?: number;
     @ApiPropertyOptional({ example: 4 }) @IsOptional() @IsNumber() grauAcademicoMae?: number;
     @ApiPropertyOptional({ example: 0 }) @IsOptional() @IsNumber() grauAcademicoConjuge?: number;
+    */
 
     // === Outros ===
+    /*
     @ApiPropertyOptional({ example: 2026 })
     @IsOptional()
     @IsNumber()
@@ -183,27 +216,20 @@ export class CreatePreRegistrationDto {
     @IsNumber()
     deslocadoPermanente?: number;
 
-    @ApiPropertyOptional({ example: 2 })
-    @IsOptional()
-    @IsNumber()
-    necessidadeEspecialId?: number;
-
     @ApiPropertyOptional({ example: 1 })
     @IsOptional()
     @IsNumber()
     canal?: number;
 
-    @ApiPropertyOptional({ example: 1 })
-    @IsOptional()
-    @IsNumber()
-    codigoTipoCandidatura?: number;
 
     @ApiPropertyOptional({ example: 2 })
     @IsOptional()
     @IsNumber()
     codigoFormaIngresso?: number;
+    */
 
     // === Sistema ===
+    /*
     @ApiPropertyOptional({ example: 1001 })
     @IsOptional()
     @IsNumber()
@@ -213,6 +239,26 @@ export class CreatePreRegistrationDto {
     @IsOptional()
     @IsNumber()
     estado?: number;
+
+    @ApiPropertyOptional({ example: 1 })
+    @IsOptional()
+    @IsNumber()
+    permitirInscricao?: number;
+
+    @ApiPropertyOptional({ example: '2026-04-28 17:00:00' })
+    @IsOptional()
+    @IsString()
+    dataPreescricao?: string;
+    */
+
+    @ApiPropertyOptional({ example: 1 })
+    @IsOptional()
+    @IsNumber()
+    codigoTipoCandidatura?: number;
+    @ApiPropertyOptional({ example: 2 })
+    @IsOptional()
+    @IsNumber()
+    necessidadeEspecialId?: number;
 
     @ApiPropertyOptional({ example: 1 })
     @IsOptional()
@@ -229,13 +275,13 @@ export class CreatePreRegistrationDto {
     @IsNumber()
     cursoOpcional2Id?: number;
 
-    @ApiPropertyOptional({ example: 1 })
+    @ApiProperty({
+        type: [DocumentDto],
+        description: 'Array de documentos obrigatórios para a pré-inscrição.',
+    })
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => DocumentDto)
     @IsOptional()
-    @IsNumber()
-    permitirInscricao?: number;
-
-    @ApiPropertyOptional({ example: '2026-04-28 17:00:00' })
-    @IsOptional()
-    @IsString()
-    dataPreescricao?: string;
+    documentos?: DocumentDto[];
 }

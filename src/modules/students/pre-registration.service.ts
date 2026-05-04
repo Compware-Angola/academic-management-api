@@ -10,6 +10,7 @@ import { CreatePreRegistrationDto } from './dto/create-pre-inscricao.dto';
 import { UpdatePreRegistrationDto } from './dto/update-pre-inscricao.dto';
 import { QueryPreRegistrationDto } from './dto/queryPreRegistrationDto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
+import { AnoLectivoUtil } from '../util/current-academic-year';
 
 
 @Injectable()
@@ -17,141 +18,92 @@ export class PreRegistrationService {
     constructor(
         @InjectDataSource()
         private readonly dataSource: DataSource,
+        private readonly anoLectivoUtil: AnoLectivoUtil
     ) { }
 
     // ─────────────────────────────────────────────
     //  CREATE
     // ─────────────────────────────────────────────
-    async create(dto: CreatePreRegistrationDto, userId?: number) {
+    async create(dto: CreatePreRegistrationDto, userId: number) {
         await this.assertUniqueBI(dto.bilheteIdentidade);
         await this.assertUniqueEmail(dto.email);
 
+        const anoLectivo = await this.anoLectivoUtil.getAnoAtualId() ?? null;
+
         const result = await this.dataSource.query(
             `
-      INSERT INTO FK2_TB_PREINSCRICAO (
-        NATURAZA_INSCRICAO,
-        CURSO_CANDIDATURA,
-        MODALIDADE_FREQUENCIA,
-        NOME_COMPLETO,
-        BILHETE_IDENTIDADE,
-        DATA_EMISSAO_BI,
-        DATA_VALIDADE_BI,
-        LOCAL_EMISSAO_BI,
-        NUMERO_IDENTIFICACAO_FISCAL,
-        SEXO,
-        DATA_NASCIMENTO,
-        ESTADO_CIVIL,
-        CONTACTOS_TELEFONICOS,
-        CONTACTO_DE_EMERGENCIA,
-        MORADA_COMPLETA,
-        EMAIL,
-        NOME_PESSOA_CONTACTO_TELEFONE,
-        INSTITUICAO_FORMACAO_ACESSO,
-        DATA_CONCLUSAO,
-        MEDIA_FINAL,
-        NUMERO_ORDEM_MEDICOS,
-        INSTITUICAO_EXERCE_FUNCAO,
-        DATA_INICIO_TRABALHO,
-        PROVINCIA_TRABALHO,
-        PAI,
-        MAE,
-        NATURALIDADE,
-        CODIGO_NACIONALIDADE,
-        OCUPACAO_PAI,
-        OCUPACAO_MAE,
-        OCUPACAO_CONJUGE,
-        PROFISSAO_PAI,
-        PROFISSAO_MAE,
-        PROFISSAO_CONJUGE,
-        GRAU_ACADEMICO_PAI,
-        GRAU_ACADEMICO_MAE,
-        GRAU_ACADEMICO_CONJUGE,
-        ANOLECTIVO,
-        PROVINCIA_ORIGEM,
-        DESLOCADO_PERMANENTE,
-        NECESSIDADE_ESPECIAL_ID,
-        CANAL,
-        CODIGO_TIPO_CANDIDATURA,
-        CODIGO_FORMA_INGRESSO,
-        CODIGO_UTILIZADOR,
-        ESTADO,
-        POLO_ID,
-        CURSOOPCIONAL1_ID,
-        CURSOOPCIONAL2_ID,
-        PERMITIR_INSCRICAO,
-        DATA_PREESCRINCAO,
-        USER_ID,
-        ESTADO_PREISCRICAO_CANDIDATO,
-        CREATED_AT,
-        UPDATED_AT
-      ) VALUES (
-        :naturazaInscricao,
-        :cursoCandidatura,
-        :modalidadeFrequencia,
-        :nomeCompleto,
-        :bilheteIdentidade,
-        TO_DATE(:dataEmissaoBI,    'YYYY-MM-DD'),
-        TO_DATE(:dataValidadeBI,   'YYYY-MM-DD'),
-        :localEmissaoBI,
-        :numeroIdentificacaoFiscal,
-        :sexo,
-        TO_DATE(:dataNascimento,   'YYYY-MM-DD'),
-        :estadoCivil,
-        :contactosTelefonicos,
-        :contactoDeEmergencia,
-        :moradaCompleta,
-        :email,
-        :nomePessoaContactoTelefone,
-        :instituicaoFormacaoAcesso,
-        TO_DATE(:dataConclusao,    'YYYY-MM-DD'),
-        :mediaFinal,
-        :numeroOrdemMedicos,
-        :instituicaoExerceFuncao,
-        TO_DATE(:dataInicioTrabalho,'YYYY-MM-DD'),
-        :provinciaTrabalho,
-        :pai,
-        :mae,
-        :naturalidade,
-        :codigoNacionalidade,
-        :ocupacaoPai,
-        :ocupacaoMae,
-        :ocupacaoConjuge,
-        :profissaoPai,
-        :profissaoMae,
-        :profissaoConjuge,
-        :grauAcademicoPai,
-        :grauAcademicoMae,
-        :grauAcademicoConjuge,
-        :anoLectivo,
-        :provinciaOrigem,
-        :deslocadoPermanente,
-        :necessidadeEspecialId,
-        :canal,
-        :codigoTipoCandidatura,
-        :codigoFormaIngresso,
-        :codigoUsuario,
-        NVL(:estado, 1),
-        :poloId,
-        :cursoOpcional1Id,
-        :cursoOpcional2Id,
-        :permitirInscricao,
-        TO_DATE(:dataPreescricao, 'YYYY-MM-DD HH24:MI:SS'),
-        :userId,
-        1,
-        SYSDATE,
-        SYSDATE
-      ) RETURNING CODIGO INTO :outId
-      `,
+        INSERT INTO FK2_TB_PREINSCRICAO (
+            CURSO_CANDIDATURA,
+            MODALIDADE_FREQUENCIA,
+            NOME_COMPLETO,
+            BILHETE_IDENTIDADE,
+            DATA_EMISSAO_BI,
+            DATA_VALIDADE_BI,
+            SEXO,
+            DATA_NASCIMENTO,
+            ESTADO_CIVIL,
+            CONTACTOS_TELEFONICOS,
+            CONTACTO_DE_EMERGENCIA,
+            MORADA_COMPLETA,
+            EMAIL,
+            INSTITUICAO_FORMACAO_ACESSO,
+            DATA_CONCLUSAO,
+            MEDIA_FINAL,
+            PAI,
+            MAE,
+            NECESSIDADE_ESPECIAL_ID,
+            POLO_ID,
+            CURSOOPCIONAL1_ID,
+            CURSOOPCIONAL2_ID,
+            USER_ID,
+            ESTADO_PREISCRICAO_CANDIDATO,
+            CODIGO_TIPO_CANDIDATURA,
+            CODIGO_TURNO,
+            ANOLECTIVO,
+            CODIGO_NACIONALIDADE,
+            CREATED_AT,
+            UPDATED_AT
+        ) VALUES (
+            :cursoCandidatura,
+            :modalidadeFrequencia,
+            :nomeCompleto,
+            :bilheteIdentidade,
+            TO_DATE(:dataEmissaoBI, 'YYYY-MM-DD'),
+            TO_DATE(:dataValidadeBI, 'YYYY-MM-DD'),
+            :sexo,
+            TO_DATE(:dataNascimento, 'YYYY-MM-DD'),
+            :estadoCivil,
+            :contactosTelefonicos,
+            :contactoDeEmergencia,
+            :moradaCompleta,
+            :email,
+            :instituicaoFormacaoAcesso,
+            TO_DATE(:dataConclusao, 'YYYY-MM-DD'),
+            :mediaFinal,
+            :pai,
+            :mae,
+            :necessidadeEspecialId,
+            :poloId,
+            :cursoOpcional1Id,
+            :cursoOpcional2Id,
+            :userId,
+            1,
+            :codigoTipoCandidatura,
+            :codigoTurno,
+            :anoLectivo,
+            :codigoNacionalidade,
+            SYSDATE,
+            SYSDATE
+        )
+        RETURNING CODIGO INTO :outId
+        `,
             {
-                naturazaInscricao: dto.naturazaInscricao ?? null,
                 cursoCandidatura: dto.cursoCandidatura,
                 modalidadeFrequencia: dto.modalidadeFrequencia ?? null,
                 nomeCompleto: dto.nomeCompleto,
                 bilheteIdentidade: dto.bilheteIdentidade,
                 dataEmissaoBI: dto.dataEmissaoBI ?? null,
                 dataValidadeBI: dto.dataValidadeBI ?? null,
-                localEmissaoBI: dto.localEmissaoBI ?? null,
-                numeroIdentificacaoFiscal: dto.numeroIdentificacaoFiscal,
                 sexo: dto.sexo,
                 dataNascimento: dto.dataNascimento,
                 estadoCivil: dto.estadoCivil ?? null,
@@ -159,52 +111,39 @@ export class PreRegistrationService {
                 contactoDeEmergencia: dto.contactoDeEmergencia ?? null,
                 moradaCompleta: dto.moradaCompleta,
                 email: dto.email,
-                nomePessoaContactoTelefone: dto.nomePessoaContactoTelefone ?? null,
                 instituicaoFormacaoAcesso: dto.instituicaoFormacaoAcesso ?? null,
                 dataConclusao: dto.dataConclusao ?? null,
                 mediaFinal: dto.mediaFinal ?? null,
-                numeroOrdemMedicos: dto.numeroOrdemMedicos ?? null,
-                instituicaoExerceFuncao: dto.instituicaoExerceFuncao ?? null,
-                dataInicioTrabalho: dto.dataInicioTrabalho ?? null,
-                provinciaTrabalho: dto.provinciaTrabalho ?? null,
                 pai: dto.pai ?? null,
                 mae: dto.mae ?? null,
-                naturalidade: dto.naturalidade ?? null,
-                codigoNacionalidade: dto.codigoNacionalidade ?? null,
-                ocupacaoPai: dto.ocupacaoPai ?? null,
-                ocupacaoMae: dto.ocupacaoMae ?? null,
-                ocupacaoConjuge: dto.ocupacaoConjuge ?? null,
-                profissaoPai: dto.profissaoPai ?? null,
-                profissaoMae: dto.profissaoMae ?? null,
-                profissaoConjuge: dto.profissaoConjuge ?? null,
-                grauAcademicoPai: dto.grauAcademicoPai ?? null,
-                grauAcademicoMae: dto.grauAcademicoMae ?? null,
-                grauAcademicoConjuge: dto.grauAcademicoConjuge ?? null,
-                anoLectivo: dto.anoLectivo ?? null,
-                provinciaOrigem: dto.provinciaOrigem ?? null,
-                deslocadoPermanente: dto.deslocadoPermanente ? 1 : 0,
                 necessidadeEspecialId: dto.necessidadeEspecialId ?? null,
-                canal: dto.canal ?? null,
-                codigoTipoCandidatura: dto.codigoTipoCandidatura ?? null,
-                codigoFormaIngresso: dto.codigoFormaIngresso ?? null,
-                codigoUsuario: dto.codigoUsuario ?? null,
-                estado: dto.estado ?? null,
                 poloId: dto.poloId ?? null,
                 cursoOpcional1Id: dto.cursoOpcional1Id ?? null,
                 cursoOpcional2Id: dto.cursoOpcional2Id ?? null,
-                permitirInscricao: dto.permitirInscricao ? 1 : 0,
-                dataPreescricao: dto.dataPreescricao ?? null,
                 userId: userId ?? null,
+                codigoTipoCandidatura: dto.codigoTipoCandidatura ?? null,
+                codigoTurno: dto.codigoTurno ?? null,
+                anoLectivo: anoLectivo ?? null,
+                codigoNacionalidade: dto.codigoNacionalidade ?? null,
                 outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
             } as any,
         );
 
         const codigo = result.outId[0];
+
+        if (dto.documentos && dto.documentos.length > 0 && codigo) {
+            await Promise.all(
+                dto.documentos.map(async (doc) => {
+                    await this.createDocumentPreRegistration(codigo, doc.typeDocumentId, doc.fileName);
+                }),
+            );
+        }
+
         return {
             codigo,
             message: 'Pré-registro criado com sucesso.',
-            estado: 1
-        }
+            estado: 1,
+        };
     }
 
     // ─────────────────────────────────────────────
@@ -332,7 +271,34 @@ export class PreRegistrationService {
 
         return this.findOne(codigo);
     }
+    async createDocumentPreRegistration(codigoPreinscricao: number, typeDocumentId: number, fileName: string) {
+        const result = await this.dataSource.query(
+            `
+        INSERT INTO FK2_DOCUMENTOS_ADMISSAO (
+            CANDIDATO_ID,
+            TIPO_DOCUMENTO_ID,
+            NOME_ARQUIVO,
+            CREATED_AT,
+            UPDATED_AT
+        ) VALUES (
+            :codigoPreinscricao,
+            :typeDocumentId,
+            :fileName,
+            SYSDATE,
+            SYSDATE
+        )
+        RETURNING ID INTO :outId
+        `,
+            {
+                codigoPreinscricao,
+                typeDocumentId,
+                fileName,
+                outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+            } as any,
+        );
 
+        return result.outId[0];
+    }
     // ─────────────────────────────────────────────
     //  FIND ALL
     // ─────────────────────────────────────────────
@@ -690,6 +656,129 @@ export class PreRegistrationService {
             created_at: row.CREATED_AT,
             updated_at: row.UPDATED_AT,
         };
+    }
+
+    // INFORMAÇÕES GERAIS DO CANDIDATO
+
+    async getCandidaturaUserData(userId: number): Promise<any> {
+        const result = await this.dataSource.query(
+            `
+    SELECT
+      us.id                         AS user_id,
+      
+      p.Nome_Completo,
+      p.email                      AS email,
+      p.contactos_telefonicos                   AS telefone,
+      p.bilhete_identidade           AS numero_documento,
+      p.Codigo                      AS codigo_preinscricao,
+      a.data                        AS data_admissao,
+     TRUNC(hp.data_realizacao) AS data_prova,
+      SUBSTR(TO_CHAR(NUMTODSINTERVAL(
+           TO_NUMBER(DBMS_LOB.SUBSTR(hp.HORA_INICIO, 4000, 1)) / 86400000000000,
+           'DAY'
+         )), 12, 5) AS HORA_INICIO,
+       SUBSTR(TO_CHAR(NUMTODSINTERVAL(
+           TO_NUMBER(DBMS_LOB.SUBSTR(hp.HORA_FIM, 4000, 1)) / 86400000000000,
+           'DAY'
+         )), 12, 5) AS HORA_FIM,
+      tc.STATUS_                    AS status_prova,
+      pr.DESCRICAO                  AS lista_de_provas, 
+      s.DESIGNACAO                   AS sala_de_prova,
+
+
+   CASE
+  WHEN p.Codigo    IS NULL                                                    THEN 'SEM_PRE_INSCRICAO'
+  WHEN tc.id       IS NULL                                                    THEN 'SEM_ADMISSAO'
+  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) = TRUNC(SYSDATE)        THEN 'DIA_DA_PROVA'
+  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) > TRUNC(SYSDATE)        THEN 'AGUARDANDO_DIA_DA_PROVA'
+  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) < TRUNC(SYSDATE)        THEN 'AGUARDANDO_RESULTADO'
+  WHEN a.mediafinal < 10                                                      THEN 'NAO_ADMITIDO'
+  WHEN a.mediafinal >= 10 AND m.Codigo IS NULL                                THEN 'ADMITIDO_SEM_MATRICULA'
+  WHEN a.mediafinal >= 10 AND m.Codigo IS NOT NULL                            THEN 'ALUNO_MATRICULADO'
+  ELSE                                                                             'ALUNO_MATRICULADO'
+END AS estado_aluno
+
+    FROM fk2_users us
+
+      LEFT JOIN (
+        SELECT * FROM (
+          SELECT p.*, ROW_NUMBER() OVER (PARTITION BY p.user_id ORDER BY p.Codigo DESC) AS rn
+          FROM fk2_tb_preinscricao p
+        ) WHERE rn = 1
+      ) p ON p.user_id = us.id
+
+      LEFT JOIN (
+        SELECT * FROM (
+          SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.pre_incricao ORDER BY a.codigo DESC) AS rn
+          FROM fk2_tb_admissao a
+        ) WHERE rn = 1
+      ) a ON a.pre_incricao = p.Codigo
+
+      LEFT JOIN (
+        SELECT * FROM (
+          SELECT m.*, ROW_NUMBER() OVER (PARTITION BY m.Codigo_Aluno ORDER BY m.Codigo DESC) AS rn
+          FROM fk2_tb_matriculas m
+        ) WHERE rn = 1
+      ) m ON m.Codigo_Aluno = a.codigo
+
+      LEFT JOIN (
+        SELECT * FROM (
+          SELECT tc.*, ROW_NUMBER() OVER (PARTITION BY tc.candidato_id ORDER BY tc.id DESC) AS rn
+          FROM fk2_candidato_provas tc
+        ) WHERE rn = 1
+      ) tc ON tc.candidato_id = p.Codigo
+
+      LEFT JOIN (
+        SELECT * FROM (
+          SELECT hp.*, ROW_NUMBER() OVER (PARTITION BY hp.id ORDER BY hp.id DESC) AS rn
+          FROM FK2_TB_HORARIO_PROVA hp
+        ) WHERE rn = 1
+      ) hp ON hp.id = tc.HORARIO_PROVA_ID
+
+      LEFT JOIN fk2_provas pr ON pr.id = tc.prova_id
+      LEFT JOIN fk2_tb_salas s on s.codigo = hp.sala_id
+
+    WHERE us.id = :userId
+  
+    `,
+            { userId } as any,
+        );
+
+        if (!result || result.length === 0) {
+            throw new NotFoundException('Utilizador não encontrado');
+        }
+        const data = result.map((row: any) => {
+            const listaProvas = row.LISTA_DE_PROVAS
+                ? row.LISTA_DE_PROVAS.replace(/^Prova de\s*/i, '')
+                    .split(/<br>/i)[0]
+                    .split(',')
+                    .map((s: string) => s.trim())
+                    .filter((s: string) => s.length > 0)
+                : [];
+
+            return {
+                ...row,
+                lista_de_provas: listaProvas,
+            };
+        });
+
+        const invoice = await this.getInvoce(
+            result[0]?.codigo_preinscricao || result[0]?.CODIGO_PREINSCRICAO,
+        );
+
+        const payments = invoice
+            ? { has_invoice: true, is_payed: Number(invoice.estado) === 1 }
+            : { has_invoice: false };
+
+        return toLowerCaseKeys({ ...data[0], payments });
+    }
+    private async getInvoce(codigo: number) {
+        const rows = await this.dataSource.query(
+            `SELECT * FROM FK2_FACTURA WHERE CODIGO_PREINSCRICAO = :codigo`,
+            { codigo } as any,
+        );
+
+        return toLowerCaseKeys(rows[0]);
     }
     // ─────────────────────────────────────────────
     //  FIND ONE

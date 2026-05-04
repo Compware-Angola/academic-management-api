@@ -55,7 +55,9 @@ import { GerarCertificadoDto } from './dto/gerar-certificado.dto';
 import { StudentsChangeCourse } from './students-change.course.service';
 import { StudentsResultPlanService } from './students-result-plan.service';
 import { ListarDiplomadosDTO } from './dto/listar-diplomados-dto';
-
+import { HttpService } from '@nestjs/axios';
+import { AccessLogHelper } from '../common/helpers/access-log.helper';
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('students')
 export class StudentsController {
   constructor(
@@ -65,7 +67,20 @@ export class StudentsController {
     private readonly studentsEnrollmentPendentUCService: StudentsEnrollmentPendentUCService,
     private readonly studentsChangeCourse: StudentsChangeCourse,
     private readonly studentsResultPlanService: StudentsResultPlanService,
-  ) {}
+    private httpService: HttpService
+
+  ) { }
+  private log(req: any, descricao: string) {
+    const user = req.user;
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+
+    AccessLogHelper.logAccess(this.httpService, {
+      descricao,
+      fkUtilizadorResponsavel: user?.sub,
+      ip,
+    });
+  }
+
   @Get('estatistic/:codigoMatricula')
   async getProfile(@Param('codigoMatricula') codigoMatricula: number) {
     return this.studentsService.getProfileEstatistic(codigoMatricula);
@@ -137,65 +152,74 @@ export class StudentsController {
     description: 'Senha do estudante resetada com sucesso',
     type: ResetStudentPasswordDTO,
   })
-  resetPassword(@Body(ValidationPipe) body: ResetStudentPasswordDTO) {
-    return this.studentsService.resetPassword(body);
+  async resetPassword(@Body(ValidationPipe) body: ResetStudentPasswordDTO,
+    @Req() req: any,) {
+    console.log({ user: req.user })
+    const result = await this.studentsService.resetPassword(body);
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} resetou a senha do estudante com o codigo de matricula ${body.codigoMatricula}`,
+    );
+    return result
   }
 
   @Put('contactos')
-  @ApiOperation({ summary: 'Atualizar contactos do estudante' })
-  @ApiResponse({
-    status: 200,
-    description: 'Contactos do estudante atualizados com sucesso',
-    type: UpdateStudentContactDTO,
-  })
-  updateContactos(@Body(ValidationPipe) body: UpdateStudentContactDTO) {
-    return this.studentsService.updateContactos(body);
+  async updateContactos(
+    @Body(ValidationPipe) body: UpdateStudentContactDTO,
+    @Req() req: any,
+  ) {
+    const result = await this.studentsService.updateContactos(body);
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} atualizou contactos do estudante com codigo de matriula ${body.codigoMatricula}`,
+    );
+    return result;
   }
+
   @Put('change-course')
-  @ApiOperation({ summary: 'Mudar curso do estudante' })
-  @ApiResponse({
-    status: 200,
-    description: 'Curso do estudante alterado com sucesso',
-    type: ChangeCourseDTO,
-  })
-  changeCourse(@Body(ValidationPipe) body: ChangeCourseDTO) {
-    return this.studentsService.changeCourse(body);
+  async changeCourse(
+    @Body(ValidationPipe) body: ChangeCourseDTO,
+    @Req() req: any,
+  ) {
+    const result = await this.studentsService.changeCourse(body);
+
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} alterou o curso do estudante com codigo de matricula ${body.matriculaId}`,
+    );
+
+    return result;
   }
+
   @Put('personal-data')
-  @ApiOperation({ summary: 'Atualizar dados pessoais do estudante' })
-  @ApiResponse({
-    status: 200,
-    description: 'Dados pessoais do estudante atualizados com sucesso',
-    type: UpdateStudentPersonalDataDTO,
-  })
-  updatePersonalData(@Body(ValidationPipe) body: UpdateStudentPersonalDataDTO) {
-    return this.studentsService.updatePersonalData(body);
+  async updatePersonalData(
+    @Body(ValidationPipe) body: UpdateStudentPersonalDataDTO,
+    @Req() req: any,
+  ) {
+    const result = await this.studentsService.updatePersonalData(body);
+
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} atualizou dados pessoais do estudante como o codigo de matricula ${body.codigoMatricula}`,
+    );
+
+    return result;
   }
-  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+
+
   @Put('active-registration')
-  @ApiOperation({
-    summary: 'Ativar matrícula de um estudante',
-    description:
-      'Ativa a matrícula do aluno e desativa automaticamente todas as isenções existentes.',
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Matrícula ativada com sucesso',
-    schema: {
-      example: {
-        mensagem: 'Estado do estudante João Silva Definido',
-        sucesso: true,
-      },
-    },
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Erro ao ativar matrícula',
-  })
-  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-  async ativarMatricula(@Body() dto: ActivateRegistrationDTO, @Req() req: any) {
-    const usuarioLogado = req.user;
-    return this.studentsService.activateRegistration(dto, usuarioLogado);
+  async ativarMatricula(
+    @Body() dto: ActivateRegistrationDTO,
+    @Req() req: any,
+  ) {
+    const result = await this.studentsService.activateRegistration(dto, req.user);
+
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} ativou matrícula do estudante com o codigo de matricula ${dto.codigoMatricula}`,
+    );
+
+    return result;
   }
 
   @Get('academic-history')
@@ -221,17 +245,20 @@ export class StudentsController {
   }
 
   @Post('/enrollment/uc')
-  @ApiOperation({ summary: 'Fazer inscrição em UC' })
-  @ApiBody({ type: CreateStudentEnrollmentUC })
-  @ApiResponse({
-    status: 200,
-    description: 'Fazer inscrição em UC',
-  })
   async createEnrollmentUc(
     @Body(ValidationPipe) body: CreateStudentEnrollmentUC,
+    @Req() req: any,
   ) {
-    return this.studentEnrollment.enrollmentUc(body);
+    const result = await this.studentEnrollment.enrollmentUc(body);
+
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} inscreveu estudante com o codigo de matricula ${body.codigoMatricula} em UC`,
+    );
+
+    return result;
   }
+
   @Get('/enrollment/pendent-uc')
   @ApiOperation({ summary: 'Listar Uc pendentes de um estudante' })
   @ApiResponse({
@@ -273,20 +300,34 @@ export class StudentsController {
     status: 200,
     description: 'Horário da grade curricular atualizado com sucesso',
   })
-  updateHorarioGradeCurricular(
+  async updateHorarioGradeCurricular(
     @Body(ValidationPipe) body: UpdateGradeCurricularAlunoHorarioDTO,
+    @Req() req: any
   ) {
-    return this.studentsService.updateHorarioGradeCurricular(body);
+    const result = await this.studentsService.updateHorarioGradeCurricular(body);
+
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} atualizou horário da grade curricular do estudante`,
+    );
+
+    return result;
   }
 
   @Delete('grade-curricular/:codigoGradeCurricularAluno')
-  deleteGrade(
+  async deleteGrade(
     @Param('codigoGradeCurricularAluno', ParseIntPipe)
     codigoGradeCurricularAluno: number,
+    @Req() req: any,
   ) {
-    return this.studentsService.deleteGrade({
+    const result = await this.studentsService.deleteGrade({
       codigoGradeCurricularAluno,
     });
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} removeu grade curricular ${codigoGradeCurricularAluno}`,
+    );
+    return result;
   }
 
   @Put('restore-grade-curricular/:codigoGradeCurricularAluno')
@@ -295,11 +336,22 @@ export class StudentsController {
     status: 200,
     description: 'Grade curricular restaurada com sucesso',
   })
-  restoreGrade(
+  async restoreGrade(
     @Param('codigoGradeCurricularAluno', ParseIntPipe)
     codigoGradeCurricularAluno: number,
+    @Req() req: any,
   ) {
-    return this.studentsService.restoreGrade({ codigoGradeCurricularAluno });
+    const result = await this.studentsService.restoreGrade({
+      codigoGradeCurricularAluno,
+    });
+
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} restaurou grade curricular ${codigoGradeCurricularAluno}`,
+    );
+
+    return result;
+
   }
 
   @Put('definir-especialidade')
@@ -308,43 +360,41 @@ export class StudentsController {
     status: 200,
     description: 'Especialidade do estudante definida com sucesso',
   })
-  definirEspecialidade(@Body(ValidationPipe) body: DefinirEspecialidadeDTO) {
-    return this.studentsService.definirEspecialidade(body);
+  async definirEspecialidade(@Body(ValidationPipe) body: DefinirEspecialidadeDTO,
+    @Req() req: any,
+  ) {
+    const result = await this.studentsService.definirEspecialidade(body);
+
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} definiu especialidade do estudante com codigo de matricula ${body.codigoMatricula}`,
+    );
+
+    return result;
   }
 
   @Put('diplomar')
-  @ApiOperation({
-    summary: 'Diplomar estudante',
-    description:
-      'Define a matrícula do estudante como diplomado, regista a conclusão do curso e cria o log da operação.',
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Estudante diplomado com sucesso',
-  })
   async diplomarAluno(@Body() dto: DiplomarAlunoDTO, @Req() req: any) {
-    const usuarioLogado = req.user;
-    return this.studentsService.diplomarAluno(dto, usuarioLogado);
+    const result = await this.studentsService.diplomarAluno(dto, req.user);
+
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} diplomou estudante com codigo de matricula ${dto.codigoMatricula}`,
+    );
+
+    return result;
   }
 
   @Post('gerar-diploma')
-  @ApiOperation({
-    summary: 'Gerar dados do diploma do estudante',
-    description:
-      'Obtém os dados necessários para renderização do diploma no frontend.',
-  })
-  @ApiBody({ type: GerarDiplomaDTO })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Dados do diploma gerados com sucesso',
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Erro ao gerar diploma',
-  })
-  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-  async gerarDiploma(@Body() dto: GerarDiplomaDTO) {
-    return this.studentsService.gerarDiploma(dto);
+  async gerarDiploma(@Body() dto: GerarDiplomaDTO, @Req() req: any) {
+    const result = await this.studentsService.gerarDiploma(dto);
+
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} gerou diploma do estudante com codigo de matricula ${dto.codigoMatricula}`,
+    );
+
+    return result;
   }
 
   @Get('notas-certificado')
@@ -357,45 +407,42 @@ export class StudentsController {
     return this.studentsService.obterNotasCertificado(query);
   }
 
-  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Put('mudar-curso')
-  @ApiOperation({ summary: 'Mudar curso de um aluno' })
-  @ApiResponse({
-    status: 200,
-    description: 'Mudar curso de um aluno',
-  })
-  updateCurso(@Body(ValidationPipe) body: ChangeCourseDTO, @Req() req: any) {
-    const user = req.user;
-    return this.studentsChangeCourse.mudarCurso(user.sub, body);
+  async updateCurso(
+    @Body(ValidationPipe) body: ChangeCourseDTO,
+    @Req() req: any,
+  ) {
+    const result = await this.studentsChangeCourse.mudarCurso(
+      req.user.sub,
+      body,
+    );
+
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} executou mudança de curso do estudante com codigo de matricula ${body.matriculaId}`,
+    );
+
+    return result;
   }
 
-  @Get('resultado-plano/:matricula')
-  @ApiOperation({ summary: 'Obter histórico acadêmico do estudante' })
-  @ApiResponse({
-    status: 200,
-    description: 'Histórico acadêmico do estudante obtido com sucesso',
-  })
-  findResultadoPlano(@Param('matricula', ParseIntPipe) matricula: number) {
-    return this.studentsResultPlanService.findPlan(matricula);
-  }
 
-@Get('diplomados')
-@ApiOperation({ summary: 'Listar estudantes diplomados' })
-@ApiQuery({ name: 'anoLectivo', required: true, type: Number })
-@ApiQuery({ name: 'codigoCurso', required: false, type: Number })
-@ApiQuery({
-  name: 'genero',
-  required: false,
-  enum: ['todos', 'Masculino', 'Feminino'],
-})
-@ApiQuery({ name: 'tipoCandidatura', required: false, type: Number })
-@ApiResponse({
-  status: HttpStatus.OK,
-  description: 'Lista de estudantes diplomados obtida com sucesso',
-})
-@UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-listarEstudantesDiplomados(@Query() query: ListarDiplomadosDTO) {
-  return this.studentsService.listarEstudantesDiplomados(query);
-}
+  @Get('diplomados')
+  @ApiOperation({ summary: 'Listar estudantes diplomados' })
+  @ApiQuery({ name: 'anoLectivo', required: true, type: Number })
+  @ApiQuery({ name: 'codigoCurso', required: false, type: Number })
+  @ApiQuery({
+    name: 'genero',
+    required: false,
+    enum: ['todos', 'Masculino', 'Feminino'],
+  })
+  @ApiQuery({ name: 'tipoCandidatura', required: false, type: Number })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Lista de estudantes diplomados obtida com sucesso',
+  })
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  listarEstudantesDiplomados(@Query() query: ListarDiplomadosDTO) {
+    return this.studentsService.listarEstudantesDiplomados(query);
+  }
 
 }

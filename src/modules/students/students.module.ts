@@ -13,10 +13,18 @@ import { BeginningStudentProcessController } from './beginning-student-process.c
 import { BeginningStudentProcessService } from './beginning-student-process.service';
 import { PreRegistrationController } from './pre-registration.controller';
 import { PreRegistrationService } from './pre-registration.service';
+import { StudentsProvasService } from './students-provas.service';
+import { StudentsProvasController } from './students-provas.controller';
+import { HttpModule } from '@nestjs/axios';
+import { PrazosService } from '../prazos/prazos.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AcademicYear])],
-  controllers: [StudentsController, BeginningStudentProcessController, PreRegistrationController],
+  imports: [TypeOrmModule.forFeature([AcademicYear]),
+  HttpModule.register({
+    timeout: 5000,
+    maxRedirects: 5
+  })],
+  controllers: [StudentsController, BeginningStudentProcessController, PreRegistrationController, StudentsProvasController],
 
   providers: [
     StudentsService,
@@ -27,7 +35,9 @@ import { PreRegistrationService } from './pre-registration.service';
     StudentsEnrollmentPendentUCService,
     StudentsChangeCourse,
     StudentsResultPlanService,
-    BeginningStudentProcessService
+    BeginningStudentProcessService,
+    StudentsProvasService,
+    PrazosService
   ],
 })
 export class StudentsModule { }
