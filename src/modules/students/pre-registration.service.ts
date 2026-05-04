@@ -115,6 +115,14 @@ export class PreRegistrationService {
 
         const codigo = result.outId[0];
 
+        if (dto.documentos && dto.documentos.length > 0 && codigo) {
+            await Promise.all(
+                dto.documentos.map(async (doc) => {
+                    await this.createDocumentPreRegistration(codigo, doc.typeDocumentId, doc.fileName);
+                }),
+            );
+        }
+
         return {
             codigo,
             message: 'Pré-registro criado com sucesso.',
@@ -247,7 +255,34 @@ export class PreRegistrationService {
 
         return this.findOne(codigo);
     }
+    async createDocumentPreRegistration(codigoPreinscricao: number, typeDocumentId: number, fileName: string) {
+        const result = await this.dataSource.query(
+            `
+        INSERT INTO FK2_DOCUMENTOS_ADMISSAO (
+            CANDIDATO_ID,
+            TIPO_DOCUMENTO_ID,
+            NOME_ARQUIVO,
+            CREATED_AT,
+            UPDATED_AT
+        ) VALUES (
+            :codigoPreinscricao,
+            :typeDocumentId,
+            :fileName,
+            SYSDATE,
+            SYSDATE
+        )
+        RETURNING ID INTO :outId
+        `,
+            {
+                codigoPreinscricao,
+                typeDocumentId,
+                fileName,
+                outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+            } as any,
+        );
 
+        return result.outId[0];
+    }
     // ─────────────────────────────────────────────
     //  FIND ALL
     // ─────────────────────────────────────────────

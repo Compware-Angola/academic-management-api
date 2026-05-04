@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
     IsString,
     IsNotEmpty,
@@ -6,17 +7,24 @@ import {
     IsEmail,
     IsDateString,
     IsNumber,
+    IsArray,
+    ValidateNested,
 } from 'class-validator';
+
+export class DocumentDto {
+    @ApiProperty({ example: 1 })
+    @IsNumber()
+    typeDocumentId: number;
+
+    @ApiProperty({ example: 'document.pdf' })
+    @IsString()
+    fileName: string;
+}
 
 export class CreatePreRegistrationDto {
 
     // === Dados da Inscrição ===
-    /*
-    @ApiPropertyOptional({ example: 1 })
-    @IsOptional()
-    @IsNumber()
-    naturazaInscricao?: number;
-    */
+
 
     @ApiProperty({ example: 10 })
     @IsNotEmpty()
@@ -255,4 +263,14 @@ export class CreatePreRegistrationDto {
     @IsOptional()
     @IsNumber()
     cursoOpcional2Id?: number;
+
+    @ApiProperty({
+        type: [DocumentDto],
+        description: 'Array de documentos obrigatórios para a pré-inscrição.',
+    })
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => DocumentDto)
+    @IsOptional()
+    documentos?: DocumentDto[];
 }
