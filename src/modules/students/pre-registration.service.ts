@@ -60,6 +60,7 @@ export class PreRegistrationService {
             CODIGO_TIPO_CANDIDATURA,
             CODIGO_TURNO,
             ANOLECTIVO,
+            CODIGO_NACIONALIDADE,
             CREATED_AT,
             UPDATED_AT
         ) VALUES (
@@ -90,6 +91,7 @@ export class PreRegistrationService {
             :codigoTipoCandidatura,
             :codigoTurno,
             :anoLectivo,
+            :codigoNacionalidade,
             SYSDATE,
             SYSDATE
         )
@@ -122,6 +124,7 @@ export class PreRegistrationService {
                 codigoTipoCandidatura: dto.codigoTipoCandidatura ?? null,
                 codigoTurno: dto.codigoTurno ?? null,
                 anoLectivo: anoLectivo ?? null,
+                codigoNacionalidade: dto.codigoNacionalidade ?? null,
                 outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
             } as any,
         );
@@ -656,6 +659,7 @@ export class PreRegistrationService {
     }
 
     // INFORMAÇÕES GERAIS DO CANDIDATO
+
     async getCandidaturaUserData(userId: number): Promise<any> {
         const result = await this.dataSource.query(
             `
@@ -668,25 +672,33 @@ export class PreRegistrationService {
       p.bilhete_identidade           AS numero_documento,
       p.Codigo                      AS codigo_preinscricao,
       a.data                        AS data_admissao,
-      hp.data_realizacao            AS data_prova,
-      hp.hora_inicio,
-      hp.hora_fim,
+     TRUNC(hp.data_realizacao) AS data_prova,
+      SUBSTR(TO_CHAR(NUMTODSINTERVAL(
+           TO_NUMBER(DBMS_LOB.SUBSTR(hp.HORA_INICIO, 4000, 1)) / 86400000000000,
+           'DAY'
+         )), 12, 5) AS HORA_INICIO,
+       SUBSTR(TO_CHAR(NUMTODSINTERVAL(
+           TO_NUMBER(DBMS_LOB.SUBSTR(hp.HORA_FIM, 4000, 1)) / 86400000000000,
+           'DAY'
+         )), 12, 5) AS HORA_FIM,
       tc.STATUS_                    AS status_prova,
       pr.DESCRICAO                  AS lista_de_provas, 
       s.DESIGNACAO                   AS sala_de_prova,
 
 
-      CASE
-        WHEN p.Codigo  IS NULL                                 THEN 'SEM_PRE_INSCRICAO'
-        WHEN tc.id     IS NULL                                 THEN 'SEM_ADMISSAO'
-        WHEN tc.STATUS_ = 0 AND hp.data_realizacao > SYSDATE  THEN 'AGUARDANDO_DIA_DA_PROVA'
-        WHEN tc.STATUS_ = 0 AND hp.data_realizacao <= SYSDATE THEN 'AGUARDANDO_RESULTADO'
-        WHEN hp.data_realizacao = SYSDATE                      THEN 'DIA_DA_PROVA'
-        WHEN a.mediafinal < 10                                 THEN 'NAO_ADMITIDO'
-        WHEN a.mediafinal >= 10 AND m.Codigo IS NULL           THEN 'ADMITIDO_SEM_MATRICULA'
-        WHEN a.mediafinal >= 10 AND m.Codigo IS NOT NULL       THEN 'ALUNO_MATRICULADO'
-        ELSE                                                        'ALUNO_MATRICULADO'
-      END AS estado_aluno
+   CASE
+  WHEN p.Codigo    IS NULL                                                    THEN 'SEM_PRE_INSCRICAO'
+  WHEN tc.id       IS NULL                                                    THEN 'SEM_ADMISSAO'
+  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) = TRUNC(SYSDATE)        THEN 'DIA_DA_PROVA'
+  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) > TRUNC(SYSDATE)        THEN 'AGUARDANDO_DIA_DA_PROVA'
+  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) < TRUNC(SYSDATE)        THEN 'AGUARDANDO_RESULTADO'
+  WHEN a.mediafinal < 10                                                      THEN 'NAO_ADMITIDO'
+  WHEN tc.STATUS_  = 1 AND TRUNC(hp.data_realizacao) > TRUNC(SYSDATE)  AND tc.NOTA < 10       THEN 'NAO_ADMITIDO'
+  WHEN a.mediafinal >= 10 AND m.Codigo IS NULL                                THEN 'ADMITIDO_SEM_MATRICULA'
+  WHEN tc.status_ = 1 AND TRUNC(hp.data_realizacao) < TRUNC(SYSDATE)  AND tc.NOTA >= 10 AND m.Codigo IS NULL       THEN 'ADMITIDO_SEM_MATRICULA'
+  WHEN a.mediafinal >= 10 AND m.Codigo IS NOT NULL                            THEN 'ALUNO_MATRICULADO'
+  ELSE                                                                             'ALUNO_MATRICULADO'
+END AS estado_aluno
 
     FROM fk2_users us
 
