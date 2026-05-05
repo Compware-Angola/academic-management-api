@@ -693,7 +693,9 @@ export class PreRegistrationService {
   WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) > TRUNC(SYSDATE)        THEN 'AGUARDANDO_DIA_DA_PROVA'
   WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) < TRUNC(SYSDATE)        THEN 'AGUARDANDO_RESULTADO'
   WHEN a.mediafinal < 10                                                      THEN 'NAO_ADMITIDO'
+  WHEN tc.STATUS_  = 1 AND TRUNC(hp.data_realizacao) > TRUNC(SYSDATE)  AND tc.NOTA < 10       THEN 'NAO_ADMITIDO'
   WHEN a.mediafinal >= 10 AND m.Codigo IS NULL                                THEN 'ADMITIDO_SEM_MATRICULA'
+  WHEN tc.status_ = 1 AND TRUNC(hp.data_realizacao) < TRUNC(SYSDATE)  AND tc.NOTA >= 10 AND m.Codigo IS NULL       THEN 'ADMITIDO_SEM_MATRICULA'
   WHEN a.mediafinal >= 10 AND m.Codigo IS NOT NULL                            THEN 'ALUNO_MATRICULADO'
   ELSE                                                                             'ALUNO_MATRICULADO'
 END AS estado_aluno
