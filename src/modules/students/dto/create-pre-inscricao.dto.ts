@@ -252,9 +252,9 @@ export class CreatePreRegistrationDto {
     */
 
     @ApiPropertyOptional({ example: 1 })
-    @IsOptional()
     @IsNumber()
-    codigoTipoCandidatura?: number;
+    codigoTipoCandidatura: number;
+
     @ApiPropertyOptional({ example: 2 })
     @IsOptional()
     @IsNumber()
