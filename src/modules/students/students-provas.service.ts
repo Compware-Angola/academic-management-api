@@ -3,7 +3,7 @@ import { StudentNoteService } from './sudents-notes.service';
 import {
   FindCadeirasEpocaEspecialDto,
   FindCadeirasRecursoDto,
-  InscricaoRecursoDTO,
+  InscricaoDTO,
 } from './dto/recursos.dto';
 import { PrazosService } from '../prazos/prazos.service';
 import { DataSource } from 'typeorm';
@@ -228,7 +228,7 @@ export class StudentsProvasService {
     return 0;
   }
 
-  async calcularValoresInscricao(
+  private async calcularValoresInscricao(
     quantidadeCadeiras: number,
     servico: ServicoPagamento,
   ): Promise<ValoresInscricao> {
@@ -407,7 +407,7 @@ export class StudentsProvasService {
     };
   }
 
-  async inscricaoRecurso(dto: InscricaoRecursoDTO) {
+  async inscricaoRecurso(dto: InscricaoDTO) {
     const [anoLectivo, dadosAluno] = await Promise.all([
       this.buscarAnoLectivoCorrente(),
       this.dadosAluno(dto.codigoMatricula),
@@ -458,15 +458,69 @@ export class StudentsProvasService {
 
     return {
       message: 'Inscrição realizada com sucesso',
-      faturaId: fatura.Codigo,
-      hash: fatura.hashValor ?? fatura.textoHash,
+    };
+  }
+
+  async inscricaoEpocaEspecial(dto: InscricaoDTO) {
+    const [anoLectivo, dadosAluno] = await Promise.all([
+      this.buscarAnoLectivoCorrente(),
+      this.dadosAluno(dto.codigoMatricula),
+    ]);
+
+    const prazo = await this.prazosService.prazoInscricoesExameEspecial(
+      anoLectivo.codigo,
+    );
+    if (!prazo.podeInscrever) throw new BadRequestException(prazo.mensagem);
+
+    const servico = await this.buscarPrecoServico(
+      SIGLA_SERVICO.EXAME_ESPECIAL,
+      anoLectivo.codigo,
+    );
+    if (!servico) {
+      throw new BadRequestException(
+        'Serviço de época especial não configurado.',
+      );
+    }
+
+    const valores = await this.calcularValoresInscricao(
+      dto.codigoGradeAluno.length,
+      servico,
+    );
+
+    const bodyFatura: InvoicePayload = this.montarPayloadFatura({
+      valores,
+      servico,
+      dto,
+      dadosAluno,
+      anoLectivo,
+      codigoDescricao: 7,
+      descricao: `Inscrição de Época Especial - ${anoLectivo.designacao}`,
+      obsItem: 'Inscrição de Época Especial',
+    });
+
+    const fatura = await FinanceInvoiceHelper.createInvoice(
+      this.httpService,
+      bodyFatura,
+    );
+
+    await this.persistirInscricoes(
+      dto.codigoMatricula,
+      dto.codigoGradeAluno,
+      TIPO_AVALIACAO.EXAME_ESPECIAL,
+      anoLectivo.codigo,
+      fatura.Codigo,
+      dadosAluno.canal,
+    );
+
+    return {
+      message: 'Inscrição realizada com sucesso',
     };
   }
 
   private montarPayloadFatura(ctx: {
     valores: ValoresInscricao;
     servico: ServicoPagamento;
-    dto: InscricaoRecursoDTO;
+    dto: InscricaoDTO;
     dadosAluno: DadosAluno;
     anoLectivo: AnoLectivo;
     codigoDescricao: number;
