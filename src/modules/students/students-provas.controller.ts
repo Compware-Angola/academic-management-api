@@ -44,7 +44,7 @@ export class StudentsProvasController {
     });
   }
 
-  @Post('especial/:codigoMatricula')
+  @Post('epoca-especial/:codigoMatricula')
   async inscricaoEpocaEspecial(
     @Param('codigoMatricula', ParseIntPipe) codigoMatricula: number,
     @Body() body: CriarInscricaoEpocaEspecialBodyDTO,

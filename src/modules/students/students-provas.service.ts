@@ -625,13 +625,13 @@ export class StudentsProvasService {
     codigoMatricula: number;
     codigoAnoLectivo: number;
   }) {
-    const cadeirasInscristas = await this.buscarCadeiraInscrita(
+    const cadeirasInscritas = await this.buscarCadeiraInscrita(
       codigoMatricula,
       codigoAnoLectivo,
       TIPO_AVALIACAO.RECURSO,
     );
 
-    return { cadeirasInscristas };
+    return { cadeirasInscritas };
   }
 
   async epocaEspecialCadeiraInscrita({
@@ -641,12 +641,12 @@ export class StudentsProvasService {
     codigoMatricula: number;
     codigoAnoLectivo: number;
   }) {
-    const cadeirasInscristas = await this.buscarCadeiraInscrita(
+    const cadeirasInscritas = await this.buscarCadeiraInscrita(
       codigoMatricula,
       codigoAnoLectivo,
       TIPO_AVALIACAO.EXAME_ESPECIAL,
     );
 
-    return { cadeirasInscristas };
+    return { cadeirasInscritas };
   }
 }
