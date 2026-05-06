@@ -57,7 +57,8 @@ import { StudentsResultPlanService } from './students-result-plan.service';
 import { ListarDiplomadosDTO } from './dto/listar-diplomados-dto';
 import { HttpService } from '@nestjs/axios';
 import { AccessLogHelper } from '../common/helpers/access-log.helper';
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+import { AtiveConfirmationService } from './ative-confirmation.service';
+//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('students')
 export class StudentsController {
   constructor(
@@ -67,6 +68,7 @@ export class StudentsController {
     private readonly studentsEnrollmentPendentUCService: StudentsEnrollmentPendentUCService,
     private readonly studentsChangeCourse: StudentsChangeCourse,
     private readonly studentsResultPlanService: StudentsResultPlanService,
+    private readonly ativeConfirmationService: AtiveConfirmationService,
     private httpService: HttpService
 
   ) { }
@@ -218,6 +220,15 @@ export class StudentsController {
       req,
       `Utilizador ${req.user?.nome} ativou matrícula do estudante com o codigo de matricula ${dto.codigoMatricula}`,
     );
+
+    return result;
+  }
+  @Put('acitve-confirmation/:codigoMatricula')
+  async activarConfirmacao(
+    @Param('codigoMatricula') codigoMatricula: number,
+    @Req() req: any,
+  ) {
+    const result = await this.ativeConfirmationService.activeConfirmation(codigoMatricula);
 
     return result;
   }

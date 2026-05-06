@@ -17,6 +17,7 @@ import { StudentsProvasService } from './students-provas.service';
 import { StudentsProvasController } from './students-provas.controller';
 import { HttpModule } from '@nestjs/axios';
 import { PrazosService } from '../prazos/prazos.service';
+import { AtiveConfirmationService } from './ative-confirmation.service';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { PrazosService } from '../prazos/prazos.service';
     BeginningStudentProcessService,
     StudentsProvasService,
     PrazosService,
+    AtiveConfirmationService,
   ],
 })
 export class StudentsModule {}
