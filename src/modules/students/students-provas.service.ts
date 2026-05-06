@@ -633,4 +633,20 @@ export class StudentsProvasService {
 
     return { cadeirasInscristas };
   }
+
+  async epocaEspecialCadeiraInscrita({
+    codigoMatricula,
+    codigoAnoLectivo,
+  }: {
+    codigoMatricula: number;
+    codigoAnoLectivo: number;
+  }) {
+    const cadeirasInscristas = await this.buscarCadeiraInscrita(
+      codigoMatricula,
+      codigoAnoLectivo,
+      TIPO_AVALIACAO.EXAME_ESPECIAL,
+    );
+
+    return { cadeirasInscristas };
+  }
 }

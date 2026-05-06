@@ -59,4 +59,11 @@ export class StudentsProvasController {
   async recursoCadeiraInscrita(@Param() params: FindCadeirasRecursoDto) {
     return this.studentsProvasService.recursoCadeiraInscrita(params);
   }
+
+  @Get('epoca-especial/cadeiras-inscritas/:codigoAnoLectivo/:codigoMatricula')
+  async epocaEspecialCadeiraInscrita(
+    @Param() params: FindCadeirasEpocaEspecialDto,
+  ) {
+    return this.studentsProvasService.epocaEspecialCadeiraInscrita(params);
+  }
 }
