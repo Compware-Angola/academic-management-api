@@ -21,19 +21,16 @@ import { StudentsProvasService } from './students-provas.service';
 export class StudentsProvasController {
   constructor(private readonly studentsProvasService: StudentsProvasService) {}
 
-  @Get('recurso/:anoLectivo/:codigoMatricula')
+  @Get('recurso/:codigoAnoLectivo/:codigoMatricula')
   async cadeirasRecurso(@Param() params: FindCadeirasRecursoDto) {
     return this.studentsProvasService.cadeirasRecurso({
-      anoLectivo: params.anoLectivo,
+      codigoAnoLectivo: params.codigoAnoLectivo,
       codigoMatricula: params.codigoMatricula,
     });
   }
-  @Get('epoca-especial/:anoLectivo/:codigoMatricula')
+  @Get('epoca-especial/:codigoAnoLectivo/:codigoMatricula')
   async cadeirasEpocaEspecial(@Param() params: FindCadeirasEpocaEspecialDto) {
-    return this.studentsProvasService.cadeirasEpocaEspecial({
-      anoLectivo: params.anoLectivo,
-      codigoMatricula: params.codigoMatricula,
-    });
+    return this.studentsProvasService.cadeirasEpocaEspecial(params);
   }
 
   @Post('recurso/:codigoMatricula')
@@ -43,7 +40,7 @@ export class StudentsProvasController {
   ) {
     return this.studentsProvasService.inscricaoRecurso({
       codigoMatricula: codigoMatricula,
-      codigoGradeAluno: body.codigoGradeAluno,
+      gradesAlunos: body.gradesAlunos,
     });
   }
 
@@ -54,7 +51,12 @@ export class StudentsProvasController {
   ) {
     return this.studentsProvasService.inscricaoEpocaEspecial({
       codigoMatricula: codigoMatricula,
-      codigoGradeAluno: body.codigoGradeAluno,
+      gradesAlunos: body.gradesAlunos,
     });
+  }
+
+  @Get('recurso/cadeiras-inscritas/:codigoAnoLectivo/:codigoMatricula')
+  async recursoCadeiraInscrita(@Param() params: FindCadeirasRecursoDto) {
+    return this.studentsProvasService.recursoCadeiraInscrita(params);
   }
 }
