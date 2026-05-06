@@ -516,10 +516,10 @@ export class StudentsProvasService {
       this.dadosAluno(dto.codigoMatricula),
     ]);
 
-    // const prazo = await this.prazosService.prazoInscricoesRecurso(
-    //   anoLectivo.codigo,
-    // );
-    // if (!prazo.podeInscrever) throw new BadRequestException(prazo.mensagem);
+    const prazo = await this.prazosService.prazoInscricoesRecurso(
+      anoLectivo.codigo,
+    );
+    if (!prazo.podeInscrever) throw new BadRequestException(prazo.mensagem);
 
     const servico = await this.buscarPrecoServico(
       SIGLA_SERVICO.RECURSO,
