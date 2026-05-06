@@ -8,15 +8,19 @@ import { MatriculaService } from './services/matricula.service';
 import { OcupacaoService } from './services/ocupacao.service';
 import { ProfissaoService } from './services/profissao.service';
 import { NacionalidadeService } from './services/nacionalidade.service';
+import { NecessidadeEspecialService } from './services/necessidade-especial.service';
 
 @Module({
   controllers: [DropdownFiltersController],
-  providers: [EscalaoService,
+  providers: [
+    EscalaoService,
     CategoriaDocenteService,
     TipoUCService,
     MatriculaService,
     OcupacaoService,
     ProfissaoService,
-    NacionalidadeService],
+    NacionalidadeService,
+    NecessidadeEspecialService,
+  ],
 })
 export class DropdownFiltersModule {}
