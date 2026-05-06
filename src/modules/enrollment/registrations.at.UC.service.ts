@@ -6,13 +6,13 @@ import { EnrollmentRegistrationsUCDto } from './dto/registrations.at.UC.dto';
 
 
 @Injectable()
-export class EnrollmentRegistrationsUCService {  
+export class EnrollmentRegistrationsUCService {
 
-  constructor(private readonly dataSource: DataSource) {}
-  async  registerGradesUc(
+  constructor(private readonly dataSource: DataSource) { }
+  async registerGradesUc(
     body: EnrollmentRegistrationsUCDto
   ) {
-    const { codPreInscricao, grades ,semestre} = body;
+    const { codPreInscricao, grades, semestre } = body;
 
     if (!codPreInscricao) {
       throw new BadRequestException('codPreInscricao é obrigatório');
@@ -49,8 +49,8 @@ export class EnrollmentRegistrationsUCService {
         { codAmissao } as any,
       );
 
-       console.log(countMat);
-       
+      console.log(countMat);
+
 
       if (Number(countMat[0].CNT) === 0) {
         throw new BadRequestException('Matrícula não encontrada para o aluno da pré-inscrição fornecida');
@@ -63,22 +63,20 @@ export class EnrollmentRegistrationsUCService {
          WHERE Codigo = :codPreInscricao`,
         { codPreInscricao } as any,
       );
-      console.log(preInscr);
-      
 
       if (!preInscr) {
         throw new BadRequestException('Dados da pré-inscrição não encontrados');
       }
 
-      const userId    = preInscr[0].user_id || preInscr[0].USER_ID;
-      const codCurso  = preInscr[0].Curso_Candidatura || preInscr[0].CURSO_CANDIDATURA;
-    
+      const userId = preInscr[0].user_id || preInscr[0].USER_ID;
+      const codCurso = preInscr[0].Curso_Candidatura || preInscr[0].CURSO_CANDIDATURA;
+
       const usuario = await queryRunner.query(
         `SELECT canal FROM FK2_USERS WHERE id = :userId`,
         { userId } as any,
       );
 
-      const codCanal = usuario?.canal ?? 1; 
+      const codCanal = usuario?.canal ?? 1;
 
       const matricula = await queryRunner.query(
         `SELECT CODIGO, Codigo_Curso
@@ -120,16 +118,8 @@ export class EnrollmentRegistrationsUCService {
         throw new BadRequestException('Já existe uma confirmação para esta matrícula neste ano letivo');
       }
 
-      // 7. Gerar próximo código de confirmação
-      const [maxConf] = await queryRunner.query(
-        `SELECT MAX(CODIGO) as maxcod
-         FROM FK2_TB_CONFIRMACOES
-         WHERE REGEXP_LIKE(Codigo, '^[0-9]+$')`,
-      );
-      console.log(maxConf);
-      
 
-     // const codConfirmacao = Number(maxConf.MAXCOD) + 1;
+      // const codConfirmacao = Number(maxConf.MAXCOD) + 1;
 
       // 8. Buscar duração do curso (fallback 5)
       let duracao = 5;
@@ -139,12 +129,12 @@ export class EnrollmentRegistrationsUCService {
           { codCurso } as any,
         );
         duracao = curso?.DURACACAO ?? 5;
-      } catch {}
+      } catch { }
 
       // 9. Buscar última classe confirmada (para incrementar)
-       let classe = 1;
-       let iSSameYear = false;
-      
+      let classe = 1;
+      let iSSameYear = false;
+
       try {
         const ultClasse = await queryRunner.query(
           `SELECT Classe
@@ -161,10 +151,10 @@ export class EnrollmentRegistrationsUCService {
           classe = Number(ultClasse.CLASSE);
         }
 
-        else{
-            throw new BadRequestException('O aluno já atingiu a classe máxima do curso, não pode ser confirmada nova classe.');
+        else {
+          throw new BadRequestException('O aluno já atingiu a classe máxima do curso, não pode ser confirmada nova classe.');
         }
-      } catch {}
+      } catch { }
 
       // 10 Verificar se já existe confirmação para essa matrícula + ano letivo
 
@@ -178,46 +168,46 @@ export class EnrollmentRegistrationsUCService {
           { codMatricula, codAnoActual } as any,
         );
         console.log(countConfAno);
-        
 
-        if ( Number(countConfAno[0].CNT) != 0) {
-            iSSameYear = true;
-          
-            
+
+        if (Number(countConfAno[0].CNT) != 0) {
+          iSSameYear = true;
+
+
 
         }
 
-      } catch {}
-    
+      } catch { }
+
       // 10. Inserir confirmação
 
-  
 
-        classe = iSSameYear ? classe : classe + 1;
 
-        //Verificar  o semestre
-        try {
-            const countConfSemestre = await queryRunner.query(
-              `SELECT COUNT(*) as cnt
+      classe = iSSameYear ? classe : classe + 1;
+
+      //Verificar  o semestre
+      try {
+        const countConfSemestre = await queryRunner.query(
+          `SELECT COUNT(*) as cnt
                FROM FK2_TB_CONFIRMACOES
                WHERE Codigo_Matricula = :codMatricula
               -- AND Estado = '1'
                  AND Semestre = :semestre`,
-              { codMatricula, semestre } as any,
-            );
-            console.log(countConfSemestre);
-            
+          { codMatricula, semestre } as any,
+        );
+        console.log(countConfSemestre);
 
-            if ( Number(countConfSemestre[0].CNT) != 0) {
-                throw new BadRequestException('Já existe uma confirmação para esta matrícula neste semestre');
-            }
 
-          } catch (error) {
-            throw new BadRequestException('Erro ao verificar confirmação existente para o semestre: ' + error.message);
-          }
-      
-        
-    const result =  await queryRunner.query(
+        if (Number(countConfSemestre[0].CNT) != 0) {
+          throw new BadRequestException('Já existe uma confirmação para esta matrícula neste semestre');
+        }
+
+      } catch (error) {
+        throw new BadRequestException('Erro ao verificar confirmação existente para o semestre: ' + error.message);
+      }
+
+
+      const result = await queryRunner.query(
         `INSERT INTO FK2_TB_CONFIRMACOES (
             Codigo_Matricula, Data_Confirmacao,
            Codigo_Ano_lectivo, Estado, Classe,
@@ -227,9 +217,9 @@ export class EnrollmentRegistrationsUCService {
            :codAnoActual, 0, :classe,
            'NAO', :codCanal, :semestre
          ) RETURNING Codigo INTO :outId`,
-        { codMatricula, codAnoActual, classe, codCanal, semestre ,  outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }} as any,
+        { codMatricula, codAnoActual, classe, codCanal, semestre, outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } } as any,
       );
-        const codConfirmacao = result.outId[0];
+      const codConfirmacao = result.outId[0];
 
       // 11. Inserir grades curriculares do aluno
       for (const grade of grades) {
@@ -248,7 +238,7 @@ export class EnrollmentRegistrationsUCService {
            WHERE REGEXP_LIKE(Codigo, '^[0-9]+$')`,
         );
 
-       // const codGradeCurricularAluno = Number(maxGradeAl.MAXCOD) + 1;
+        // const codGradeCurricularAluno = Number(maxGradeAl.MAXCOD) + 1;
 
         await queryRunner.query(
           `INSERT INTO FK2_TB_GRADE_CURRICULAR_ALUNO (
@@ -265,7 +255,7 @@ export class EnrollmentRegistrationsUCService {
              SYSDATE, 0, :refHorario
            )`,
           {
-          
+
             codigoGrade,
             codConfirmacao,
             codMatricula,

@@ -17,6 +17,7 @@ import { StudentsProvasService } from './students-provas.service';
 import { StudentsProvasController } from './students-provas.controller';
 import { HttpModule } from '@nestjs/axios';
 import { PrazosService } from '../prazos/prazos.service';
+import { AtiveConfirmationService } from './ative-confirmation.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([AcademicYear]),
@@ -37,7 +38,8 @@ import { PrazosService } from '../prazos/prazos.service';
     StudentsResultPlanService,
     BeginningStudentProcessService,
     StudentsProvasService,
-    PrazosService
+    PrazosService,
+    AtiveConfirmationService
   ],
 })
 export class StudentsModule { }
