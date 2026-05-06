@@ -7,32 +7,35 @@ import { MatriculaService } from './services/matricula.service';
 import { OcupacaoService } from './services/ocupacao.service';
 import { ProfissaoService } from './services/profissao.service';
 import { NacionalidadeService } from './services/nacionalidade.service';
+import { NecessidadeEspecialService } from './services/necessidade-especial.service';
 
-@ApiTags("DROPDOWN-FILTERS")
+@ApiTags('DROPDOWN-FILTERS')
 @Controller('dropdown-filters')
 export class DropdownFiltersController {
-  constructor(private readonly dropdownFiltersEscalao: EscalaoService,
-  private readonly  dropdownFiltersCategoriaDocente:CategoriaDocenteService,
-private readonly  dropdownFiltersTipoUCService :TipoUCService,
-private readonly  matriculaService:MatriculaService,
-private readonly  ocupacaoService:OcupacaoService,
-private readonly  profissaoService:ProfissaoService,
-private readonly  nacionalidadeService:NacionalidadeService,
-) {}
+  constructor(
+    private readonly dropdownFiltersEscalao: EscalaoService,
+    private readonly dropdownFiltersCategoriaDocente: CategoriaDocenteService,
+    private readonly dropdownFiltersTipoUCService: TipoUCService,
+    private readonly matriculaService: MatriculaService,
+    private readonly ocupacaoService: OcupacaoService,
+    private readonly profissaoService: ProfissaoService,
+    private readonly nacionalidadeService: NacionalidadeService,
+    private readonly necessidadeEspecialService: NecessidadeEspecialService,
+  ) {}
 
-@Get('escalao')
-async getEscalaoDropdown() {
-  return this.dropdownFiltersEscalao.getEscalaoDropdown();
-}
-@Get('categoria/docente')
-async getCategoriaDropdown() {
-  return this.dropdownFiltersCategoriaDocente.getCategoriaDropdown();
-}
-@Get('tipo-uc')
-async getTipoUcDropdown() {
-  return this.dropdownFiltersTipoUCService.getTipoUcDropdown();
-}
- @Get("matricula/estado")
+  @Get('escalao')
+  async getEscalaoDropdown() {
+    return this.dropdownFiltersEscalao.getEscalaoDropdown();
+  }
+  @Get('categoria/docente')
+  async getCategoriaDropdown() {
+    return this.dropdownFiltersCategoriaDocente.getCategoriaDropdown();
+  }
+  @Get('tipo-uc')
+  async getTipoUcDropdown() {
+    return this.dropdownFiltersTipoUCService.getTipoUcDropdown();
+  }
+  @Get('matricula/estado')
   @HttpCode(HttpStatus.OK)
   async findEstadoMatricula() {
     return this.matriculaService.estadoMatriculaDropdown();
@@ -48,5 +51,9 @@ async getTipoUcDropdown() {
   @Get('nacionalidade')
   async getNacionalidadeDropdown() {
     return this.nacionalidadeService.getNacionalidades();
+  }
+  @Get('necessidades-especiais')
+  async getNecessidadeEspeciasDropdown() {
+    return this.necessidadeEspecialService.getNecessidadeEspecialDropdown();
   }
 }

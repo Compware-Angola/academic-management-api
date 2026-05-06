@@ -1,38 +1,62 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post } from "@nestjs/common";
-import { StudentNoteService } from "./sudents-notes.service";
-import { ApiTags } from "@nestjs/swagger";
-import { CriarInscricaoRecursoBodyDTO, FindCadeirasEpocaEspecialDto, FindCadeirasRecursoDto, InscricaoRecursoDTO } from "./dto/recursos.dto";
-import { StudentsProvasService } from "./students-provas.service";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+} from '@nestjs/common';
+
+import { ApiTags } from '@nestjs/swagger';
+import {
+  CriarInscricaoEpocaEspecialBodyDTO,
+  CriarInscricaoRecursoBodyDTO,
+  FindCadeirasEpocaEspecialDto,
+  FindCadeirasRecursoDto,
+} from './dto/recursos.dto';
+import { StudentsProvasService } from './students-provas.service';
 
 @ApiTags('Provas')
 @Controller('students/provas')
 export class StudentsProvasController {
-    constructor(private readonly studentsProvasService: StudentsProvasService) { }
+  constructor(private readonly studentsProvasService: StudentsProvasService) {}
 
-    @Get('recurso/:anoLectivo/:codigoMatricula')
-    async cadeirasRecurso(@Param() params: FindCadeirasRecursoDto) {
-        return this.studentsProvasService.cadeirasRecurso({
-            anoLectivo: params.anoLectivo,
-            codigoMatricula: params.codigoMatricula,
-        });
+  @Get('recurso/:codigoAnoLectivo/:codigoMatricula')
+  async cadeirasRecurso(@Param() params: FindCadeirasRecursoDto) {
+    return this.studentsProvasService.cadeirasRecurso({
+      codigoAnoLectivo: params.codigoAnoLectivo,
+      codigoMatricula: params.codigoMatricula,
+    });
+  }
+  @Get('epoca-especial/:codigoAnoLectivo/:codigoMatricula')
+  async cadeirasEpocaEspecial(@Param() params: FindCadeirasEpocaEspecialDto) {
+    return this.studentsProvasService.cadeirasEpocaEspecial(params);
+  }
 
-    }
-    @Get('epoca-especial/:anoLectivo/:codigoMatricula')
-    async cadeirasEpocaEspecial(@Param() params: FindCadeirasEpocaEspecialDto) {
-        return this.studentsProvasService.cadeirasEpocaEspecial({
-            anoLectivo: params.anoLectivo,
-            codigoMatricula: params.codigoMatricula,
-        });
-    }
+  @Post('recurso/:codigoMatricula')
+  async inscricaoRecurso(
+    @Param('codigoMatricula', ParseIntPipe) codigoMatricula: number,
+    @Body() body: CriarInscricaoRecursoBodyDTO,
+  ) {
+    return this.studentsProvasService.inscricaoRecurso({
+      codigoMatricula: codigoMatricula,
+      gradesAlunos: body.gradesAlunos,
+    });
+  }
 
-    @Post('recurso/:codigoMatricula')
-    async inscricaoRecurso(
-        @Param('codigoMatricula', ParseIntPipe) codigoMatricula: number,
-        @Body() body: CriarInscricaoRecursoBodyDTO
-    ) {
-        return this.studentsProvasService.inscricaoRecurso({
-            codigoMatricula: codigoMatricula,
-            codigoGradeAluno: body.codigoGradeAluno,
-        });
-    }
+  @Post('especial/:codigoMatricula')
+  async inscricaoEpocaEspecial(
+    @Param('codigoMatricula', ParseIntPipe) codigoMatricula: number,
+    @Body() body: CriarInscricaoEpocaEspecialBodyDTO,
+  ) {
+    return this.studentsProvasService.inscricaoEpocaEspecial({
+      codigoMatricula: codigoMatricula,
+      gradesAlunos: body.gradesAlunos,
+    });
+  }
+
+  @Get('recurso/cadeiras-inscritas/:codigoAnoLectivo/:codigoMatricula')
+  async recursoCadeiraInscrita(@Param() params: FindCadeirasRecursoDto) {
+    return this.studentsProvasService.recursoCadeiraInscrita(params);
+  }
 }

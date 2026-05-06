@@ -128,6 +128,11 @@ export class CreatePreRegistrationDto {
     @IsNumber()
     instituicaoFormacaoAcesso?: number;
 
+    @ApiPropertyOptional({ example: 'Instituicao Formacao' })
+    @IsOptional()
+    @IsString()
+    instituicaoFormacao?: string
+
     @ApiPropertyOptional({ example: '2022-07-15' })
     @IsOptional()
     @IsDateString()
@@ -252,9 +257,9 @@ export class CreatePreRegistrationDto {
     */
 
     @ApiPropertyOptional({ example: 1 })
-    @IsOptional()
     @IsNumber()
-    codigoTipoCandidatura?: number;
+    codigoTipoCandidatura: number;
+
     @ApiPropertyOptional({ example: 2 })
     @IsOptional()
     @IsNumber()
