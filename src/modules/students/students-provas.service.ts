@@ -15,6 +15,7 @@ import {
   FinanceInvoiceHelper,
   InvoicePayload,
 } from '../common/helpers/finance-invoice.helper';
+import { TipoCalendario } from '../prazos/tipo-calendario.enum';
 
 export const TIPO_AVALIACAO = {
   RECURSO: 7,
@@ -516,7 +517,8 @@ export class StudentsProvasService {
       this.dadosAluno(dto.codigoMatricula),
     ]);
 
-    const prazo = await this.prazosService.prazoInscricoesRecurso(
+    const prazo = await this.prazosService.obterPrazo(
+      TipoCalendario.RECURSO,
       anoLectivo.codigo,
     );
     if (!prazo.podeInscrever) throw new BadRequestException(prazo.mensagem);
@@ -569,7 +571,8 @@ export class StudentsProvasService {
       this.dadosAluno(dto.codigoMatricula),
     ]);
 
-    const prazo = await this.prazosService.prazoInscricoesExameEspecial(
+    const prazo = await this.prazosService.obterPrazo(
+      TipoCalendario.EXAME_ESPECIAL,
       anoLectivo.codigo,
     );
     if (!prazo.podeInscrever) throw new BadRequestException(prazo.mensagem);
