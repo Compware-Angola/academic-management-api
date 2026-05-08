@@ -11,6 +11,7 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { CargosAdministrativosService } from './cargos-administrativos.service';
@@ -25,7 +26,7 @@ import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('cargos-administrativos')
 export class CargosAdministrativosController {
-  constructor(private readonly service: CargosAdministrativosService) {}
+  constructor(private readonly service: CargosAdministrativosService) { }
 
   @Get()
   @ApiOperation({
@@ -63,8 +64,9 @@ export class CargosAdministrativosController {
   @ApiBody({ type: CreateCargoDto })
   async definirCargoReitoria(
     @Body() dto: CreateCargoDto,
+    @Req() req: any,
   ): Promise<{ message: string; pkCargo: number }> {
-    const usuarioLogadoId = 146; // ← substituir por auth real (ex: @Req() req; req.user.id)
+    const usuarioLogadoId = req.user.sub;
     return this.service.criarCargoReitoria(dto, usuarioLogadoId);
   }
 
@@ -74,8 +76,9 @@ export class CargosAdministrativosController {
   @ApiBody({ type: CreateCargoDto })
   async definirCargoFaculdade(
     @Body() dto: CreateCargoDto,
+    @Req() req: any,
   ): Promise<{ message: string; pkCargo: number }> {
-    const usuarioLogadoId = 146; // ← substituir por auth real
+    const usuarioLogadoId = req.user.sub;
     return this.service.criarCargoFaculdadeOuCurso(dto, usuarioLogadoId);
   }
 
@@ -85,8 +88,9 @@ export class CargosAdministrativosController {
   async alterarOcupante(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateOcupanteDto,
+    @Req() req: any,
   ): Promise<{ message: string }> {
-    const usuarioLogadoId = 146; // ← substituir por auth real
+    const usuarioLogadoId = req.user.sub;
     return this.service.alterarOcupante(
       id,
       dto.novoUtilizadorId,
@@ -99,8 +103,9 @@ export class CargosAdministrativosController {
   @ApiOperation({ summary: 'Remove (desativa) o ocupante de um cargo' })
   async removerOcupante(
     @Param('id', ParseIntPipe) id: number,
+    @Req() req: any,
   ): Promise<{ message: string }> {
-    const usuarioLogadoId = 146; // ← substituir por auth real
+    const usuarioLogadoId = req.user.sub;
     return this.service.removerOcupante(id, usuarioLogadoId);
   }
 }
