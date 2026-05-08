@@ -1,11 +1,14 @@
-export type PrazoResponse = {
-  status: 'NAO_DISPONIVEL' | 'ABERTO' | 'ENCERRADO' | 'NAO_CONFIGURADO';
+export interface PrazoResponse {
+  status: 'ABERTO' | 'ENCERRADO' | 'NAO_DISPONIVEL' | 'NAO_CONFIGURADO';
+
   podeInscrever: boolean;
+
   mensagem: string;
+
   data: {
-    dataInicio: Date | string | null;
-    dataFim: Date | string | null;
     anoLectivo: number;
     codigoStatus: number | null;
+    dataInicio: Date | null;
+    dataFim: Date | null;
   };
 }

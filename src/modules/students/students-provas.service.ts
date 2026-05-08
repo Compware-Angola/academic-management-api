@@ -15,6 +15,7 @@ import {
   FinanceInvoiceHelper,
   InvoicePayload,
 } from '../common/helpers/finance-invoice.helper';
+import { TipoCalendario } from '../prazos/tipo-calendario.enum';
 
 export const TIPO_AVALIACAO = {
   RECURSO: 7,
@@ -516,7 +517,8 @@ export class StudentsProvasService {
       this.dadosAluno(dto.codigoMatricula),
     ]);
 
-    const prazo = await this.prazosService.prazoInscricoesRecurso(
+    const prazo = await this.prazosService.obterPrazo(
+      TipoCalendario.RECURSO,
       anoLectivo.codigo,
     );
     if (!prazo.podeInscrever) throw new BadRequestException(prazo.mensagem);
@@ -569,7 +571,8 @@ export class StudentsProvasService {
       this.dadosAluno(dto.codigoMatricula),
     ]);
 
-    const prazo = await this.prazosService.prazoInscricoesExameEspecial(
+    const prazo = await this.prazosService.obterPrazo(
+      TipoCalendario.EXAME_ESPECIAL,
       anoLectivo.codigo,
     );
     if (!prazo.podeInscrever) throw new BadRequestException(prazo.mensagem);
@@ -625,12 +628,28 @@ export class StudentsProvasService {
     codigoMatricula: number;
     codigoAnoLectivo: number;
   }) {
-    const cadeirasInscristas = await this.buscarCadeiraInscrita(
+    const cadeirasInscritas = await this.buscarCadeiraInscrita(
       codigoMatricula,
       codigoAnoLectivo,
       TIPO_AVALIACAO.RECURSO,
     );
 
-    return { cadeirasInscristas };
+    return { cadeirasInscritas };
+  }
+
+  async epocaEspecialCadeiraInscrita({
+    codigoMatricula,
+    codigoAnoLectivo,
+  }: {
+    codigoMatricula: number;
+    codigoAnoLectivo: number;
+  }) {
+    const cadeirasInscritas = await this.buscarCadeiraInscrita(
+      codigoMatricula,
+      codigoAnoLectivo,
+      TIPO_AVALIACAO.EXAME_ESPECIAL,
+    );
+
+    return { cadeirasInscritas };
   }
 }

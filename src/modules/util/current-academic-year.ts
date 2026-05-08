@@ -14,7 +14,7 @@ export class AnoLectivoUtil {
   constructor(
     @InjectRepository(AcademicYear)
     private readonly anoLectivoRepo: Repository<AcademicYear>,
-  ) { }
+  ) {}
 
   async getAnoAtualId(): Promise<number> {
     const now = Date.now();
@@ -59,7 +59,7 @@ export class AnoLectivoUtil {
     anoId: number;
     semestre: number | null;
     descricao: string;
-    dataFim: Date | null
+    dataFim: Date | null;
   }> {
     const anoId = await this.getAnoAtualId();
 
@@ -94,7 +94,6 @@ export class AnoLectivoUtil {
     const inicio2 = new Date(ano.dataInicioSegundoSemestre);
     const fim2 = new Date(ano.dataFimSegundoSemestre);
 
-
     if (hoje >= inicio1 && hoje <= fim1) {
       return {
         anoId,
@@ -126,8 +125,16 @@ export class AnoLectivoUtil {
    */
   async getSemestresConfigurados(): Promise<{
     anoId: number;
-    primeiroSemestre: { dataInicio: Date; dataFim: Date; descricao: string } | null;
-    segundoSemestre: { dataInicio: Date; dataFim: Date; descricao: string } | null;
+    primeiroSemestre: {
+      dataInicio: Date;
+      dataFim: Date;
+      descricao: string;
+    } | null;
+    segundoSemestre: {
+      dataInicio: Date;
+      dataFim: Date;
+      descricao: string;
+    } | null;
   }> {
     const anoId = await this.getAnoAtualId();
 
@@ -149,19 +156,19 @@ export class AnoLectivoUtil {
     const primeiroSemestre =
       ano.dataInicioPrimeiroSemestre && ano.dataFimPrimeiroSemestre
         ? {
-          dataInicio: new Date(ano.dataInicioPrimeiroSemestre),
-          dataFim: new Date(ano.dataFimPrimeiroSemestre),
-          descricao: 'PRIMEIRO_SEMESTRE',
-        }
+            dataInicio: new Date(ano.dataInicioPrimeiroSemestre),
+            dataFim: new Date(ano.dataFimPrimeiroSemestre),
+            descricao: 'PRIMEIRO_SEMESTRE',
+          }
         : null;
 
     const segundoSemestre =
       ano.dataInicioSegundoSemestre && ano.dataFimSegundoSemestre
         ? {
-          dataInicio: new Date(ano.dataInicioSegundoSemestre),
-          dataFim: new Date(ano.dataFimSegundoSemestre),
-          descricao: 'SEGUNDO_SEMESTRE',
-        }
+            dataInicio: new Date(ano.dataInicioSegundoSemestre),
+            dataFim: new Date(ano.dataFimSegundoSemestre),
+            descricao: 'SEGUNDO_SEMESTRE',
+          }
         : null;
 
     return {
