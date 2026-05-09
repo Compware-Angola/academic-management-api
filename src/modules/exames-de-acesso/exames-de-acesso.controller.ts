@@ -18,7 +18,7 @@ import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { AccessLogHelper } from '../common/helpers/access-log.helper';
 import { ApiKeyGuard } from '../common/guard/api-key.guard';
 
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+
 @Controller('exames-de-acesso')
 @ApiTags('Exames de acesso')
 export class ExamesDeAcessoController {
@@ -42,7 +42,7 @@ export class ExamesDeAcessoController {
   buscaCandidatosAdmitidos(@Query() filtros: FilterCandidatoAdmitidoDto) {
     return this.examesAcessoService.buscaCandidatosAdmitidos(filtros);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Patch('candidato/:codigoCandidato')
   @ApiOperation({ summary: 'Atualiza candidato' })
   @ApiResponse({ status: 200, description: 'Retorna lista de candidatos' })
@@ -64,7 +64,7 @@ export class ExamesDeAcessoController {
     });
     return result;
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('candidatos/prova')
   @ApiOperation({ summary: 'Lista candidatos com prova' })
   @ApiQuery({ name: 'page', required: false })
@@ -72,7 +72,7 @@ export class ExamesDeAcessoController {
   async getCandidatosProvas(@Query() filtros: FilterCandidatoProvaDto) {
     return this.examesAcessoService.buscaCandidatosProvas(filtros);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('candidatos/prova/horario')
   @ApiOperation({ summary: 'Lista horarios da prova' })
   @ApiQuery({ name: 'page', required: false })
@@ -80,7 +80,7 @@ export class ExamesDeAcessoController {
   async getProvaHorarios(@Query() filtros: FilterProvaHoraDto) {
     return this.examesAcessoService.buscaProvaHorarios(filtros);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('candidatos/prova/resultado')
   @ApiOperation({ summary: 'Lista resultados da prova' })
   @ApiQuery({ name: 'page', required: false })
@@ -88,7 +88,7 @@ export class ExamesDeAcessoController {
   async getProvaResultados(@Query() filtros: FilterProvaResultadoDto) {
     return this.examesAcessoService.buscaProvaResultados(filtros);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('candidatos/resultados-finais')
   @ApiOperation({ summary: 'Lista resultados finais' })
   @ApiResponse({ status: 200, description: 'Lista de resultados finais' })
@@ -132,20 +132,10 @@ export class ExamesDeAcessoController {
     @Param('codigoCandidato', ParseIntPipe) codigoCandidato: number,
     @Req() req: any,
   ) {
-    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-    const user = req.user;
     const result = await this.examesAcessoService.atribuirProva(codigoCandidato);
-    AccessLogHelper.logAccess(this.httpService, {
-      descricao: `Prova atribuída para candidato ${codigoCandidato} por ${user?.username || 'unknown user'}`,
-      fkAcesso: 6,
-      fkFuncionalidade: 92,
-      fkUtilizadorResponsavel: user.sub,
-      fkOperacaoLog: 13,
-      ip: ip,
-    });
     return result;
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Post('admitir-candidato-publico/:codigoCandidato')
   @ApiOperation({ summary: 'Admite candidato universidade pública' })
   @ApiResponse({ status: 200, description: 'Candidato admitido com sucesso' })
@@ -170,7 +160,7 @@ export class ExamesDeAcessoController {
     });
     return result;
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Post('lancar-nota-arquitectura-e-urbanismo/:codigoCandidato')
   @ApiOperation({ summary: 'Lança nota e admite candidato arquitectura e urbanismo' })
   @ApiResponse({ status: 200, description: 'Nota lançada com sucesso' })
@@ -195,6 +185,7 @@ export class ExamesDeAcessoController {
     });
     return result;
   }
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Patch('resetar-prova/:codigoCandidato')
   @ApiOperation({ summary: 'Reseta a prova de um candidato' })
   @ApiResponse({ status: 200, description: 'Prova resetada com sucesso' })

@@ -44,7 +44,7 @@ export class StudentsProvasController {
     });
   }
 
-  @Post('especial/:codigoMatricula')
+  @Post('epoca-especial/:codigoMatricula')
   async inscricaoEpocaEspecial(
     @Param('codigoMatricula', ParseIntPipe) codigoMatricula: number,
     @Body() body: CriarInscricaoEpocaEspecialBodyDTO,
@@ -58,5 +58,12 @@ export class StudentsProvasController {
   @Get('recurso/cadeiras-inscritas/:codigoAnoLectivo/:codigoMatricula')
   async recursoCadeiraInscrita(@Param() params: FindCadeirasRecursoDto) {
     return this.studentsProvasService.recursoCadeiraInscrita(params);
+  }
+
+  @Get('epoca-especial/cadeiras-inscritas/:codigoAnoLectivo/:codigoMatricula')
+  async epocaEspecialCadeiraInscrita(
+    @Param() params: FindCadeirasEpocaEspecialDto,
+  ) {
+    return this.studentsProvasService.epocaEspecialCadeiraInscrita(params);
   }
 }
