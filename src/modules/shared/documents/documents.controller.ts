@@ -9,10 +9,11 @@ import { AccessLogHelper } from 'src/modules/common/helpers/access-log.helper';
 
 
 @ApiTags('Documents')
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+
 @Controller('documents')
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService, private httpService: HttpService) { }
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Post('generate-code')
   @ApiOperation({
     summary: 'Gerar código de validação de documento',
@@ -44,11 +45,11 @@ export class DocumentsController {
   }
 
   @Get("validate-document")
-  async validateDocument(@Query("code") code: string, @Query("tipo_docs") tipo_docs: number) {
+  async validateDocument(@Query("code") code: string, @Query("tipo_docs") tipo_docs?: number) {
     if (!code) {
       throw new BadRequestException("O parâmetro 'code' é obrigatório");
     }
 
-    return await this.documentsService.validateDocs(code, tipo_docs);
+    return await this.documentsService.validateDocs(code, tipo_docs || 1);
   }
 }
