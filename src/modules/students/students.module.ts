@@ -17,14 +17,22 @@ import { StudentsProvasService } from './students-provas.service';
 import { StudentsProvasController } from './students-provas.controller';
 import { HttpModule } from '@nestjs/axios';
 import { PrazosService } from '../prazos/prazos.service';
+import { AtiveConfirmationService } from './ative-confirmation.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AcademicYear]),
-  HttpModule.register({
-    timeout: 5000,
-    maxRedirects: 5
-  })],
-  controllers: [StudentsController, BeginningStudentProcessController, PreRegistrationController, StudentsProvasController],
+  imports: [
+    TypeOrmModule.forFeature([AcademicYear]),
+    HttpModule.register({
+      timeout: 5000,
+      maxRedirects: 5,
+    }),
+  ],
+  controllers: [
+    StudentsController,
+    BeginningStudentProcessController,
+    PreRegistrationController,
+    StudentsProvasController,
+  ],
 
   providers: [
     StudentsService,
@@ -37,7 +45,8 @@ import { PrazosService } from '../prazos/prazos.service';
     StudentsResultPlanService,
     BeginningStudentProcessService,
     StudentsProvasService,
-    PrazosService
+    PrazosService,
+    AtiveConfirmationService,
   ],
 })
-export class StudentsModule { }
+export class StudentsModule {}

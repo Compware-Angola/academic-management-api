@@ -2,11 +2,21 @@ import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { EstadoAvaliacaoEnum } from '../assessment/types/types';
 import { FindStudentNoteDTO } from './dto/find-student-notes.dto';
+import { calcularSemestreByAnoLectivo } from '../util/calcular-semestre';
+import { AnoLectivoUtil } from '../util/current-academic-year';
 
 @Injectable()
 export class StudentNoteService {
   private anoAtualPrincipal: number;
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly anoLectivoUtil: AnoLectivoUtil,
+  ) {
+    this.initAnoAtual();
+  }
+  private async initAnoAtual() {
+    this.anoAtualPrincipal = await this.anoLectivoUtil.getAnoAtualId();
+  }
 
   async findAll(dto: FindStudentNoteDTO) {
     const { anoLectivo, codigoMatricula, page = 1, limit = 20 } = dto;
@@ -426,7 +436,7 @@ export class StudentNoteService {
           } else {
             const mediaFreq = this.round(
               nota1f!.NOTA! * (peso_primeira_freq / 100) +
-              nota2f!.NOTA! * (peso_segunda_freq / 100),
+                nota2f!.NOTA! * (peso_segunda_freq / 100),
             );
 
             if (hasPratica) {
@@ -576,7 +586,7 @@ export class StudentNoteService {
 
             media = this.round(
               notaTeorica * ((100 - peso_pratica) / 100) +
-              notaPra!.NOTA! * (peso_pratica / 100),
+                notaPra!.NOTA! * (peso_pratica / 100),
             );
 
             if (media >= 10) {
@@ -731,6 +741,7 @@ export class StudentNoteService {
       ) {
         pauta.resultado = EstadoAvaliacaoEnum.REPROVADO;
       }
+      //VERIFICAR O PRAZO
 
       // Notas individuais
       pauta.nota1f = nota1f?.NOTA?.toString() ?? '';
@@ -743,7 +754,10 @@ export class StudentNoteService {
       pauta.notaMel = notaMel?.NOTA?.toString() ?? '';
       pauta.notaEE = notaEE?.NOTA?.toString() ?? '';
       pauta.notaOEE = notaOEE?.NOTA?.toString() ?? '';
-
+      const temPrazo = await this.temPrazo(gradeAluno);
+      if (temPrazo) {
+        pauta.resultado = EstadoAvaliacaoEnum.PENDENTE;
+      }
       console.log(resultado);
       console.log(media);
       console.log(descricao);
@@ -768,7 +782,46 @@ export class StudentNoteService {
       [gradeAlunoId],
     );
   }
-
+  private async temPrazo(gradeAluno: any): Promise<boolean> {
+    //Anos passados não preciso mudar os resultados
+    console.log(
+      '--------------------',
+      gradeAluno.CODIGO_ANO_LECTIVO,
+      this.anoAtualPrincipal,
+    );
+    if (!(gradeAluno.CODIGO_ANO_LECTIVO == this.anoAtualPrincipal))
+      return false;
+    const semestreActual = await calcularSemestreByAnoLectivo(
+      this.dataSource,
+      this.anoAtualPrincipal,
+    );
+    console.log('entrei aqui', semestreActual);
+    if (semestreActual == 2 && gradeAluno.CODIGO_SEMESTRE == 1) return false;
+    const prazos = await this.obterPrazo(gradeAluno.CODIGO_SEMESTRE);
+    console.log('entrei aqui', prazos);
+    return prazos.length > 0;
+  }
+  private async obterPrazo(semestre): Promise<any[]> {
+    const result = await this.dataSource.query(
+      `
+    SELECT PK_PRAZO
+    FROM FK2_MCAL_TB_PRAZO pz
+    INNER JOIN FK2_MCAL_TB_TIPO_PRAZO tpz
+      ON tpz.PK_TIPO_PRAZO = pz.FK_TIPO_PRAZO
+    INNER JOIN FK2_MCAL_TB_TIPO_AVALIACAO av
+      ON av.PK_TIPO_AVALIACAO = pz.FK_TIPO_AVALIACAO
+    WHERE tpz.SIGLA = 'LN'
+      AND pz.FK_SEMESTRE = :1
+      AND av.SIGLA IN ('2FE', '2F')
+      AND pz.FK_ANO_LECTIVO = :2
+      AND SYSDATE BETWEEN pz.DATA_INICIO AND pz.DATA_FIM
+      --AND pz.ACTIVE_STATE = 1
+    `,
+      [semestre, this.anoAtualPrincipal],
+    );
+    if (!result || result.length == 0) return [];
+    return result;
+  }
   private async temPratica(plano: any): Promise<boolean> {
     return plano > 0;
   }

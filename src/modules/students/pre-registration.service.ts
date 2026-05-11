@@ -47,6 +47,7 @@ export class PreRegistrationService {
             MORADA_COMPLETA,
             EMAIL,
             INSTITUICAO_FORMACAO_ACESSO,
+            INSTITUICAO_FORMACAO,
             DATA_CONCLUSAO,
             MEDIA_FINAL,
             PAI,
@@ -78,6 +79,7 @@ export class PreRegistrationService {
             :moradaCompleta,
             :email,
             :instituicaoFormacaoAcesso,
+            :instituicaoFormacao,
             TO_DATE(:dataConclusao, 'YYYY-MM-DD'),
             :mediaFinal,
             :pai,
@@ -112,6 +114,7 @@ export class PreRegistrationService {
                 moradaCompleta: dto.moradaCompleta,
                 email: dto.email,
                 instituicaoFormacaoAcesso: dto.instituicaoFormacaoAcesso ?? null,
+                instituicaoFormacao: dto.instituicaoFormacao ?? null,
                 dataConclusao: dto.dataConclusao ?? null,
                 mediaFinal: dto.mediaFinal ?? null,
                 pai: dto.pai ?? null,
@@ -672,6 +675,7 @@ export class PreRegistrationService {
       p.bilhete_identidade           AS numero_documento,
       p.Codigo                      AS codigo_preinscricao,
       a.data                        AS data_admissao,
+      pr.id                         AS prova_id,
      TRUNC(hp.data_realizacao) AS data_prova,
       SUBSTR(TO_CHAR(NUMTODSINTERVAL(
            TO_NUMBER(DBMS_LOB.SUBSTR(hp.HORA_INICIO, 4000, 1)) / 86400000000000,
@@ -693,7 +697,9 @@ export class PreRegistrationService {
   WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) > TRUNC(SYSDATE)        THEN 'AGUARDANDO_DIA_DA_PROVA'
   WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) < TRUNC(SYSDATE)        THEN 'AGUARDANDO_RESULTADO'
   WHEN a.mediafinal < 10                                                      THEN 'NAO_ADMITIDO'
+  WHEN tc.STATUS_  = 1 AND TRUNC(hp.data_realizacao) > TRUNC(SYSDATE)  AND tc.NOTA < 10       THEN 'NAO_ADMITIDO'
   WHEN a.mediafinal >= 10 AND m.Codigo IS NULL                                THEN 'ADMITIDO_SEM_MATRICULA'
+  WHEN tc.status_ = 1 AND TRUNC(hp.data_realizacao) < TRUNC(SYSDATE)  AND tc.NOTA >= 10 AND m.Codigo IS NULL       THEN 'ADMITIDO_SEM_MATRICULA'
   WHEN a.mediafinal >= 10 AND m.Codigo IS NOT NULL                            THEN 'ALUNO_MATRICULADO'
   ELSE                                                                             'ALUNO_MATRICULADO'
 END AS estado_aluno
