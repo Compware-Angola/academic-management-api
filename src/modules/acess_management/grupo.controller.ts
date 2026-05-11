@@ -1,5 +1,11 @@
 // src/grupos/grupos.controller.ts
-import { Controller, Get, Query, UseGuards, ValidationPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  UseGuards,
+  ValidationPipe,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -10,6 +16,7 @@ import {
 import { GruposService } from './grupos.service';
 import { FilterGrupoDto } from './dto/filter-grupo.dto';
 import { GrupoResponseDto } from './dto/grupo.response.dto';
+import { FindUserByGrupoDTO } from './dto/find-user-by-grupo.dto';
 
 @ApiTags('Grupos')
 @ApiBearerAuth()
@@ -19,7 +26,8 @@ export class GruposController {
 
   @Get()
   @ApiOperation({
-    summary: 'Lista todos os grupos (exceto unitários) com filtro opcional por estado ativo',
+    summary:
+      'Lista todos os grupos (exceto unitários) com filtro opcional por estado ativo',
     description:
       'Retorna grupos onde FK_TIPO_DE_GRUPO != 2. Use ?ativo=true para ativos, ?ativo=false para inativos, ou omita para todos.',
   })
@@ -29,5 +37,17 @@ export class GruposController {
     @Query(ValidationPipe) filter: FilterGrupoDto,
   ): Promise<GrupoResponseDto[]> {
     return this.gruposService.listarGrupos(filter);
+  }
+
+  @Get('/users')
+  //@RequiredPermissions(PermissionTypeDetails.GESTAO_AFETACOES.sigla!)
+  @ApiOperation({ summary: 'Listar Utilizadores em  um grupo' })
+  @ApiResponse({
+    status: 200,
+    description: 'Listar Utilizadores em  um grupo',
+    type: FindUserByGrupoDTO,
+  })
+  findAfectacao(@Query(ValidationPipe) query: FindUserByGrupoDTO) {
+    return this.gruposService.findUserByGrupo(query);
   }
 }

@@ -30,7 +30,6 @@ import {
   ApiNotFoundResponse,
   ApiOperation,
   ApiResponse,
-  
   ApiParam,
   ApiQuery,
   ApiBadRequestResponse,
@@ -45,15 +44,13 @@ import { CreateAcessoDto } from './dto/create-acesso.dto';
 import { FilterUserLogadoDto } from './dto/filter-user-logado.dto';
 import { CreateLogsDTO } from './dto/create-logs.dto';
 import { RequiredPermissions } from '../common/pipes/permissions.decorator';
-import {
-
-  PermissionTypeDetails,
-} from '../common/enums/permission.type';
+import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { AccessLogHelper } from '../common/helpers/access-log.helper';
 import { HttpService } from '@nestjs/axios';
 import { UpdatePersonUserDto } from './dto/update-person-user.dto';
+import { FindUserByGrupoDTO } from './dto/find-user-by-grupo.dto';
 
 @Controller('acess_management')
 export class AcessManagementController {
@@ -82,7 +79,7 @@ export class AcessManagementController {
     );
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
 
-     AccessLogHelper.logAccess(this.httpService, {
+    AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${usuarioLogado?.nome} Criou O Utilizador ${userDateResponse.username}`,
       fkAcesso: 155,
       fkFuncionalidade: 232,
@@ -92,14 +89,18 @@ export class AcessManagementController {
     });
     return userDateResponse;
   }
-   @Patch('user/:id/toggle-status')
-    @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
-     @RequiredPermissions(PermissionTypeDetails.BLOQUEAR_ACESSOS.sigla)
-  @ApiOperation({ 
-    summary: 'Alterna o estado ativo/inativo de um utilizador (Toggle)', 
-    description: 'Troca o ACTIVE_STATE entre 1 (ativo) e 0 (inativo)'
+  @Patch('user/:id/toggle-status')
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+  @RequiredPermissions(PermissionTypeDetails.BLOQUEAR_ACESSOS.sigla)
+  @ApiOperation({
+    summary: 'Alterna o estado ativo/inativo de um utilizador (Toggle)',
+    description: 'Troca o ACTIVE_STATE entre 1 (ativo) e 0 (inativo)',
   })
-  @ApiParam({ name: 'id', description: 'ID do utilizador (PK_UTILIZADOR)', type: Number })
+  @ApiParam({
+    name: 'id',
+    description: 'ID do utilizador (PK_UTILIZADOR)',
+    type: Number,
+  })
   @ApiResponse({ status: 200, description: 'Estado alterado com sucesso.' })
   @ApiResponse({ status: 404, description: 'Utilizador não encontrado.' })
   @ApiResponse({ status: 403, description: 'Acesso negado.' })
@@ -108,23 +109,22 @@ export class AcessManagementController {
     @Param('id', ParseIntPipe) id: number,
     @Req() req: any,
   ) {
-     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
 
-     const currentUser = req.user;
-  const info = await this.usersService.switchStateUser(id, currentUser.sub);
+    const currentUser = req.user;
+    const info = await this.usersService.switchStateUser(id, currentUser.sub);
 
-  AccessLogHelper.logAccess(this.httpService, {
-    descricao: `Utilizador ${currentUser?.username} alterou o estado do utilizador ${id}`,
-    fkAcesso: 155,
-    fkFuncionalidade: 232,
-    fkUtilizadorResponsavel: currentUser.sub,
-    fkOperacaoLog: 7,
-    ip: ip,
-  });
+    AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${currentUser?.username} alterou o estado do utilizador ${id}`,
+      fkAcesso: 155,
+      fkFuncionalidade: 232,
+      fkUtilizadorResponsavel: currentUser.sub,
+      fkOperacaoLog: 7,
+      ip: ip,
+    });
 
-  return info;
+    return info;
   }
-
 
   @Post('novo-acesso')
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -183,7 +183,7 @@ export class AcessManagementController {
       usuarioLogado.sub,
     );
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-     AccessLogHelper.logAccess(this.httpService, {
+    AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${usuarioLogado?.nome} Atualizou a senha do Utilizador ${dto.utilizadorId}`,
       fkAcesso: 155,
       fkFuncionalidade: 232,
@@ -195,7 +195,7 @@ export class AcessManagementController {
   }
   @Put('update-user/:personId')
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
- // @RequiredPermissions()
+  // @RequiredPermissions()
   @ApiOperation({ summary: 'Atualizar os dados de um utilizador' })
   @ApiResponse({ status: 200, description: 'Dados do utilizador atualizados' })
   @ApiNotFoundResponse({ description: 'Utilizador não encontrado' })
@@ -210,7 +210,7 @@ export class AcessManagementController {
       dto,
       usuarioLogado.sub,
     );
-   /*
+    /*
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
      AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${usuarioLogado?.nome} Atualizou os dados do Utilizador ${userDateResponse.username}`,
@@ -221,9 +221,9 @@ export class AcessManagementController {
       ip: ip,
     });
     */
-   //TODO: CRIAR OUTRA ROTA PARA LOG DE ATUALIZAÇÃO DE DADOS DO UTILIZADOR, POIS A ATUALIZAÇÃO DE DADOS PESSOAIS NÃO DEVE GERAR O MESMO LOG DE ACESSO QUE A ATUALIZAÇÃO DE SENHA, POR EXEMPLO. FALTA DEFINIR MELHOR OS TIPOS DE LOGS E ACESSOS PARA CADA AÇÃO.
+    //TODO: CRIAR OUTRA ROTA PARA LOG DE ATUALIZAÇÃO DE DADOS DO UTILIZADOR, POIS A ATUALIZAÇÃO DE DADOS PESSOAIS NÃO DEVE GERAR O MESMO LOG DE ACESSO QUE A ATUALIZAÇÃO DE SENHA, POR EXEMPLO. FALTA DEFINIR MELHOR OS TIPOS DE LOGS E ACESSOS PARA CADA AÇÃO.
     return userDateResponse;
-  } 
+  }
 
   @Put('add-group-to-user/:userId/:groupId')
   @RequiredPermissions(
