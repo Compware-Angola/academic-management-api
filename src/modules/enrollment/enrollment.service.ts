@@ -18,7 +18,7 @@ export class EnrollmentService {
       this.separarGradesPorSemestre(grades);
 
     try {
-     
+
       const admissaoResult = await queryRunner.query(
         `SELECT "CODIGO" FROM FK2_TB_ADMISSAO WHERE "PRE_INCRICAO" = :codPreInscricao`,
         [codPreInscricao],
@@ -30,7 +30,7 @@ export class EnrollmentService {
 
       const codAmissao = admissaoResult[0].CODIGO;
 
-     
+
       const [matriculaExistente] = await queryRunner.query(
         `SELECT 1 FROM FK2_TB_MATRICULAS WHERE "CODIGO_ALUNO" = :codAmissao`,
         [codAmissao],
@@ -43,7 +43,7 @@ export class EnrollmentService {
         );
       }
 
-     
+
       const preResult = await queryRunner.query(
         `SELECT "USER_ID", "CURSO_CANDIDATURA", "CODIGO_TURNO" FROM FK2_TB_PREINSCRICAO WHERE "CODIGO" = :codPreInscricao`,
         [codPreInscricao],
@@ -62,26 +62,24 @@ export class EnrollmentService {
         CODIGO_TURNO: codPeriodo,
       } = preResult[0];
 
-    
+
       const [userResult] = await queryRunner.query(
         `SELECT "CANAL" FROM FK2_USERS WHERE "ID" = :userId`,
         [userId],
       );
       const canal = userResult?.CANAL ?? 0;
 
-     
-      const [maxMat] = await queryRunner.query(
-        `SELECT NVL(MAX(TO_NUMBER("CODIGO")), 0) as maxCod FROM FK2_TB_MATRICULAS`,
-      );
+
+
       const [maxAluno] = await queryRunner.query(
         `SELECT NVL(MAX(TO_NUMBER("NUMEROALUNO")), 0) as maxAluno FROM FK2_TB_MATRICULAS`,
       );
 
-    
+
       const nAluno = Number(maxAluno.MAXALUNO) + 1;
 
-   
-   const matriculaResult=   await queryRunner.query(
+
+      const matriculaResult = await queryRunner.query(
         `INSERT INTO FK2_TB_MATRICULAS (
           "CODIGO_ALUNO", "DATA_MATRICULA", "CODIGO_CURSO",
           "CODIGOPAGAMENTO", "NUMEROALUNO", "ESTADO_MATRICULA", "CANAL", "UPDATED_AT"
@@ -90,12 +88,12 @@ export class EnrollmentService {
           0, :nAluno, 'inactivo', :canal, SYSDATE
         ) RETURNING CODIGO INTO :outId`,
 
-        {codAmissao, codCurso, nAluno, canal, outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }} as any,
+        { codAmissao, codCurso, nAluno, canal, outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER } } as any,
       );
 
       const codMatricula = matriculaResult.outId[0];
 
-   
+
       const anoResult = await queryRunner.query(
         `SELECT "CODIGO" FROM FK2_TB_ANO_LECTIVO WHERE "ESTADO" = 'Activo' FETCH FIRST 1 ROWS ONLY`,
       );
@@ -109,18 +107,14 @@ export class EnrollmentService {
 
       const codAnoActual = anoResult[0].CODIGO;
 
-     
-      const [maxConfResult] = await queryRunner.query(
-        `SELECT NVL(MAX(TO_NUMBER("CODIGO")), 0) as maxConf FROM FK2_TB_CONFIRMACOES`,
-      );
-      let incrementadorConfirmacao = Number(maxConfResult.MAXCONF);
+
 
       const [maxGradeResult] = await queryRunner.query(
         `SELECT NVL(MAX(CODIGO), 0) as maxGrade FROM FK2_TB_GRADE_CURRICULAR_ALUNO`,
       );
       let incrementadorGrade = Number(maxGradeResult.MAXGRADE);
 
-     
+
       const semestres = [
         { id: 1, disciplinas: primeiroSemestre },
         { id: 2, disciplinas: segundoSemestre },
@@ -165,7 +159,7 @@ export class EnrollmentService {
         const codConfirmacaoAtual = result.outId[0];
 
 
-        
+
         for (const codigoGrade of item.disciplinas) {
           incrementadorGrade++;
 
@@ -181,7 +175,7 @@ export class EnrollmentService {
             continue;
           }
 
-         
+
           let refHorario = '';
           const horarioResult = await queryRunner.query(
             `SELECT "PK_HORARIO", "DESIGNACAO"
