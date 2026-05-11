@@ -58,7 +58,7 @@ import { ListarDiplomadosDTO } from './dto/listar-diplomados-dto';
 import { HttpService } from '@nestjs/axios';
 import { AccessLogHelper } from '../common/helpers/access-log.helper';
 import { AtiveConfirmationService } from './ative-confirmation.service';
-//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('students')
 export class StudentsController {
   constructor(
@@ -229,7 +229,10 @@ export class StudentsController {
     @Req() req: any,
   ) {
     const result = await this.ativeConfirmationService.activeConfirmation(codigoMatricula);
-
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} Ativou a confirmação do estudante com o codigo de matricula ${codigoMatricula}`,
+    );
     return result;
   }
 
