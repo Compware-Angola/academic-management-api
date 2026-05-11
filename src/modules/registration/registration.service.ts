@@ -13,6 +13,7 @@ import { FindEstudanteMatriculadoDTO } from './dto/find-studantes-matriculadoDTO
 import { FilterHorariosInscritosPorUcDto } from './dto/filter-horarios-inscritos-por-uc';
 import { FindEstudantesSemInscricaoCursoDTO } from './dto/find-estudantes-sem-Inscricao-cursoDTO';
 import { calcularSemestreByAnoLectivo } from '../util/calcular-semestre';
+import { AnoLectivoUtil } from '../util/current-academic-year';
 
 
 
@@ -31,7 +32,7 @@ export interface EstudanteMatriculado {
 
 @Injectable()
 export class RegistrationService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource, private readonly anoLectivoUtil: AnoLectivoUtil) {}
 
   async findEstudantesMatriculados(filters: FindEstudanteMatriculadoDTO) {
     const enum TIPO_ESTUDANTE {
@@ -2051,6 +2052,66 @@ async verificarColisaoCurso(
   `;
   const result = await this.dataSource.query(sql, [curso, anoLectivo]);
   return { existe: result && result.length > 0 };
+}
+
+async insentarColisaoMatricula2(matricula: number, user: any) {
+  if (!matricula) {
+    throw new BadRequestException('Informe o número de matrícula.');
+  }
+
+  const estudante = await this.dataSource.query(
+    `
+      SELECT 1
+      FROM FK2_TB_MATRICULAS
+      WHERE CODIGO = :1
+      FETCH FIRST 1 ROWS ONLY
+    `,
+    [matricula],
+  );
+
+  if (estudante.length === 0) {
+    throw new NotFoundException('Estudante não encontrado.');
+  }
+
+  const anoLectivoCorrente = await this.anoLectivoUtil.getAnoAtualId();
+
+  const exists = await this.dataSource.query(
+    `
+      SELECT 1
+      FROM FK2_MGIM_TB_COLISAO_MATRICULA
+      WHERE CODIGO_MATRICULA = :1
+        AND CODIGO_ANOLECTIVO = :2
+      FETCH FIRST 1 ROWS ONLY
+    `,
+    [matricula, anoLectivoCorrente],
+  );
+
+  if (exists.length > 0) {
+    throw new BadRequestException(
+      'O estudante já está isento da colisão para este ano.',
+    );
+  }
+
+  const refUtilizador = JSON.stringify({
+    pk: Number(user?.sub ?? user?.pkUtilizador ?? user?.id ?? 0),
+    desc: user?.nome ?? user?.name ?? user?.username ?? '',
+  });
+
+  await this.dataSource.query(
+    `
+      INSERT INTO FK2_MGIM_TB_COLISAO_MATRICULA
+        (CODIGO_MATRICULA, REF_UTILIZADOR, DATA, CODIGO_ANOLECTIVO)
+      VALUES
+        (:1, :2, SYSDATE, :3)
+    `,
+    [matricula, refUtilizador, anoLectivoCorrente],
+  );
+
+  return {
+    message: 'Colisão aplicada por matricula com sucesso!',
+    matricula,
+    anoLectivo: anoLectivoCorrente,
+  };
 }
 
 
