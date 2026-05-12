@@ -15,7 +15,7 @@ import {
   FinanceInvoiceHelper,
   InvoicePayload,
 } from '../common/helpers/finance-invoice.helper';
-import { TipoCalendario } from '../prazos/tipo-calendario.enum';
+import { TipoCalendario } from '../prazos/utils/tipo-calendario.enum';
 
 export const TIPO_AVALIACAO = {
   RECURSO: 7,
