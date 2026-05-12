@@ -29,23 +29,23 @@ import { ListarDiplomadosDTO } from './dto/listar-diplomados-dto';
 
 @Injectable()
 export class StudentsService {
-  
+
   constructor(private readonly dataSource: DataSource, private readonly anoLectivoUtil: AnoLectivoUtil) {
 
   }
 
 
-async getProfileEstatistic(codigoMatricula: number, anoLectivo?: number): Promise<any> {
-  const anoLectivoFilter = anoLectivo
-    ? `AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo`
-    : `AND ftgca.CODIGO_ANO_LECTIVO = (
+  async getProfileEstatistic(codigoMatricula: number, anoLectivo?: number): Promise<any> {
+    const anoLectivoFilter = anoLectivo
+      ? `AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo`
+      : `AND ftgca.CODIGO_ANO_LECTIVO = (
           SELECT MAX(CODIGO_ANO_LECTIVO)
           FROM FK2_TB_GRADE_CURRICULAR_ALUNO
           WHERE CODIGO_MATRICULA = m.CODIGO
             AND CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
       )`;
 
-  const sql = `
+    const sql = `
     SELECT
         m.codigo               AS codigo_matricula,
         p.BILHETE_IDENTIDADE   AS bi,
@@ -74,8 +74,9 @@ async getProfileEstatistic(codigoMatricula: number, anoLectivo?: number): Promis
         tpc.DESIGNACAO         AS grau,
         pr.DESIGNACAO          AS regime,
         p.MORADA_COMPLETA      AS morada,
-        p.SALDO_RESET          AS saldo_atual,
-        p.SALDO_RESET_ANTER    AS saldo_anterior,
+        p.SALDO                AS saldo_atual,
+        p.SALDO_RESET          AS saldo_reset,
+        p.SALDO_RESET_ANTER    AS saldo_reset_anterior,
         u.FOTO                 AS foto,
 
         -- Classe com mais grades curriculares inscritas
@@ -131,16 +132,16 @@ async getProfileEstatistic(codigoMatricula: number, anoLectivo?: number): Promis
     WHERE m.codigo = :codigoMatricula
   `;
 
-  const queryParams: any = { codigoMatricula };
+    const queryParams: any = { codigoMatricula };
 
-  if (anoLectivo) {
-    queryParams.anoLectivo = anoLectivo;
+    if (anoLectivo) {
+      queryParams.anoLectivo = anoLectivo;
+    }
+
+    const result = await this.dataSource.query(sql, queryParams);
+
+    return toLowerCaseKeys(result[0]) || null;
   }
-
-  const result = await this.dataSource.query(sql, queryParams);
-
-  return toLowerCaseKeys(result[0]) || null;
-}
   async getSugestoes(search: string): Promise<any[]> {
     if (!search || search.trim().length < 2) {
       return [];
@@ -278,25 +279,25 @@ async getProfileEstatistic(codigoMatricula: number, anoLectivo?: number): Promis
       totalPages,
     };
   }
-async findStudentClassInfo(filters: FindStudentClassInfoDTO) {
-  const { numeroDeMatricula, anoLectivo } = filters;
+  async findStudentClassInfo(filters: FindStudentClassInfoDTO) {
+    const { numeroDeMatricula, anoLectivo } = filters;
 
-  const params: any = {};
-  const conditions: string[] = ['1=1'];
+    const params: any = {};
+    const conditions: string[] = ['1=1'];
 
-  if (numeroDeMatricula) {
-    conditions.push(`ftgca.CODIGO_MATRICULA = :numeroDeMatricula`);
-    params.numeroDeMatricula = numeroDeMatricula;
-  }
+    if (numeroDeMatricula) {
+      conditions.push(`ftgca.CODIGO_MATRICULA = :numeroDeMatricula`);
+      params.numeroDeMatricula = numeroDeMatricula;
+    }
 
-  if (anoLectivo) {
-    conditions.push(`ftgca.CODIGO_ANO_LECTIVO = :anoLectivo`);
-    params.anoLectivo = anoLectivo;
-  }
+    if (anoLectivo) {
+      conditions.push(`ftgca.CODIGO_ANO_LECTIVO = :anoLectivo`);
+      params.anoLectivo = anoLectivo;
+    }
 
-  const whereClause = conditions.join(' AND ');
+    const whereClause = conditions.join(' AND ');
 
-  const sql = `
+    const sql = `
     SELECT
         -- Dados da Classe
         cl.CODIGO                   AS CODIGO_CLASSE,
@@ -411,48 +412,48 @@ async findStudentClassInfo(filters: FindStudentClassInfoDTO) {
     FETCH FIRST 1 ROWS ONLY
   `;
 
-  const result = await this.dataSource.query(sql, params);
+    const result = await this.dataSource.query(sql, params);
 
-  if (!result || result.length === 0) return null;
+    if (!result || result.length === 0) return null;
 
-  const [data] = await toLowerCaseKeys(result);
+    const [data] = await toLowerCaseKeys(result);
 
-  return data;
-}
-
-async listarMapaAnualFinalistas(filter: FilterMapaAnualFinalistasDto) {
-  const {
-    page = 1,
-    limit = 10,
-    anoLectivo = 0,
-    grau = 0,
-    search,
-  } = filter;
-
-  if (!anoLectivo || anoLectivo === 0) {
-    throw new BadRequestException("O ano lectivo é obrigatório");
+    return data;
   }
 
-  const offset = (page - 1) * limit;
+  async listarMapaAnualFinalistas(filter: FilterMapaAnualFinalistasDto) {
+    const {
+      page = 1,
+      limit = 10,
+      anoLectivo = 0,
+      grau = 0,
+      search,
+    } = filter;
 
-  const baseParams: Record<string, any> = {
-    anoLectivo,
-    grau,
-    grau_zero: grau,
-  };
+    if (!anoLectivo || anoLectivo === 0) {
+      throw new BadRequestException("O ano lectivo é obrigatório");
+    }
 
-  let searchClause = "";
-  if (search && search.trim()) {
-    searchClause = `
+    const offset = (page - 1) * limit;
+
+    const baseParams: Record<string, any> = {
+      anoLectivo,
+      grau,
+      grau_zero: grau,
+    };
+
+    let searchClause = "";
+    if (search && search.trim()) {
+      searchClause = `
       AND (
         UPPER(b.NOME) LIKE :search
         OR UPPER(NVL(b.NUM_BILHETE, '-')) LIKE :search
       )
     `;
-    baseParams.search = `%${search.trim().toUpperCase()}%`;
-  }
+      baseParams.search = `%${search.trim().toUpperCase()}%`;
+    }
 
-  const sql = `
+    const sql = `
   SELECT *
   FROM (
     SELECT
@@ -559,7 +560,7 @@ async listarMapaAnualFinalistas(filter: FilterMapaAnualFinalistasDto) {
   WHERE t.RN BETWEEN :offset + 1 AND :offset + :limit
   ORDER BY t.RN
 `;
-  const countSql = `
+    const countSql = `
   SELECT COUNT(*) AS TOTAL
   FROM (
     SELECT DISTINCT
@@ -622,85 +623,85 @@ async listarMapaAnualFinalistas(filter: FilterMapaAnualFinalistasDto) {
   )
 `;
 
-  const dataParams = {
-    ...baseParams,
-    offset,
-    limit,
-  };
+    const dataParams = {
+      ...baseParams,
+      offset,
+      limit,
+    };
 
-  const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql, dataParams as any),
-    this.dataSource.query(countSql, baseParams as any),
-  ]);
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, dataParams as any),
+      this.dataSource.query(countSql, baseParams as any),
+    ]);
 
-  const total = Number(countResult?.[0]?.TOTAL ?? 0);
+    const total = Number(countResult?.[0]?.TOTAL ?? 0);
 
-  const data = result.map((row: any, index: number) => ({
-    numero: offset + index + 1,
-    nome: row.NOME_COMPLETO,
-    numero_bilhete: row.BILHETE_IDENTIDADE,
-    genero: row.GENERO,
-    idade: row.IDADE,
-    data_nascimento: row.DATA_NASCIMENTO,
-    provincia: row.PROVINCIA,
-    municipio: row.MUNICIPIO,
-    pais_origem: row.PAIS_ORIGEM,
-    periodo_estudo: row.PERIODO_ESTUDO,
-    unidade_organica: row.UNIDADE_ORGANICA,
-    curso: row.CURSO,
-    ano_primeira_matricula: row.ANO_PRIMEIRA_MATRICULA,
-    trabalhador: row.TRABALHADOR,
-    duracao_curso: row.DURACAO_CURSO,
-    media_final: row.MEDIA_FINAL,
-  }));
+    const data = result.map((row: any, index: number) => ({
+      numero: offset + index + 1,
+      nome: row.NOME_COMPLETO,
+      numero_bilhete: row.BILHETE_IDENTIDADE,
+      genero: row.GENERO,
+      idade: row.IDADE,
+      data_nascimento: row.DATA_NASCIMENTO,
+      provincia: row.PROVINCIA,
+      municipio: row.MUNICIPIO,
+      pais_origem: row.PAIS_ORIGEM,
+      periodo_estudo: row.PERIODO_ESTUDO,
+      unidade_organica: row.UNIDADE_ORGANICA,
+      curso: row.CURSO,
+      ano_primeira_matricula: row.ANO_PRIMEIRA_MATRICULA,
+      trabalhador: row.TRABALHADOR,
+      duracao_curso: row.DURACAO_CURSO,
+      media_final: row.MEDIA_FINAL,
+    }));
 
-  return {
-    data,
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
-  };
-}
-
-async listarRegistoPrimarioExamesAcesso(
-  filter: FilterRegistoPrimarioExamesAcessoDto,
-) {
-  const {
-    page = 1,
-    limit = 10,
-    anoLectivo = 0,
-    grau = 0,
-    search,
-  } = filter;
-
-  if (!anoLectivo || anoLectivo === 0) {
-    throw new BadRequestException('O ano lectivo é obrigatório');
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
   }
 
-  if (!grau || grau === 0) {
-    throw new BadRequestException('O grau é obrigatório');
-  }
+  async listarRegistoPrimarioExamesAcesso(
+    filter: FilterRegistoPrimarioExamesAcessoDto,
+  ) {
+    const {
+      page = 1,
+      limit = 10,
+      anoLectivo = 0,
+      grau = 0,
+      search,
+    } = filter;
 
-  const offset = (page - 1) * limit;
+    if (!anoLectivo || anoLectivo === 0) {
+      throw new BadRequestException('O ano lectivo é obrigatório');
+    }
 
-  const baseParams: Record<string, any> = {
-    anoLectivo,
-    grau,
-  };
+    if (!grau || grau === 0) {
+      throw new BadRequestException('O grau é obrigatório');
+    }
 
-  let innerSearchClause = "";
-if (search && search.trim()) {
-  innerSearchClause = `
+    const offset = (page - 1) * limit;
+
+    const baseParams: Record<string, any> = {
+      anoLectivo,
+      grau,
+    };
+
+    let innerSearchClause = "";
+    if (search && search.trim()) {
+      innerSearchClause = `
     AND (
       UPPER(tp.NOME_COMPLETO) LIKE :search
       OR UPPER(NVL(tp.BILHETE_IDENTIDADE, '-')) LIKE :search
     )
   `;
-  baseParams.search = `%${search.trim().toUpperCase()}%`;
-}
+      baseParams.search = `%${search.trim().toUpperCase()}%`;
+    }
 
-  const sql = `
+    const sql = `
   SELECT *
   FROM (
     SELECT
@@ -789,7 +790,7 @@ if (search && search.trim()) {
   ORDER BY pag.RN
 `;
 
-  const countSql = `
+    const countSql = `
     SELECT COUNT(*) AS TOTAL
     FROM (
       SELECT
@@ -817,100 +818,100 @@ if (search && search.trim()) {
     ) t
   `;
 
-  const dataParams = {
-    ...baseParams,
-    offset,
-    limit,
-  };
+    const dataParams = {
+      ...baseParams,
+      offset,
+      limit,
+    };
 
-  const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql, dataParams as any),
-    this.dataSource.query(countSql, baseParams as any),
-  ]);
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, dataParams as any),
+      this.dataSource.query(countSql, baseParams as any),
+    ]);
 
-  const total = Number(countResult?.[0]?.TOTAL ?? 0);
+    const total = Number(countResult?.[0]?.TOTAL ?? 0);
 
-  const data = result.map((row: any, index: number) => ({
-    numero: offset + index + 1,
-    nome: row.NOME_COMPLETO,
-    numero_bilhete: row.BILHETE_IDENTIDADE,
-    sexo: row.SEXO,
-    idade: row.IDADE,
-    data_nascimento: row.DATA_NASCIMENTO,
-    provincia_residencia: row.PROVINCIA_RESIDENCIA,
-    pais_origem: row.PAIS_ORIGEM,
-    municipio: row.MUNICIPIO,
-    periodo_estudo: row.PERIODO_ESTUDO,
-    curso: row.CURSO,
-    nota_exame_acesso: row.NOTA_EXAME_ACESSO,
-    escola_ensino_medio: row.ESCOLA_ENSINO_MEDIO,
-    trabalhador: row.TRABALHADOR,
-    unidade_organica: row.UNIDADE_ORGANICA,
-    necessidade_especial: row.NECESSIDADE_ESPECIAL,
-    proveniencia: row.PROVENIENCIA,
-    curso_ensino_medio: row.CURSO_ENSINO_MEDIO,
-    estudante_matriculado_primeira_vez:
-      row.ESTUDANTE_MATRICULADO_PRIMEIRA_VEZ,
-    admissao: row.ADMISSAO,
-  }));
+    const data = result.map((row: any, index: number) => ({
+      numero: offset + index + 1,
+      nome: row.NOME_COMPLETO,
+      numero_bilhete: row.BILHETE_IDENTIDADE,
+      sexo: row.SEXO,
+      idade: row.IDADE,
+      data_nascimento: row.DATA_NASCIMENTO,
+      provincia_residencia: row.PROVINCIA_RESIDENCIA,
+      pais_origem: row.PAIS_ORIGEM,
+      municipio: row.MUNICIPIO,
+      periodo_estudo: row.PERIODO_ESTUDO,
+      curso: row.CURSO,
+      nota_exame_acesso: row.NOTA_EXAME_ACESSO,
+      escola_ensino_medio: row.ESCOLA_ENSINO_MEDIO,
+      trabalhador: row.TRABALHADOR,
+      unidade_organica: row.UNIDADE_ORGANICA,
+      necessidade_especial: row.NECESSIDADE_ESPECIAL,
+      proveniencia: row.PROVENIENCIA,
+      curso_ensino_medio: row.CURSO_ENSINO_MEDIO,
+      estudante_matriculado_primeira_vez:
+        row.ESTUDANTE_MATRICULADO_PRIMEIRA_VEZ,
+      admissao: row.ADMISSAO,
+    }));
 
-  return {
-    data,
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
-  };
-}
-
-
-async listarRegistoPrimarioMatriculados(filter: any) {
-  const {
-    page = 1,
-    limit = 10,
-    anoLectivo = 0,
-    grau = 0,
-    anoCurricular = 0,
-    estado = 2, // 1 = novos | 0 = antigos | 2 = todos
-    search,
-  } = filter;
-
-  const safePage = Number(page) > 0 ? Number(page) : 1;
-  const safeLimit = Number(limit) > 0 ? Number(limit) : 10;
-  const offset = (safePage - 1) * safeLimit;
-
-  const anoLectivoNum = Number(anoLectivo) || 0;
-  const grauNum = Number(grau) || 0;
-  const anoCurricularNum = Number(anoCurricular) || 0;
-  const estadoNum = Number(estado);
-
-  if (!anoLectivoNum || anoLectivoNum === 0) {
-    throw new BadRequestException('O ano lectivo é obrigatório');
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
   }
 
-  const searchValue =
-    search && String(search).trim()
-      ? `%${String(search).trim().toUpperCase()}%`
-      : null;
 
-  let estadoClause = '';
+  async listarRegistoPrimarioMatriculados(filter: any) {
+    const {
+      page = 1,
+      limit = 10,
+      anoLectivo = 0,
+      grau = 0,
+      anoCurricular = 0,
+      estado = 2, // 1 = novos | 0 = antigos | 2 = todos
+      search,
+    } = filter;
 
-  if (estadoNum === 1) {
-    // estudantes novos
-    estadoClause = `
+    const safePage = Number(page) > 0 ? Number(page) : 1;
+    const safeLimit = Number(limit) > 0 ? Number(limit) : 10;
+    const offset = (safePage - 1) * safeLimit;
+
+    const anoLectivoNum = Number(anoLectivo) || 0;
+    const grauNum = Number(grau) || 0;
+    const anoCurricularNum = Number(anoCurricular) || 0;
+    const estadoNum = Number(estado);
+
+    if (!anoLectivoNum || anoLectivoNum === 0) {
+      throw new BadRequestException('O ano lectivo é obrigatório');
+    }
+
+    const searchValue =
+      search && String(search).trim()
+        ? `%${String(search).trim().toUpperCase()}%`
+        : null;
+
+    let estadoClause = '';
+
+    if (estadoNum === 1) {
+      // estudantes novos
+      estadoClause = `
       AND tp.ANOLECTIVO = :5
     `;
-  } else if (estadoNum === 0) {
-    // estudantes antigos
-    estadoClause = `
+    } else if (estadoNum === 0) {
+      // estudantes antigos
+      estadoClause = `
       AND tp.ANOLECTIVO != :5
     `;
-  } else {
-    // todos
-    estadoClause = '';
-  }
+    } else {
+      // todos
+      estadoClause = '';
+    }
 
-  const sql = `
+    const sql = `
     WITH base_estudantes AS (
       SELECT DISTINCT
         tp.NOME_COMPLETO AS NOME_COMPLETO,
@@ -1000,45 +1001,45 @@ async listarRegistoPrimarioMatriculados(filter: any) {
     ORDER BY t.RN
   `;
 
-  let sqlParams: any[] = [];
+    let sqlParams: any[] = [];
 
-if (estadoNum === 1 || estadoNum === 0) {
-  sqlParams = [
-    anoCurricularNum,   // :1
-    anoCurricularNum,   // :2
-    anoLectivoNum,      // :3
-    grauNum,            // :4
-    grauNum,            // :4 repetido
-    anoLectivoNum,      // :5
-    anoLectivoNum,      // :6
-    searchValue,        // :7
-    searchValue,        // :8
-    searchValue,        // :9
-    searchValue,        // :10
-    searchValue,        // :11
-    offset + 1,         // :12
-    offset + safeLimit, // :13
-  ];
-} else {
-  // estado = 2 (todos)
-  sqlParams = [
-    anoCurricularNum,   // :1
-    anoCurricularNum,   // :2
-    anoLectivoNum,      // :3
-    grauNum,            // :4
-    grauNum,            // :4 repetido
-    anoLectivoNum,      // :6
-    searchValue,        // :7
-    searchValue,        // :8
-    searchValue,        // :9
-    searchValue,        // :10
-    searchValue,        // :11
-    offset + 1,         // :12
-    offset + safeLimit, // :13
-  ];
-}
+    if (estadoNum === 1 || estadoNum === 0) {
+      sqlParams = [
+        anoCurricularNum,   // :1
+        anoCurricularNum,   // :2
+        anoLectivoNum,      // :3
+        grauNum,            // :4
+        grauNum,            // :4 repetido
+        anoLectivoNum,      // :5
+        anoLectivoNum,      // :6
+        searchValue,        // :7
+        searchValue,        // :8
+        searchValue,        // :9
+        searchValue,        // :10
+        searchValue,        // :11
+        offset + 1,         // :12
+        offset + safeLimit, // :13
+      ];
+    } else {
+      // estado = 2 (todos)
+      sqlParams = [
+        anoCurricularNum,   // :1
+        anoCurricularNum,   // :2
+        anoLectivoNum,      // :3
+        grauNum,            // :4
+        grauNum,            // :4 repetido
+        anoLectivoNum,      // :6
+        searchValue,        // :7
+        searchValue,        // :8
+        searchValue,        // :9
+        searchValue,        // :10
+        searchValue,        // :11
+        offset + 1,         // :12
+        offset + safeLimit, // :13
+      ];
+    }
 
-  const countSql = `
+    const countSql = `
     WITH base_estudantes AS (
       SELECT DISTINCT
         tp.NOME_COMPLETO AS NOME_COMPLETO,
@@ -1075,23 +1076,23 @@ if (estadoNum === 1 || estadoNum === 0) {
     )
   `;
 
-  let countSqlFinal = countSql;
-  let countParams: any[] = [];
+    let countSqlFinal = countSql;
+    let countParams: any[] = [];
 
-  if (estadoNum === 1 || estadoNum === 0) {
-    countParams = [
-  anoLectivoNum, // :1
-  grauNum,       // :2
-  grauNum,       // :2 repetido
-  anoLectivoNum, // :5
-  searchValue,   // :6
-  searchValue,   // :7
-  searchValue,   // :8
-  searchValue,   // :9
-  searchValue,   // :10
-];
-  } else {
-    countSqlFinal = `
+    if (estadoNum === 1 || estadoNum === 0) {
+      countParams = [
+        anoLectivoNum, // :1
+        grauNum,       // :2
+        grauNum,       // :2 repetido
+        anoLectivoNum, // :5
+        searchValue,   // :6
+        searchValue,   // :7
+        searchValue,   // :8
+        searchValue,   // :9
+        searchValue,   // :10
+      ];
+    } else {
+      countSqlFinal = `
       WITH base_estudantes AS (
         SELECT DISTINCT
           tp.NOME_COMPLETO AS NOME_COMPLETO,
@@ -1127,51 +1128,51 @@ if (estadoNum === 1 || estadoNum === 0) {
       )
     `;
 
-    countParams = [
-      anoLectivoNum, // :1
-      grauNum,       // :2
-      grauNum,       // :2 repetido
-      searchValue,   // :3
-      searchValue,   // :4
-      searchValue,   // :5
-      searchValue,   // :6
-      searchValue,   // :7
-    ];
+      countParams = [
+        anoLectivoNum, // :1
+        grauNum,       // :2
+        grauNum,       // :2 repetido
+        searchValue,   // :3
+        searchValue,   // :4
+        searchValue,   // :5
+        searchValue,   // :6
+        searchValue,   // :7
+      ];
+    }
+
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, sqlParams),
+      this.dataSource.query(countSqlFinal, countParams),
+    ]);
+
+    const total = Number(countResult[0]?.TOTAL ?? 0);
+
+    const data = result.map((row: any, index: number) => ({
+      numero: offset + index + 1,
+      nome: row.NOME_COMPLETO,
+      numero_bilhete: row.BILHETE_IDENTIDADE,
+      sexo: row.SEXO,
+      idade: row.IDADE,
+      data_nascimento: row.DATA_NASCIMENTO,
+      provincia: row.PROVINCIA,
+      municipio: row.MUNICIPIO,
+      pais_origem: row.PAIS,
+      periodo_estudo: row.PERIODO_ESTUDO,
+      unidade_organica: row.FACULDADE,
+      nome_curso_inscrito_ensino_superior: row.CURSO,
+      ano_frequencia: row.CLASSE,
+      situacao_academica: row.ESTADO_MATRICULA,
+      aproveitamento_anual: row.TAXA_APROVEITAMENTO,
+    }));
+
+    return {
+      data,
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit) || 1,
+    };
   }
-
-  const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql, sqlParams),
-    this.dataSource.query(countSqlFinal, countParams),
-  ]);
-
-  const total = Number(countResult[0]?.TOTAL ?? 0);
-
-  const data = result.map((row: any, index: number) => ({
-    numero: offset + index + 1,
-    nome: row.NOME_COMPLETO,
-    numero_bilhete: row.BILHETE_IDENTIDADE,
-    sexo: row.SEXO,
-    idade: row.IDADE,
-    data_nascimento: row.DATA_NASCIMENTO,
-    provincia: row.PROVINCIA,
-    municipio: row.MUNICIPIO,
-    pais_origem: row.PAIS,
-    periodo_estudo: row.PERIODO_ESTUDO,
-    unidade_organica: row.FACULDADE,
-    nome_curso_inscrito_ensino_superior: row.CURSO,
-    ano_frequencia: row.CLASSE,
-    situacao_academica: row.ESTADO_MATRICULA,
-    aproveitamento_anual: row.TAXA_APROVEITAMENTO,
-  }));
-
-  return {
-    data,
-    total,
-    page: safePage,
-    limit: safeLimit,
-    totalPages: Math.ceil(total / safeLimit) || 1,
-  };
-}
 
 
   async resetPassword(body: ResetStudentPasswordDTO) {
@@ -1571,8 +1572,8 @@ WHERE M."CODIGO" = :codigoMatricula`;
     if (tipoProvaId) params.tipoProvaId = tipoProvaId;
     if (tipoAvaliacaoId) params.tipoAvaliacaoId = tipoAvaliacaoId;
     if (classeId) params.classeId = classeId;
-   
-    
+
+
     if (search) params.search = `%${search}%`;
 
     const result = await this.dataSource.query(query, params as any);
@@ -1589,19 +1590,19 @@ WHERE M."CODIGO" = :codigoMatricula`;
     };
   }
 
-async academicHistoryEquivalencia(dto: AcademicHistoryEquivalenciaDTO) {
-  const {
-    anoLectivoId,
-    matriculaId,
-    classeId,
-    search,
-    page = 1,
-    limit = 10,
-  } = dto;
+  async academicHistoryEquivalencia(dto: AcademicHistoryEquivalenciaDTO) {
+    const {
+      anoLectivoId,
+      matriculaId,
+      classeId,
+      search,
+      page = 1,
+      limit = 10,
+    } = dto;
 
-  const offset = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-  const query = `
+    const query = `
     SELECT 
       al.codigo,
       d.DESIGNACAO AS unidade_curricular,
@@ -1650,43 +1651,43 @@ async academicHistoryEquivalencia(dto: AcademicHistoryEquivalenciaDTO) {
     OFFSET :offset ROWS FETCH NEXT :fetchLimit ROWS ONLY
   `;
 
-  const params: Record<string, any> = {
-    matriculaId,
-    offset,
-    fetchLimit: limit + 1,
-  };
+    const params: Record<string, any> = {
+      matriculaId,
+      offset,
+      fetchLimit: limit + 1,
+    };
 
-  if (anoLectivoId) params.anoLectivoId = anoLectivoId;
-  if (classeId) params.classeId = classeId;
-  if (search) params.search = `%${search}%`;
+    if (anoLectivoId) params.anoLectivoId = anoLectivoId;
+    if (classeId) params.classeId = classeId;
+    if (search) params.search = `%${search}%`;
 
-  const result = await this.dataSource.query(query, params as any);
+    const result = await this.dataSource.query(query, params as any);
 
-  const hasNextPage = result.length > limit;
-  if (hasNextPage) result.pop();
+    const hasNextPage = result.length > limit;
+    if (hasNextPage) result.pop();
 
-  return {
-    success: true,
-    data: await toLowerCaseKeys(result),
-    page,
-    limit,
-    hasNextPage,
-  };
-}
+    return {
+      success: true,
+      data: await toLowerCaseKeys(result),
+      page,
+      limit,
+      hasNextPage,
+    };
+  }
 
-async academicHistoryMigracaoDados(dto: AcademicHistoryMigracaoDadosDTO) {
-  const {
-    anoLectivoId,
-    matriculaId,
-    classeId,
-    search,
-    page = 1,
-    limit = 10,
-  } = dto;
+  async academicHistoryMigracaoDados(dto: AcademicHistoryMigracaoDadosDTO) {
+    const {
+      anoLectivoId,
+      matriculaId,
+      classeId,
+      search,
+      page = 1,
+      limit = 10,
+    } = dto;
 
-  const offset = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-  const query = `
+    const query = `
     SELECT 
       al.codigo,
       d.DESIGNACAO AS unidade_curricular,
@@ -1737,39 +1738,39 @@ async academicHistoryMigracaoDados(dto: AcademicHistoryMigracaoDadosDTO) {
     OFFSET :offset ROWS FETCH NEXT :fetchLimit ROWS ONLY
   `;
 
-  const params: Record<string, any> = {
-    matriculaId,
-    offset,
-    fetchLimit: limit + 1,
-  };
+    const params: Record<string, any> = {
+      matriculaId,
+      offset,
+      fetchLimit: limit + 1,
+    };
 
-  if (anoLectivoId) params.anoLectivoId = anoLectivoId;
-  if (classeId) params.classeId = classeId;
-  if (search) params.search = `%${search}%`;
+    if (anoLectivoId) params.anoLectivoId = anoLectivoId;
+    if (classeId) params.classeId = classeId;
+    if (search) params.search = `%${search}%`;
 
-  const result = await this.dataSource.query(query, params as any);
+    const result = await this.dataSource.query(query, params as any);
 
-  const hasNextPage = result.length > limit;
-  if (hasNextPage) result.pop();
+    const hasNextPage = result.length > limit;
+    if (hasNextPage) result.pop();
 
-  return {
-    success: true,
-    data: await toLowerCaseKeys(result),
-    page,
-    limit,
-    hasNextPage,
-  };
-}
+    return {
+      success: true,
+      data: await toLowerCaseKeys(result),
+      page,
+      limit,
+      hasNextPage,
+    };
+  }
 
 
-async updateHorarioGradeCurricular({codigoGradeCurricularAluno, horarioID}: {codigoGradeCurricularAluno: number, horarioID: number}) {
-  const gradeCurricularID = codigoGradeCurricularAluno;
-  const STATUS_PERMITIDO = 2;
-  console.log({codigoGradeCurricularAluno, horarioID})
+  async updateHorarioGradeCurricular({ codigoGradeCurricularAluno, horarioID }: { codigoGradeCurricularAluno: number, horarioID: number }) {
+    const gradeCurricularID = codigoGradeCurricularAluno;
+    const STATUS_PERMITIDO = 2;
+    console.log({ codigoGradeCurricularAluno, horarioID })
 
-  const [gradeResult, statusResult, horarioResult] = await Promise.all([
-    this.dataSource.query(
-      `
+    const [gradeResult, statusResult, horarioResult] = await Promise.all([
+      this.dataSource.query(
+        `
       SELECT 
         al.codigo as codigo_grade_curricular_aluno,
         al.REF_HORARIO as ref_horario,
@@ -1778,160 +1779,160 @@ async updateHorarioGradeCurricular({codigoGradeCurricularAluno, horarioID}: {cod
       WHERE al.CODIGO = :1
       
       `,
-      [gradeCurricularID],
-    ),
+        [gradeCurricularID],
+      ),
 
-    this.dataSource.query(
-      `
+      this.dataSource.query(
+        `
       SELECT 
         sgc.DESIGNACAO as status_nome
       FROM FK2_TB_STATUS_GRADE_CURRICULAR sgc
       WHERE sgc.codigo = :1
       `,
-      [STATUS_PERMITIDO],
-    ),
+        [STATUS_PERMITIDO],
+      ),
 
-    this.dataSource.query(
-      `
+      this.dataSource.query(
+        `
       SELECT 
         hr.pk_horario as pk,
         hr.designacao as designacao
       FROM FK2_MGH_TB_HORARIO hr
       WHERE hr.pk_horario = :1
       `,
-      [horarioID],
-    ),
-  ]);
+        [horarioID],
+      ),
+    ]);
 
-  const [gradeCurricular] = toLowerCaseKeys(gradeResult);
-  const [statusGradeCurricular] = toLowerCaseKeys(statusResult);
-  const [horario] = toLowerCaseKeys(horarioResult);
+    const [gradeCurricular] = toLowerCaseKeys(gradeResult);
+    const [statusGradeCurricular] = toLowerCaseKeys(statusResult);
+    const [horario] = toLowerCaseKeys(horarioResult);
 
 
-  if (!gradeCurricular) {
-    throw new BadRequestException('Grade curricular não encontrada');
-  }
+    if (!gradeCurricular) {
+      throw new BadRequestException('Grade curricular não encontrada');
+    }
 
-  if (!horario) {
-    throw new BadRequestException('Horário não encontrado');
-  }
+    if (!horario) {
+      throw new BadRequestException('Horário não encontrado');
+    }
 
-  console.log({gradeCurricular});
+    console.log({ gradeCurricular });
 
-  if (gradeCurricular.codigo_status_grade_curricular !== STATUS_PERMITIDO) {
-    throw new BadRequestException(
-      `Apenas grades curriculares com estado ${statusGradeCurricular?.status_nome} podem ter horário`,
-    );
-  }
+    if (gradeCurricular.codigo_status_grade_curricular !== STATUS_PERMITIDO) {
+      throw new BadRequestException(
+        `Apenas grades curriculares com estado ${statusGradeCurricular?.status_nome} podem ter horário`,
+      );
+    }
 
-  const REF_HORARIO = JSON.stringify({pk: horario.pk, desc: horario.designacao});
+    const REF_HORARIO = JSON.stringify({ pk: horario.pk, desc: horario.designacao });
 
-  await this.dataSource.query(
-    `
+    await this.dataSource.query(
+      `
     UPDATE FK2_TB_GRADE_CURRICULAR_ALUNO
     SET REF_HORARIO = :1
     WHERE CODIGO = :2
     `,
-    [REF_HORARIO, gradeCurricularID],
-  );
- 
- 
+      [REF_HORARIO, gradeCurricularID],
+    );
 
-  return {
-    message: 'Horário da grade curricular atualizado com sucesso',
-  };
-}
 
-async deleteGrade({codigoGradeCurricularAluno}: {codigoGradeCurricularAluno: number}) {
-  console.log({codigoGradeCurricularAluno})
-  const gradeCurricularResult = await this.dataSource.query(
-    `
+
+    return {
+      message: 'Horário da grade curricular atualizado com sucesso',
+    };
+  }
+
+  async deleteGrade({ codigoGradeCurricularAluno }: { codigoGradeCurricularAluno: number }) {
+    console.log({ codigoGradeCurricularAluno })
+    const gradeCurricularResult = await this.dataSource.query(
+      `
     SELECT 
       al.CODIGO_STATUS_GRADE_CURRICULAR as codigo_status_grade_curricular
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
     WHERE al.CODIGO = :1
     `,
-    [codigoGradeCurricularAluno],
-  );
-  console.log({gradeCurricularResult})
-  const [gradeCurricular] = toLowerCaseKeys(gradeCurricularResult);
-
-  if (!gradeCurricular) {
-    throw new BadRequestException('Grade curricular não encontrada');
-  }
-
-  if (gradeCurricular.codigo_status_grade_curricular === 3) {
-    throw new BadRequestException(
-      'Não é possível deletar grade curricular Concluida',
+      [codigoGradeCurricularAluno],
     );
-  }
+    console.log({ gradeCurricularResult })
+    const [gradeCurricular] = toLowerCaseKeys(gradeCurricularResult);
+
+    if (!gradeCurricular) {
+      throw new BadRequestException('Grade curricular não encontrada');
+    }
+
+    if (gradeCurricular.codigo_status_grade_curricular === 3) {
+      throw new BadRequestException(
+        'Não é possível deletar grade curricular Concluida',
+      );
+    }
 
 
-  await this.dataSource.query(
-    `
+    await this.dataSource.query(
+      `
     UPDATE FK2_TB_GRADE_CURRICULAR_ALUNO
     SET CODIGO_STATUS_GRADE_CURRICULAR = 5
     WHERE CODIGO = :1
     `,
-    [codigoGradeCurricularAluno],
-  );
-  return {
-    message: 'Grade curricular deletada com sucesso',
-  };
-}
+      [codigoGradeCurricularAluno],
+    );
+    return {
+      message: 'Grade curricular deletada com sucesso',
+    };
+  }
 
-async restoreGrade({codigoGradeCurricularAluno}: {codigoGradeCurricularAluno: number}) {
-  const gradeCurricularResult = await this.dataSource.query(
-    `
+  async restoreGrade({ codigoGradeCurricularAluno }: { codigoGradeCurricularAluno: number }) {
+    const gradeCurricularResult = await this.dataSource.query(
+      `
     SELECT 
       al.CODIGO_STATUS_GRADE_CURRICULAR as codigo_status_grade_curricular
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
     WHERE al.CODIGO = :1
     `,
-    [codigoGradeCurricularAluno],
-  );
+      [codigoGradeCurricularAluno],
+    );
 
-  const [gradeCurricular] = toLowerCaseKeys(gradeCurricularResult);
+    const [gradeCurricular] = toLowerCaseKeys(gradeCurricularResult);
 
-  if (!gradeCurricular) {
-    throw new BadRequestException('Grade curricular não encontrada');
-  }
+    if (!gradeCurricular) {
+      throw new BadRequestException('Grade curricular não encontrada');
+    }
 
-  await this.dataSource.query(
-    `
+    await this.dataSource.query(
+      `
     UPDATE FK2_TB_GRADE_CURRICULAR_ALUNO
     SET CODIGO_STATUS_GRADE_CURRICULAR = 2
     WHERE CODIGO = :1
     `,
-    [codigoGradeCurricularAluno],
-  );
-return {
-  message: 'Grade curricular restaurada com sucesso',
-};
-}
-
-
-async definirEspecialidade(dto: DefinirEspecialidadeDTO) {
-  const { codigoMatricula, codigoCursoEspecialidade } = dto;
-
-  const matriculaResult = await this.dataSource.query(
-    `SELECT ESTADO_MATRICULA FROM FK2_TB_MATRICULAS WHERE CODIGO = :1`,
-    [codigoMatricula],
-  );
-
-  const matriculas = toLowerCaseKeys(matriculaResult);
-
- 
-  if (!matriculas || matriculas.length === 0) {
-    throw new NotFoundException('Matrícula não encontrada');
+      [codigoGradeCurricularAluno],
+    );
+    return {
+      message: 'Grade curricular restaurada com sucesso',
+    };
   }
 
-  const matricula = matriculas[0];
 
- 
-  if (matricula.estado_matricula?.toLowerCase() === 'diplomado') {
-    throw new BadRequestException('Não é possível definir especialidade para aluno diplomado');
-  }
+  async definirEspecialidade(dto: DefinirEspecialidadeDTO) {
+    const { codigoMatricula, codigoCursoEspecialidade } = dto;
+
+    const matriculaResult = await this.dataSource.query(
+      `SELECT ESTADO_MATRICULA FROM FK2_TB_MATRICULAS WHERE CODIGO = :1`,
+      [codigoMatricula],
+    );
+
+    const matriculas = toLowerCaseKeys(matriculaResult);
+
+
+    if (!matriculas || matriculas.length === 0) {
+      throw new NotFoundException('Matrícula não encontrada');
+    }
+
+    const matricula = matriculas[0];
+
+
+    if (matricula.estado_matricula?.toLowerCase() === 'diplomado') {
+      throw new BadRequestException('Não é possível definir especialidade para aluno diplomado');
+    }
     await this.dataSource.query(
       `
       UPDATE FK2_TB_MATRICULAS
@@ -1945,15 +1946,15 @@ async definirEspecialidade(dto: DefinirEspecialidadeDTO) {
     return {
       message: 'Especialidade definida com sucesso',
     };
- 
-}
+
+  }
 
 
 
-async changeCourse(dto: ChangeCourseDTO) {
+  async changeCourse(dto: ChangeCourseDTO) {
     const { PoloId, matriculaId, cursoId } = dto;
-     let  mudarCurso = true;
-     let            buscarHorario = true;
+    let mudarCurso = true;
+    let buscarHorario = true;
     const anoCorrente = await this.anoLectivoUtil.getAnoAtualId();
     if (!anoCorrente) {
       throw new BadRequestException('Ano letivo atual não encontrado');
@@ -1973,7 +1974,7 @@ async changeCourse(dto: ChangeCourseDTO) {
         matriculaDetails,
         confirmationExists
       };
-    
+
     } else {
       return {
         message: 'Matrícula não ativa e sem confirmação para o ano letivo atual. A troca de curso não pode ser realizada.',
@@ -2033,7 +2034,7 @@ async changeCourse(dto: ChangeCourseDTO) {
     } as any);
     return result && result.length > 0;
   }
-async obterNotasCertificado(dto: GerarCertificadoDto) {
+  async obterNotasCertificado(dto: GerarCertificadoDto) {
     const { matriculaId, anoMin, anoMax } = dto;
 
     const min = Math.min(anoMin, anoMax);
@@ -2066,46 +2067,46 @@ async obterNotasCertificado(dto: GerarCertificadoDto) {
           NLSSORT(TRIM(d.designacao), 'NLS_SORT=BINARY_AI') ASC
     `;
 
-    
-      const result = await this.dataSource.query(sql, [matriculaId, min, max]);
-      return toLowerCaseKeys(result);
-    
+
+    const result = await this.dataSource.query(sql, [matriculaId, min, max]);
+    return toLowerCaseKeys(result);
+
   }
 
 
-async diplomarAluno(
-  body: {
-    codigoMatricula: number;
-    dataConclusao?: Date | string;
-    imprimeCartaConclusao?: boolean;
-  },
-  usuarioLogado: any,
-) {
-  const {
-    codigoMatricula,
-    dataConclusao,
-    imprimeCartaConclusao = false,
-  } = body;
+  async diplomarAluno(
+    body: {
+      codigoMatricula: number;
+      dataConclusao?: Date | string;
+      imprimeCartaConclusao?: boolean;
+    },
+    usuarioLogado: any,
+  ) {
+    const {
+      codigoMatricula,
+      dataConclusao,
+      imprimeCartaConclusao = false,
+    } = body;
 
-  if (!codigoMatricula) {
-    throw new BadRequestException('Código da matrícula é obrigatório');
-  }
+    if (!codigoMatricula) {
+      throw new BadRequestException('Código da matrícula é obrigatório');
+    }
 
-  const anoLectivoAtual = await this.anoLectivoUtil.getAnoAtualId();
+    const anoLectivoAtual = await this.anoLectivoUtil.getAnoAtualId();
 
-  if (!anoLectivoAtual) {
-    throw new BadRequestException('Ano lectivo actual não encontrado');
-  }
+    if (!anoLectivoAtual) {
+      throw new BadRequestException('Ano lectivo actual não encontrado');
+    }
 
-  const dataConclusaoFinal = dataConclusao ? new Date(dataConclusao) : new Date();
+    const dataConclusaoFinal = dataConclusao ? new Date(dataConclusao) : new Date();
 
-  if (Number.isNaN(dataConclusaoFinal.getTime())) {
-    throw new BadRequestException('Data de conclusão inválida');
-  }
+    if (Number.isNaN(dataConclusaoFinal.getTime())) {
+      throw new BadRequestException('Data de conclusão inválida');
+    }
 
-  return this.dataSource.transaction(async (manager) => {
-    const matriculaResult = await manager.query(
-      `
+    return this.dataSource.transaction(async (manager) => {
+      const matriculaResult = await manager.query(
+        `
       SELECT
         M.CODIGO,
         M.ESTADO_MATRICULA,
@@ -2113,25 +2114,25 @@ async diplomarAluno(
       FROM FK2_TB_MATRICULAS M
       WHERE M.CODIGO = :codigoMatricula
       `,
-      { codigoMatricula } as any,
-    );
+        { codigoMatricula } as any,
+      );
 
-    if (!matriculaResult?.length) {
-      throw new NotFoundException('Matrícula não encontrada');
-    }
+      if (!matriculaResult?.length) {
+        throw new NotFoundException('Matrícula não encontrada');
+      }
 
-    const matricula = matriculaResult[0];
-    const estadoMatricula = String(
-      matricula.ESTADO_MATRICULA || '',
-    ).toLowerCase();
+      const matricula = matriculaResult[0];
+      const estadoMatricula = String(
+        matricula.ESTADO_MATRICULA || '',
+      ).toLowerCase();
 
-    if (estadoMatricula === 'diplomado') {
-      throw new BadRequestException('O estudante já está diplomado');
-    }
+      if (estadoMatricula === 'diplomado') {
+        throw new BadRequestException('O estudante já está diplomado');
+      }
 
-    // Verifica se o estudante reúne condições para diplomar
-    const elegibilidadeResult = await manager.query(
-      `
+      // Verifica se o estudante reúne condições para diplomar
+      const elegibilidadeResult = await manager.query(
+        `
       SELECT
         NVL((
           SELECT COUNT(*)
@@ -2150,24 +2151,24 @@ async diplomarAluno(
         ), 0) AS TOTAL_CURSO
       FROM DUAL
       `,
-      {
-        codigoMatricula,
-        codigoCurso: matricula.CODIGO_CURSO,
-      } as any,
-    );
-
-    const totalFeitas = Number(elegibilidadeResult?.[0]?.TOTAL_FEITAS ?? 0);
-    const totalCurso = Number(elegibilidadeResult?.[0]?.TOTAL_CURSO ?? 0);
-
-    if (!totalCurso || totalFeitas < totalCurso) {
-      throw new BadRequestException(
-        'O estudante não se encontra em condições para ser diplomado',
+        {
+          codigoMatricula,
+          codigoCurso: matricula.CODIGO_CURSO,
+        } as any,
       );
-    }
 
-    // Média final
-    const notaResult = await manager.query(
-      `
+      const totalFeitas = Number(elegibilidadeResult?.[0]?.TOTAL_FEITAS ?? 0);
+      const totalCurso = Number(elegibilidadeResult?.[0]?.TOTAL_CURSO ?? 0);
+
+      if (!totalCurso || totalFeitas < totalCurso) {
+        throw new BadRequestException(
+          'O estudante não se encontra em condições para ser diplomado',
+        );
+      }
+
+      // Média final
+      const notaResult = await manager.query(
+        `
       SELECT
         NVL(ROUND(AVG(GCA.NOTA), 0), 0) AS NOTA_FINAL
       FROM FK2_TB_GRADE_CURRICULAR_ALUNO GCA
@@ -2177,46 +2178,46 @@ async diplomarAluno(
         AND GCA.CODIGO_STATUS_GRADE_CURRICULAR = 3
         AND GC.CODIGO_CURSO = :codigoCurso
       `,
-      {
-        codigoMatricula,
-        codigoCurso: matricula.CODIGO_CURSO,
-      } as any,
-    );
+        {
+          codigoMatricula,
+          codigoCurso: matricula.CODIGO_CURSO,
+        } as any,
+      );
 
-    const notaFinal = Number(notaResult?.[0]?.NOTA_FINAL ?? 0);
+      const notaFinal = Number(notaResult?.[0]?.NOTA_FINAL ?? 0);
 
-    // Atualiza estado da matrícula
-    await manager.query(
-      `
+      // Atualiza estado da matrícula
+      await manager.query(
+        `
       UPDATE FK2_TB_MATRICULAS
       SET ESTADO_MATRICULA = 'diplomado',
           UPDATED_AT = SYSDATE
       WHERE CODIGO = :codigoMatricula
       `,
-      { codigoMatricula } as any,
-    );
+        { codigoMatricula } as any,
+      );
 
-    const refUtilizador =
-      usuarioLogado?.sub || usuarioLogado?.name
-        ? JSON.stringify({
+      const refUtilizador =
+        usuarioLogado?.sub || usuarioLogado?.name
+          ? JSON.stringify({
             pk: usuarioLogado?.sub ?? null,
             desc: usuarioLogado?.name ?? null,
           })
-        : null;
+          : null;
 
-    // Verifica se já existe conclusão para esta matrícula
-    const conclusaoExistente = await manager.query(
-      `
+      // Verifica se já existe conclusão para esta matrícula
+      const conclusaoExistente = await manager.query(
+        `
       SELECT CODIGO
       FROM FK2_CONCLUSAO_CURSO_ALUNO
       WHERE CODIGO_MATRICULA = :codigoMatricula
       `,
-      { codigoMatricula } as any,
-    );
+        { codigoMatricula } as any,
+      );
 
-    if (conclusaoExistente?.length) {
-      await manager.query(
-        `
+      if (conclusaoExistente?.length) {
+        await manager.query(
+          `
         UPDATE FK2_CONCLUSAO_CURSO_ALUNO
         SET DATA_CONCLUSAO = :dataConclusao,
             NOTA = :notaFinal,
@@ -2225,17 +2226,17 @@ async diplomarAluno(
             REF_UTILIZADOR = :refUtilizador
         WHERE CODIGO_MATRICULA = :codigoMatricula
         `,
-        {
-          codigoMatricula,
-          dataConclusao: dataConclusaoFinal,
-          notaFinal,
-          anoLectivo: anoLectivoAtual,
-          refUtilizador,
-        } as any,
-      );
-    } else {
-      await manager.query(
-        `
+          {
+            codigoMatricula,
+            dataConclusao: dataConclusaoFinal,
+            notaFinal,
+            anoLectivo: anoLectivoAtual,
+            refUtilizador,
+          } as any,
+        );
+      } else {
+        await manager.query(
+          `
         INSERT INTO FK2_CONCLUSAO_CURSO_ALUNO (
           CODIGO_MATRICULA,
           DATA_CONCLUSAO,
@@ -2252,32 +2253,32 @@ async diplomarAluno(
           :refUtilizador
         )
         `,
-        {
-          codigoMatricula,
-          dataConclusao: dataConclusaoFinal,
-          notaFinal,
-          anoLectivo: anoLectivoAtual,
-          refUtilizador,
-        } as any,
-      );
-    }
+          {
+            codigoMatricula,
+            dataConclusao: dataConclusaoFinal,
+            notaFinal,
+            anoLectivo: anoLectivoAtual,
+            refUtilizador,
+          } as any,
+        );
+      }
 
-    // Opcional: cria declaração de fim de curso
-    if (imprimeCartaConclusao) {
-      const ultimoDocumentoResult = await manager.query(`
+      // Opcional: cria declaração de fim de curso
+      if (imprimeCartaConclusao) {
+        const ultimoDocumentoResult = await manager.query(`
         SELECT NVL(MAX(CODIGO), 0) AS ULTIMO_CODIGO
         FROM FK2_TB_DOCUMENTOS_UC
       `);
 
-      const proximoCodigoBase =
-        Number(ultimoDocumentoResult?.[0]?.ULTIMO_CODIGO ?? 0) + 1;
+        const proximoCodigoBase =
+          Number(ultimoDocumentoResult?.[0]?.ULTIMO_CODIGO ?? 0) + 1;
 
-      const codigoDocumento = await gerarHashExterno(
-        String(proximoCodigoBase),
-      );
+        const codigoDocumento = await gerarHashExterno(
+          String(proximoCodigoBase),
+        );
 
-      await manager.query(
-        `
+        await manager.query(
+          `
         INSERT INTO FK2_TB_DOCUMENTOS_UC (
           DOCUMENTO,
           ANO_LETIVO,
@@ -2300,19 +2301,19 @@ async diplomarAluno(
           :refUtilizador
         )
         `,
-        {
-          anoLectivo: anoLectivoAtual,
-          utilizador: usuarioLogado?.sub ?? null,
-          codigoDocumento,
-          codigoMatricula,
-          refUtilizador,
-        } as any,
-      );
-    }
+          {
+            anoLectivo: anoLectivoAtual,
+            utilizador: usuarioLogado?.sub ?? null,
+            codigoDocumento,
+            codigoMatricula,
+            refUtilizador,
+          } as any,
+        );
+      }
 
-    // Log
-    await manager.query(
-      `
+      // Log
+      await manager.query(
+        `
       INSERT INTO FK2_MGA_TB_LOG_DIPLOMAR (
         DESCRICAO,
         FK_MATRICULA,
@@ -2325,40 +2326,40 @@ async diplomarAluno(
         SYSDATE
       )
       `,
-      {
-        codigoMatricula,
-        utilizadorResponsavel: usuarioLogado?.sub ?? null,
-      } as any,
-    );
+        {
+          codigoMatricula,
+          utilizadorResponsavel: usuarioLogado?.sub ?? null,
+        } as any,
+      );
 
-    return {
-      success: true,
-      message: 'Estudante diplomado com sucesso',
-      data: {
-        codigoMatricula,
-        estadoMatricula: 'diplomado',
-        notaFinal,
-        anoLectivo: anoLectivoAtual,
-        dataConclusao: dataConclusaoFinal,
-        cartaConclusaoGerada: imprimeCartaConclusao,
-      },
-    };
-  });
-}
-async gerarDiploma(
-  body: {
-    codigoMatricula: number;
-    segundaViaDiploma?: boolean;
-  },
-) {
-  const { codigoMatricula, segundaViaDiploma = false } = body;
-
-  if (!codigoMatricula) {
-    throw new BadRequestException('Código da matrícula é obrigatório');
+      return {
+        success: true,
+        message: 'Estudante diplomado com sucesso',
+        data: {
+          codigoMatricula,
+          estadoMatricula: 'diplomado',
+          notaFinal,
+          anoLectivo: anoLectivoAtual,
+          dataConclusao: dataConclusaoFinal,
+          cartaConclusaoGerada: imprimeCartaConclusao,
+        },
+      };
+    });
   }
+  async gerarDiploma(
+    body: {
+      codigoMatricula: number;
+      segundaViaDiploma?: boolean;
+    },
+  ) {
+    const { codigoMatricula, segundaViaDiploma = false } = body;
 
-  const result = await this.dataSource.query(
-    `
+    if (!codigoMatricula) {
+      throw new BadRequestException('Código da matrícula é obrigatório');
+    }
+
+    const result = await this.dataSource.query(
+      `
     SELECT
       M.CODIGO AS CODIGO_MATRICULA,
       M.ESTADO_MATRICULA,
@@ -2390,95 +2391,95 @@ async gerarDiploma(
       ON CCA.CODIGO_MATRICULA = M.CODIGO
     WHERE M.CODIGO = :codigoMatricula
     `,
-    { codigoMatricula } as any,
-  );
-
-  if (!result?.length) {
-    throw new NotFoundException('Matrícula não encontrada');
-  }
-
-  const aluno = result[0];
-
-  if (!aluno.DATA_CONCLUSAO) {
-    throw new BadRequestException(
-      'Faltam dados do aluno diplomado. Conclusão do curso não encontrada',
+      { codigoMatricula } as any,
     );
-  }
 
-  if (String(aluno.ESTADO_MATRICULA || '').toLowerCase() !== 'diplomado') {
-    throw new BadRequestException(
-      'O estudante não está diplomado, não é possível gerar o diploma',
-    );
-  }
+    if (!result?.length) {
+      throw new NotFoundException('Matrícula não encontrada');
+    }
 
-  const reitorResult = await this.dataSource.query(
-    `
+    const aluno = result[0];
+
+    if (!aluno.DATA_CONCLUSAO) {
+      throw new BadRequestException(
+        'Faltam dados do aluno diplomado. Conclusão do curso não encontrada',
+      );
+    }
+
+    if (String(aluno.ESTADO_MATRICULA || '').toLowerCase() !== 'diplomado') {
+      throw new BadRequestException(
+        'O estudante não está diplomado, não é possível gerar o diploma',
+      );
+    }
+
+    const reitorResult = await this.dataSource.query(
+      `
     SELECT DIRECTOR
     FROM FK2_TB_DADOS_INSTITUICAO
     WHERE DIRECTOR IS NOT NULL
     ORDER BY CODIGO DESC
     FETCH FIRST 1 ROWS ONLY
     `,
-  );
+    );
 
-  const reitor = reitorResult?.[0]?.DIRECTOR?.trim?.() || '';
+    const reitor = reitorResult?.[0]?.DIRECTOR?.trim?.() || '';
 
-  const cursoOriginal = String(aluno.CURSO || '');
-  let cursoDiploma = cursoOriginal;
-  let nivelAcademico = 'Licenciatura';
+    const cursoOriginal = String(aluno.CURSO || '');
+    let cursoDiploma = cursoOriginal;
+    let nivelAcademico = 'Licenciatura';
 
-  if (cursoOriginal.includes('M - ')) {
-    cursoDiploma = `Mestrado em${cursoOriginal.substring(3)}`;
-    nivelAcademico = 'defesa de dissertação';
-  } else if (cursoOriginal.includes('D - ')) {
-    cursoDiploma = `Doutoramento ${cursoOriginal.substring(1)}`;
-    nivelAcademico = 'defesa de dissertação';
+    if (cursoOriginal.includes('M - ')) {
+      cursoDiploma = `Mestrado em${cursoOriginal.substring(3)}`;
+      nivelAcademico = 'defesa de dissertação';
+    } else if (cursoOriginal.includes('D - ')) {
+      cursoDiploma = `Doutoramento ${cursoOriginal.substring(1)}`;
+      nivelAcademico = 'defesa de dissertação';
+    }
+
+    return {
+      success: true,
+      message: 'Dados do diploma gerados com sucesso',
+      data: {
+        codigoMatricula: Number(aluno.CODIGO_MATRICULA),
+        nomeAluno: aluno.NOME_COMPLETO,
+        curso: cursoDiploma,
+        dataNascimento: formatarDataExtenso(aluno.DATA_NASCIMENTO),
+        dataConclusao: formatarDataExtenso(aluno.DATA_CONCLUSAO),
+        dataEmissaoDocumento: formatarDataExtenso(new Date()),
+        naturalidade: aluno.NATURALIDADE || '',
+        nomePai: aluno.PAI || '',
+        nomeMae: aluno.MAE || '',
+        nivelAcademico,
+        bilhete: aluno.BILHETE_IDENTIDADE || '',
+        notaFinal: String(aluno.NOTA ?? ''),
+        notaFinalExtenso: notaExtenso(Number(aluno.NOTA ?? 0)),
+        genero: aluno.SEXO || '',
+        nomeDocumento: aluno.TIPO_DOCUMENTO_NOME || '',
+        reitor,
+        viaDiploma: segundaViaDiploma ? '2ª via' : '',
+        tipoCandidaturaId: aluno.TIPO_CANDIDATURA_ID ?? null,
+        tipoCandidatura: aluno.TIPO_CANDIDATURA ?? '',
+        template:
+          Number(aluno.TIPO_CANDIDATURA_ID) === 1
+            ? 'diploma_ortoga'
+            : 'diploma_ortoga_mestrado',
+      },
+    };
   }
 
-  return {
-    success: true,
-    message: 'Dados do diploma gerados com sucesso',
-    data: {
-      codigoMatricula: Number(aluno.CODIGO_MATRICULA),
-      nomeAluno: aluno.NOME_COMPLETO,
-      curso: cursoDiploma,
-      dataNascimento: formatarDataExtenso(aluno.DATA_NASCIMENTO),
-      dataConclusao: formatarDataExtenso(aluno.DATA_CONCLUSAO),
-      dataEmissaoDocumento: formatarDataExtenso(new Date()),
-      naturalidade: aluno.NATURALIDADE || '',
-      nomePai: aluno.PAI || '',
-      nomeMae: aluno.MAE || '',
-      nivelAcademico,
-      bilhete: aluno.BILHETE_IDENTIDADE || '',
-      notaFinal: String(aluno.NOTA ?? ''),
-      notaFinalExtenso: notaExtenso(Number(aluno.NOTA ?? 0)),
-      genero: aluno.SEXO || '',
-      nomeDocumento: aluno.TIPO_DOCUMENTO_NOME || '',
-      reitor,
-      viaDiploma: segundaViaDiploma ? '2ª via' : '',
-      tipoCandidaturaId: aluno.TIPO_CANDIDATURA_ID ?? null,
-      tipoCandidatura: aluno.TIPO_CANDIDATURA ?? '',
-      template:
-        Number(aluno.TIPO_CANDIDATURA_ID) === 1
-          ? 'diploma_ortoga'
-          : 'diploma_ortoga_mestrado',
-    },
-  };
-}
+  async listarEstudantesDiplomados(filter: ListarDiplomadosDTO) {
+    const {
+      anoLectivo,
+      codigoCurso = 0,
+      genero = 'todos',
+      tipoCandidatura = 0,
+      page = 1,
+      limit = 10,
+    } = filter;
 
-async listarEstudantesDiplomados(filter: ListarDiplomadosDTO) {
-  const {
-    anoLectivo,
-    codigoCurso = 0,
-    genero = 'todos',
-    tipoCandidatura = 0,
-    page = 1,
-    limit = 10,
-  } = filter;
+    const offset = (page - 1) * limit;
 
-  const offset = (page - 1) * limit;
-
-  const sql = `
+    const sql = `
     SELECT * FROM (
       SELECT 
         tm.CODIGO AS matricula,
@@ -2509,7 +2510,7 @@ async listarEstudantesDiplomados(filter: ListarDiplomadosDTO) {
     OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
   `;
 
-  const countSql = `
+    const countSql = `
     SELECT COUNT(*) AS total
     FROM FK2_CONCLUSAO_CURSO_ALUNO cca
     INNER JOIN FK2_TB_MATRICULAS tm ON tm.CODIGO = cca.CODIGO_MATRICULA
@@ -2522,32 +2523,32 @@ async listarEstudantesDiplomados(filter: ListarDiplomadosDTO) {
       AND (:tipoCandidatura = 0 OR tp.CODIGO_TIPO_CANDIDATURA = :tipoCandidatura)
   `;
 
-  const data = await this.dataSource.query(sql, {
-    anoLectivo,
-    codigoCurso,
-    genero,
-    tipoCandidatura,
-    offset,
-    limit,
-  } as any);
+    const data = await this.dataSource.query(sql, {
+      anoLectivo,
+      codigoCurso,
+      genero,
+      tipoCandidatura,
+      offset,
+      limit,
+    } as any);
 
-  const countResult = await this.dataSource.query(countSql, {
-    anoLectivo,
-    codigoCurso,
-    genero,
-    tipoCandidatura,
-  } as any);
+    const countResult = await this.dataSource.query(countSql, {
+      anoLectivo,
+      codigoCurso,
+      genero,
+      tipoCandidatura,
+    } as any);
 
-  const total = countResult[0]?.TOTAL || 0;
+    const total = countResult[0]?.TOTAL || 0;
 
-  return {
-    success: true,
-    data: toLowerCaseKeys(data),
-    total,
-    page,
-    totalPages: Math.ceil(total / limit),
-  };
-}
+    return {
+      success: true,
+      data: toLowerCaseKeys(data),
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
 
 
 }
