@@ -1,6 +1,5 @@
-// prazos.service.ts
+import { BadRequestException, Injectable } from '@nestjs/common';
 
-import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 import { PrazoResponse } from './type';
@@ -9,84 +8,11 @@ import {
   CodigoTipoCalendario,
   TipoCalendario,
   TIPO_CALENDARIO_CODIGO,
-} from './tipo-calendario.enum';
+} from './utils/tipo-calendario.enum';
 
 import { AnoLectivoUtil } from '../util/current-academic-year';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
-
-interface MensagensPrazo {
-  antes: string;
-  depois: string;
-  naoConfigurado: string;
-}
-
-const MENSAGENS_PADRAO: Record<CodigoTipoCalendario, MensagensPrazo> = {
-  9: {
-    antes: 'A época para inscrição de Recurso ainda não está disponível!',
-    depois: 'A época para inscrição de Recurso terminou.',
-    naoConfigurado: 'O calendário de Recurso não foi configurado.',
-  },
-
-  10: {
-    antes:
-      'A época para inscrição de Exame Especial ainda não está disponível!',
-
-    depois: 'A época para inscrição de Exame Especial terminou.',
-
-    naoConfigurado: 'O calendário de Exame Especial não foi configurado.',
-  },
-
-  11: {
-    antes: 'A época para Melhoria de Notas ainda não está disponível!',
-
-    depois: 'A época para Melhoria de Notas terminou.',
-
-    naoConfigurado: 'O calendário de Melhoria de Notas não foi configurado.',
-  },
-
-  12: {
-    antes: 'A época para Reingresso ainda não está disponível!',
-
-    depois: 'A época para Reingresso terminou.',
-
-    naoConfigurado: 'O calendário de Reingresso não foi configurado.',
-  },
-
-  13: {
-    antes: 'A época para substituição de UC ainda não está disponível!',
-
-    depois: 'A época para substituição de UC terminou.',
-
-    naoConfigurado: 'O calendário de substituição de UC não foi configurado.',
-  },
-
-  14: {
-    antes: 'A época para mudança de curso interna ainda não está disponível!',
-
-    depois: 'A época para mudança de curso interna terminou.',
-
-    naoConfigurado:
-      'O calendário de mudança de curso interna não foi configurado.',
-  },
-
-  15: {
-    antes:
-      'A inscrição para cadeiras extracurriculares ainda não está disponível!',
-
-    depois: 'A inscrição para cadeiras extracurriculares terminou.',
-
-    naoConfigurado:
-      'O calendário de cadeiras extracurriculares não foi configurado.',
-  },
-
-  16: {
-    antes: 'A época de matrículas ainda não está disponível!',
-
-    depois: 'A época de matrículas terminou.',
-
-    naoConfigurado: 'O calendário de matrículas não foi configurado.',
-  },
-};
+import { MENSAGENS_PADRAO } from './utils';
 
 @Injectable()
 export class PrazosService {
@@ -101,6 +27,27 @@ export class PrazosService {
   ): Promise<PrazoResponse> {
     const tipoCodigo = TIPO_CALENDARIO_CODIGO[tipo];
 
+    if (!tipoCodigo) {
+      throw new BadRequestException('Tipo de calendário inválido.');
+    }
+
+    return this.verificarPrazo(tipoCodigo, anoLectivoParam);
+  }
+
+  async obterPrazoPorCodigo(
+    codigo: number,
+    anoLectivoParam?: number,
+  ): Promise<PrazoResponse> {
+    const tipoCodigo = codigo as CodigoTipoCalendario;
+    const sql = `SELECT CODIGO FROM FK2_TB_TIPO_CALENDARIO WHERE CODIGO = :codigo
+  FETCH FIRST 1 ROWS ONLY`;
+
+    const tipo = this.dataSource.query(sql, [tipoCodigo]);
+
+    if (!MENSAGENS_PADRAO[tipoCodigo]) {
+      throw new BadRequestException('Código de calendário inválido.');
+    }
+
     return this.verificarPrazo(tipoCodigo, anoLectivoParam);
   }
 
@@ -114,11 +61,11 @@ export class PrazosService {
       anoLectivoParam ?? (await this.anoLectivoUtil.getAnoAtualId());
 
     const sql = `
-      SELECT 
+      SELECT
         data_inicio,
         data_termino,
 
-        CASE 
+        CASE
           WHEN TRUNC(SYSDATE) < TRUNC(data_inicio)
             THEN 'ANTES'
 
@@ -131,12 +78,12 @@ export class PrazosService {
             THEN 'DURANTE'
 
           ELSE 'DESCONHECIDO'
-        END AS SITUACAO
+        END AS situacao
 
       FROM FK2_TB_CALENDARIO_ACTIVIDADE_LECTIVAS
 
-      WHERE codigo_ano_lectivo = :anoLectivo
-        AND codigo_tipo_calendario = :tipo
+      WHERE codigo_ano_lectivo = :1
+        AND codigo_tipo_calendario = :2
         AND codigo_tipo_candidatura = 1
 
       FETCH FIRST 1 ROWS ONLY
@@ -210,7 +157,7 @@ export class PrazosService {
 
           podeInscrever: true,
 
-          mensagem: 'Inscrições abertas.',
+          mensagem: mensagens.durante,
 
           data: {
             ...dataBase,

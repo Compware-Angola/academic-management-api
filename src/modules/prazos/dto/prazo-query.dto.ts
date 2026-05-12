@@ -2,7 +2,7 @@ import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { TipoCalendario } from '../tipo-calendario.enum';
+import { TipoCalendario } from '../utils/tipo-calendario.enum';
 
 export class PrazoQueryDto {
   @ApiProperty({
