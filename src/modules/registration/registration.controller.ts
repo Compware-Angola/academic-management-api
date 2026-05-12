@@ -34,6 +34,7 @@ import { FilterListagemGeralEstudantesDto } from './dto/filter-listagem-geral-de
 import { FilterInscritosPorUcDto } from './dto/filtrar-inscritos-por-uc.dto';
 import { FindInscricaoSemUCDTO } from './dto/find-inscricao-sem-ucDTO';
 import { IsentarColisaoMatriculaLegadoDto } from './dto/isentar-colisao-matricula-legado.dto';
+import { IsentarColisaoCursoLegadoDto } from './dto/isentar-colisao-curso-legado.dto';
 
 
 
@@ -233,6 +234,20 @@ async verificarColisaoCurso(
       req.user,
     );
   }
+
+@Post('colisoes/curso2')
+@ApiOperation({ summary: 'Isentar colisão por curso no formato legado' })
+@ApiResponse({ status: 201 })
+async isentarColisaoCurso2(
+  @Body() body: IsentarColisaoCursoLegadoDto,
+  @Req() req: any,
+) {
+  return this.registrationService.isentarColisaoCurso2(
+    body.curso,
+    body.turno,
+    req.user,
+  );
+}
 
 
 }

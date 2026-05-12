@@ -2114,7 +2114,56 @@ async insentarColisaoMatricula2(matricula: number, user: any) {
   };
 }
 
+async isentarColisaoCurso2(curso: number, turno: number, user: any) {
+  if (!curso) {
+    throw new BadRequestException('Informe o curso.');
+  }
 
+  if (!turno) {
+    throw new BadRequestException('Informe o turno.');
+  }
+
+  const anoLectivoCorrente = await this.anoLectivoUtil.getAnoAtualId();
+
+  const exists = await this.dataSource.query(
+    `
+      SELECT 1
+      FROM FK2_MGIM_TB_COLISAO_CURSO
+      WHERE CODIGO_CURSO = :1
+        AND CODIGO_ANOLECTIVO = :2
+      FETCH FIRST 1 ROWS ONLY
+    `,
+    [curso, anoLectivoCorrente],
+  );
+
+  if (exists.length > 0) {
+    throw new BadRequestException(
+      'Este curso já está isento da colisão para este ano.',
+    );
+  }
+
+  const refUtilizador = JSON.stringify({
+    pk: Number(user?.sub ?? user?.pkUtilizador ?? user?.id ?? 0),
+    desc: user?.nome ?? user?.name ?? user?.username ?? '',
+  });
+
+  await this.dataSource.query(
+    `
+      INSERT INTO FK2_MGIM_TB_COLISAO_CURSO
+        (CODIGO_CURSO, CODIGO_TURNO, REF_UTILIZADOR, DATA, CODIGO_ANOLECTIVO)
+      VALUES
+        (:1, :2, :3, SYSDATE, :4)
+    `,
+    [curso, turno, refUtilizador, anoLectivoCorrente],
+  );
+
+  return {
+    message: 'Colisão aplicada por curso com sucesso!',
+    curso,
+    turno,
+    anoLectivo: anoLectivoCorrente,
+  };
+}
 
 
 }
