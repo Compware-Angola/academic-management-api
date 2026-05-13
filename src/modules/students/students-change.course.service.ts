@@ -9,7 +9,7 @@ import { ChangeCourseDTO } from './dto/change-course.dto';
 import { AnoLectivoUtil } from '../util/current-academic-year';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { SERVICE_SIGLA } from '../common/enums/service.sigla';
-
+import oracledb from 'oracledb';
 interface RegistrarMotivoParams {
   codigoMatricula: number;
   cursoAnterior: number;
@@ -91,7 +91,7 @@ export class StudentsChangeCourse {
   constructor(
     private readonly dataSource: DataSource,
     private readonly anoLectivoUtil: AnoLectivoUtil,
-  ) {}
+  ) { }
   private queryRunner: QueryRunner;
 
   private async getNomeUser(userId: number): Promise<string> {
@@ -116,7 +116,9 @@ export class StudentsChangeCourse {
         p.BILHETE_IDENTIDADE   AS bi,
         c.designacao           AS curso,
         c.codigo               AS codigo_curso,
-        ca.DESIGNACAO          AS candidatura
+        ca.DESIGNACAO          AS candidatura,
+        p.CODIGO_TURNO         AS codigo_periodo
+
       FROM FK2_TB_MATRICULAS m
       INNER JOIN FK2_TB_CURSOS c
         ON c.codigo = m.CODIGO_CURSO
@@ -230,7 +232,7 @@ export class StudentsChangeCourse {
         codigoAnoLectivo: anoCorrente,
         codigoCurso: cursoId!,
         codigoMatricula: matriculaId,
-        codigoPeriodo: 5,
+        codigoPeriodo: matriculaDetails.codigo_periodo || 5,
         gradesEquivalentes: gradesEquivalentes,
         userId: userId,
       });
@@ -680,7 +682,7 @@ export class StudentsChangeCourse {
       'NÃO',
       :semestre
     )
-    RETURNING codigo INTO :codigoGerado
+    RETURNING CODIGO INTO :codigoGerado
   `;
 
     const sqlUpdateConfirmacao = `
@@ -719,9 +721,9 @@ export class StudentsChangeCourse {
         codigoMatricula,
         codigoAnoLectivo,
         semestre: 1,
-        codigoGerado: { dir: 3003, type: Number },
+        codigoGerado: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
       } as any);
-      codigoPrimeiro = result.outBinds.codigoGerado[0];
+      codigoPrimeiro = result.codigoGerado[0];
     }
 
     // ===== SEGUNDO SEMESTRE =====
@@ -739,10 +741,10 @@ export class StudentsChangeCourse {
         codigoMatricula,
         codigoAnoLectivo,
         semestre: 2,
-        codigoGerado: { dir: 3003, type: Number },
+        codigoGerado: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
       } as any);
 
-      codigoSegundo = result.outBinds.codigoGerado[0];
+      codigoSegundo = result.codigoGerado[0];
     }
 
     return {
@@ -867,7 +869,7 @@ export class StudentsChangeCourse {
             t.codigo_grade == n.codigo ||
             t.codigo_disciplina == n.codigo_disciplina ||
             t.disciplina.toUpperCase().trim() ==
-              n.disciplina.toUpperCase().trim(),
+            n.disciplina.toUpperCase().trim(),
         ),
     );
     const nomeUtilizador = await this.getNomeUser(userId);

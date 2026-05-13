@@ -10,6 +10,7 @@ import { CreatePreRegistrationDto } from './dto/create-pre-inscricao.dto';
 import { UpdatePreRegistrationDto } from './dto/update-pre-inscricao.dto';
 import { QueryPreRegistrationDto } from './dto/queryPreRegistrationDto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
+import { AnoLectivoUtil } from '../util/current-academic-year';
 
 
 @Injectable()
@@ -17,14 +18,17 @@ export class PreRegistrationService {
     constructor(
         @InjectDataSource()
         private readonly dataSource: DataSource,
+        private readonly anoLectivoUtil: AnoLectivoUtil
     ) { }
 
     // ─────────────────────────────────────────────
     //  CREATE
     // ─────────────────────────────────────────────
-    async create(dto: CreatePreRegistrationDto, userId?: number) {
+    async create(dto: CreatePreRegistrationDto, userId: number) {
         await this.assertUniqueBI(dto.bilheteIdentidade);
         await this.assertUniqueEmail(dto.email);
+
+        const anoLectivo = await this.anoLectivoUtil.getAnoAtualId() ?? null;
 
         const result = await this.dataSource.query(
             `
@@ -43,6 +47,7 @@ export class PreRegistrationService {
             MORADA_COMPLETA,
             EMAIL,
             INSTITUICAO_FORMACAO_ACESSO,
+            INSTITUICAO_FORMACAO,
             DATA_CONCLUSAO,
             MEDIA_FINAL,
             PAI,
@@ -53,6 +58,10 @@ export class PreRegistrationService {
             CURSOOPCIONAL2_ID,
             USER_ID,
             ESTADO_PREISCRICAO_CANDIDATO,
+            CODIGO_TIPO_CANDIDATURA,
+            CODIGO_TURNO,
+            ANOLECTIVO,
+            CODIGO_NACIONALIDADE,
             CREATED_AT,
             UPDATED_AT
         ) VALUES (
@@ -70,6 +79,7 @@ export class PreRegistrationService {
             :moradaCompleta,
             :email,
             :instituicaoFormacaoAcesso,
+            :instituicaoFormacao,
             TO_DATE(:dataConclusao, 'YYYY-MM-DD'),
             :mediaFinal,
             :pai,
@@ -80,6 +90,10 @@ export class PreRegistrationService {
             :cursoOpcional2Id,
             :userId,
             1,
+            :codigoTipoCandidatura,
+            :codigoTurno,
+            :anoLectivo,
+            :codigoNacionalidade,
             SYSDATE,
             SYSDATE
         )
@@ -100,6 +114,7 @@ export class PreRegistrationService {
                 moradaCompleta: dto.moradaCompleta,
                 email: dto.email,
                 instituicaoFormacaoAcesso: dto.instituicaoFormacaoAcesso ?? null,
+                instituicaoFormacao: dto.instituicaoFormacao ?? null,
                 dataConclusao: dto.dataConclusao ?? null,
                 mediaFinal: dto.mediaFinal ?? null,
                 pai: dto.pai ?? null,
@@ -109,11 +124,23 @@ export class PreRegistrationService {
                 cursoOpcional1Id: dto.cursoOpcional1Id ?? null,
                 cursoOpcional2Id: dto.cursoOpcional2Id ?? null,
                 userId: userId ?? null,
+                codigoTipoCandidatura: dto.codigoTipoCandidatura ?? null,
+                codigoTurno: dto.codigoTurno ?? null,
+                anoLectivo: anoLectivo ?? null,
+                codigoNacionalidade: dto.codigoNacionalidade ?? null,
                 outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
             } as any,
         );
 
         const codigo = result.outId[0];
+
+        if (dto.documentos && dto.documentos.length > 0 && codigo) {
+            await Promise.all(
+                dto.documentos.map(async (doc) => {
+                    await this.createDocumentPreRegistration(codigo, doc.typeDocumentId, doc.fileName);
+                }),
+            );
+        }
 
         return {
             codigo,
@@ -247,7 +274,34 @@ export class PreRegistrationService {
 
         return this.findOne(codigo);
     }
+    async createDocumentPreRegistration(codigoPreinscricao: number, typeDocumentId: number, fileName: string) {
+        const result = await this.dataSource.query(
+            `
+        INSERT INTO FK2_DOCUMENTOS_ADMISSAO (
+            CANDIDATO_ID,
+            TIPO_DOCUMENTO_ID,
+            NOME_ARQUIVO,
+            CREATED_AT,
+            UPDATED_AT
+        ) VALUES (
+            :codigoPreinscricao,
+            :typeDocumentId,
+            :fileName,
+            SYSDATE,
+            SYSDATE
+        )
+        RETURNING ID INTO :outId
+        `,
+            {
+                codigoPreinscricao,
+                typeDocumentId,
+                fileName,
+                outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+            } as any,
+        );
 
+        return result.outId[0];
+    }
     // ─────────────────────────────────────────────
     //  FIND ALL
     // ─────────────────────────────────────────────
@@ -605,6 +659,132 @@ export class PreRegistrationService {
             created_at: row.CREATED_AT,
             updated_at: row.UPDATED_AT,
         };
+    }
+
+    // INFORMAÇÕES GERAIS DO CANDIDATO
+
+    async getCandidaturaUserData(userId: number): Promise<any> {
+        const result = await this.dataSource.query(
+            `
+    SELECT
+      us.id                         AS user_id,
+      
+      p.Nome_Completo,
+      p.email                      AS email,
+      p.contactos_telefonicos                   AS telefone,
+      p.bilhete_identidade           AS numero_documento,
+      p.Codigo                      AS codigo_preinscricao,
+      a.data                        AS data_admissao,
+      pr.id                         AS prova_id,
+     TRUNC(hp.data_realizacao) AS data_prova,
+      SUBSTR(TO_CHAR(NUMTODSINTERVAL(
+           TO_NUMBER(DBMS_LOB.SUBSTR(hp.HORA_INICIO, 4000, 1)) / 86400000000000,
+           'DAY'
+         )), 12, 5) AS HORA_INICIO,
+       SUBSTR(TO_CHAR(NUMTODSINTERVAL(
+           TO_NUMBER(DBMS_LOB.SUBSTR(hp.HORA_FIM, 4000, 1)) / 86400000000000,
+           'DAY'
+         )), 12, 5) AS HORA_FIM,
+      tc.STATUS_                    AS status_prova,
+      pr.DESCRICAO                  AS lista_de_provas, 
+      s.DESIGNACAO                   AS sala_de_prova,
+
+
+   CASE
+  WHEN p.Codigo    IS NULL                                                    THEN 'SEM_PRE_INSCRICAO'
+  WHEN tc.id       IS NULL                                                    THEN 'SEM_ADMISSAO'
+  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) = TRUNC(SYSDATE)        THEN 'DIA_DA_PROVA'
+  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) > TRUNC(SYSDATE)        THEN 'AGUARDANDO_DIA_DA_PROVA'
+  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) < TRUNC(SYSDATE)        THEN 'AGUARDANDO_RESULTADO'
+  WHEN a.mediafinal < 10                                                      THEN 'NAO_ADMITIDO'
+  WHEN tc.STATUS_  = 1 AND TRUNC(hp.data_realizacao) > TRUNC(SYSDATE)  AND tc.NOTA < 10       THEN 'NAO_ADMITIDO'
+  WHEN a.mediafinal >= 10 AND m.Codigo IS NULL                                THEN 'ADMITIDO_SEM_MATRICULA'
+  WHEN tc.status_ = 1 AND TRUNC(hp.data_realizacao) < TRUNC(SYSDATE)  AND tc.NOTA >= 10 AND m.Codigo IS NULL       THEN 'ADMITIDO_SEM_MATRICULA'
+  WHEN a.mediafinal >= 10 AND m.Codigo IS NOT NULL                            THEN 'ALUNO_MATRICULADO'
+  ELSE                                                                             'ALUNO_MATRICULADO'
+END AS estado_aluno
+
+    FROM fk2_users us
+
+      LEFT JOIN (
+        SELECT * FROM (
+          SELECT p.*, ROW_NUMBER() OVER (PARTITION BY p.user_id ORDER BY p.Codigo DESC) AS rn
+          FROM fk2_tb_preinscricao p
+        ) WHERE rn = 1
+      ) p ON p.user_id = us.id
+
+      LEFT JOIN (
+        SELECT * FROM (
+          SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.pre_incricao ORDER BY a.codigo DESC) AS rn
+          FROM fk2_tb_admissao a
+        ) WHERE rn = 1
+      ) a ON a.pre_incricao = p.Codigo
+
+      LEFT JOIN (
+        SELECT * FROM (
+          SELECT m.*, ROW_NUMBER() OVER (PARTITION BY m.Codigo_Aluno ORDER BY m.Codigo DESC) AS rn
+          FROM fk2_tb_matriculas m
+        ) WHERE rn = 1
+      ) m ON m.Codigo_Aluno = a.codigo
+
+      LEFT JOIN (
+        SELECT * FROM (
+          SELECT tc.*, ROW_NUMBER() OVER (PARTITION BY tc.candidato_id ORDER BY tc.id DESC) AS rn
+          FROM fk2_candidato_provas tc
+        ) WHERE rn = 1
+      ) tc ON tc.candidato_id = p.Codigo
+
+      LEFT JOIN (
+        SELECT * FROM (
+          SELECT hp.*, ROW_NUMBER() OVER (PARTITION BY hp.id ORDER BY hp.id DESC) AS rn
+          FROM FK2_TB_HORARIO_PROVA hp
+        ) WHERE rn = 1
+      ) hp ON hp.id = tc.HORARIO_PROVA_ID
+
+      LEFT JOIN fk2_provas pr ON pr.id = tc.prova_id
+      LEFT JOIN fk2_tb_salas s on s.codigo = hp.sala_id
+
+    WHERE us.id = :userId
+  
+    `,
+            { userId } as any,
+        );
+
+        if (!result || result.length === 0) {
+            throw new NotFoundException('Utilizador não encontrado');
+        }
+        const data = result.map((row: any) => {
+            const listaProvas = row.LISTA_DE_PROVAS
+                ? row.LISTA_DE_PROVAS.replace(/^Prova de\s*/i, '')
+                    .split(/<br>/i)[0]
+                    .split(',')
+                    .map((s: string) => s.trim())
+                    .filter((s: string) => s.length > 0)
+                : [];
+
+            return {
+                ...row,
+                lista_de_provas: listaProvas,
+            };
+        });
+
+        const invoice = await this.getInvoce(
+            result[0]?.codigo_preinscricao || result[0]?.CODIGO_PREINSCRICAO,
+        );
+
+        const payments = invoice
+            ? { has_invoice: true, is_payed: Number(invoice.estado) === 1 }
+            : { has_invoice: false };
+
+        return toLowerCaseKeys({ ...data[0], payments });
+    }
+    private async getInvoce(codigo: number) {
+        const rows = await this.dataSource.query(
+            `SELECT * FROM FK2_FACTURA WHERE CODIGO_PREINSCRICAO = :codigo`,
+            { codigo } as any,
+        );
+
+        return toLowerCaseKeys(rows[0]);
     }
     // ─────────────────────────────────────────────
     //  FIND ONE

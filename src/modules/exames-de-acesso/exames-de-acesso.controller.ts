@@ -18,12 +18,16 @@ import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { AccessLogHelper } from '../common/helpers/access-log.helper';
 import { ApiKeyGuard } from '../common/guard/api-key.guard';
+import { FilterEstatisticaCursosDto } from './dto/filter-estatistica-cursos.dto';
 
-//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+
 @Controller('exames-de-acesso')
 @ApiTags('Exames de acesso')
 export class ExamesDeAcessoController {
-  constructor(private readonly examesAcessoService: ExamesDeAcessoService, private httpService: HttpService) { }
+  constructor(
+    private readonly examesAcessoService: ExamesDeAcessoService,
+    private httpService: HttpService,
+  ) {}
 
   @Get('candidato')
   @ApiOperation({ summary: 'Lista todos os candidatos' })
@@ -39,11 +43,14 @@ export class ExamesDeAcessoController {
 
   @Get('candidatos-admitidos')
   @ApiOperation({ summary: 'Lista candidatos admitidos paginada com filtros' })
-  @ApiResponse({ status: 200, description: 'Retorna lista de candidatos admitidos' })
+  @ApiResponse({
+    status: 200,
+    description: 'Retorna lista de candidatos admitidos',
+  })
   buscaCandidatosAdmitidos(@Query() filtros: FilterCandidatoAdmitidoDto) {
     return this.examesAcessoService.buscaCandidatosAdmitidos(filtros);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Patch('candidato/:codigoCandidato')
   @ApiOperation({ summary: 'Atualiza candidato' })
   @ApiResponse({ status: 200, description: 'Retorna lista de candidatos' })
@@ -54,7 +61,10 @@ export class ExamesDeAcessoController {
   ) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const user = req.user;
-    const result = this.examesAcessoService.atualizaCandidato(dto, codigoCandidato);
+    const result = this.examesAcessoService.atualizaCandidato(
+      dto,
+      codigoCandidato,
+    );
     AccessLogHelper.logAccess(this.httpService, {
       descricao: `Candidato ${codigoCandidato} atualizado por ${user?.username || 'unknown user'}`,
       fkAcesso: 6,
@@ -65,7 +75,7 @@ export class ExamesDeAcessoController {
     });
     return result;
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('candidatos/prova')
   @ApiOperation({ summary: 'Lista candidatos com prova' })
   @ApiQuery({ name: 'page', required: false })
@@ -73,7 +83,7 @@ export class ExamesDeAcessoController {
   async getCandidatosProvas(@Query() filtros: FilterCandidatoProvaDto) {
     return this.examesAcessoService.buscaCandidatosProvas(filtros);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('candidatos/prova/horario')
   @ApiOperation({ summary: 'Lista horarios da prova' })
   @ApiQuery({ name: 'page', required: false })
@@ -81,7 +91,7 @@ export class ExamesDeAcessoController {
   async getProvaHorarios(@Query() filtros: FilterProvaHoraDto) {
     return this.examesAcessoService.buscaProvaHorarios(filtros);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('candidatos/prova/resultado')
   @ApiOperation({ summary: 'Lista resultados da prova' })
   @ApiQuery({ name: 'page', required: false })
@@ -89,11 +99,13 @@ export class ExamesDeAcessoController {
   async getProvaResultados(@Query() filtros: FilterProvaResultadoDto) {
     return this.examesAcessoService.buscaProvaResultados(filtros);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('candidatos/resultados-finais')
   @ApiOperation({ summary: 'Lista resultados finais' })
   @ApiResponse({ status: 200, description: 'Lista de resultados finais' })
-  async getCandidatosResultadosFinais(@Query() filtros: FilterResultadosFinaisDto) {
+  async getCandidatosResultadosFinais(
+    @Query() filtros: FilterResultadosFinaisDto,
+  ) {
     return this.examesAcessoService.buscaResultadosFinais(filtros);
   }
 
@@ -113,40 +125,43 @@ export class ExamesDeAcessoController {
   }
 
   @Get('estatistica/candidatos')
-  @ApiOperation({ summary: 'Estatística de candidatos inscritos por dia e turno' })
-  @ApiResponse({ status: 200, description: 'Retorna estatísticas de candidatos' })
-  buscaEstatisticaCandidatos(@Query() filtros: FilterEstatisticaCandidatosDto) {
-    return this.examesAcessoService.buscaEstatisticaCandidatos(filtros);
+  @ApiOperation({
+    summary: 'Estatística de candidatos inscritos por dia e turno',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Retorna estatísticas de candidatos',
+  })
+  async buscaEstatisticaCandidatos(
+    @Query() filtros: FilterEstatisticaCandidatosDto,
+  ) {
+    return await this.examesAcessoService.buscaEstatisticaCandidatos(filtros);
   }
 
   @Get('estatistica/dia')
   @ApiOperation({ summary: 'Estatística de candidatos inscritos por dia' })
-  @ApiResponse({ status: 200, description: 'Retorna estatísticas de candidatos por dia' })
-  buscaEstatisticaPorDia(@Query() filtros: FilterEstatisticaCandidatosDto) {
-    return this.examesAcessoService.buscaEstatisticaPorDia(filtros);
+  @ApiResponse({
+    status: 200,
+    description: 'Retorna estatísticas de candidatos por dia',
+  })
+  async buscaEstatisticaPorDia(
+    @Query() filtros: FilterEstatisticaCandidatosDto,
+  ) {
+    return await this.examesAcessoService.buscaEstatisticaPorDia(filtros);
   }
 
   @Post('atribuir-prova/:codigoCandidato')
   @ApiOperation({ summary: 'Atribui prova para um candidato' })
   @ApiResponse({ status: 200, description: 'Prova atribuída com sucesso' })
-  atribuirProva(
+  async atribuirProva(
     @Param('codigoCandidato', ParseIntPipe) codigoCandidato: number,
     @Req() req: any,
   ) {
-    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-    const user = req.user;
-    const result = this.examesAcessoService.atribuirProva(codigoCandidato);
-    AccessLogHelper.logAccess(this.httpService, {
-      descricao: `Prova atribuída para candidato ${codigoCandidato} por ${user?.username || 'unknown user'}`,
-      fkAcesso: 6,
-      fkFuncionalidade: 92,
-      fkUtilizadorResponsavel: user.sub,
-      fkOperacaoLog: 13,
-      ip: ip,
-    });
+    const result =
+      await this.examesAcessoService.atribuirProva(codigoCandidato);
     return result;
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Post('admitir-candidato-publico/:codigoCandidato')
   @ApiOperation({ summary: 'Admite candidato universidade pública' })
   @ApiResponse({ status: 200, description: 'Candidato admitido com sucesso' })
@@ -171,9 +186,11 @@ export class ExamesDeAcessoController {
     });
     return result;
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Post('lancar-nota-arquitectura-e-urbanismo/:codigoCandidato')
-  @ApiOperation({ summary: 'Lança nota e admite candidato arquitectura e urbanismo' })
+  @ApiOperation({
+    summary: 'Lança nota e admite candidato arquitectura e urbanismo',
+  })
   @ApiResponse({ status: 200, description: 'Nota lançada com sucesso' })
   lancarNotaArquitectura(
     @Param('codigoCandidato', ParseIntPipe) codigoCandidato: number,
@@ -212,6 +229,7 @@ export class ExamesDeAcessoController {
     return result;
   }
 
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Patch('resetar-prova/:codigoCandidato')
   @ApiOperation({ summary: 'Reseta a prova de um candidato' })
   @ApiResponse({ status: 200, description: 'Prova resetada com sucesso' })
@@ -238,5 +256,18 @@ export class ExamesDeAcessoController {
   @ApiResponse({ status: 200, description: 'Provas corrigidas com sucesso' })
   corrigirProvas() {
     return this.examesAcessoService.corrigirProvas();
+  }
+
+  @Get('estatistica/cursos')
+  @ApiOperation({
+    summary:
+      'Estatística de cursos com inscritos, vagas, admissões e confirmados',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Retorna estatísticas de cursos agrupadas por período',
+  })
+  async buscaEstatisticaCursos(@Query() filtros: FilterEstatisticaCursosDto) {
+    return await this.examesAcessoService.buscaEstatisticaCursos(filtros);
   }
 }

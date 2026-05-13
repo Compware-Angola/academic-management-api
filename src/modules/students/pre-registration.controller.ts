@@ -10,6 +10,8 @@ import {
     HttpCode,
     HttpStatus,
     ParseIntPipe,
+    Req,
+    UseGuards,
 } from '@nestjs/common';
 import {
     ApiTags,
@@ -23,6 +25,8 @@ import { PreRegistrationService } from './pre-registration.service';
 import { CreatePreRegistrationDto } from './dto/create-pre-inscricao.dto';
 import { UpdatePreRegistrationDto } from './dto/update-pre-inscricao.dto';
 import { QueryPreRegistrationDto } from './dto/queryPreRegistrationDto';
+import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 
 @ApiTags('Pré-Inscrições')
 @Controller('pre-inscricoes')
@@ -32,14 +36,17 @@ export class PreRegistrationController {
     // ─────────────────────────────────────────────
     //  CREATE
     // ─────────────────────────────────────────────
+    @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
     @Post()
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation({ summary: 'Criar nova pré-inscrição' })
     @ApiResponse({ status: 201, description: 'Pré-inscrição criada com sucesso' })
     @ApiResponse({ status: 409, description: 'BI ou Email já registado' })
     @ApiResponse({ status: 400, description: 'Dados inválidos' })
-    create(@Body() dto: CreatePreRegistrationDto) {
-        return this.service.create(dto);
+    create(@Body() dto: CreatePreRegistrationDto, @Req() req: any) {
+        const usuarioLogado = req.user;
+        return this.service.create(dto, usuarioLogado.sub);
+
     }
 
     // ─────────────────────────────────────────────
@@ -141,5 +148,18 @@ export class PreRegistrationController {
     @ApiResponse({ status: 404, description: 'Candidato não encontrado' })
     getFichaInscricao(@Param('userId', ParseIntPipe) userId: number) {
         return this.service.getFichaInscricao(userId);
+    }
+    @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+    @Get('candidatura/info-gerais')
+    @ApiOperation({
+        summary: 'Informações gerais do candidato (pre-inscrição + admissao + matricula + prova)',
+        description:
+            'Retorna dados do utilizador + status da pré-inscrição + estado de admissão + estado de matricula + situação da prova (agendada, realizada, etc).',
+    })
+    @ApiResponse({ status: 200, description: 'Dados do candidato' })
+    @ApiResponse({ status: 404, description: 'Utilizador não encontrado' })
+    getCandidaturaUserData(@Req() req: any) {
+        const usuarioLogado = req.user;
+        return this.service.getCandidaturaUserData(usuarioLogado.sub);
     }
 }
