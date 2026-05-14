@@ -25,12 +25,23 @@ import { DefinirEspecialidadeDTO } from './dto/definir-especialidade.dto';
 import { formatarDataExtenso, notaExtenso } from '../util/diploma.util';
 import { GerarCertificadoDto } from './dto/gerar-certificado.dto';
 import { ListarDiplomadosDTO } from './dto/listar-diplomados-dto';
+import { ListarInscricoesMelhoriaDto } from './dto/listar-inscricoes-melhoria.dto';
+import { FinanceApiService } from '../common/helpers/finance-api-service';
+import { InscricaoMelhoriaDto } from './dto/inscricao-melhoria.dto';
+import { PrazosService } from '../prazos/prazos.service';
+import { TipoCalendario } from '../prazos/utils/tipo-calendario.enum';
+import { ListarCadeirasMelhoriaDto } from './dto/listar-inscricoes.dto';
 
 
 @Injectable()
 export class StudentsService {
 
-  constructor(private readonly dataSource: DataSource, private readonly anoLectivoUtil: AnoLectivoUtil) {
+  constructor(
+    private readonly dataSource: DataSource, 
+    private readonly anoLectivoUtil: AnoLectivoUtil, 
+    private readonly financeApiService: FinanceApiService,
+    private readonly prazosService: PrazosService
+  ) {
 
   }
 
@@ -2549,6 +2560,376 @@ WHERE M."CODIGO" = :codigoMatricula`;
       totalPages: Math.ceil(total / limit),
     };
   }
+
+  async listarInscricoesMelhoria(dto: ListarInscricoesMelhoriaDto) {
+  const { codigoMatricula } = dto;
+
+  const result = await this.dataSource.query(
+    `
+    SELECT
+      ia.CODIGO AS codigo_inscricao,
+      ia.CODIGO_MATRICULA AS codigo_matricula,
+      ia.CODIGO_GRADE AS codigo_grade,
+      ia.CODIGO_GRADE_ALUNO AS codigo_grade_aluno,
+      ia.CODIGO_ANO_LECTIVO AS codigo_ano_lectivo,
+      ia.CODIGO_FACTURA AS codigo_factura,
+      ia.ESTADO AS estado,
+      ia.CREATED_AT AS data_inscricao,
+
+      d.DESIGNACAO AS disciplina,
+      s.DESIGNACAO AS semestre,
+      cl.DESIGNACAO AS classe,
+      gca.NOTA AS nota_anterior,
+
+      f.REFERENCIA AS referencia_factura,
+      f.VALORAPAGAR AS valor_a_pagar,
+      f.ESTADO AS estado_factura
+
+    FROM FK2_INSCRICAO_AVALIACOES ia
+    INNER JOIN FK2_TB_GRADE_CURRICULAR gc
+      ON gc.CODIGO = ia.CODIGO_GRADE
+    INNER JOIN FK2_TB_DISCIPLINAS d
+      ON d.CODIGO = gc.CODIGO_DISCIPLINA
+    INNER JOIN FK2_TB_SEMESTRES s
+      ON s.CODIGO = gc.CODIGO_SEMESTRE
+    INNER JOIN FK2_TB_CLASSES cl
+      ON cl.CODIGO = gc.CODIGO_CLASSE
+    LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO gca
+      ON gca.CODIGO = ia.CODIGO_GRADE_ALUNO
+    LEFT JOIN FK2_FACTURA f
+      ON f.CODIGO = ia.CODIGO_FACTURA
+    WHERE ia.CODIGO_MATRICULA = :codigoMatricula
+      AND ia.CODIGO_TIPO_AVALIACAO = 22
+      AND ia.ESTADO <> 'anulado'
+    ORDER BY ia.CREATED_AT DESC
+    `,
+    { codigoMatricula } as any,
+  );
+
+  return {
+    success: true,
+    data: await toLowerCaseKeys(result),
+  };
+}
+
+async inscricaoMelhoria(dto: InscricaoMelhoriaDto) {
+  const { codigoMatricula, anoLectivo, cadeiras } = dto;
+
+  if (!cadeiras?.length) {
+    throw new BadRequestException('Selecione pelo menos uma cadeira.');
+  }
+
+  const prazo = await this.prazosService.obterPrazo(
+  TipoCalendario.MELHORIA_NOTAS,
+  anoLectivo,
+);
+
+if (!prazo.podeInscrever) {
+  throw new BadRequestException(prazo.mensagem);
+}
+
+  return this.dataSource.transaction(async (manager) => {
+    const aluno = await manager.query(
+      `
+      SELECT
+        tm.CODIGO AS CODIGO_MATRICULA,
+        tp.CODIGO AS CODIGO_PREINSCRICAO,
+        NVL(tp.POLO_ID, 1) AS POLO_ID
+      FROM FK2_TB_MATRICULAS tm
+      INNER JOIN FK2_TB_ADMISSAO ta
+        ON ta.CODIGO = tm.CODIGO_ALUNO
+      INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON tp.CODIGO = ta.PRE_INCRICAO
+      WHERE tm.CODIGO = :codigoMatricula
+      FETCH FIRST 1 ROWS ONLY
+      `,
+      { codigoMatricula } as any,
+    );
+
+    if (!aluno?.length) {
+      throw new NotFoundException('Matrícula não encontrada.');
+    }
+
+    const dadosAluno = aluno[0];
+
+    const servico = await manager.query(
+      `
+      SELECT
+        ts.CODIGO,
+        ts.PRECO,
+        NVL(tt.TAXA, 0) AS TAXA_IVA
+      FROM FK2_TB_TIPO_SERVICOS ts
+      LEFT JOIN FK2_TIPO_TAXAS tt
+        ON tt.ID = ts.TAXA_IVA_ID
+      WHERE ts.SIGLA = 'IaEdMdN'
+        AND ts.CODIGO_ANO_LECTIVO = :anoLectivo
+      FETCH FIRST 1 ROWS ONLY
+      `,
+      { anoLectivo } as any,
+    );
+
+    if (!servico?.length) {
+      throw new BadRequestException(
+        'Serviço financeiro de inscrição em melhoria não encontrado.',
+      );
+    }
+
+    const dadosServico = servico[0];
+
+    for (const cadeira of cadeiras) {
+      const jaInscrito = await manager.query(
+        `
+        SELECT
+          ia.CODIGO,
+          d.DESIGNACAO AS DISCIPLINA
+        FROM FK2_INSCRICAO_AVALIACOES ia
+        INNER JOIN FK2_TB_GRADE_CURRICULAR gc
+          ON gc.CODIGO = ia.CODIGO_GRADE
+        INNER JOIN FK2_TB_DISCIPLINAS d
+          ON d.CODIGO = gc.CODIGO_DISCIPLINA
+        WHERE ia.CODIGO_MATRICULA = :codigoMatricula
+          AND ia.CODIGO_GRADE = :codigoGrade
+          AND ia.CODIGO_TIPO_AVALIACAO = 22
+          AND ia.ESTADO <> 'anulado'
+        FETCH FIRST 1 ROWS ONLY
+        `,
+        {
+          codigoMatricula,
+          codigoGrade: cadeira.codigoGrade,
+        } as any,
+      );
+
+      if (jaInscrito?.length) {
+        throw new BadRequestException(
+          `O aluno já está inscrito em melhoria na cadeira ${jaInscrito[0].DISCIPLINA}.`,
+        );
+      }
+
+      const cadeiraValida = await manager.query(
+        `
+        SELECT
+          gca.CODIGO,
+          d.DESIGNACAO AS DISCIPLINA,
+          gca.NOTA
+        FROM FK2_TB_GRADE_CURRICULAR_ALUNO gca
+        INNER JOIN FK2_TB_GRADE_CURRICULAR gc
+          ON gc.CODIGO = gca.CODIGO_GRADE_CURRICULAR
+        INNER JOIN FK2_TB_DISCIPLINAS d
+          ON d.CODIGO = gc.CODIGO_DISCIPLINA
+        WHERE gca.CODIGO = :codigoGradeAluno
+          AND gca.CODIGO_MATRICULA = :codigoMatricula
+          AND gca.CODIGO_GRADE_CURRICULAR = :codigoGrade
+          AND gca.CODIGO_STATUS_GRADE_CURRICULAR = 3
+          AND gca.NOTA >= 10
+        FETCH FIRST 1 ROWS ONLY
+        `,
+        {
+          codigoGradeAluno: cadeira.codigoGradeAluno,
+          codigoMatricula,
+          codigoGrade: cadeira.codigoGrade,
+        } as any,
+      );
+
+      if (!cadeiraValida?.length) {
+        throw new BadRequestException(
+          'Uma das cadeiras selecionadas não está válida para inscrição em melhoria.',
+        );
+      }
+    }
+
+    const preco = Number(dadosServico.PRECO);
+    const taxaIva = Number(dadosServico.TAXA_IVA);
+
+    let total = 0;
+    let totalIva = 0;
+    let totalIncidencia = 0;
+
+    const itens = cadeiras.map(() => {
+      const incidencia = preco;
+      const valorIva = (incidencia * taxaIva) / 100;
+      const totalItem = incidencia + valorIva;
+
+      total += totalItem;
+      totalIva += valorIva;
+      totalIncidencia += incidencia;
+
+      return {
+        CodigoProduto: Number(dadosServico.CODIGO),
+        Quantidade: 1,
+        preco: incidencia,
+        Total: totalItem,
+        taxaIva,
+        valorIva,
+        incidencia,
+        estado: 0,
+        valorPago: 0,
+        mes: '#',
+        codigo_anoLectivo: anoLectivo,
+      };
+    });
+
+    const invoicePayload = {
+        DataFactura: new Date().toISOString(),
+        polo_id: Number(dadosAluno.POLO_ID ?? 1),
+        CodigoMatricula: codigoMatricula,
+        codigo_preinscricao: Number(dadosAluno.CODIGO_PREINSCRICAO),
+
+        TotalPreco: total,
+        ValorAPagar: total,
+
+        total_incidencia: totalIncidencia,
+        totalIVA: totalIva,
+        total_retencao: 0,
+
+        TotalMulta: 0,
+        Desconto: 0,
+
+        codigo_descricao: 7,
+        Descricao: 'Inscrição em melhoria',
+
+        tipo_documento_factura_id: 2,
+        canal: 3,
+        codigo_anoLectivo: anoLectivo,
+
+        itens,
+      };
+
+      let codigoFactura: number | null = null;
+
+try {
+  const invoice = await this.financeApiService.createInvoice(invoicePayload);
+
+  codigoFactura =
+    invoice?.Codigo ??
+    invoice?.codigo ??
+    invoice?.data?.Codigo ??
+    invoice?.data?.codigo;
+
+  if (!codigoFactura) {
+    throw new BadRequestException(
+      'A API financeira não retornou o código da fatura.',
+    );
+  }
+
+  for (const cadeira of cadeiras) {
+    await manager.query(
+      `
+      INSERT INTO FK2_INSCRICAO_AVALIACOES (
+        CODIGO_GRADE,
+        CODIGO_MATRICULA,
+        CODIGO_TIPO_AVALIACAO,
+        CODIGO_GRADE_ALUNO,
+        CODIGO_ANO_LECTIVO,
+        CODIGO_FACTURA,
+        CANAL,
+        ESTADO,
+        CREATED_AT,
+        UPDATE_AT
+      ) VALUES (
+        :codigoGrade,
+        :codigoMatricula,
+        22,
+        :codigoGradeAluno,
+        :anoLectivo,
+        :codigoFactura,
+        3,
+        'pendente',
+        SYSDATE,
+        SYSDATE
+      )
+      `,
+      {
+        codigoGrade: cadeira.codigoGrade,
+        codigoMatricula,
+        codigoGradeAluno: cadeira.codigoGradeAluno,
+        anoLectivo,
+        codigoFactura,
+      } as any,
+    );
+  }
+} catch (error) {
+  
+  if (codigoFactura) {
+    try {
+      await this.financeApiService.annulInvoice(codigoFactura);
+      console.log(`Fatura ${codigoFactura} anulada com sucesso.`);
+    } catch (annulError) {
+      console.error(
+        `Erro ao anular fatura ${codigoFactura}:`,
+        annulError,
+      );
+    }
+  }
+
+  throw error;
+}
+
+ 
+    return {
+      success: true,
+      message: 'Inscrição em melhoria realizada com sucesso.',
+      codigoFactura,
+      total,
+      totalCadeiras: cadeiras.length,
+    };
+  });
+}
+
+async listarCadeirasMelhoria(filter: ListarCadeirasMelhoriaDto) {
+  const { codigoMatricula, anoAnterior, anoAnterior2 } = filter;
+
+  const sql = `
+    SELECT
+      d.DESIGNACAO AS disciplina,
+      s.DESIGNACAO AS semestre,
+      cl.DESIGNACAO AS classe,
+      dur.DESIGNACAO AS duracao_disciplina,
+      gc.CODIGO AS codigo_grade,
+      cl.CODIGO AS codigo_ano,
+      gca.NOTA AS nota,
+      gca.CODIGO AS codigo_grade_aluno,
+      gc.PESO_PRATICA AS peso_pratica,
+      d.CODIGO_DISCIPLINA AS numero_referencia,
+      gca.CODIGO_ANO_LECTIVO
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO gca
+    INNER JOIN FK2_TB_GRADE_CURRICULAR gc
+      ON gc.CODIGO = gca.CODIGO_GRADE_CURRICULAR
+    INNER JOIN FK2_TB_DISCIPLINAS d
+      ON d.CODIGO = gc.CODIGO_DISCIPLINA
+    INNER JOIN FK2_TB_CLASSES cl
+      ON cl.CODIGO = gc.CODIGO_CLASSE
+    INNER JOIN FK2_TB_DURACAO dur
+      ON dur.CODIGO = d.DURACAO
+    INNER JOIN FK2_TB_SEMESTRES s
+      ON s.CODIGO = gc.CODIGO_SEMESTRE
+    WHERE gca.CODIGO_MATRICULA = :codigoMatricula
+      AND gca.CODIGO_STATUS_GRADE_CURRICULAR = 3
+      AND gca.NOTA >= 10
+      AND gca.CODIGO_ANO_LECTIVO IN (:anoAnterior2, :anoAnterior)
+      AND NOT EXISTS (
+        SELECT 1
+        FROM FK2_INSCRICAO_AVALIACOES ia
+        WHERE ia.CODIGO_MATRICULA = gca.CODIGO_MATRICULA
+          AND ia.CODIGO_GRADE = gc.CODIGO
+          AND ia.ESTADO <> 'anulado'
+          AND ia.CODIGO_TIPO_AVALIACAO = 22
+      )
+    ORDER BY cl.CODIGO, d.DESIGNACAO
+  `;
+
+  const params = {
+    codigoMatricula,
+    anoAnterior,
+    anoAnterior2,
+  };
+
+  const result = await this.dataSource.query(sql, params as any);
+
+  return {
+    success: true,
+    data: await toLowerCaseKeys(result),
+  };
+}	
 
 
 }

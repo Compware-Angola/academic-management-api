@@ -58,6 +58,8 @@ import { ListarDiplomadosDTO } from './dto/listar-diplomados-dto';
 import { HttpService } from '@nestjs/axios';
 import { AccessLogHelper } from '../common/helpers/access-log.helper';
 import { AtiveConfirmationService } from './ative-confirmation.service';
+import { ListarCadeirasMelhoriaDto } from './dto/listar-inscricoes.dto';
+import { InscricaoMelhoriaDto } from './dto/inscricao-melhoria.dto';
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('students')
 export class StudentsController {
@@ -467,4 +469,25 @@ export class StudentsController {
   findResultadoPlano(@Param('matricula', ParseIntPipe) matricula: number) {
     return this.studentsResultPlanService.findPlan(matricula);
   }
+
+@Get('inscricao-melhoria/cadeiras')
+async listarCadeirasMelhoria(
+  @Query() query: ListarCadeirasMelhoriaDto,
+) {
+  return this.studentsService.listarCadeirasMelhoria(query);
+}
+
+@Post('inscricao-melhoria')
+@ApiOperation({ summary: 'Inscrever estudante em melhoria' })
+@ApiBody({ type: InscricaoMelhoriaDto })
+@ApiResponse({
+  status: HttpStatus.CREATED,
+  description: 'Inscrição em melhoria realizada com sucesso',
+})
+@UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+inscricaoMelhoria(@Body() dto: InscricaoMelhoriaDto) {
+  return this.studentsService.inscricaoMelhoria(dto);
+}
+
+
 }
