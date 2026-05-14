@@ -11,6 +11,7 @@ import { FilterProvaMarcacaoDto } from './dto/filter-prova-marcacao.dto';
 import { FilterCandidatoAdmitidoDto } from './dto/filter-candidato-admitido.dto';
 import { FilterResultadosFinaisDto } from './dto/filter-resultados-finais.dto';
 import { FilterEstatisticaCandidatosDto } from './dto/filter-estatistica-candidatos.dto';
+import { FilterEstatisticaCursosDto } from './dto/filter-estatistica-cursos.dto';
 import { gerarHashExterno } from '../util/hash.util';
 
 @Injectable()
@@ -1108,6 +1109,72 @@ export class ExamesDeAcessoService {
     });
   }
 
+  async lancarNotaManual(codigoCandidato: number, nota: number | null) {
+    return await this.dataSource.transaction(async (manager) => {
+      const sqlCheck = `
+        SELECT FK2_TB_PREINSCRICAO.CODIGO,
+               (SELECT 1 FROM FK2_TB_ADMISSAO WHERE FK2_TB_ADMISSAO.PRE_INCRICAO = FK2_TB_PREINSCRICAO.CODIGO AND ROWNUM = 1) AS ADMISSAO
+          FROM FK2_TB_PREINSCRICAO
+         WHERE FK2_TB_PREINSCRICAO.CODIGO = :1
+      `;
+      const candidates = await manager.query(sqlCheck, [codigoCandidato]);
+
+      if (candidates.length === 0) {
+        throw new HttpException(
+          'Candidato não encontrado.',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      const candidate = candidates[0];
+
+      if (candidate.ADMISSAO) {
+        throw new HttpException(
+          'Candidato já possui admissão.',
+          HttpStatus.CONFLICT,
+        );
+      }
+
+      const status = nota === null || Number(nota) < 10 ? 0 : 1;
+
+      const sqlUpdate = `
+        UPDATE FK2_CANDIDATO_PROVAS
+           SET NOTA = :1, STATUS_ = :2, UPDATED_AT = SYSDATE
+         WHERE CANDIDATO_ID = :3
+      `;
+      await manager.query(sqlUpdate, [nota, status, codigoCandidato]);
+
+      if (nota === null || Number(nota) < 10) {
+        return {
+          message: 'Nota lançada com sucesso. Candidato reprovado.',
+          nota: nota,
+          status: 'Reprovado',
+        };
+      }
+
+      const sqlInsertAdmissao = `
+        INSERT INTO FK2_TB_ADMISSAO (PRE_INCRICAO, MEDIAFINAL, DATA, RESULTADO, CANAL, POLO_ID) 
+        VALUES (:1, :2, SYSDATE, 'Admitido(a)', 1, 1)
+      `;
+      await manager.query(sqlInsertAdmissao, [codigoCandidato, nota]);
+      const sqlGetAdmissao = `
+        SELECT CODIGO FROM FK2_TB_ADMISSAO 
+        WHERE PRE_INCRICAO = :1 
+        ORDER BY DATA DESC 
+        FETCH FIRST 1 ROWS ONLY
+      `;
+      const admissaoResult = await manager.query(sqlGetAdmissao, [codigoCandidato]);
+      const codigoAdmissao = admissaoResult[0]?.CODIGO;
+
+      return {
+        message: 'Nota lançada e candidato admitido com sucesso.',
+        nota: nota,
+        status: 'Admitido',
+        codigoAdmissao,
+      };
+    });
+  }
+
   async lancarNotaArquitectura(codigoCandidato: number, notaPratica: number) {
     return await this.dataSource.transaction(async (manager) => {
       const sqlFetch = `
@@ -1747,6 +1814,155 @@ export class ExamesDeAcessoService {
         ...resultados,
       };
     });
+  }
+
+  async buscaEstatisticaCursos(filtros: FilterEstatisticaCursosDto) {
+    const { codigoPolo, codigoAnoLetivo, page = 1, limit = 10 } = filtros;
+
+    if (!codigoAnoLetivo) {
+      throw new BadRequestException(
+        'O código do ano letivo é obrigatório',
+      );
+    }
+
+    const offset = (page - 1) * limit;
+
+    const query = `
+      SELECT
+        PO.ID                                           AS POLO_ID,
+        PO.DESIGNACAO                                   AS POLO,
+        C.DESIGNACAO                                    AS CURSO,
+        C.CODIGO                                        AS CURSO_CODIGO,
+        P.DESIGNACAO                                    AS PERIODO,
+        P.CODIGO                                        AS PERIODO_CODIGO,
+        VC.NUM_VAGAS                                    AS VAGAS,
+        COUNT(DISTINCT PI.CODIGO)                       AS INSCRITOS,
+        COUNT(DISTINCT A.PRE_INCRICAO)                  AS ADMITIDOS,
+        COUNT(DISTINCT M.CODIGO)                        AS MATRICULADOS,
+        COUNT(DISTINCT CO.CODIGO_MATRICULA)             AS CONFIRMADOS
+      FROM FK2_TB_CURSOS C
+      JOIN FK2_TB_PERIODOS P
+        ON 1 = 1
+      JOIN FK2_POLOS PO
+        ON 1 = 1
+      LEFT JOIN FK2_VAGAS_CURSOS VC
+        ON VC.CURSO_ID = C.CODIGO
+        AND VC.PERIODO_ID = P.CODIGO
+        AND VC.ANO_LECTIVO_ID = :1
+        AND VC.POLO_ID = PO.ID
+      LEFT JOIN FK2_TB_PREINSCRICAO PI
+        ON PI.CURSO_CANDIDATURA = C.CODIGO
+        AND PI.CODIGO_TURNO = P.CODIGO
+        AND PI.POLO_ID = PO.ID
+      LEFT JOIN FK2_USERS U
+        ON U.ID = PI.USER_ID
+        AND U.ANO_LECTIVO_ID = :2
+      LEFT JOIN FK2_TB_ADMISSAO A
+        ON A.PRE_INCRICAO = PI.CODIGO
+      LEFT JOIN FK2_TB_MATRICULAS M
+        ON M.CODIGO_ALUNO = A.CODIGO
+      LEFT JOIN FK2_TB_CONFIRMACOES CO
+        ON CO.CODIGO_MATRICULA = M.CODIGO
+      WHERE (:3 IS NULL OR PO.ID = :4)
+        AND (
+          VC.ID IS NOT NULL
+          OR PI.CODIGO IS NOT NULL
+        )
+      GROUP BY
+        PO.DESIGNACAO,
+        PO.ID,
+        C.DESIGNACAO,
+        C.CODIGO,
+        P.DESIGNACAO,
+        P.CODIGO,
+        VC.NUM_VAGAS
+      ORDER BY
+        PO.DESIGNACAO,
+        C.DESIGNACAO,
+        P.DESIGNACAO
+    `;
+
+    const params: any[] = [
+      codigoAnoLetivo,
+      codigoAnoLetivo,
+      codigoPolo || null,
+      codigoPolo || null,
+    ];
+
+    const countQuery = `
+      SELECT COUNT(DISTINCT C.CODIGO) AS TOTAL
+      FROM FK2_TB_CURSOS C
+      JOIN FK2_POLOS PO ON 1 = 1
+      LEFT JOIN FK2_VAGAS_CURSOS VC
+        ON VC.CURSO_ID = C.CODIGO
+        AND VC.ANO_LECTIVO_ID = :1
+        AND VC.POLO_ID = PO.ID
+      LEFT JOIN FK2_TB_PREINSCRICAO PI
+        ON PI.CURSO_CANDIDATURA = C.CODIGO
+        AND PI.POLO_ID = PO.ID
+      WHERE (:2 IS NULL OR PO.ID = :3)
+        AND (
+          VC.ID IS NOT NULL
+          OR PI.CODIGO IS NOT NULL
+        )
+    `;
+
+    const countParams = [
+      codigoAnoLetivo,
+      codigoPolo || null,
+      codigoPolo || null,
+    ];
+
+    const [rawData, countResult] = await Promise.all([
+      this.dataSource.query(query, params),
+      this.dataSource.query(countQuery, countParams),
+    ]);
+
+    const cursosMap = new Map();
+
+    for (const row of rawData) {
+      const cursoKey = `${row.POLO}_${row.CURSO_CODIGO}`;
+
+      if (!cursosMap.has(cursoKey)) {
+        cursosMap.set(cursoKey, {
+          codigoPolo: row.polo_id,
+          polo: row.POLO,
+          curso: row.CURSO,
+          periodosDaProva: [],
+          quantidadeInscritos: 0,
+          quantidadeConfirmados: 0,
+        });
+      }
+
+      const curso = cursosMap.get(cursoKey);
+
+      curso.periodosDaProva.push({
+        periodo: row.PERIODO,
+        quantidadeInscritos: Number(row.INSCRITOS) || 0,
+        quantidadeVagas: Number(row.VAGAS) || 0,
+        quantidadeAdmissoes: Number(row.ADMITIDOS) || 0,
+        quantidadeConfirmados: Number(row.CONFIRMADOS) || 0,
+      });
+
+      curso.quantidadeInscritos += Number(row.INSCRITOS) || 0;
+      curso.quantidadeConfirmados += Number(row.CONFIRMADOS) || 0;
+    }
+
+    const allCursos = Array.from(cursosMap.values());
+    const paginatedData = allCursos.slice(offset, offset + limit);
+
+    const total = countResult[0]?.TOTAL || allCursos.length;
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: paginatedData,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+      },
+    };
   }
 
   private toLower(data: any): any {
