@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 
 import { TipoCalendario } from '../utils/tipo-calendario.enum';
 
@@ -22,3 +22,7 @@ export class PrazoQueryDto {
   @IsInt()
   anoLectivo?: number;
 }
+
+export class PrazoQueryWithoutTipoCalendario extends OmitType(PrazoQueryDto, [
+  'tipo',
+]) {}

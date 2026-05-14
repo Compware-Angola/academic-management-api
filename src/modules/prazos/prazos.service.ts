@@ -42,10 +42,11 @@ export class PrazosService {
     const sql = `SELECT CODIGO FROM FK2_TB_TIPO_CALENDARIO WHERE CODIGO = :codigo
   FETCH FIRST 1 ROWS ONLY`;
 
-    const tipo = this.dataSource.query(sql, [tipoCodigo]);
+    const [tipo] = await this.dataSource.query(sql, [tipoCodigo]);
+    console.log({ tipo });
 
-    if (!MENSAGENS_PADRAO[tipoCodigo]) {
-      throw new BadRequestException('Código de calendário inválido.');
+    if (!tipo) {
+      throw new BadRequestException('Canlendario não encontrado para');
     }
 
     return this.verificarPrazo(tipoCodigo, anoLectivoParam);
