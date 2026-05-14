@@ -60,7 +60,8 @@ import { AccessLogHelper } from '../common/helpers/access-log.helper';
 import { AtiveConfirmationService } from './ative-confirmation.service';
 import { ListarCadeirasMelhoriaDto } from './dto/listar-inscricoes.dto';
 import { InscricaoMelhoriaDto } from './dto/inscricao-melhoria.dto';
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+import { ListarInscricoesMelhoriaDto } from './dto/listar-inscricoes-melhoria.dto';
+//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('students')
 export class StudentsController {
   constructor(
@@ -475,6 +476,13 @@ async listarCadeirasMelhoria(
   @Query() query: ListarCadeirasMelhoriaDto,
 ) {
   return this.studentsService.listarCadeirasMelhoria(query);
+}
+
+@Get('inscricao-melhoria/inscricoes')
+async listarInscricoesMelhoria(
+  @Query() query: ListarInscricoesMelhoriaDto,
+) {
+  return this.studentsService.listarInscricoesMelhoria(query);
 }
 
 @Post('inscricao-melhoria')
