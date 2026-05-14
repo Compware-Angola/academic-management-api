@@ -33,6 +33,8 @@ export class DisciplineService {
     const baseWhere = `
     al.codigo_matricula = ${matriculaId}
     AND g.status_ = 1
+    AND al.estado != 3
+    AND mat.CODIGO_CURSO = g.CODIGO_CURSO
     AND cfr.codigo_ano_lectivo = ${anoLectivo}
     ${ignorarEliminados == 1 ? ` AND al.codigo_status_grade_curricular != 5 ` : ``}
     ${semestre ? `AND s.codigo = ${semestre}` : ''}
@@ -59,6 +61,8 @@ export class DisciplineService {
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
       INNER JOIN FK2_TB_GRADE_CURRICULAR g
               ON al.CODIGO_GRADE_CURRICULAR = g.codigo
+      INNER JOIN FK2_TB_MATRICULAS mat
+              ON mat.CODIGO = al.CODIGO_MATRICULA
       INNER JOIN FK2_TB_DISCIPLINAS d
               ON d.codigo = g.codigo_disciplina
       INNER JOIN FK2_TB_CLASSES c
@@ -93,6 +97,8 @@ export class DisciplineService {
       FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
         INNER JOIN FK2_TB_GRADE_CURRICULAR g
                 ON al.CODIGO_GRADE_CURRICULAR = g.codigo
+         INNER JOIN FK2_TB_MATRICULAS mat
+              ON mat.CODIGO = al.CODIGO_MATRICULA
         INNER JOIN FK2_TB_DISCIPLINAS d
                 ON d.codigo = g.codigo_disciplina
         INNER JOIN FK2_TB_SEMESTRES s

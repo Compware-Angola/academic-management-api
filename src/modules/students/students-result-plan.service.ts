@@ -48,9 +48,12 @@ export class StudentsResultPlanService {
   constructor(private readonly dataSource: DataSource) {}
 
   public async findPlan(codigoMatricula: number) {
-    const matricula = await this.getMatriculaDetails(codigoMatricula);
-    const gradesAluno = await this.findGradesAprovadasAluno(codigoMatricula);
-    if (matricula.estado.toUpperCase() == 'DIPLOMADO') {
+    const [matricula, gradesAluno] = await Promise.all([
+      this.getMatriculaDetails(codigoMatricula),
+      this.findGradesAprovadasAluno(codigoMatricula),
+    ]);
+
+    if (matricula.estado.toUpperCase() === 'DIPLOMADO') {
       return {
         grades: gradesAluno,
         totalGradesCurso: gradesAluno.length,
@@ -62,27 +65,33 @@ export class StudentsResultPlanService {
       codigoCurso: matricula.codigo_curso,
       codigoMatricula: matricula.codigo_matricula,
     });
+
     const gradesCursoSemDuplicidade =
       await this.deduplicateGradesCurso(gradesCurso);
+
+    const gradesCursoMap = new Map<string, true>();
+    for (const g of gradesCursoSemDuplicidade) {
+      gradesCursoMap.set(String(g.codigo_disciplina), true);
+      gradesCursoMap.set(g.disciplina?.trim().toUpperCase(), true);
+    }
+
     const disciplinasExcedentes = gradesAluno.filter(
       (t) =>
-        !gradesCursoSemDuplicidade.some(
-          (n) =>
-            n.codigo_disciplina == t.codigo_disciplina ||
-            n.disciplina == t.disciplina,
-        ),
+        !gradesCursoMap.has(String(t.codigo_disciplina)) &&
+        !gradesCursoMap.has(t.disciplina?.trim().toUpperCase()),
     );
+
     const gradesCursoIncluindoExcendentes = [
       ...gradesCursoSemDuplicidade,
       ...disciplinasExcedentes,
     ];
+
     return {
       grades: gradesCursoIncluindoExcendentes,
       totalGradesCurso: gradesCursoIncluindoExcendentes.length,
       totalGrasesAluno: gradesAluno.length,
     };
   }
-
   private async getMatriculaDetails(
     codigoMatricula: number,
   ): Promise<FindMatriculaDetails> {
@@ -118,62 +127,51 @@ export class StudentsResultPlanService {
     return toLowerCaseKeys(result[0]);
   }
 
-  private async findGradeCurso(
-    params: FindGradeCursoDTO,
-  ): Promise<FindGradeCursoReturnDTO[]> {
+  private async findGradeCurso(params: FindGradeCursoDTO) {
     const { codigoCurso, codigoMatricula } = params;
+
+    // ✅ MELHORIA 3: remove o OR com TRIM/UPPER do JOIN (impede uso de índice)
+    // A reconciliação por nome de disciplina é feita em JS depois
     const sql = `
       WITH grade_base AS (
-    SELECT
-        g.CODIGO,
-        g.CODIGO_DISCIPLINA AS CODIGO_DISCIPLINA,
-        s.DESIGNACAO AS SEMESTRE,
-        d.DESIGNACAO AS DISCIPLINA,
-        dur.DESIGNACAO AS DURACAO,
-        g.CODIGO_CLASSE AS CODIGO_CLASSE,
-        cl.DESIGNACAO   AS CLASSE
-    FROM FK2_TB_GRADE_CURRICULAR g
-
-    INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pg
-        ON pg.CODIGO_GRADE_CURRICULAR = g.CODIGO
-
-    INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pgc
-        ON pgc.CODIGO = pg.CODIGO_PLANO_CURRICULAR_CURSO
-
-    INNER JOIN FK2_TB_DISCIPLINAS d
-        ON d.CODIGO = g.CODIGO_DISCIPLINA
-
-    INNER JOIN FK2_TB_CLASSES cl
-        ON cl.CODIGO = g.CODIGO_CLASSE
-
-    INNER JOIN FK2_TB_SEMESTRES s
-        ON s.CODIGO = g.CODIGO_SEMESTRE
-
-    INNER JOIN FK2_TB_DURACAO dur
-        ON dur.CODIGO = d.DURACAO
-
-    WHERE g.CODIGO_CURSO = :codigoCurso
-      AND g.STATUS_ = 1
-      AND d.STATUS_ = 1
-    ),
-    aluno_base AS (
         SELECT
-            al.CODIGO_GRADE_CURRICULAR,
-            al.NOTA AS NOTA,
-            ga.CODIGO_DISCIPLINA,
-            d.DESIGNACAO as DISCIPLINA
-        FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
-
-        INNER JOIN FK2_TB_GRADE_CURRICULAR ga
-            ON ga.CODIGO = al.CODIGO_GRADE_CURRICULAR
+          g.CODIGO,
+          g.CODIGO_DISCIPLINA,
+          s.DESIGNACAO  AS SEMESTRE,
+          d.DESIGNACAO  AS DISCIPLINA,
+          dur.DESIGNACAO AS DURACAO,
+          g.CODIGO_CLASSE,
+          cl.DESIGNACAO AS CLASSE
+        FROM FK2_TB_GRADE_CURRICULAR g
+        INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pg
+          ON pg.CODIGO_GRADE_CURRICULAR = g.CODIGO
+        INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pgc
+          ON pgc.CODIGO = pg.CODIGO_PLANO_CURRICULAR_CURSO
         INNER JOIN FK2_TB_DISCIPLINAS d
-            ON d.codigo = ga.CODIGO_DISCIPLINA
-        WHERE 1=1
-          AND al.CODIGO_MATRICULA = :codigoMatricula
+          ON d.CODIGO = g.CODIGO_DISCIPLINA
+        INNER JOIN FK2_TB_CLASSES cl
+          ON cl.CODIGO = g.CODIGO_CLASSE
+        INNER JOIN FK2_TB_SEMESTRES s
+          ON s.CODIGO = g.CODIGO_SEMESTRE
+        INNER JOIN FK2_TB_DURACAO dur
+          ON dur.CODIGO = d.DURACAO
+        WHERE g.CODIGO_CURSO  = :codigoCurso
+          AND g.STATUS_       = 1
+          AND d.STATUS_       = 1
+      ),
+      aluno_base AS (
+        SELECT
+          al.CODIGO_GRADE_CURRICULAR,
+          al.NOTA,
+          ga.CODIGO_DISCIPLINA
+        FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
+        INNER JOIN FK2_TB_GRADE_CURRICULAR ga
+          ON ga.CODIGO = al.CODIGO_GRADE_CURRICULAR
+        WHERE al.CODIGO_MATRICULA = :codigoMatricula
           AND al.NOTA >= 10
-          AND al.CODIGO_STATUS_GRADE_CURRICULAR NOT IN (5,4)
-    )
-    SELECT DISTINCT
+          AND al.CODIGO_STATUS_GRADE_CURRICULAR NOT IN (5, 4)
+      )
+      SELECT DISTINCT
         gb.CODIGO,
         gb.SEMESTRE,
         gb.DISCIPLINA,
@@ -182,18 +180,22 @@ export class StudentsResultPlanService {
         gb.CODIGO_DISCIPLINA,
         gb.CODIGO_CLASSE,
         gb.CLASSE
-    FROM grade_base gb
-    LEFT JOIN aluno_base ab
+      FROM grade_base gb
+      LEFT JOIN aluno_base ab
         ON ab.CODIGO_GRADE_CURRICULAR = gb.CODIGO
-        OR ab.CODIGO_DISCIPLINA = gb.CODIGO_DISCIPLINA
-        or TRIM(UPPER(ab.DISCIPLINA)) = TRIM(UPPER(gb.DISCIPLINA))
-    ORDER BY gb.CODIGO_CLASSE ASC
+        OR ab.CODIGO_DISCIPLINA       = gb.CODIGO_DISCIPLINA
+      ORDER BY gb.CODIGO_CLASSE ASC
     `;
+
     const result = await this.dataSource.query(sql, {
       codigoMatricula,
       codigoCurso,
     } as any);
-    if (!result || result.length == 0) return [];
+
+    if (!result?.length) return [];
+
+    //const gradesAluno = await this.findGradesAprovadasAluno(codigoMatricula);
+
     return toLowerCaseKeys(result);
   }
   private async findGradesAprovadasAluno(
@@ -238,14 +240,13 @@ export class StudentsResultPlanService {
     return toLowerCaseKeys(result);
   }
 
-  private async deduplicateGradesCurso(
+  private deduplicateGradesCurso(
     data: FindGradeCursoReturnDTO[],
-  ): Promise<FindGradeCursoReturnDTO[]> {
+  ): FindGradeCursoReturnDTO[] {
     const map = new Map<string, FindGradeCursoReturnDTO>();
 
     for (const item of data) {
-      const key = `${item.codigo_disciplina}-${item.disciplina?.trim().toUpperCase()}`;
-
+      const key = item.disciplina?.trim().toUpperCase();
       const existing = map.get(key);
 
       if (!existing) {
@@ -253,11 +254,10 @@ export class StudentsResultPlanService {
         continue;
       }
 
-      const currentHasNota = item.nota !== null && item.nota !== undefined;
-      const existingHasNota =
-        existing.nota !== null && existing.nota !== undefined;
+      const itemHasNota = item.nota != null;
+      const existingHasNota = existing.nota != null;
 
-      if (!currentHasNota && existingHasNota) {
+      if (!existingHasNota && itemHasNota) {
         map.set(key, item);
       }
     }
