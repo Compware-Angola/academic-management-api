@@ -91,7 +91,7 @@ export class StudentsChangeCourse {
   constructor(
     private readonly dataSource: DataSource,
     private readonly anoLectivoUtil: AnoLectivoUtil,
-  ) { }
+  ) {}
   private queryRunner: QueryRunner;
 
   private async getNomeUser(userId: number): Promise<string> {
@@ -461,8 +461,7 @@ export class StudentsChangeCourse {
   ) {
     //Desativar todas as grades anteriores do curso
     const ids = params.map((p) => p.codigo_grade_curricular_aluno);
-    if (!ids.length) return;
-    const idsParams = ids.join(',');
+    const whereNotIn = ids.length ? `AND codigo NOT IN (${ids.join(',')})` : '';
 
     const sql = `
     update fk2_tb_grade_curricular_aluno
@@ -471,10 +470,10 @@ export class StudentsChangeCourse {
         observacao = :observacao
     where 1=1
     and codigo_matricula = :codigoMatricula
-    and codigo not in (${idsParams})
+    ${whereNotIn}
     `;
     await this.queryRunner.query(sql, {
-      observacao: '"Eliminado Durante a Alteração de Curso',
+      observacao: 'Eliminado Durante a Alteração de Curso',
       codigoMatricula: codigoMatricula,
     } as any);
   }
@@ -869,7 +868,7 @@ export class StudentsChangeCourse {
             t.codigo_grade == n.codigo ||
             t.codigo_disciplina == n.codigo_disciplina ||
             t.disciplina.toUpperCase().trim() ==
-            n.disciplina.toUpperCase().trim(),
+              n.disciplina.toUpperCase().trim(),
         ),
     );
     const nomeUtilizador = await this.getNomeUser(userId);

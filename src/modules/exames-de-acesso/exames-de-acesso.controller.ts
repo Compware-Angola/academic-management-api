@@ -10,6 +10,7 @@ import { FilterProvaMarcacaoDto } from './dto/filter-prova-marcacao.dto';
 import { AdmitirCandidatoPublicoDto } from './dto/admitir-candidato-publico.dto';
 import { FilterCandidatoAdmitidoDto } from './dto/filter-candidato-admitido.dto';
 import { LancarNotaArquitecturaDto } from './dto/lancar-nota-arquitectura.dto';
+import { LancarNotaManualDto } from './dto/lancar-nota-manual.dto';
 import { FilterResultadosFinaisDto } from './dto/filter-resultados-finais.dto';
 import { FilterEstatisticaCandidatosDto } from './dto/filter-estatistica-candidatos.dto';
 import { HttpService } from '@nestjs/axios';
@@ -17,12 +18,16 @@ import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { AccessLogHelper } from '../common/helpers/access-log.helper';
 import { ApiKeyGuard } from '../common/guard/api-key.guard';
+import { FilterEstatisticaCursosDto } from './dto/filter-estatistica-cursos.dto';
 
 
 @Controller('exames-de-acesso')
 @ApiTags('Exames de acesso')
 export class ExamesDeAcessoController {
-  constructor(private readonly examesAcessoService: ExamesDeAcessoService, private httpService: HttpService) { }
+  constructor(
+    private readonly examesAcessoService: ExamesDeAcessoService,
+    private httpService: HttpService,
+  ) {}
 
   @Get('candidato')
   @ApiOperation({ summary: 'Lista todos os candidatos' })
@@ -38,7 +43,10 @@ export class ExamesDeAcessoController {
 
   @Get('candidatos-admitidos')
   @ApiOperation({ summary: 'Lista candidatos admitidos paginada com filtros' })
-  @ApiResponse({ status: 200, description: 'Retorna lista de candidatos admitidos' })
+  @ApiResponse({
+    status: 200,
+    description: 'Retorna lista de candidatos admitidos',
+  })
   buscaCandidatosAdmitidos(@Query() filtros: FilterCandidatoAdmitidoDto) {
     return this.examesAcessoService.buscaCandidatosAdmitidos(filtros);
   }
@@ -53,7 +61,10 @@ export class ExamesDeAcessoController {
   ) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const user = req.user;
-    const result = this.examesAcessoService.atualizaCandidato(dto, codigoCandidato);
+    const result = this.examesAcessoService.atualizaCandidato(
+      dto,
+      codigoCandidato,
+    );
     AccessLogHelper.logAccess(this.httpService, {
       descricao: `Candidato ${codigoCandidato} atualizado por ${user?.username || 'unknown user'}`,
       fkAcesso: 6,
@@ -92,7 +103,9 @@ export class ExamesDeAcessoController {
   @Get('candidatos/resultados-finais')
   @ApiOperation({ summary: 'Lista resultados finais' })
   @ApiResponse({ status: 200, description: 'Lista de resultados finais' })
-  async getCandidatosResultadosFinais(@Query() filtros: FilterResultadosFinaisDto) {
+  async getCandidatosResultadosFinais(
+    @Query() filtros: FilterResultadosFinaisDto,
+  ) {
     return this.examesAcessoService.buscaResultadosFinais(filtros);
   }
 
@@ -112,16 +125,28 @@ export class ExamesDeAcessoController {
   }
 
   @Get('estatistica/candidatos')
-  @ApiOperation({ summary: 'Estatística de candidatos inscritos por dia e turno' })
-  @ApiResponse({ status: 200, description: 'Retorna estatísticas de candidatos' })
-  async buscaEstatisticaCandidatos(@Query() filtros: FilterEstatisticaCandidatosDto) {
+  @ApiOperation({
+    summary: 'Estatística de candidatos inscritos por dia e turno',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Retorna estatísticas de candidatos',
+  })
+  async buscaEstatisticaCandidatos(
+    @Query() filtros: FilterEstatisticaCandidatosDto,
+  ) {
     return await this.examesAcessoService.buscaEstatisticaCandidatos(filtros);
   }
 
   @Get('estatistica/dia')
   @ApiOperation({ summary: 'Estatística de candidatos inscritos por dia' })
-  @ApiResponse({ status: 200, description: 'Retorna estatísticas de candidatos por dia' })
-  async buscaEstatisticaPorDia(@Query() filtros: FilterEstatisticaCandidatosDto) {
+  @ApiResponse({
+    status: 200,
+    description: 'Retorna estatísticas de candidatos por dia',
+  })
+  async buscaEstatisticaPorDia(
+    @Query() filtros: FilterEstatisticaCandidatosDto,
+  ) {
     return await this.examesAcessoService.buscaEstatisticaPorDia(filtros);
   }
 
@@ -132,7 +157,8 @@ export class ExamesDeAcessoController {
     @Param('codigoCandidato', ParseIntPipe) codigoCandidato: number,
     @Req() req: any,
   ) {
-    const result = await this.examesAcessoService.atribuirProva(codigoCandidato);
+    const result =
+      await this.examesAcessoService.atribuirProva(codigoCandidato);
     return result;
   }
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -162,7 +188,9 @@ export class ExamesDeAcessoController {
   }
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Post('lancar-nota-arquitectura-e-urbanismo/:codigoCandidato')
-  @ApiOperation({ summary: 'Lança nota e admite candidato arquitectura e urbanismo' })
+  @ApiOperation({
+    summary: 'Lança nota e admite candidato arquitectura e urbanismo',
+  })
   @ApiResponse({ status: 200, description: 'Nota lançada com sucesso' })
   lancarNotaArquitectura(
     @Param('codigoCandidato', ParseIntPipe) codigoCandidato: number,
@@ -185,6 +213,22 @@ export class ExamesDeAcessoController {
     });
     return result;
   }
+
+  @Post('lancar-nota-manual/:codigoCandidato')
+  @ApiOperation({
+    summary: 'Lança nota manual para um candidato',
+  })
+  lancarNotaManual(
+    @Param('codigoCandidato', ParseIntPipe) codigoCandidato: number,
+    @Body() dto: LancarNotaManualDto,
+  ) {
+    const result = this.examesAcessoService.lancarNotaManual(
+      codigoCandidato,
+      dto.nota,
+    );
+    return result;
+  }
+
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Patch('resetar-prova/:codigoCandidato')
   @ApiOperation({ summary: 'Reseta a prova de um candidato' })
@@ -212,5 +256,18 @@ export class ExamesDeAcessoController {
   @ApiResponse({ status: 200, description: 'Provas corrigidas com sucesso' })
   corrigirProvas() {
     return this.examesAcessoService.corrigirProvas();
+  }
+
+  @Get('estatistica/cursos')
+  @ApiOperation({
+    summary:
+      'Estatística de cursos com inscritos, vagas, admissões e confirmados',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Retorna estatísticas de cursos agrupadas por período',
+  })
+  async buscaEstatisticaCursos(@Query() filtros: FilterEstatisticaCursosDto) {
+    return await this.examesAcessoService.buscaEstatisticaCursos(filtros);
   }
 }

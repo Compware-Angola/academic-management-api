@@ -1,6 +1,9 @@
 import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { PrazosService } from './prazos.service';
-import { PrazoQueryDto } from './dto/prazo-query.dto';
+import {
+  PrazoQueryDto,
+  PrazoQueryWithoutTipoCalendario,
+} from './dto/prazo-query.dto';
 
 @Controller('prazos')
 export class PrazosController {
@@ -15,9 +18,8 @@ export class PrazosController {
     @Param('codigo', ParseIntPipe)
     codigo: number,
 
-    @Query('anoLectivo')
-    anoLectivo?: number,
+    @Query() query: PrazoQueryWithoutTipoCalendario,
   ) {
-    return this.prazosService.obterPrazoPorCodigo(codigo, anoLectivo);
+    return this.prazosService.obterPrazoPorCodigo(codigo, query.anoLectivo);
   }
 }
