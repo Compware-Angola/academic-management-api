@@ -54,6 +54,7 @@ export class GruposService {
 
     conditions.push(`1=1`);
     conditions.push(`ut.ACTIVE_STATE = 1`);
+    conditions.push(`gu.ACTIVE_STATE = 1`);
 
     if (pkGrupo) {
       conditions.push(`g.PK_GRUPO = :grupo`);

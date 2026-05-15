@@ -33,9 +33,11 @@ import {
 import { CreateAfectacaoDTO } from './dto/create-afectaco.dto';
 import { FilterDocenteContratoDto } from './dto/filter-docente-contrato.dto';
 import { DefinirRegenteDto } from './dto/definir-regente.dto';
+import { RequiredPermissions } from '../common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from '../common/enums/permission.type';
 
 @ApiTags('docente-gestao')
-//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('docente-gestao')
 //@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 export class DocenteGestaoController {
@@ -52,7 +54,7 @@ export class DocenteGestaoController {
     return this.service.toggleTeacherParameter(Number(id));
   }
   @Get('/afectacao')
-  //@RequiredPermissions(PermissionTypeDetails.GESTAO_AFETACOES.sigla!)
+  @RequiredPermissions(PermissionTypeDetails.GESTAO_AFETACOES.sigla!)
   @ApiOperation({ summary: 'Listar Docentes Afectação' })
   @ApiResponse({
     status: 200,

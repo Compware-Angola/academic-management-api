@@ -1,8 +1,8 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { DataSource } from "typeorm";
-import { toLowerCaseKeys } from "src/modules/util/toLowerCaseKeys";
-import { GroupsDto } from "./dto/groups.dto";
-import { GroupsFilterDto } from "./dto/filter-groups";
+import { Injectable, Logger } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { toLowerCaseKeys } from 'src/modules/util/toLowerCaseKeys';
+import { GroupsDto } from './dto/groups.dto';
+import { GroupsFilterDto } from './dto/filter-groups';
 
 @Injectable()
 export class GroupsService {
@@ -10,55 +10,49 @@ export class GroupsService {
 
   constructor(private readonly dataSource: DataSource) {}
 
+  async findAllGroups(filter: GroupsFilterDto): Promise<{
+    data: any[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const { type_group = 1, page = 1, limit = 25, search } = filter;
 
-async findAllGroups(filter: GroupsFilterDto): Promise<{
-  data: any[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}> {
-  const {
-    type_group = 1,
-    page = 1,
-    limit = 25,
-    search
-  } = filter;
+    const offset = (page - 1) * limit;
 
-  const offset = (page - 1) * limit;
+    // Parâmetros básicos
+    const params: any = {
+      typeGroup: Number(type_group),
+    };
 
-  // Parâmetros básicos
-  const params: any = {
-    typeGroup: Number(type_group),
-  };
-
-  let whereClause = `
+    let whereClause = `
     WHERE g.ACTIVE_STATE = 1
       AND g.FK_TIPO_DE_GRUPO = :typeGroup
       AND g.PK_GRUPO <> 4375
   `;
 
-  if (search) {
-    whereClause += `
+    if (search) {
+      whereClause += `
       AND (
         LOWER(g.DESIGNACAO) LIKE :search
         OR LOWER(g.SIGLA) LIKE :search
       )
     `;
-    params.search = `%${search.toLowerCase()}%`;
-  }
+      params.search = `%${search.toLowerCase()}%`;
+    }
 
-  // 1️⃣ Consulta para total
-  const totalQuery = `
+    // 1️⃣ Consulta para total
+    const totalQuery = `
     SELECT COUNT(*) AS total
     FROM FK2_MCA_TB_GRUPO g
     ${whereClause}
   `;
-  const totalResult = await this.dataSource.query(totalQuery, params);
-  const total = Number(totalResult[0]?.TOTAL || 0);
+    const totalResult = await this.dataSource.query(totalQuery, params);
+    const total = Number(totalResult[0]?.TOTAL || 0);
 
-  // 2️⃣ Consulta para dados paginados
-  const dataQuery = `
+    // 2️⃣ Consulta para dados paginados
+    const dataQuery = `
     SELECT
       g.PK_GRUPO AS codigo,
       g.DESIGNACAO AS designacao,
@@ -71,8 +65,11 @@ async findAllGroups(filter: GroupsFilterDto): Promise<{
       NVL((
         SELECT COUNT(*)
         FROM FK2_MCA_TB_GRUPO_UTILIZADOR gu
+        inner join fk2_mca_tb_utilizador ut
+        on ut.pk_utilizador = gu.fk_utilizador
         WHERE gu.FK_GRUPO = g.PK_GRUPO
           AND gu.ACTIVE_STATE = 1
+          AND ut.ACTIVE_STATE = 1
       ), 0) AS user_count
     FROM FK2_MCA_TB_GRUPO g
     ${whereClause}
@@ -80,50 +77,52 @@ async findAllGroups(filter: GroupsFilterDto): Promise<{
     OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
   `;
 
-  params.offset = offset;
-  params.limit = limit;
+    params.offset = offset;
+    params.limit = limit;
 
-  const groups = await this.dataSource.query(dataQuery, params);
+    const groups = await this.dataSource.query(dataQuery, params);
 
-  return {
-    data: toLowerCaseKeys(groups),
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit),
-  };
-}
+    return {
+      data: toLowerCaseKeys(groups),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
 
- 
- async createGroup(dto: GroupsDto, createdBy: number): Promise<any> {
-  const query = `
+  async createGroup(dto: GroupsDto, createdBy: number): Promise<any> {
+    const query = `
     INSERT INTO FK2_MCA_TB_GRUPO
       (DESIGNACAO, DESCRICAO, SIGLA, FK_TIPO_DE_GRUPO, OBS, ORDEM, MODULOS, ACTIVE_STATE, CREATED_BY, CREATED_AT)
     VALUES
       (:designacao, :descricao, :sigla, :fkTipoDeGrupo, :obs, :ordem, :modulos, :activeState, :createdBy, SYSTIMESTAMP)
   `;
 
-  const params = {
-    designacao: dto.designacao,
-    descricao: dto.descricao ?? null,
-    sigla: dto.sigla ?? null,
-    fkTipoDeGrupo: dto.fkTipoDeGrupo,
-    obs: dto.obs ?? null,
-    ordem: dto.ordem ?? null,
-    modulos: dto.modulos ?? null,
-    activeState: dto.active_state ?? 1, 
-    createdBy
-  };
+    const params = {
+      designacao: dto.designacao,
+      descricao: dto.descricao ?? null,
+      sigla: dto.sigla ?? null,
+      fkTipoDeGrupo: dto.fkTipoDeGrupo,
+      obs: dto.obs ?? null,
+      ordem: dto.ordem ?? null,
+      modulos: dto.modulos ?? null,
+      activeState: dto.active_state ?? 1,
+      createdBy,
+    };
 
-  await this.dataSource.query(query, params as any);
+    await this.dataSource.query(query, params as any);
 
-  return { message: 'Grupo criado com sucesso' };
-}
-
+    return { message: 'Grupo criado com sucesso' };
+  }
 
   // UPDATE
-async updateGroup(pkGrupo: number, dto: GroupsDto, updatedBy: number): Promise<any> {
-  const query = `
+  async updateGroup(
+    pkGrupo: number,
+    dto: GroupsDto,
+    updatedBy: number,
+  ): Promise<any> {
+    const query = `
     UPDATE FK2_MCA_TB_GRUPO
     SET DESIGNACAO = :designacao,
         DESCRICAO = :descricao,
@@ -137,23 +136,22 @@ async updateGroup(pkGrupo: number, dto: GroupsDto, updatedBy: number): Promise<a
     WHERE PK_GRUPO = :pkGrupo
   `;
 
-  const params = {
-    designacao: dto.designacao,
-    descricao: dto.descricao ?? null,
-    sigla: dto.sigla ?? null,
-    fkTipoDeGrupo: dto.fkTipoDeGrupo,
-    obs: dto.obs ?? null,
-    ordem: dto.ordem ?? null,
-    modulos: dto.modulos ?? null,
-    updatedBy,
-    pkGrupo
-  };
+    const params = {
+      designacao: dto.designacao,
+      descricao: dto.descricao ?? null,
+      sigla: dto.sigla ?? null,
+      fkTipoDeGrupo: dto.fkTipoDeGrupo,
+      obs: dto.obs ?? null,
+      ordem: dto.ordem ?? null,
+      modulos: dto.modulos ?? null,
+      updatedBy,
+      pkGrupo,
+    };
 
-  await this.dataSource.query(query, params as any);
+    await this.dataSource.query(query, params as any);
 
-  return { message: 'Grupo atualizado com sucesso' };
-}
-
+    return { message: 'Grupo atualizado com sucesso' };
+  }
 
   // DELETE (soft delete)
   async deleteGroup(pkGrupo: number, updatedBy: number): Promise<any> {
