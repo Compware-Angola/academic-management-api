@@ -48,6 +48,15 @@ export class ListScheduleUCDto {
   @Type(() => Number)
   curso: number;
 
+  @ApiPropertyOptional({
+    description: 'Filtrar por código do docente',
+    example: 15,
+  })
+  @IsInt()
+  @IsOptional()
+  @Type(() => Number)
+  docente?: number;
+
 
 
   @ApiPropertyOptional({
