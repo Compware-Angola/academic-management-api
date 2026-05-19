@@ -432,9 +432,9 @@ export class ProvasService {
       userId,
       duracao,
       texto || null,
-      perguntas,
-      disciplinas,
-      cursos,
+      perguntas ? JSON.stringify(perguntas) : null,
+      disciplinas ? JSON.stringify(disciplinas) : null,
+      cursos ? JSON.stringify(cursos) : null,
     ]);
 
     return {

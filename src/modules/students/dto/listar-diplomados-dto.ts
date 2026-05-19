@@ -27,6 +27,11 @@ export class ListarDiplomadosDTO {
   @IsInt()
   tipoCandidatura?: number;
 
+@ApiPropertyOptional({ example: 'João' })
+@IsOptional()
+@IsString()
+search?: string;
+
 @ApiPropertyOptional()
 @Transform(({ value }) => Number(value))
 @IsOptional()
