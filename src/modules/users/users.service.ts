@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
+import { UserRole } from './types/ roles.enum';
 
 @Injectable()
 export class TeacherService {
@@ -61,6 +62,97 @@ WHERE tu.PK_UTILIZADOR = :1
               return {
                      success: true,
                      data: await toLowerCaseKeys(teacherData),
+              };
+       }
+       async getAdditionalInformation(
+              userId: number,
+              role: Record<string, boolean>,
+              anoLetivo?: number
+       ) {
+
+
+
+              const rolePriority = [
+                     UserRole.DIRECTOR,
+                     UserRole.DOCENTE,
+              ];
+
+              const activeRole = rolePriority.find(
+                     key => role[key] === true
+              );
+
+              switch (activeRole) {
+
+                     case UserRole.DIRECTOR:
+                            return this.getAdditionalInformationDirectorCurso(userId);
+
+                     case UserRole.DOCENTE:
+                            return this.getAdditionalInformationDocente(userId, anoLetivo!);
+
+                     default:
+                            throw new BadRequestException('Perfil de usuário desconhecido');
+              }
+       }
+       private async getAdditionalInformationDocente(userId: number, anoLetivo: number) {
+
+              if (!anoLetivo || anoLetivo <= 0) {
+                     return {
+                            success: false,
+                            message: 'Ano letivo inválido'
+                     }
+              }
+
+              const query = `
+       select 
+       td.CODIGO as codigo_docente,
+       df.FK_CADEIRA as codigo_grade,
+       df.FK_ANO_LECTIVO as ano_lectivo,
+       df.SEMESTRE as semestre,
+       gc.CODIGO_CURSO as codigo_curso,
+       gc.CODIGO_CLASSE as codigo_classe,
+       d.DESIGNACAO as disciplina
+       from FK2_MGD_TB_DOCENTE_AFECTACAO df
+INNER JOIN FK2_TB_GRADE_CURRICULAR gc ON gc.CODIGO =df.FK_CADEIRA
+INNER JOIN FK2_TB_DISCIPLINAS d ON d.CODIGO =gc.CODIGO_DISCIPLINA
+INNER JOIN FK2_MGD_TB_DOCENTE td  on td.CODIGO =df.FK_DOCENTE
+INNER JOIN FK2_MCA_TB_UTILIZADOR tu ON json_value(td.CODIGO_UTILIZADOR,'$.pk') = tu.PK_UTILIZADOR
+where tu.PK_UTILIZADOR = :userId
+and df.FK_ANO_LECTIVO = :anoLetivo
+`
+              const teacherData = await this.dataSource.query(query, { userId, anoLetivo } as any);
+
+
+              return {
+                     success: true,
+                     data: await toLowerCaseKeys(teacherData),
+                     message: `Dados carregados com sucesso para o ano letivo ${anoLetivo}`
+              };
+       }
+       private async getAdditionalInformationDirectorCurso(userId: number) {
+              const query = `
+           SELECT
+        TC.DESCRICAO AS cargo_designacao,
+        C.FK_CURSO           AS codigo_curso,
+        C.FK_FACULDADE       AS codigo_faculdade,
+        CU.DESIGNACAO        AS curso_designacao     ,
+        FA.DESIGNACAO        AS faculdade_designacao
+      FROM FK2_MGU_TB_CARGOS_ADMINISTRATIVOS C
+      INNER JOIN FK2_TB_TIPO_CARGO_ADMINISTRATIVO TC 
+        ON C.FK_TIPO_CARGO = TC.PK_TIPO_CARGO
+      INNER JOIN FK2_MCA_TB_UTILIZADOR TU
+        ON C.FK_UTILIZADOR = TU.PK_UTILIZADOR
+        INNER JOIN FK2_TB_CURSOS CU ON CU.CODIGO =C.FK_CURSO
+        LEFT JOIN FK2_TB_FACULDADE FA ON FA.CODIGO = C.FK_FACULDADE
+      WHERE TU.PK_UTILIZADOR = :1
+      AND C.ACTIVE = 1
+`
+
+              const directorData = await this.dataSource.query(query, [userId]);
+
+
+              return {
+                     success: true,
+                     data: await toLowerCaseKeys(directorData),
               };
        }
 

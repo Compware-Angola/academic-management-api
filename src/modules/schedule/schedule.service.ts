@@ -1683,18 +1683,24 @@ LEFT JOIN "FK2_MGH_TB_HORARIO" H
     unidadeCurricular,
     limit = 25,
     page = 1,
+    docente
   }: ListScheduleUCDto) {
     const offset = (page - 1) * limit;
 
+    const docenteFilter = docente
+      ? `AND TO_NUMBER(json_value(al.REF_DOCENTE,'$.pkDocente')) = ${docente}`
+      : '';
+
     const baseWhere = `
-      c.CODIGO               = ${unidadeCurricular}
-      AND h.FK_ANO_LECTIVO   = ${anoLectivo}
-      AND h.FK_SEMESTRE      = ${semestre}
-      AND h.FK_PERIODO       = ${periodo}
-      AND c.CODIGO_CURSO     = ${curso}
-      AND al.ACTIVE_STATE    = 1
-      AND h.FK_ESTADO_HORARIO_WF != 4
-  `;
+  c.CODIGO               = ${unidadeCurricular}
+  AND h.FK_ANO_LECTIVO   = ${anoLectivo}
+  AND h.FK_SEMESTRE      = ${semestre}
+  AND h.FK_PERIODO       = ${periodo}
+  AND c.CODIGO_CURSO     = ${curso}
+  AND al.ACTIVE_STATE    = 1
+  AND h.FK_ESTADO_HORARIO_WF != 4
+  ${docenteFilter}
+`;
 
     // -------------------- QUERY PRINCIPAL --------------------
     const sql = `
@@ -2246,8 +2252,8 @@ WHERE ${baseWhere}
         break;
     }
 
-   
-       const hasNextPage = parametros.length > limit;
+
+    const hasNextPage = parametros.length > limit;
     if (hasNextPage) parametros.pop();
 
     return {
@@ -2355,89 +2361,89 @@ WHERE ${baseWhere}
 
 
 
-async updateScheduleParam(dto: UpdateScheduleParamDto,last_updated_by:number) {
-  const {
-    pk_parametro,
-    designacao,
-    descricao,
-    sigla,
-    args,
-    obs,
-    ordem,
-    active_state,
-    
-  } = dto;
+  async updateScheduleParam(dto: UpdateScheduleParamDto, last_updated_by: number) {
+    const {
+      pk_parametro,
+      designacao,
+      descricao,
+      sigla,
+      args,
+      obs,
+      ordem,
+      active_state,
 
-  // 1. Verifica se existe
-  const checkQuery = `
+    } = dto;
+
+    // 1. Verifica se existe
+    const checkQuery = `
     SELECT PK_PARAMETRO
     FROM FK2_MGH_TB_PARAMETRO
     WHERE PK_PARAMETRO = :pk
   `;
-  const existing = await this.dataSource.query(checkQuery, { pk: pk_parametro } as any);
+    const existing = await this.dataSource.query(checkQuery, { pk: pk_parametro } as any);
 
-  if (!existing || existing.length === 0) {
-    throw new NotFoundException(
-      `Parâmetro com PK ${pk_parametro} não encontrado.`,
-    );
-  }
+    if (!existing || existing.length === 0) {
+      throw new NotFoundException(
+        `Parâmetro com PK ${pk_parametro} não encontrado.`,
+      );
+    }
 
-  // 2. Serializa args para string se vier como objeto
-  const argsSerialized =
-    args !== undefined
-      ? typeof args === 'string'
-        ? args
-        : JSON.stringify(args)
-      : undefined;
+    // 2. Serializa args para string se vier como objeto
+    const argsSerialized =
+      args !== undefined
+        ? typeof args === 'string'
+          ? args
+          : JSON.stringify(args)
+        : undefined;
 
-  // 3. Monta SET dinâmico apenas com os campos enviados
-  const setClauses: string[] = ['UPDATED_AT = SYSDATE'];
-  const params: Record<string, unknown> = { pk: pk_parametro };
+    // 3. Monta SET dinâmico apenas com os campos enviados
+    const setClauses: string[] = ['UPDATED_AT = SYSDATE'];
+    const params: Record<string, unknown> = { pk: pk_parametro };
 
-  if (designacao !== undefined) {
-    setClauses.push('DESIGNACAO = :designacao');
-    params['designacao'] = designacao;
-  }
-  if (descricao !== undefined) {
-    setClauses.push('DESCRICAO = :descricao');
-    params['descricao'] = descricao;
-  }
-  if (sigla !== undefined) {
-    setClauses.push('SIGLA = :sigla');
-    params['sigla'] = sigla;
-  }
-  if (argsSerialized !== undefined) {
-    setClauses.push('ARGS = :args');
-    params['args'] = argsSerialized;
-  }
-  if (obs !== undefined) {
-    setClauses.push('OBS = :obs');
-    params['obs'] = obs;
-  }
-  if (ordem !== undefined) {
-    setClauses.push('ORDEM = :ordem');
-    params['ordem'] = ordem;
-  }
-  if (active_state !== undefined) {
-    setClauses.push('ACTIVE_STATE = :active_state');
-    params['active_state'] = active_state;
-  }
-  if (last_updated_by !== undefined) {
-    setClauses.push('LAST_UPDATED_BY = :last_updated_by');
-    params['last_updated_by'] = last_updated_by;
-  }
+    if (designacao !== undefined) {
+      setClauses.push('DESIGNACAO = :designacao');
+      params['designacao'] = designacao;
+    }
+    if (descricao !== undefined) {
+      setClauses.push('DESCRICAO = :descricao');
+      params['descricao'] = descricao;
+    }
+    if (sigla !== undefined) {
+      setClauses.push('SIGLA = :sigla');
+      params['sigla'] = sigla;
+    }
+    if (argsSerialized !== undefined) {
+      setClauses.push('ARGS = :args');
+      params['args'] = argsSerialized;
+    }
+    if (obs !== undefined) {
+      setClauses.push('OBS = :obs');
+      params['obs'] = obs;
+    }
+    if (ordem !== undefined) {
+      setClauses.push('ORDEM = :ordem');
+      params['ordem'] = ordem;
+    }
+    if (active_state !== undefined) {
+      setClauses.push('ACTIVE_STATE = :active_state');
+      params['active_state'] = active_state;
+    }
+    if (last_updated_by !== undefined) {
+      setClauses.push('LAST_UPDATED_BY = :last_updated_by');
+      params['last_updated_by'] = last_updated_by;
+    }
 
-  // 4. Executa o UPDATE
-  const updateQuery = `
+    // 4. Executa o UPDATE
+    const updateQuery = `
     UPDATE FK2_MGH_TB_PARAMETRO
     SET ${setClauses.join(', ')}
     WHERE PK_PARAMETRO = :pk
   `;
 
-  await this.dataSource.query(updateQuery, params as any);
+    await this.dataSource.query(updateQuery, params as any);
 
-  // 5. Retorna o registo atualizado
-  const selectQuery = `
+    // 5. Retorna o registo atualizado
+    const selectQuery = `
     SELECT
       P.PK_PARAMETRO,
       P.DESIGNACAO,
@@ -2451,13 +2457,13 @@ async updateScheduleParam(dto: UpdateScheduleParamDto,last_updated_by:number) {
     WHERE P.PK_PARAMETRO = :pk
   `;
 
-  const result = await this.dataSource.query(selectQuery, { pk: pk_parametro } as any);
+    const result = await this.dataSource.query(selectQuery, { pk: pk_parametro } as any);
 
-  return {
-    success: true,
-    menssage:"Parametros Atualizados !" ,
-  };
-}
+    return {
+      success: true,
+      menssage: "Parametros Atualizados !",
+    };
+  }
   private async createOrUpdateHorario(
     userId: number = 1,
     dto: CreateScheduleDto,
