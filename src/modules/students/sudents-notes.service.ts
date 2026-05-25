@@ -166,7 +166,6 @@ export class StudentNoteService {
         } as any,
       );
 
-      // Retorna o primeiro registro (ou null/undefined se não encontrar)
       return grades || [];
     } catch (error: any) {
       console.error('Erro ao buscar grade avaliada:', error);
@@ -175,6 +174,7 @@ export class StudentNoteService {
       );
     }
   }
+
   private async findOnePlanoByCursoAndAnoLectivo(
     codigoCurso: number,
     codigoAnoLectivo: number,
@@ -194,6 +194,7 @@ export class StudentNoteService {
 
     return planoCurso[0];
   }
+
   private async findByPlanoAndUnidadeCurricular(
     plano: number,
     codigoUnidadeCurricular: number,
@@ -220,7 +221,6 @@ export class StudentNoteService {
         ? EstadoAvaliacaoEnum.PENDENTE
         : EstadoAvaliacaoEnum.REPROVADO;
 
-    // Inicialização correta da pauta
     const pauta: any = {
       obs: [],
       formula: [],
@@ -239,7 +239,6 @@ export class StudentNoteService {
     try {
       console.log(`\nCADEIRA a verificar -----> `, gradeAluno.DISCIPLINA);
 
-      // Busca dos planos curriculares
       const planoCurricularCurso = await this.findOnePlanoByCursoAndAnoLectivo(
         gradeAluno.CODIGO_CURSO,
         gradeAluno.CODIGO_ANO_LECTIVO,
@@ -269,11 +268,9 @@ export class StudentNoteService {
       const peso_pratica =
         planoCurricularGrade?.PESO_PRATICA ?? gradeAluno?.PESO_PRATICA;
 
-      // Cache das verificações mais usadas
       const hasPratica = await this.temPratica(peso_pratica);
       const hasOral = await this.temOral(gradeAluno.CODIGO_GRADE_CURRICULAR);
 
-      // Busca TODAS as notas em paralelo (grande otimização!)
       const avaliacoes = await this.buscarAvaliacoes(gradeAluno.CODIGO);
 
       const getNota = (tipo: number) =>
@@ -289,48 +286,16 @@ export class StudentNoteService {
       const notaEE = getNota(11);
       const notaOEE = getNota(24);
 
-      // Helper local para evitar chamadas repetidas
       const temNota = (nota: any): boolean =>
         nota !== null &&
         nota !== undefined &&
         nota.NOTA !== null &&
         nota.NOTA !== undefined;
 
-      // Cache para temNotaLancadaNoHorario (chamado várias vezes)
-      const lancadaCache: { [key: number]: boolean } = {};
-      const getLancada = async (tipo: number): Promise<boolean> => {
-        if (!(tipo in lancadaCache)) {
-          lancadaCache[tipo] = await this.temNotaLancadaNoHorario(
-            gradeAluno,
-            tipo,
-          );
-        }
-        return lancadaCache[tipo];
-      };
-
       console.log('notaMel--->', notaMel, notaPra);
 
-      // === REPROVAÇÃO DIRETA POR FALTA DE LANÇAMENTO OBRIGATÓRIO ===
-      if (hasPratica && (await getLancada(4)) && !temNota(notaPra)) {
-        resultado = EstadoAvaliacaoEnum.REPROVADO;
-        descricao =
-          'O docente não fez o lançamento da nota da Prática para o estudante. O que leva a reprovação directa!';
-        pauta.obs.push(descricao);
-        console.log(descricao);
-      } else if (
-        hasOral &&
-        (await getLancada(9)) &&
-        !temNota(notaOr) &&
-        !temNota(notaOrRec)
-      ) {
-        resultado = EstadoAvaliacaoEnum.REPROVADO;
-        descricao =
-          'O docente não fez o lançamento da nota da Oral para o estudante. O que leva a reprovação directa!';
-        pauta.obs.push(descricao);
-        console.log(descricao);
-      }
       // === NENHUMA NOTA LANÇADA ===
-      else if (
+      if (
         !temNota(nota1f) &&
         !temNota(nota2f) &&
         !temNota(notaEx) &&
@@ -390,46 +355,28 @@ export class StudentNoteService {
       // === LÓGICA NORMAL DE AVALIAÇÃO ===
       else {
         // 1ª Frequência
-        if (await getLancada(2)) {
-          if (!temNota(nota1f)) {
-            resultado = EstadoAvaliacaoEnum.EXAME;
-            descricao =
-              'Não possui nota na 1ª Frequência, deve fazer a prova de Exame!';
-          } else if (nota1f!.NOTA! < nota_min_primeira_freq) {
-            resultado = EstadoAvaliacaoEnum.EXAME;
-            descricao =
-              'A nota da 1ª Frequência é inferior a nota minína definida. (Consultar a fórmula)!';
-          } else {
-            resultado = EstadoAvaliacaoEnum.FREQUENCIA_2;
-            descricao =
-              'Apto para a prova da 2ª Frequência. (Aguardar avaliação...)!';
-          }
-          pauta.obs.push(descricao);
-          console.log(descricao);
-        } else {
-          resultado =
-            gradeAluno.CODIGO_ANO_LECTIVO === anoCorrente
-              ? EstadoAvaliacaoEnum.PENDENTE
-              : EstadoAvaliacaoEnum.EXAME;
+        if (!temNota(nota1f)) {
+          resultado = EstadoAvaliacaoEnum.EXAME;
           descricao =
-            gradeAluno.CODIGO_ANO_LECTIVO === anoCorrente
-              ? 'Aguarda avaliação 1ª Frequência'
-              : 'Exame';
-          pauta.obs.push(descricao);
-          console.log(descricao);
+            'Não possui nota na 1ª Frequência, deve fazer a prova de Exame!';
+        } else if (nota1f!.NOTA! < nota_min_primeira_freq) {
+          resultado = EstadoAvaliacaoEnum.EXAME;
+          descricao =
+            'A nota da 1ª Frequência é inferior a nota minína definida. (Consultar a fórmula)!';
+        } else {
+          resultado = EstadoAvaliacaoEnum.FREQUENCIA_2;
+          descricao =
+            'Apto para a prova da 2ª Frequência. (Aguardar avaliação...)!';
         }
+        pauta.obs.push(descricao);
+        console.log(descricao);
 
         // 2ª Frequência (só se passou na 1ª)
-        if (
-          resultado === EstadoAvaliacaoEnum.FREQUENCIA_2 &&
-          (await getLancada(3))
-        ) {
+        if (resultado === EstadoAvaliacaoEnum.FREQUENCIA_2) {
           if (!temNota(nota2f)) {
             resultado = EstadoAvaliacaoEnum.EXAME;
             descricao = 'Não possui nota na 2ª Frequência!';
-          } else if (
-            nota2f!.NOTA! < nota_min_segunda_freq //troquei aqui
-          ) {
+          } else if (nota2f!.NOTA! < nota_min_segunda_freq) {
             resultado = EstadoAvaliacaoEnum.RECURSO;
             descricao =
               'A nota da 2ª Frequência é inferior a nota minína definida. (Consultar a fórmula)!';
@@ -484,96 +431,89 @@ export class StudentNoteService {
             EstadoAvaliacaoEnum.FREQUENCIA_2,
           ].includes(resultado)
         ) {
-          if (await getLancada(6)) {
-            if (!temNota(notaEx)) {
-              resultado = EstadoAvaliacaoEnum.RECURSO;
-              descricao =
-                'O docente não fez o lançamento da nota do exame para o estudante, deve fazer a prova de recurso!';
-            } else {
-              if (hasPratica) {
-                if (notaEx!.NOTA! >= 10) {
-                  resultado = EstadoAvaliacaoEnum.AGUARDA_PRATICA;
-                  descricao = `A nota do Exame (${notaEx!.NOTA!}) suficiente para aprovação. Aguardar nota da Prática!`;
-                } else {
-                  resultado = EstadoAvaliacaoEnum.RECURSO;
-                  descricao =
-                    'A nota do Exame é insuficiêncte para aprovação, deve fazer a prova de Recurso!';
-                }
-              } else if (hasOral) {
-                if (notaEx!.NOTA! >= 8) {
-                  resultado = EstadoAvaliacaoEnum.AGUARDA_ORAL;
-                  descricao = `A nota do Exame (${notaEx!.NOTA!}) suficiente para aprovação. Aguardar nota da prova Oral de Recurso!`;
-                } else {
-                  resultado = EstadoAvaliacaoEnum.RECURSO;
-                  descricao = 'A média é insuficiente para aprovação directa!';
-                }
+          if (!temNota(notaEx)) {
+            resultado = EstadoAvaliacaoEnum.RECURSO;
+            descricao =
+              'O docente não fez o lançamento da nota do exame para o estudante, deve fazer a prova de recurso!';
+          } else {
+            if (hasPratica) {
+              if (notaEx!.NOTA! >= 10) {
+                resultado = EstadoAvaliacaoEnum.AGUARDA_PRATICA;
+                descricao = `A nota do Exame (${notaEx!.NOTA!}) suficiente para aprovação. Aguardar nota da Prática!`;
               } else {
-                media = notaEx!.NOTA!;
-                if (notaEx!.NOTA! >= 10) {
-                  resultado = EstadoAvaliacaoEnum.APROVADO;
-                  descricao =
-                    'A nota do Exame é suficiente para aprovação. OBS: A nota do Exame é seca para esta avaliação!';
-                } else {
-                  resultado = EstadoAvaliacaoEnum.RECURSO;
-                  descricao =
-                    'A nota do Exame é insuficiênte para aprovação, deve fazer a prova de recurso!';
-                }
+                resultado = EstadoAvaliacaoEnum.RECURSO;
+                descricao =
+                  'A nota do Exame é insuficiêncte para aprovação, deve fazer a prova de Recurso!';
+              }
+            } else if (hasOral) {
+              if (notaEx!.NOTA! >= 8) {
+                resultado = EstadoAvaliacaoEnum.AGUARDA_ORAL;
+                descricao = `A nota do Exame (${notaEx!.NOTA!}) suficiente para aprovação. Aguardar nota da prova Oral de Recurso!`;
+              } else {
+                resultado = EstadoAvaliacaoEnum.RECURSO;
+                descricao = 'A média é insuficiente para aprovação directa!';
+              }
+            } else {
+              media = notaEx!.NOTA!;
+              if (notaEx!.NOTA! >= 10) {
+                resultado = EstadoAvaliacaoEnum.APROVADO;
+                descricao =
+                  'A nota do Exame é suficiente para aprovação. OBS: A nota do Exame é seca para esta avaliação!';
+              } else {
+                resultado = EstadoAvaliacaoEnum.RECURSO;
+                descricao =
+                  'A nota do Exame é insuficiênte para aprovação, deve fazer a prova de recurso!';
               }
             }
-            pauta.obs.push(descricao);
-            console.log(descricao);
           }
+          pauta.obs.push(descricao);
+          console.log(descricao);
         }
 
         // Recurso
         if (resultado === EstadoAvaliacaoEnum.RECURSO) {
-          if (await getLancada(7)) {
-            if (!temNota(notaRec)) {
-              resultado = EstadoAvaliacaoEnum.REPROVADO;
-              descricao =
-                'O docente não fez o lançamento da nota do recurso para o estudante!';
-            } else {
-              if (hasPratica) {
-                if (notaRec!.NOTA! >= 10) {
-                  media = notaRec!.NOTA!;
-                  resultado = EstadoAvaliacaoEnum.AGUARDA_PRATICA;
-                  descricao = `A nota do Recurso (${notaRec!.NOTA!}) suficiente para aprovação. Aguardar nota da Prática!`;
-                } else {
-                  media = notaRec!.NOTA!;
-                  resultado = EstadoAvaliacaoEnum.REPROVADO;
-                  descricao = `A nota do Recurso (${notaRec!.NOTA!}) é insuficiente para aprovação directa!`;
-                }
-              } else if (hasOral) {
-                if (notaRec!.NOTA! >= 8) {
-                  media = notaRec!.NOTA!;
-                  resultado = EstadoAvaliacaoEnum.AGUARDA_ORAL_RECURSO;
-                  descricao = `A nota do Recurso (${notaRec!.NOTA!}) suficiente para aprovação. Aguardar nota da Prova Oral de Recurso!`;
-                } else {
-                  resultado = EstadoAvaliacaoEnum.REPROVADO;
-                  descricao = `A nota do Recurso (${notaRec!.NOTA!}) é insuficiente para aprovação directa!`;
-                }
+          if (!temNota(notaRec)) {
+            resultado = EstadoAvaliacaoEnum.REPROVADO;
+            descricao =
+              'O docente não fez o lançamento da nota do recurso para o estudante!';
+          } else {
+            if (hasPratica) {
+              if (notaRec!.NOTA! >= 10) {
+                media = notaRec!.NOTA!;
+                resultado = EstadoAvaliacaoEnum.AGUARDA_PRATICA;
+                descricao = `A nota do Recurso (${notaRec!.NOTA!}) suficiente para aprovação. Aguardar nota da Prática!`;
               } else {
                 media = notaRec!.NOTA!;
-                if (notaRec!.NOTA! >= 10) {
-                  resultado = EstadoAvaliacaoEnum.APROVADO;
-                  descricao =
-                    'A nota do Recurso é suficiente para aprovação. OBS: A nota do Recurso é seca para esta avaliação!';
-                } else {
-                  resultado = EstadoAvaliacaoEnum.REPROVADO;
-                  descricao = `A nota do Recurso (${notaRec!.NOTA!}) é insuficiente para aprovação directa!`;
-                }
+                resultado = EstadoAvaliacaoEnum.REPROVADO;
+                descricao = `A nota do Recurso (${notaRec!.NOTA!}) é insuficiente para aprovação directa!`;
+              }
+            } else if (hasOral) {
+              if (notaRec!.NOTA! >= 8) {
+                media = notaRec!.NOTA!;
+                resultado = EstadoAvaliacaoEnum.AGUARDA_ORAL_RECURSO;
+                descricao = `A nota do Recurso (${notaRec!.NOTA!}) suficiente para aprovação. Aguardar nota da Prova Oral de Recurso!`;
+              } else {
+                resultado = EstadoAvaliacaoEnum.REPROVADO;
+                descricao = `A nota do Recurso (${notaRec!.NOTA!}) é insuficiente para aprovação directa!`;
+              }
+            } else {
+              media = notaRec!.NOTA!;
+              if (notaRec!.NOTA! >= 10) {
+                resultado = EstadoAvaliacaoEnum.APROVADO;
+                descricao =
+                  'A nota do Recurso é suficiente para aprovação. OBS: A nota do Recurso é seca para esta avaliação!';
+              } else {
+                resultado = EstadoAvaliacaoEnum.REPROVADO;
+                descricao = `A nota do Recurso (${notaRec!.NOTA!}) é insuficiente para aprovação directa!`;
               }
             }
-            pauta.obs.push(descricao);
-            console.log(descricao);
           }
+          pauta.obs.push(descricao);
+          console.log(descricao);
         }
 
         // Prática (quando em AGUARDA_PRATICA)
-        if (
-          resultado === EstadoAvaliacaoEnum.AGUARDA_PRATICA &&
-          (await getLancada(4))
-        ) {
+        if (resultado === EstadoAvaliacaoEnum.AGUARDA_PRATICA) {
           if (!temNota(notaPra)) {
             resultado = EstadoAvaliacaoEnum.REPROVADO;
             descricao =
@@ -605,10 +545,7 @@ export class StudentNoteService {
         }
 
         // Oral Normal
-        if (
-          resultado === EstadoAvaliacaoEnum.AGUARDA_ORAL &&
-          (await getLancada(9))
-        ) {
+        if (resultado === EstadoAvaliacaoEnum.AGUARDA_ORAL) {
           if (!temNota(notaOr)) {
             resultado = EstadoAvaliacaoEnum.APROVADO; // Nota: conforme original, parece intencional
             descricao =
@@ -630,10 +567,7 @@ export class StudentNoteService {
         }
 
         // Oral de Recurso
-        if (
-          resultado === EstadoAvaliacaoEnum.AGUARDA_ORAL_RECURSO &&
-          (await getLancada(23))
-        ) {
+        if (resultado === EstadoAvaliacaoEnum.AGUARDA_ORAL_RECURSO) {
           if (!temNota(notaOrRec)) {
             resultado = EstadoAvaliacaoEnum.REPROVADO;
             descricao =
@@ -741,7 +675,6 @@ export class StudentNoteService {
       ) {
         pauta.resultado = EstadoAvaliacaoEnum.REPROVADO;
       }
-      //VERIFICAR O PRAZO
 
       // Notas individuais
       pauta.nota1f = nota1f?.NOTA?.toString() ?? '';
@@ -754,10 +687,12 @@ export class StudentNoteService {
       pauta.notaMel = notaMel?.NOTA?.toString() ?? '';
       pauta.notaEE = notaEE?.NOTA?.toString() ?? '';
       pauta.notaOEE = notaOEE?.NOTA?.toString() ?? '';
+
       const temPrazo = await this.temPrazo(gradeAluno);
       if (temPrazo) {
         pauta.resultado = EstadoAvaliacaoEnum.PENDENTE;
       }
+
       console.log(resultado);
       console.log(media);
       console.log(descricao);
@@ -767,7 +702,7 @@ export class StudentNoteService {
     } catch (error) {
       console.log(gradeAluno);
       console.error('----> NÃO FOI POSSÍVEL ACTUALIZAR <-----', error);
-      throw error; // ou return null / objeto de erro
+      throw error;
     }
   }
 
@@ -782,8 +717,8 @@ export class StudentNoteService {
       [gradeAlunoId],
     );
   }
+
   private async temPrazo(gradeAluno: any): Promise<boolean> {
-    //Anos passados não preciso mudar os resultados
     console.log(
       '--------------------',
       gradeAluno.CODIGO_ANO_LECTIVO,
@@ -801,6 +736,7 @@ export class StudentNoteService {
     console.log('entrei aqui', prazos);
     return prazos.length > 0;
   }
+
   private async obterPrazo(semestre): Promise<any[]> {
     const result = await this.dataSource.query(
       `
@@ -822,6 +758,7 @@ export class StudentNoteService {
     if (!result || result.length == 0) return [];
     return result;
   }
+
   private async temPratica(plano: any): Promise<boolean> {
     return plano > 0;
   }
@@ -841,39 +778,6 @@ export class StudentNoteService {
     return oral ? oral.HABILITAR === true || oral.HABILITAR === 1 : false;
   }
 
-  async temNotaLancadaNoHorario(
-    gradeAluno: any,
-    tipoAvaliacao: number,
-  ): Promise<boolean> {
-    const pk = this.extrairPkDoRefHorario(gradeAluno.REF_HORARIO);
-    if (pk === null) {
-      return true;
-    }
-
-    const query = `
-        SELECT 1
-        FROM FK2_TB_GRADE_CURRICULAR_ALUNO grade
-        INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES avaliacoes
-            ON avaliacoes.GRADE_CURRICULAR_ALUNO = grade.CODIGO
-        WHERE avaliacoes.TIPO_AVALIACAO = :tipo
-          AND json_value(grade.REF_HORARIO,'$.pk') = :pk
-          AND grade.CODIGO_GRADE_CURRICULAR = :gradeCurricular
-        FETCH FIRST 1 ROW ONLY
-    `;
-
-    try {
-      const result = await this.dataSource.query(query, {
-        tipo: tipoAvaliacao,
-        pk: Number(pk),
-        gradeCurricular: gradeAluno.CODIGO_GRADE_CURRICULAR,
-      } as any);
-
-      return result.length > 0;
-    } catch (error: any) {
-      console.error('Erro em temNotaLancadaNoHorario:', error);
-      return false;
-    }
-  }
   private extrairPkDoRefHorario(refHorario: string): number | null {
     try {
       if (!refHorario) return null;
