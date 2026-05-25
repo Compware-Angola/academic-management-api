@@ -18,6 +18,8 @@ import { FilterTipoRespostaDto } from './dto/filter-tipo-resposta.dto';
 export class PerguntasService {
   constructor(private readonly dataSource: DataSource) {}
 
+  private readonly tipoRespostaCorretaId = 1;
+
   async findAll(filtros: FilterPerguntaDto) {
     const { descricao, disciplinaId, id, page = 1, limit = 10 } = filtros;
 
@@ -243,6 +245,25 @@ export class PerguntasService {
       );
     }
 
+    if (tipoRespostaId === this.tipoRespostaCorretaId) {
+      const respostaCorretaExists = await this.dataSource.query(
+        `
+        SELECT ID
+        FROM FK2_RESPOSTAS
+        WHERE PERGUNTA_ID = :1
+          AND TIPO_RESPOSTA_ID = :2
+        FETCH FIRST 1 ROWS ONLY
+        `,
+        [perguntaId, this.tipoRespostaCorretaId],
+      );
+
+      if (respostaCorretaExists?.length > 0) {
+        throw new BadRequestException(
+          'Esta pergunta já possui uma resposta correta',
+        );
+      }
+    }
+
     const query = `
       INSERT INTO FK2_RESPOSTAS (
         DESCRICAO,
@@ -268,7 +289,7 @@ export class PerguntasService {
     const { descricao, tipoRespostaId, perguntaId } = updateRespostaDto;
 
     const respostaExists = await this.dataSource.query(
-      `SELECT ID FROM FK2_RESPOSTAS WHERE ID = :1`,
+      `SELECT ID, PERGUNTA_ID FROM FK2_RESPOSTAS WHERE ID = :1`,
       [id],
     );
 
@@ -298,6 +319,29 @@ export class PerguntasService {
       if (!tipoRespostaExists || tipoRespostaExists.length === 0) {
         throw new BadRequestException(
           `Tipo de resposta com ID ${tipoRespostaId} não encontrado`,
+        );
+      }
+    }
+
+    const perguntaIdParaValidar =
+      perguntaId ?? Number(respostaExists[0].PERGUNTA_ID);
+
+    if (tipoRespostaId === this.tipoRespostaCorretaId) {
+      const outraRespostaCorreta = await this.dataSource.query(
+        `
+        SELECT ID
+        FROM FK2_RESPOSTAS
+        WHERE PERGUNTA_ID = :1
+          AND TIPO_RESPOSTA_ID = :2
+          AND ID <> :3
+        FETCH FIRST 1 ROWS ONLY
+        `,
+        [perguntaIdParaValidar, this.tipoRespostaCorretaId, id],
+      );
+
+      if (outraRespostaCorreta?.length > 0) {
+        throw new BadRequestException(
+          'Esta pergunta já possui uma resposta correta',
         );
       }
     }
