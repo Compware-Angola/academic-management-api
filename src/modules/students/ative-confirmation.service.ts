@@ -93,22 +93,52 @@ export class AtiveConfirmationService {
         return { message: `Matricula ${matricula} confirmada com sucesso`, codConfirmacao };
     }
     private async getNextClass(matricula: number) {
-        const query = `SELECT FK2_TB_MATRICULAS.CODIGO,FK2_TB_CURSOS.DURACAO, MAX (FK2_TB_CONFIRMACOES.CLASSE) AS CLASSE FROM FK2_TB_MATRICULAS
-        INNER JOIN FK2_TB_CONFIRMACOES ON FK2_TB_CONFIRMACOES.CODIGO_MATRICULA = FK2_TB_MATRICULAS.CODIGO
-        INNER JOIN FK2_TB_CURSOS ON FK2_TB_MATRICULAS.CODIGO_CURSO = FK2_TB_CURSOS.CODIGO
-        WHERE  FK2_TB_MATRICULAS.CODIGO= :matricula AND FK2_TB_CONFIRMACOES.ESTADO=1  GROUP BY FK2_TB_MATRICULAS.CODIGO,FK2_TB_CURSOS.DURACAO
+        const query = `
+        SELECT
+            m.CODIGO,
+            c.DURACAO,
+            (
+                SELECT cl.CODIGO
+                FROM FK2_TB_GRADE_CURRICULAR_ALUNO ftgca
+                LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc
+                    ON ftgc.CODIGO = ftgca.CODIGO_GRADE_CURRICULAR
+                LEFT JOIN FK2_TB_CLASSES cl
+                    ON cl.CODIGO = ftgc.CODIGO_CLASSE
+                WHERE ftgca.CODIGO_MATRICULA = m.CODIGO
+                  AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+                
+                GROUP BY cl.CODIGO, cl.DESIGNACAO
+                ORDER BY COUNT(ftgca.CODIGO) DESC
+                FETCH FIRST 1 ROWS ONLY
+            ) AS CLASSE_CODIGO
+        FROM FK2_TB_MATRICULAS m
+        INNER JOIN FK2_TB_CURSOS c
+            ON c.CODIGO = m.CODIGO_CURSO
+        WHERE m.CODIGO = :matricula
         FETCH FIRST 1 ROW ONLY
-        `;
+    `;
+
         const result = await this.dataSource.query(query, { matricula } as any);
+        console.log('Result =>', result);
 
         if (result.length === 0) {
-            return 1;
-        }
-        if (result[0].CLASSE >= result[0].DURACAO) {
-            throw new BadRequestException(`Matricula ${matricula} já atingiu a classe máxima`);
+            throw new BadRequestException(`Matrícula ${matricula} não encontrada`);
         }
 
-        return result[0].CLASSE + 1;
+        const classeAtual = result[0].CLASSE_CODIGO;
+        const duracao = result[0].DURACAO;
+
+        if (classeAtual === null || classeAtual === undefined) {
+            return 1;
+        }
+
+        if (classeAtual >= duracao) {
+            throw new BadRequestException(
+                `Matrícula ${matricula} já atingiu a classe máxima (${duracao})`
+            );
+        }
+
+        return classeAtual;
     }
 
     private async getCanal(matricula: number) {
