@@ -359,14 +359,17 @@ export class StudentNoteService {
           resultado = EstadoAvaliacaoEnum.EXAME;
           descricao =
             'Não possui nota na 1ª Frequência, deve fazer a prova de Exame!';
-        } else if (nota1f!.NOTA! < nota_min_primeira_freq) {
-          resultado = EstadoAvaliacaoEnum.EXAME;
-          descricao =
-            'A nota da 1ª Frequência é inferior a nota minína definida. (Consultar a fórmula)!';
         } else {
-          resultado = EstadoAvaliacaoEnum.FREQUENCIA_2;
-          descricao =
-            'Apto para a prova da 2ª Frequência. (Aguardar avaliação...)!';
+          media = this.round(nota1f!.NOTA! * (peso_primeira_freq / 100));
+          if (nota1f!.NOTA! < nota_min_primeira_freq) {
+            resultado = EstadoAvaliacaoEnum.EXAME;
+            descricao =
+              'A nota da 1ª Frequência é inferior a nota minína definida. (Consultar a fórmula)!';
+          } else {
+            resultado = EstadoAvaliacaoEnum.FREQUENCIA_2;
+            descricao =
+              'Apto para a prova da 2ª Frequência. (Aguardar avaliação...)!';
+          }
         }
         pauta.obs.push(descricao);
         console.log(descricao);
@@ -377,6 +380,10 @@ export class StudentNoteService {
             resultado = EstadoAvaliacaoEnum.EXAME;
             descricao = 'Não possui nota na 2ª Frequência!';
           } else if (nota2f!.NOTA! < nota_min_segunda_freq) {
+            media = this.round(
+              nota1f!.NOTA! * (peso_primeira_freq / 100) +
+                nota2f!.NOTA! * (peso_segunda_freq / 100),
+            );
             resultado = EstadoAvaliacaoEnum.RECURSO;
             descricao =
               'A nota da 2ª Frequência é inferior a nota minína definida. (Consultar a fórmula)!';
