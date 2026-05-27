@@ -13,7 +13,7 @@ import {
   UsePipes,
   UseGuards,
   Req,
-  
+
 } from '@nestjs/common';
 
 import { ScheduleService } from './schedule.service';
@@ -108,9 +108,9 @@ export class ScheduleController {
 
   }
   @Patch('parametros/:pk')
-async updateScheduleParam(@Param('pk') pk: string, @Body() body: UpdateScheduleParamDto, @Req() req:any) {
-  return this.scheduleService.updateScheduleParam(body,req.user.sub);
-}
+  async updateScheduleParam(@Param('pk') pk: string, @Body() body: UpdateScheduleParamDto, @Req() req: any) {
+    return this.scheduleService.updateScheduleParam(body, req.user.sub);
+  }
 
   @Get('with-permission')
   @ApiOperation({
@@ -207,14 +207,12 @@ async updateScheduleParam(@Param('pk') pk: string, @Body() body: UpdateScheduleP
   }
 
   // ================ CRIAÇÃO (O QUE ESTAVA A DAR ERRO) ================
-  @Post(':userId')
+  @Post()
   @RequiredPermissions(PermissionTypeDetails.CRIAR_HORARIO.sigla)
   @ApiOperation({ summary: 'Criar novo horário de uma UC' })
-  @ApiParam({ name: 'userId', type: Number, description: 'ID do usuário' })
   @ApiResponse({ status: 201, description: 'Horário criado com sucesso.' })
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
   async create(
-    @Param('userId', ParseIntPipe) userId: number,
     @Body(ValidationPipe) createScheduleDto: CreateScheduleDto,
     @Req() req: any
   ) {
@@ -236,12 +234,10 @@ async updateScheduleParam(@Param('pk') pk: string, @Body() body: UpdateScheduleP
   }
 
   // ================ ATUALIZAÇÃO ================
-  @Put(':userId/:id')
+  @Put('/:id')
   @ApiOperation({ summary: 'Atualizar horário de uma UC' })
-  @ApiParam({ name: 'userId', type: Number })
   @ApiParam({ name: 'id', type: Number })
   async update(
-    @Param('userId', ParseIntPipe) userId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body(ValidationPipe) updateScheduleDto: UpdateScheduleDto,
     @Req() req: any
