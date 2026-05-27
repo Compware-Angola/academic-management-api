@@ -14,19 +14,24 @@ import { FindPrazosMatricula } from './dto/find-prazos-matricula.dto';
 import { definirSemestre } from './util/definir-semestre';
 import { CreateCalendarActivityDto } from './dto/create-calendar-activity.dto';
 import { FindCalendarActivitiesDto } from './dto/find-calendar-activities.dto';
+import { FindAcademicActivityTermsDto } from './dto/find-academic-activity-terms.dto';
+import { UpdateAcademicActivityTermDto } from './dto/update-academic-activity-term.dto';
 
 @Injectable()
 export class AcademicActivitiesService {
   constructor(private readonly dataSource: DataSource) {}
 
-  private getCodigoUtilizador(user: DecodedUserPayload): number {
+  private getCodigoUtilizador(
+    user: DecodedUserPayload,
+    codigoUtilizadorBody?: number,
+  ): number {
     return Number(
       user?.sub ??
         user?.userId ??
         user?.PK_UTILIZADOR ??
         user?.pk_utilizador ??
         user?.id ??
-        2435,
+        codigoUtilizadorBody,
     );
   }
 
@@ -189,6 +194,147 @@ export class AcademicActivitiesService {
     };
   }
 
+  async findAcademicActivityTerms({
+    anolectivo,
+    tpcandidatura,
+    tpprazo,
+  }: FindAcademicActivityTermsDto) {
+    const prazos = await this.dataSource.query(
+      `
+      SELECT
+        pz.PK_PRAZO AS prazo_id,
+        pz.OBSERVACAO AS observacao,
+        pz.FK_TIPO_AVALIACAO AS tipo_avaliacao_id,
+        pz.DATA_INICIO AS data_inicio,
+        pz.DATA_FIM AS data_fim,
+        tv.DESIGNACAO AS tipo_avaliacao,
+        ut.NOME AS criado_por_nome
+      FROM FK2_MCAL_TB_PRAZO pz
+      LEFT JOIN FK2_MCAL_TB_TIPO_AVALIACAO tv
+        ON pz.FK_TIPO_AVALIACAO = tv.PK_TIPO_AVALIACAO
+      LEFT JOIN FK2_MCA_TB_UTILIZADOR ut
+        ON ut.PK_UTILIZADOR = pz.FK_CREATED_BY
+      WHERE pz.FK_ANO_LECTIVO = :anolectivo
+        AND pz.FK_TIPO_PRAZO = :tpprazo
+        AND pz.TIPO_CANDIDATURA = :tpcandidatura
+        AND NVL(pz.ACTIVE_STATE, 1) = 1
+      ORDER BY pz.CREATED_AT DESC
+      `,
+      { anolectivo, tpprazo, tpcandidatura } as any,
+    );
+
+    return {
+      prazos: toLowerCaseKeys(prazos),
+    };
+  }
+
+  async updateAcademicActivityTerm(
+    pkPrazo: number,
+    body: UpdateAcademicActivityTermDto,
+  ) {
+    const {
+      observacao,
+      fk_semestre,
+      data_inicio,
+      data_fim,
+      fk_tipo_avaliacao,
+      fk_tipo_prazo,
+      tipo_candidatura,
+    } = body;
+
+    const dataInicio = new Date(data_inicio);
+    const dataFim = new Date(data_fim);
+
+    if (Number.isNaN(dataInicio.getTime()) || Number.isNaN(dataFim.getTime())) {
+      throw new BadRequestException('Data de início ou data de fim inválida');
+    }
+
+    if (dataInicio > dataFim) {
+      throw new BadRequestException('Data início maior que data fim');
+    }
+
+    const [prazo] = await this.dataSource.query(
+      `
+      SELECT PK_PRAZO
+      FROM FK2_MCAL_TB_PRAZO
+      WHERE PK_PRAZO = :pkPrazo
+        AND NVL(ACTIVE_STATE, 1) = 1
+      FETCH FIRST 1 ROWS ONLY
+      `,
+      { pkPrazo } as any,
+    );
+
+    if (!prazo) {
+      throw new NotFoundException('Prazo académico não encontrado');
+    }
+
+    await this.dataSource.query(
+      `
+      UPDATE FK2_MCAL_TB_PRAZO
+      SET OBSERVACAO = :observacao,
+          FK_SEMESTRE = :fkSemestre,
+          DATA_INICIO = :dataInicio,
+          DATA_FIM = :dataFim,
+          FK_TIPO_AVALIACAO = :fkTipoAvaliacao,
+          FK_TIPO_PRAZO = :fkTipoPrazo,
+          TIPO_CANDIDATURA = :tipoCandidatura,
+          UPDATED_AT = SYSDATE
+      WHERE PK_PRAZO = :pkPrazo
+        AND NVL(ACTIVE_STATE, 1) = 1
+      `,
+      {
+        pkPrazo,
+        observacao: observacao ?? null,
+        fkSemestre: fk_semestre,
+        dataInicio,
+        dataFim,
+        fkTipoAvaliacao: fk_tipo_avaliacao ?? null,
+        fkTipoPrazo: fk_tipo_prazo,
+        tipoCandidatura: tipo_candidatura,
+      } as any,
+    );
+
+    return {
+      pk_prazo: pkPrazo,
+      success: true,
+      message: 'Prazo académico editado com sucesso',
+    };
+  }
+
+  async deleteAcademicActivityTerm(pkPrazo: number) {
+    const [prazo] = await this.dataSource.query(
+      `
+      SELECT PK_PRAZO
+      FROM FK2_MCAL_TB_PRAZO
+      WHERE PK_PRAZO = :pkPrazo
+        AND NVL(ACTIVE_STATE, 1) = 1
+      FETCH FIRST 1 ROWS ONLY
+      `,
+      { pkPrazo } as any,
+    );
+
+    if (!prazo) {
+      throw new NotFoundException('Prazo académico não encontrado');
+    }
+
+    await this.dataSource.query(
+      `
+      UPDATE FK2_MCAL_TB_PRAZO
+      SET ACTIVE_STATE = 0,
+          UPDATED_AT = SYSDATE
+      WHERE PK_PRAZO = :pkPrazo
+        AND NVL(ACTIVE_STATE, 1) = 1
+      `,
+      { pkPrazo } as any,
+    );
+
+    return {
+      pk_prazo: pkPrazo,
+      success: true,
+      message: 'Prazo académico eliminado com sucesso',
+    };
+  }
+
   async createCalendarActivity(
     body: CreateCalendarActivityDto,
     user: DecodedUserPayload,
@@ -198,11 +344,15 @@ export class AcademicActivitiesService {
       codigo_ano_lectivo,
       codigo_tipo_candidatura,
       codigo_tipo_calendario,
+      codigo_utilizador,
       data_inicio,
       data_fim,
     } = body;
 
-    const codigoUtilizador = this.getCodigoUtilizador(user);
+    const codigoUtilizador = this.getCodigoUtilizador(
+      user,
+      codigo_utilizador,
+    );
 
     if (!codigoUtilizador) {
       throw new UnauthorizedException('Utilizador autenticado não encontrado');
@@ -352,11 +502,15 @@ export class AcademicActivitiesService {
       codigo_ano_lectivo,
       codigo_tipo_candidatura,
       codigo_tipo_calendario,
+      codigo_utilizador,
       data_inicio,
       data_fim,
     } = body;
 
-    const codigoUtilizador = this.getCodigoUtilizador(user);
+    const codigoUtilizador = this.getCodigoUtilizador(
+      user,
+      codigo_utilizador,
+    );
 
     if (!codigoUtilizador) {
       throw new UnauthorizedException('Utilizador autenticado não encontrado');

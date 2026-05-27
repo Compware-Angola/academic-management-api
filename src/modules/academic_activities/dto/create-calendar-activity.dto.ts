@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsDateString, IsInt, IsNotEmpty, IsString } from 'class-validator';
+import {
+  IsDateString,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateCalendarActivityDto {
   @ApiProperty({
@@ -49,4 +55,13 @@ export class CreateCalendarActivityDto {
   @IsDateString()
   @IsNotEmpty()
   data_fim: string;
+
+  @ApiProperty({
+    description: 'Código do utilizador enviado pelo frontend durante compatibilidade com o fluxo antigo',
+    example: 2435,
+    required: false,
+  })
+  @IsInt()
+  @IsOptional()
+  codigo_utilizador?: number;
 }

@@ -25,8 +25,10 @@ import { HttpService } from '@nestjs/axios/dist/http.service';
 import { FindPrazosMatricula } from './dto/find-prazos-matricula.dto';
 import { CreateCalendarActivityDto } from './dto/create-calendar-activity.dto';
 import { FindCalendarActivitiesDto } from './dto/find-calendar-activities.dto';
+import { FindAcademicActivityTermsDto } from './dto/find-academic-activity-terms.dto';
+import { UpdateAcademicActivityTermDto } from './dto/update-academic-activity-term.dto';
 
-//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('academic-activities')
 export class AcademicActivitiesController {
   constructor(
@@ -79,6 +81,16 @@ export class AcademicActivitiesController {
     return this.academicActivitiesService.deleteCalendarActivity(codigo);
   }
 
+  @Get('terms')
+  @ApiOperation({ summary: 'Listar prazos académicos' })
+  @ApiResponse({ status: 200, description: 'Prazos académicos listados com sucesso' })
+  async findAcademicActivityTerms(
+    @Query(new ValidationPipe({ transform: true }))
+    query: FindAcademicActivityTermsDto,
+  ) {
+    return this.academicActivitiesService.findAcademicActivityTerms(query);
+  }
+
   @Post('terms')
   @ApiOperation({ summary: 'Criar prazo académico' })
   @ApiResponse({ status: 201, description: 'Prazo criado com sucesso' })
@@ -97,6 +109,30 @@ export class AcademicActivitiesController {
       fkOperacaoLog: 1,
       ip: ip,
     });
+  }
+
+  @Put('terms/:pkPrazo')
+  @ApiOperation({ summary: 'Editar prazo académico' })
+  @ApiResponse({ status: 200, description: 'Prazo académico editado com sucesso' })
+  @ApiResponse({ status: 400, description: 'Erro de validação' })
+  async updateAcademicActivityTerm(
+    @Param('pkPrazo', ParseIntPipe) pkPrazo: number,
+    @Body(new ValidationPipe({ transform: true }))
+    dto: UpdateAcademicActivityTermDto,
+  ) {
+    return this.academicActivitiesService.updateAcademicActivityTerm(
+      pkPrazo,
+      dto,
+    );
+  }
+
+  @Delete('terms/:pkPrazo')
+  @ApiOperation({ summary: 'Eliminar prazo académico' })
+  @ApiResponse({ status: 200, description: 'Prazo académico eliminado com sucesso' })
+  async deleteAcademicActivityTerm(
+    @Param('pkPrazo', ParseIntPipe) pkPrazo: number,
+  ) {
+    return this.academicActivitiesService.deleteAcademicActivityTerm(pkPrazo);
   }
 
   @Delete(':id')
