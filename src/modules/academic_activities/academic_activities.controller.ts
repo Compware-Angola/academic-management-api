@@ -28,7 +28,7 @@ export class AcademicActivitiesController {
     private readonly academicActivitiesService: AcademicActivitiesService,
     private readonly promptToCreateAndEditService: promptToCreateAndEditService,
     private readonly httpService: HttpService,
-  ) {}
+  ) { }
   @Post('terms')
   @ApiOperation({ summary: 'Criar prazo académico' })
   @ApiResponse({ status: 201, description: 'Prazo criado com sucesso' })
@@ -62,9 +62,25 @@ export class AcademicActivitiesController {
     return this.academicActivitiesService.findMarcacaoProvaPrazo(query);
   }
   @Get('prompt-to-create-and-edit/schedule')
-  promptToCreateAndEditSchedule(@Query('anoLectivo') anoLectivo: number) {
+  @ApiQuery({
+    name: 'anoLectivo',
+    type: Number,
+    required: true,
+    description: 'Ano Lectivo (ex: 23)',
+  })
+  @ApiQuery({
+    name: 'semestre',
+    type: Number,
+    required: false,
+    description: 'Semestre (1 ou 2), opcional',
+  })
+  promptToCreateAndEditSchedule(
+    @Query('anoLectivo') anoLectivo: number,
+    @Query('semestre') semestre: number,
+  ) {
     return this.promptToCreateAndEditService.promptToCreateAndEditSchedule(
       anoLectivo,
+      semestre,
     );
   }
   @Get('prompt-to-create-and-edit/exam')
