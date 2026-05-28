@@ -36,7 +36,7 @@ export class ProvasService {
              P.ANO_LECTIVO_ID,
              A.DESIGNACAO AS ANO_LETIVO,
              P.USER_ID,
-             U.NAME AS USUARIO,
+             U.NOME AS USUARIO,
              P.CREATED_AT,
              P.UPDATED_AT,
              P.STATUS_,
@@ -49,7 +49,7 @@ export class ProvasService {
              P.CURSOS,
              P.ID
       FROM FK2_PROVAS P
-      JOIN FK2_USERS U ON P.USER_ID = U.ID
+      JOIN FK2_MCA_TB_UTILIZADOR U ON P.USER_ID = U.PK_UTILIZADOR
       JOIN FK2_TB_ANO_LECTIVO A ON P.ANO_LECTIVO_ID = A.CODIGO
       WHERE 1=1
     `;
@@ -92,7 +92,7 @@ export class ProvasService {
     let countQuery = `
       SELECT COUNT(*) AS TOTAL
       FROM FK2_PROVAS P
-      JOIN FK2_USERS U ON P.USER_ID = U.ID
+      JOIN FK2_MCA_TB_UTILIZADOR U ON P.USER_ID = U.PK_UTILIZADOR
       JOIN FK2_TB_ANO_LECTIVO A ON P.ANO_LECTIVO_ID = A.CODIGO
       WHERE 1=1
     `;
@@ -204,7 +204,7 @@ export class ProvasService {
              P.ANO_LECTIVO_ID,
              A.DESIGNACAO AS ANO_LETIVO,
              P.USER_ID,
-             U.NAME AS USUARIO,
+             U.NOME AS USUARIO,
              P.CREATED_AT,
              P.UPDATED_AT,
              P.STATUS_,
@@ -217,7 +217,7 @@ export class ProvasService {
              P.CURSOS,
              P.ID
       FROM FK2_PROVAS P
-      JOIN FK2_USERS U ON P.USER_ID = U.ID
+      JOIN FK2_MCA_TB_UTILIZADOR U ON P.USER_ID = U.PK_UTILIZADOR
       JOIN FK2_TB_ANO_LECTIVO A ON P.ANO_LECTIVO_ID = A.CODIGO
       WHERE P.ID = :1
     `;
@@ -387,7 +387,7 @@ export class ProvasService {
     }
 
     const userExists = await this.dataSource.query(
-      `SELECT ID FROM FK2_USERS WHERE ID = :1`,
+      `SELECT PK_UTILIZADOR FROM FK2_MCA_TB_UTILIZADOR WHERE PK_UTILIZADOR = :1`,
       [userId],
     );
 
