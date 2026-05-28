@@ -150,7 +150,7 @@ export class StudentNoteService {
 
             WHERE 1=1
                 ---AND ftgca.CODIGO_GRADE_CURRICULAR = :grade
-                AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+               AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR <> 5
                 AND ftgca.CODIGO_MATRICULA = :numeroDeMatricula
                 AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo
               AND (
@@ -382,7 +382,7 @@ export class StudentNoteService {
           } else if (nota2f!.NOTA! < nota_min_segunda_freq) {
             media = this.round(
               nota1f!.NOTA! * (peso_primeira_freq / 100) +
-                nota2f!.NOTA! * (peso_segunda_freq / 100),
+              nota2f!.NOTA! * (peso_segunda_freq / 100),
             );
             resultado = EstadoAvaliacaoEnum.RECURSO;
             descricao =
@@ -390,7 +390,7 @@ export class StudentNoteService {
           } else {
             const mediaFreq = this.round(
               nota1f!.NOTA! * (peso_primeira_freq / 100) +
-                nota2f!.NOTA! * (peso_segunda_freq / 100),
+              nota2f!.NOTA! * (peso_segunda_freq / 100),
             );
 
             if (hasPratica) {
@@ -533,7 +533,7 @@ export class StudentNoteService {
 
             media = this.round(
               notaTeorica * ((100 - peso_pratica) / 100) +
-                notaPra!.NOTA! * (peso_pratica / 100),
+              notaPra!.NOTA! * (peso_pratica / 100),
             );
 
             if (media >= 10) {

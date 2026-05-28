@@ -9,12 +9,18 @@ import {
 import { DecodedUserPayload } from '../common/types/token-validation-response.interface';
 import { promptToCreateAndEditService } from '../academic_activities/prompt-to-create-and-edit.service';
 import { GetStudentSummaryDto } from './dto/GetStudentSummaryDto';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 @Injectable()
 export class NoteReleaseService {
   constructor(
+
+    @InjectQueue('final_average')
+    private readonly finalAverageQueue: Queue,
     private readonly dataSource: DataSource,
     private readonly promptToCreateAndEditService: promptToCreateAndEditService,
+
   ) { }
 
   async findstudents(filters: StudentFiltersDto) {
@@ -298,6 +304,8 @@ export class NoteReleaseService {
             refUtilizador: JSON.stringify(refUtilizador),
           } as any,
         );
+        //Chama o processor  se for P2 ou recurso ou exame 
+        // await this.queueFinalAverage(gradeCurricularAluno);
       }
     }
 
@@ -512,5 +520,29 @@ export class NoteReleaseService {
       turno,
       search: search ? `%${search}%` : null,
     } as any);
+  }
+
+
+  async queueFinalAverage(
+    codigoGradeAluno: number,
+
+  ): Promise<{ message: string; taskId: string | undefined }> {
+    const job = await this.finalAverageQueue.add(
+      'processFinalAverage',
+      {
+        codigoGradeAluno
+
+      },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        attempts: 3,
+        backoff: 5000,
+      },
+    );
+    return {
+      message: 'Processamento iniciado: Calcular média final ...',
+      taskId: job.id,
+    };
   }
 }
