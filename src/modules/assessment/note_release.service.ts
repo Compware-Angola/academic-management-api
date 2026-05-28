@@ -305,7 +305,7 @@ export class NoteReleaseService {
           } as any,
         );
         //Chama o processor  se for P2 ou recurso ou exame 
-        await this.queueFinalAverage(gradeCurricularAluno);
+        // await this.queueFinalAverage(gradeCurricularAluno);
       }
     }
 
