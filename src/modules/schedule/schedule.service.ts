@@ -32,6 +32,7 @@ export class ScheduleService {
     @InjectQueue('schedule_service')
     private readonly scheduleQueue: Queue,
 
+
     private readonly dataSource: DataSource,
     private readonly promptToCreateAndEditService: promptToCreateAndEditService,
   ) { }
@@ -2937,4 +2938,6 @@ WHERE tu.PK_UTILIZADOR = :1
       taskId: job.id,
     };
   }
+
+
 }
