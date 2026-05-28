@@ -129,10 +129,11 @@ export class AssessmentController {
       user,
     );
     await AccessLogHelper.logAccess(this.httpService, {
-    descricao: `Lançamento em massa de ${dto.items.length} nota(s) 
+      descricao: `Lançamento em massa de ${dto.items.length} nota(s) 
             | Tipo Avaliação: ${dto.items[0]?.tipoAvaliacao || '—'} 
             | Época: ${dto.items[0]?.epoca || '—'}
-            | Total de alunos: ${dto.items.length}`, fkAcesso: 7,
+            | Total de alunos: ${dto.items.length}`,
+      fkAcesso: 7,
       fkUtilizadorResponsavel: req.user.sub,
       ip: ip,
     });
@@ -298,10 +299,10 @@ export class AssessmentController {
   filtrarAlunos(@Query() filtro: StudentFiltersDto) {
     return this.noteReleaseService.findstudents(filtro);
   }
-@Get('summary')
-getStudentsSummary(@Query() filters: GetStudentSummaryDto) {
-  return this.noteReleaseService.getStudentsSummary(filters);
-}
+  @Get('summary')
+  getStudentsSummary(@Query() filters: GetStudentSummaryDto) {
+    return this.noteReleaseService.getStudentsSummary(filters);
+  }
   @Put('parametros-avaliacoes-attendance-list/:codigo')
   @ApiOperation({
     summary: 'Atualiza um parâmetro de avaliação (attendance list)',

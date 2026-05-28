@@ -23,8 +23,9 @@ export class StudentEvaluationDto {
 
   @ApiProperty()
   @IsNumber()
+  @IsOptional()
   @Type(() => Number)
-  nota: number;                    // ← obrigatório (remove o ?)
+  nota?: number; // ← obrigatório (remove o ?)
 
   @ApiProperty()
   @IsInt()
@@ -39,7 +40,7 @@ export class StudentEvaluationDto {
   @ApiProperty()
   @IsInt()
   @Type(() => Number)
-  tipoAvaliacao: number;           // ← obrigatório
+  tipoAvaliacao: number; // ← obrigatório
 
   @ApiProperty({ required: false })
   @IsOptional()
