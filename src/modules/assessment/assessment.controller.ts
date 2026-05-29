@@ -102,7 +102,7 @@ export class AssessmentController {
     private readonly viewNotesService: ViewNotesService,
     private httpService: HttpService,
     private readonly calendarioProvaService: BookTestService,
-  ) {}
+  ) { }
 
   @Post('upsert')
   @ApiOperation({
@@ -128,6 +128,7 @@ export class AssessmentController {
       dto,
       user,
     );
+
     await AccessLogHelper.logAccess(this.httpService, {
       descricao: `Lançamento em massa de ${dto.items.length} nota(s) 
             | Tipo Avaliação: ${dto.items[0]?.tipoAvaliacao || '—'} 

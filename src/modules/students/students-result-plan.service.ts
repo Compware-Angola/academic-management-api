@@ -129,9 +129,6 @@ export class StudentsResultPlanService {
 
   private async findGradeCurso(params: FindGradeCursoDTO) {
     const { codigoCurso, codigoMatricula } = params;
-
-    // ✅ MELHORIA 3: remove o OR com TRIM/UPPER do JOIN (impede uso de índice)
-    // A reconciliação por nome de disciplina é feita em JS depois
     const sql = `
       WITH grade_base AS (
         SELECT

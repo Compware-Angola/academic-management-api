@@ -9,6 +9,7 @@ import { OcupacaoService } from './services/ocupacao.service';
 import { ProfissaoService } from './services/profissao.service';
 import { NacionalidadeService } from './services/nacionalidade.service';
 import { NecessidadeEspecialService } from './services/necessidade-especial.service';
+import { AnoLectivoConfirmadosService } from './services/anolectivo-confirmados.service';
 
 @Module({
   controllers: [DropdownFiltersController],
@@ -21,6 +22,7 @@ import { NecessidadeEspecialService } from './services/necessidade-especial.serv
     ProfissaoService,
     NacionalidadeService,
     NecessidadeEspecialService,
+    AnoLectivoConfirmadosService,
   ],
 })
 export class DropdownFiltersModule {}
