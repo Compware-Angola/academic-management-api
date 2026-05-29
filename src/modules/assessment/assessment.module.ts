@@ -20,15 +20,23 @@ import { ViewNotesService } from './view-notes.service';
 import { BookTestService } from './book_test.service';
 import { HttpModule } from '@nestjs/axios';
 import { promptToCreateAndEditService } from '../academic_activities/prompt-to-create-and-edit.service';
+import { BullModule } from '@nestjs/bullmq';
 
 @Module({
   imports: [TypeOrmModule.forFeature([AcademicYear])
-  
-  
-  ,HttpModule.register({
-    timeout: 5000,
-    maxRedirects: 5
-  })],
+
+
+    , HttpModule.register({
+      timeout: 5000,
+      maxRedirects: 5
+    }),
+  BullModule.registerQueue({
+    name: 'final_average',
+  }),
+
+
+  ],
+
   controllers: [AssessmentController],
   providers: [
     AttendanceListService,
@@ -50,4 +58,4 @@ import { promptToCreateAndEditService } from '../academic_activities/prompt-to-c
     BookTestService,
   ],
 })
-export class AssessmentModule {}
+export class AssessmentModule { }

@@ -40,7 +40,7 @@ export class FindDisciplinaAlunoDTO {
   @IsOptional()
   @IsInt()
   @Type(() => Number)
-  classes: number;
+  classes?: number;
 
   @ApiPropertyOptional({
     description: 'Filtrar por matricula',

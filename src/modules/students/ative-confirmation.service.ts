@@ -21,7 +21,8 @@ export class AtiveConfirmationService {
             //Vamos criar uma nova confirmação
             const nextClass = await this.getNextClass(Number(matricula));
             const canal = await this.getCanal(matricula) || 1;
-            await this.createConfirmation(matricula, anoLetivo, semestre.semestre || 1, nextClass, canal);
+            const confirmation = await this.createConfirmation(matricula, anoLetivo, semestre.semestre || 1, nextClass, canal);
+            await this.updateGradeCurricular(matricula, anoLetivo, semestre.semestre || 1, confirmation.codigoConfirmacao);
             return { message: `Matricula ${matricula} confirmada com sucesso` };
 
         }
@@ -32,7 +33,8 @@ export class AtiveConfirmationService {
         if (student.ESTADO === 0 && semestre?.semestre && semestre?.semestre > studentSemestre) {
             const nextClass = await this.getNextClass(Number(matricula));
             const canal = await this.getCanal(matricula) || 1;
-            await this.createConfirmation(matricula, anoLetivo, semestre.semestre || 1, nextClass, canal);
+            const confirmation = await this.createConfirmation(matricula, anoLetivo, semestre.semestre || 1, nextClass, canal);
+            await this.updateGradeCurricular(matricula, anoLetivo, semestre.semestre || 1, confirmation.codigoConfirmacao);
             return { message: `Matricula ${matricula} confirmada com sucesso` };
         }
 
@@ -89,8 +91,8 @@ export class AtiveConfirmationService {
             } as any,
         );
 
-        const codConfirmacao = result.outId[0];
-        return { message: `Matricula ${matricula} confirmada com sucesso`, codConfirmacao };
+        const codigoConfirmacao = result.outId[0];
+        return { message: `Matricula ${matricula} confirmada com sucesso`, codigoConfirmacao };
     }
     private async getNextClass(matricula: number) {
         const query = `
@@ -132,10 +134,12 @@ export class AtiveConfirmationService {
             return 1;
         }
 
-        if (classeAtual >= duracao) {
+        if (classeAtual > duracao) {
             throw new BadRequestException(
                 `Matrícula ${matricula} já atingiu a classe máxima (${duracao})`
             );
+        } else if (classeAtual === duracao) {
+            return classeAtual;
         }
 
         return classeAtual;
@@ -155,5 +159,36 @@ export class AtiveConfirmationService {
         return result[0].CANAL;
     }
 
+    // ATUALIZA TODAS GRADE CURRICULAR DO ESTUDANTE DO ANO LECRIVO E SEMETRE CRIADO E PASSAR A NOVA CONFIRMACAO !
+    // ATUALIZA TODAS AS GRADES CURRICULARES DO ESTUDANTE
+    // DO ANO LECTIVO E SEMESTRE INFORMADO
+    async updateGradeCurricular(
+        matricula: number,
+        anoLetivo: number,
+        semestre: number,
+        confirmacao: number,
+    ) {
+        const query = `
+    UPDATE FK2_TB_GRADE_CURRICULAR_ALUNO gca
+    SET gca.CODIGO_CONFIRMACAO = :confirmacao
+    WHERE gca.CODIGO_MATRICULA = :matricula
+      AND gca.CODIGO_ANO_LECTIVO = :anoLetivo
+      AND EXISTS (
+        SELECT 1
+        FROM FK2_TB_GRADE_CURRICULAR ftgc
+        WHERE ftgc.CODIGO = gca.CODIGO_GRADE_CURRICULAR
+          AND ftgc.CODIGO_SEMESTRE = :semestre
+      )
+  `;
+
+        const result = await this.dataSource.query(query, {
+            matricula,
+            anoLetivo,
+            semestre,
+            confirmacao,
+        } as any);
+
+        return result;
+    }
 
 }
