@@ -2135,7 +2135,11 @@ WHERE M."CODIGO" = :codigoMatricula`;
         `
       SELECT
         NVL((
-          SELECT COUNT(*)
+          SELECT COUNT(DISTINCT
+            GC.CODIGO_DISCIPLINA || '-' ||
+            GC.CODIGO_CLASSE || '-' ||
+            GC.CODIGO_SEMESTRE
+          )
           FROM FK2_TB_GRADE_CURRICULAR_ALUNO GCA
           INNER JOIN FK2_TB_GRADE_CURRICULAR GC
             ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
@@ -2144,7 +2148,11 @@ WHERE M."CODIGO" = :codigoMatricula`;
             AND GC.CODIGO_CURSO = :codigoCurso
         ), 0) AS TOTAL_FEITAS,
         NVL((
-          SELECT COUNT(*)
+          SELECT COUNT(DISTINCT
+            GC.CODIGO_DISCIPLINA || '-' ||
+            GC.CODIGO_CLASSE || '-' ||
+            GC.CODIGO_SEMESTRE
+          )
           FROM FK2_TB_GRADE_CURRICULAR GC
           WHERE GC.CODIGO_CURSO = :codigoCurso
             AND GC.STATUS_ = 1
@@ -2346,6 +2354,119 @@ WHERE M."CODIGO" = :codigoMatricula`;
       };
     });
   }
+
+  async desdiplomarAluno(
+    body: {
+      codigoMatricula: number;
+      motivo?: string;
+    },
+    usuarioLogado: any,
+  ) {
+    const { codigoMatricula, motivo } = body;
+
+    if (!codigoMatricula) {
+      throw new BadRequestException('Código da matrícula é obrigatório');
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const matriculaResult = await manager.query(
+        `
+      SELECT
+        M.CODIGO,
+        M.ESTADO_MATRICULA
+      FROM FK2_TB_MATRICULAS M
+      WHERE M.CODIGO = :codigoMatricula
+      FOR UPDATE
+      `,
+        { codigoMatricula } as any,
+      );
+
+      if (!matriculaResult?.length) {
+        throw new NotFoundException('Matrícula não encontrada');
+      }
+
+      const matricula = matriculaResult[0];
+      const estadoMatricula = String(
+        matricula.ESTADO_MATRICULA || '',
+      ).toLowerCase();
+
+      if (estadoMatricula !== 'diplomado') {
+        throw new BadRequestException('O estudante não está diplomado');
+      }
+
+      const conclusaoResult = await manager.query(
+        `
+      SELECT CODIGO
+      FROM FK2_CONCLUSAO_CURSO_ALUNO
+      WHERE CODIGO_MATRICULA = :codigoMatricula
+      FOR UPDATE
+      `,
+        { codigoMatricula } as any,
+      );
+
+      if (!conclusaoResult?.length) {
+        throw new BadRequestException(
+          'Conclusão do curso não encontrada para esta matrícula',
+        );
+      }
+
+      await manager.query(
+        `
+      DELETE FROM FK2_CONCLUSAO_CURSO_ALUNO
+      WHERE CODIGO_MATRICULA = :codigoMatricula
+      `,
+        { codigoMatricula } as any,
+      );
+
+      await manager.query(
+        `
+      UPDATE FK2_TB_MATRICULAS
+      SET ESTADO_MATRICULA = 'activo',
+          UPDATED_AT = SYSDATE
+      WHERE CODIGO = :codigoMatricula
+      `,
+        { codigoMatricula } as any,
+      );
+
+      const motivoLimpo = motivo?.trim();
+      const descricao = motivoLimpo
+        ? `Diploma anulado: ${motivoLimpo}`
+        : 'Diploma anulado';
+
+      await manager.query(
+        `
+      INSERT INTO FK2_MGA_TB_LOG_DIPLOMAR (
+        DESCRICAO,
+        FK_MATRICULA,
+        FK_UTILIZADOR_RESPONSAVEL,
+        CREATED_AT
+      ) VALUES (
+        :descricao,
+        :codigoMatricula,
+        :utilizadorResponsavel,
+        SYSDATE
+      )
+      `,
+        {
+          descricao,
+          codigoMatricula,
+          utilizadorResponsavel: usuarioLogado?.sub ?? null,
+        } as any,
+      );
+
+      return {
+        success: true,
+        message: 'Diploma do estudante anulado com sucesso',
+        data: {
+          codigoMatricula,
+          estadoMatricula: 'activo',
+          conclusaoCursoRemovida: true,
+          descricaoLog: descricao,
+        },
+      };
+    });
+  }
+
   async gerarDiploma(
     body: {
       codigoMatricula: number;
