@@ -18,7 +18,11 @@ import { StudentsProvasController } from './students-provas.controller';
 import { HttpModule } from '@nestjs/axios';
 import { PrazosService } from '../prazos/prazos.service';
 import { AtiveConfirmationService } from './ative-confirmation.service';
+
+import { ChangeShiftController } from './change-shift.controller';
+import { ChangeShiftService } from './change-shift.service';
 import { EquivalenceTFCMigration } from './equivalence-tfc-migration.service';
+
 
 @Module({
   imports: [
@@ -33,6 +37,7 @@ import { EquivalenceTFCMigration } from './equivalence-tfc-migration.service';
     BeginningStudentProcessController,
     PreRegistrationController,
     StudentsProvasController,
+    ChangeShiftController,
   ],
 
   providers: [
@@ -48,7 +53,11 @@ import { EquivalenceTFCMigration } from './equivalence-tfc-migration.service';
     StudentsProvasService,
     PrazosService,
     AtiveConfirmationService,
+
+    ChangeShiftService,
+
     EquivalenceTFCMigration,
+
   ],
 })
-export class StudentsModule {}
+export class StudentsModule { }

@@ -48,6 +48,7 @@ import { FindStudentClassInfoDTO } from './dto/find-student-info.dto';
 import { DefinirEspecialidadeDTO } from './dto/definir-especialidade.dto';
 
 import { DiplomarAlunoDTO } from './dto/diplomar-aluno.dto';
+import { DesdiplomarAlunoDTO } from './dto/desdiplomar-aluno.dto';
 import { GerarDiplomaDTO } from './dto/gerar-diploma.dto';
 
 import { GerarCertificadoDto } from './dto/gerar-certificado.dto';
@@ -58,6 +59,8 @@ import { ListarDiplomadosDTO } from './dto/listar-diplomados-dto';
 import { HttpService } from '@nestjs/axios';
 import { AccessLogHelper } from '../common/helpers/access-log.helper';
 import { AtiveConfirmationService } from './ative-confirmation.service';
+import { RequiredPermissions } from '../common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { EquivalenceTFCMigration } from './equivalence-tfc-migration.service';
 import { CreateEquivalenceTFCMigration } from './dto/create-equivalence-tfc-migration';
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -404,6 +407,22 @@ export class StudentsController {
     return result;
   }
 
+  @Put('desdiplomar')
+  @RequiredPermissions(PermissionTypeDetails.DIPLOMAR.sigla)
+  async desdiplomarAluno(
+    @Body(ValidationPipe) dto: DesdiplomarAlunoDTO,
+    @Req() req: any,
+  ) {
+    const result = await this.studentsService.desdiplomarAluno(dto, req.user);
+
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} anulou diploma do estudante com codigo de matricula ${dto.codigoMatricula}`,
+    );
+
+    return result;
+  }
+
   @Post('gerar-diploma')
   async gerarDiploma(@Body() dto: GerarDiplomaDTO, @Req() req: any) {
     const result = await this.studentsService.gerarDiploma(dto);
@@ -480,6 +499,23 @@ export class StudentsController {
   })
   findMigrationNote(@Param('matricula', ParseIntPipe) matricula: number) {
     return this.equivalenceTFMigration.findAll(matricula);
+  }
+
+  @Delete('equivalence-migration-tfc/:codigoGradeAluno')
+  @ApiOperation({ summary: 'Obter notas equivalencia' })
+  @ApiResponse({
+    status: 200,
+    description: 'Histórico acadêmico do estudante obtido com sucesso',
+  })
+  async deleteMigration(
+    @Param('codigoGradeAluno', ParseIntPipe) codigoGradeAluno: number,
+    @Req() req: any,
+  ) {
+    await this.equivalenceTFMigration.delete(codigoGradeAluno);
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} eliminou a grade curricular do aluno ${codigoGradeAluno} `,
+    );
   }
 
   @Post('equivalence-migration-tfc')

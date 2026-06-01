@@ -357,6 +357,7 @@ export class EquivalenceTFCMigration {
       const statusGrade = item.nota >= 10 ? 3 : 2;
 
       if (item.codigoGradeAluno) {
+        await this.salvarHistoricoGradeCurricularAluno(item.codigoGradeAluno);
         await this.dataSource.query(sqlUpdate, {
           statusGrade,
           anoLectivo: item.anoLectivo,
@@ -391,6 +392,114 @@ export class EquivalenceTFCMigration {
         });
       }
     }
+  }
+  public async delete(codigoGradeAluno: number) {
+    await this.dataSource.query(
+      `
+      update fk2_tb_grade_curricular_aluno
+      set codigo_status_grade_curricular = 5
+      where codigo = :codigo
+    `,
+      {
+        codigo: codigoGradeAluno,
+      } as any,
+    );
+  }
+  private async salvarHistoricoGradeCurricularAluno(
+    codigoGradeCurricularAluno: number,
+  ) {
+    const [grade] = await this.dataSource.query(
+      `
+      SELECT
+        CODIGO,
+        CODIGO_GRADE_CURRICULAR,
+        TURMA,
+        CODIGO_CONFIRMACAO,
+        CODIGO_MATRICULA,
+        ESTADO,
+        NOTA,
+        CREATED_AT,
+        USER_ID,
+        CANAL,
+        CODIGO_STATUS_GRADE_CURRICULAR,
+        CODIGO_ANO_LECTIVO,
+        EPOCA,
+        OBSERVACAO,
+        UPDATED_AT,
+        EQUIVALENCIA
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO
+      WHERE CODIGO = :codigoGradeCurricularAluno
+    `,
+      {
+        codigoGradeCurricularAluno,
+      } as any,
+    );
+
+    if (!grade) {
+      throw new NotFoundException(
+        `Grade curricular do aluno ${codigoGradeCurricularAluno} não encontrada`,
+      );
+    }
+    const sqlInsert = `
+    INSERT INTO FK2_TB_GRADE_CURRICULAR_ALUNO_HISTORICO (
+      CODIGO_GRADE_CURRICULAR,
+      TURMA,
+      CODIGO_CONFIRMACAO,
+      CODIGO_MATRICULA,
+      ESTADO,
+      CREATED_AT,
+      USER_ID,
+      CANAL,
+      CODIGO_STATUS_GRADE_CURRICULAR,
+      CODIGO_ANO_LECTIVO,
+      EPOCA,
+      OBSERVACAO,
+      UPDATED_AT,
+      EQUIVALENCIA,
+      NOTA_ANTERIOR,
+      NOTA_ALTERADA,
+      MOTIVO_ALTERACAO
+    )
+    VALUES (
+      :codigoGradeCurricular,
+      :turma,
+      :codigoConfirmacao,
+      :codigoMatricula,
+      :estado,
+      :createdAt,
+      :userId,
+      :canal,
+      :codigoStatusGradeCurricular,
+      :codigoAnoLectivo,
+      :epoca,
+      :observacao,
+      :updatedAt,
+      :equivalencia,
+      :notaAnterior,
+      :notaAlterada,
+      :motivoAlteracao
+    )
+  `;
+
+    await this.dataSource.query(sqlInsert, {
+      codigoGradeCurricular: grade.CODIGO_GRADE_CURRICULAR,
+      turma: grade.TURMA,
+      codigoConfirmacao: grade.CODIGO_CONFIRMACAO,
+      codigoMatricula: grade.CODIGO_MATRICULA,
+      estado: grade.ESTADO,
+      createdAt: grade.CREATED_AT,
+      userId: grade.USER_ID,
+      canal: grade.CANAL,
+      codigoStatusGradeCurricular: grade.CODIGO_STATUS_GRADE_CURRICULAR,
+      codigoAnoLectivo: grade.CODIGO_ANO_LECTIVO,
+      epoca: grade.EPOCA,
+      observacao: grade.OBSERVACAO,
+      updatedAt: grade.UPDATED_AT,
+      equivalencia: grade.EQUIVALENCIA,
+      notaAnterior: null,
+      notaAlterada: null,
+      motivoAlteracao: `Inscrição durante o processo de Lançamento de Notas! Código Grade Curricular Aluno: ${grade.CODIGO}`,
+    } as any);
   }
   private async createGradeCurricularAluno(
     item: CreateGradeCurricularAlunoDTO,
