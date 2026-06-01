@@ -18,6 +18,8 @@ import { StudentsProvasController } from './students-provas.controller';
 import { HttpModule } from '@nestjs/axios';
 import { PrazosService } from '../prazos/prazos.service';
 import { AtiveConfirmationService } from './ative-confirmation.service';
+import { ChangeShiftController } from './change-shift.controller';
+import { ChangeShiftService } from './change-shift.service';
 
 @Module({
   imports: [
@@ -32,6 +34,7 @@ import { AtiveConfirmationService } from './ative-confirmation.service';
     BeginningStudentProcessController,
     PreRegistrationController,
     StudentsProvasController,
+    ChangeShiftController,
   ],
 
   providers: [
@@ -47,6 +50,7 @@ import { AtiveConfirmationService } from './ative-confirmation.service';
     StudentsProvasService,
     PrazosService,
     AtiveConfirmationService,
+    ChangeShiftService,
   ],
 })
-export class StudentsModule {}
+export class StudentsModule { }
