@@ -58,6 +58,8 @@ import { ListarDiplomadosDTO } from './dto/listar-diplomados-dto';
 import { HttpService } from '@nestjs/axios';
 import { AccessLogHelper } from '../common/helpers/access-log.helper';
 import { AtiveConfirmationService } from './ative-confirmation.service';
+import { EquivalenceTFCMigration } from './equivalence-tfc-migration.service';
+import { CreateEquivalenceTFCMigration } from './dto/create-equivalence-tfc-migration';
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('students')
 export class StudentsController {
@@ -69,9 +71,9 @@ export class StudentsController {
     private readonly studentsChangeCourse: StudentsChangeCourse,
     private readonly studentsResultPlanService: StudentsResultPlanService,
     private readonly ativeConfirmationService: AtiveConfirmationService,
-    private httpService: HttpService
-
-  ) { }
+    private readonly equivalenceTFMigration: EquivalenceTFCMigration,
+    private httpService: HttpService,
+  ) {}
   private log(req: any, descricao: string) {
     const user = req.user;
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
@@ -154,15 +156,17 @@ export class StudentsController {
     description: 'Senha do estudante resetada com sucesso',
     type: ResetStudentPasswordDTO,
   })
-  async resetPassword(@Body(ValidationPipe) body: ResetStudentPasswordDTO,
-    @Req() req: any,) {
-    console.log({ user: req.user })
+  async resetPassword(
+    @Body(ValidationPipe) body: ResetStudentPasswordDTO,
+    @Req() req: any,
+  ) {
+    console.log({ user: req.user });
     const result = await this.studentsService.resetPassword(body);
     this.log(
       req,
       `Utilizador ${req.user?.nome} resetou a senha do estudante com o codigo de matricula ${body.codigoMatricula}`,
     );
-    return result
+    return result;
   }
 
   @Put('contactos')
@@ -208,13 +212,12 @@ export class StudentsController {
     return result;
   }
 
-
   @Put('active-registration')
-  async ativarMatricula(
-    @Body() dto: ActivateRegistrationDTO,
-    @Req() req: any,
-  ) {
-    const result = await this.studentsService.activateRegistration(dto, req.user);
+  async ativarMatricula(@Body() dto: ActivateRegistrationDTO, @Req() req: any) {
+    const result = await this.studentsService.activateRegistration(
+      dto,
+      req.user,
+    );
 
     this.log(
       req,
@@ -228,7 +231,8 @@ export class StudentsController {
     @Param('codigoMatricula') codigoMatricula: number,
     @Req() req: any,
   ) {
-    const result = await this.ativeConfirmationService.activeConfirmation(codigoMatricula);
+    const result =
+      await this.ativeConfirmationService.activeConfirmation(codigoMatricula);
     this.log(
       req,
       `Utilizador ${req.user?.nome} Ativou a confirmação do estudante com o codigo de matricula ${codigoMatricula}`,
@@ -316,9 +320,10 @@ export class StudentsController {
   })
   async updateHorarioGradeCurricular(
     @Body(ValidationPipe) body: UpdateGradeCurricularAlunoHorarioDTO,
-    @Req() req: any
+    @Req() req: any,
   ) {
-    const result = await this.studentsService.updateHorarioGradeCurricular(body);
+    const result =
+      await this.studentsService.updateHorarioGradeCurricular(body);
 
     this.log(
       req,
@@ -365,7 +370,6 @@ export class StudentsController {
     );
 
     return result;
-
   }
 
   @Put('definir-especialidade')
@@ -374,7 +378,8 @@ export class StudentsController {
     status: 200,
     description: 'Especialidade do estudante definida com sucesso',
   })
-  async definirEspecialidade(@Body(ValidationPipe) body: DefinirEspecialidadeDTO,
+  async definirEspecialidade(
+    @Body(ValidationPipe) body: DefinirEspecialidadeDTO,
     @Req() req: any,
   ) {
     const result = await this.studentsService.definirEspecialidade(body);
@@ -439,7 +444,6 @@ export class StudentsController {
     return result;
   }
 
-
   @Get('diplomados')
   @ApiOperation({ summary: 'Listar estudantes diplomados' })
   @ApiQuery({ name: 'anoLectivo', required: true, type: Number })
@@ -466,5 +470,44 @@ export class StudentsController {
   })
   findResultadoPlano(@Param('matricula', ParseIntPipe) matricula: number) {
     return this.studentsResultPlanService.findPlan(matricula);
+  }
+
+  @Get('equivalence-migration-tfc/:matricula')
+  @ApiOperation({ summary: 'Obter notas equivalencia' })
+  @ApiResponse({
+    status: 200,
+    description: 'Histórico acadêmico do estudante obtido com sucesso',
+  })
+  findMigrationNote(@Param('matricula', ParseIntPipe) matricula: number) {
+    return this.equivalenceTFMigration.findAll(matricula);
+  }
+
+  @Delete('equivalence-migration-tfc/:codigoGradeAluno')
+  @ApiOperation({ summary: 'Obter notas equivalencia' })
+  @ApiResponse({
+    status: 200,
+    description: 'Histórico acadêmico do estudante obtido com sucesso',
+  })
+  async deleteMigration(
+    @Param('codigoGradeAluno', ParseIntPipe) codigoGradeAluno: number,
+    @Req() req: any,
+  ) {
+    await this.equivalenceTFMigration.delete(codigoGradeAluno);
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} eliminou a grade curricular do aluno ${codigoGradeAluno} `,
+    );
+  }
+
+  @Post('equivalence-migration-tfc')
+  async launchNotes(
+    @Body(ValidationPipe) body: CreateEquivalenceTFCMigration,
+    @Req() req: any,
+  ) {
+    await this.equivalenceTFMigration.saveAll(req.user.sub, body);
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} lançou nota finais do estudante ${body.matriculaId} `,
+    );
   }
 }

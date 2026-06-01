@@ -21,6 +21,7 @@ interface FindGradeCursoReturnDTO {
   codigo_disciplina: number;
   codigo_classe: number;
   classe: string;
+  codigo_grade_aluno?: number;
 }
 
 export interface FindGradeAlunoAprovadoReturnDTO {
@@ -129,9 +130,6 @@ export class StudentsResultPlanService {
 
   private async findGradeCurso(params: FindGradeCursoDTO) {
     const { codigoCurso, codigoMatricula } = params;
-
-    // ✅ MELHORIA 3: remove o OR com TRIM/UPPER do JOIN (impede uso de índice)
-    // A reconciliação por nome de disciplina é feita em JS depois
     const sql = `
       WITH grade_base AS (
         SELECT
@@ -161,6 +159,7 @@ export class StudentsResultPlanService {
       ),
       aluno_base AS (
         SELECT
+          al.CODIGO AS CODIGO_GRADE_ALUNO,
           al.CODIGO_GRADE_CURRICULAR,
           al.NOTA,
           ga.CODIGO_DISCIPLINA
@@ -179,7 +178,8 @@ export class StudentsResultPlanService {
         ab.NOTA,
         gb.CODIGO_DISCIPLINA,
         gb.CODIGO_CLASSE,
-        gb.CLASSE
+        gb.CLASSE,
+        ab.CODIGO_GRADE_ALUNO
       FROM grade_base gb
       LEFT JOIN aluno_base ab
         ON ab.CODIGO_GRADE_CURRICULAR = gb.CODIGO

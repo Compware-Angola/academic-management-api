@@ -1,4 +1,11 @@
-import { Controller, Get, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { EscalaoService } from './services/escalao.service';
 import { ApiTags } from '@nestjs/swagger';
 import { CategoriaDocenteService } from './services/categoria.docente.service';
@@ -8,6 +15,7 @@ import { OcupacaoService } from './services/ocupacao.service';
 import { ProfissaoService } from './services/profissao.service';
 import { NacionalidadeService } from './services/nacionalidade.service';
 import { NecessidadeEspecialService } from './services/necessidade-especial.service';
+import { AnoLectivoConfirmadosService } from './services/anolectivo-confirmados.service';
 
 @ApiTags('DROPDOWN-FILTERS')
 @Controller('dropdown-filters')
@@ -21,6 +29,7 @@ export class DropdownFiltersController {
     private readonly profissaoService: ProfissaoService,
     private readonly nacionalidadeService: NacionalidadeService,
     private readonly necessidadeEspecialService: NecessidadeEspecialService,
+    private readonly anoLectivoConfirmadosService: AnoLectivoConfirmadosService,
   ) {}
 
   @Get('escalao')
@@ -51,6 +60,14 @@ export class DropdownFiltersController {
   @Get('nacionalidade')
   async getNacionalidadeDropdown() {
     return this.nacionalidadeService.getNacionalidades();
+  }
+  @Get('anolectivo-confirmado/:matricula')
+  async getAnoLectivoConfirmados(
+    @Param('matricula', ParseIntPipe) matricula: number,
+  ) {
+    return this.anoLectivoConfirmadosService.getAnoLectivoByMatricula(
+      matricula,
+    );
   }
   @Get('necessidades-especiais')
   async getNecessidadeEspeciasDropdown() {
