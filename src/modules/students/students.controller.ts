@@ -482,6 +482,23 @@ export class StudentsController {
     return this.equivalenceTFMigration.findAll(matricula);
   }
 
+  @Delete('equivalence-migration-tfc/:codigoGradeAluno')
+  @ApiOperation({ summary: 'Obter notas equivalencia' })
+  @ApiResponse({
+    status: 200,
+    description: 'Histórico acadêmico do estudante obtido com sucesso',
+  })
+  async deleteMigration(
+    @Param('codigoGradeAluno', ParseIntPipe) codigoGradeAluno: number,
+    @Req() req: any,
+  ) {
+    await this.equivalenceTFMigration.delete(codigoGradeAluno);
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} eliminou a grade curricular do aluno ${codigoGradeAluno} `,
+    );
+  }
+
   @Post('equivalence-migration-tfc')
   async launchNotes(
     @Body(ValidationPipe) body: CreateEquivalenceTFCMigration,
