@@ -48,6 +48,7 @@ import { FindStudentClassInfoDTO } from './dto/find-student-info.dto';
 import { DefinirEspecialidadeDTO } from './dto/definir-especialidade.dto';
 
 import { DiplomarAlunoDTO } from './dto/diplomar-aluno.dto';
+import { DesdiplomarAlunoDTO } from './dto/desdiplomar-aluno.dto';
 import { GerarDiplomaDTO } from './dto/gerar-diploma.dto';
 
 import { GerarCertificadoDto } from './dto/gerar-certificado.dto';
@@ -58,6 +59,8 @@ import { ListarDiplomadosDTO } from './dto/listar-diplomados-dto';
 import { HttpService } from '@nestjs/axios';
 import { AccessLogHelper } from '../common/helpers/access-log.helper';
 import { AtiveConfirmationService } from './ative-confirmation.service';
+import { RequiredPermissions } from '../common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from '../common/enums/permission.type';
 import { EquivalenceTFCMigration } from './equivalence-tfc-migration.service';
 import { CreateEquivalenceTFCMigration } from './dto/create-equivalence-tfc-migration';
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -399,6 +402,22 @@ export class StudentsController {
     this.log(
       req,
       `Utilizador ${req.user?.nome} diplomou estudante com codigo de matricula ${dto.codigoMatricula}`,
+    );
+
+    return result;
+  }
+
+  @Put('desdiplomar')
+  @RequiredPermissions(PermissionTypeDetails.DIPLOMAR.sigla)
+  async desdiplomarAluno(
+    @Body(ValidationPipe) dto: DesdiplomarAlunoDTO,
+    @Req() req: any,
+  ) {
+    const result = await this.studentsService.desdiplomarAluno(dto, req.user);
+
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} anulou diploma do estudante com codigo de matricula ${dto.codigoMatricula}`,
     );
 
     return result;
