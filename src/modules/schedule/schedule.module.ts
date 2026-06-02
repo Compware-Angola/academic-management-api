@@ -9,6 +9,7 @@ import { AcademicYear } from '../shared/entities/academic.year.entity';
 import { BullModule } from '@nestjs/bullmq';
 import { DocenteSubstitutoController } from './docente-substituto.controller';
 import { DocenteSubstitutoService } from './docente-substituto.service';
+import { MoveStudentsCorrectionService } from './move-students-correction.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([AcademicYear]),
@@ -24,6 +25,6 @@ import { DocenteSubstitutoService } from './docente-substituto.service';
 
   ],
   controllers: [ScheduleController, DocenteSubstitutoController],
-  providers: [ScheduleService, promptToCreateAndEditService, AnoLectivoUtil, DocenteSubstitutoService],
+  providers: [ScheduleService, promptToCreateAndEditService, AnoLectivoUtil, DocenteSubstitutoService, MoveStudentsCorrectionService],
 })
 export class ScheduleModule { }

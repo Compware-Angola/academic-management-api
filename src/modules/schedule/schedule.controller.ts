@@ -41,12 +41,14 @@ import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { GetAulasOcupadasDto } from './dto/get-aulas-ocupadas.dto';
 import { ScheduleParamDto } from './dto/parametros.dto';
 import { UpdateScheduleParamDto } from './dto/update-schedule-params.dto';
+import { MoveStudentsCorrectionService } from './move-students-correction.service';
+import { DecodedUserPayload } from '../common/types/token-validation-response.interface';
 
 @ApiTags('schedule')
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('schedule')
 export class ScheduleController {
-  constructor(private readonly scheduleService: ScheduleService, private httpService: HttpService) { }
+  constructor(private readonly scheduleService: ScheduleService, private httpService: HttpService, private readonly moveStudentsCorrectionService: MoveStudentsCorrectionService) { }
 
   // ================ PERMISSÃO DE EDIÇÃO ================
   @Post('permission')
@@ -279,6 +281,29 @@ export class ScheduleController {
     });
     return result;
   }
+
+  // ================ REPARAR GRADES E HORARIOS PARA ETUDANTES SEM HORARIOS ================
+  @Post('repair-schedule')
+  @RequiredPermissions(PermissionTypeDetails.MOVIMENTAR_ESTUDANTES_POR_HORARIO.sigla)
+  @ApiOperation({ summary: 'Reparar Grada e Horarios para Estudantes Sem Horarios' })
+  async repairSchedule(
+    @Body(ValidationPipe) dto: MoveStudentsToScheduleDto,
+    @Req() req: any
+  ) {
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user;
+    const result = await this.moveStudentsCorrectionService.moveStudentToScheduleCorrection(dto, user as DecodedUserPayload);
+    AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} Reparou Grada e Horarios para Estudantes Sem Horarios`,
+      fkAcesso: 6,
+      fkFuncionalidade: 91,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 10,
+      ip: ip,
+    });
+    return result;
+  }
+
 
   // ================ OUTRAS AÇÕES ================
   @Delete(':horarioId/excluir/:userId')
