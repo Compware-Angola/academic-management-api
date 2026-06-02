@@ -1,8 +1,9 @@
 import { BadRequestException, Logger, NotFoundException } from "@nestjs/common";
 import { escapeQuotes } from "../util/escape-quotes";
-import { MoveStudentsToScheduleDto } from "./dto/move-students-to-schedule.dto";
+
 import { DataSource } from "typeorm";
 import { DecodedUserPayload } from "../common/types/token-validation-response.interface";
+import { MoveStudentsToScheduleCorrectionDto } from "./dto/move-students-to-schedule-correction.dto copy";
 
 
 export class MoveStudentsCorrectionService {
@@ -11,23 +12,14 @@ export class MoveStudentsCorrectionService {
         private logger: Logger,
     ) { }
 
-    async moveStudentToScheduleCorrection(dto: MoveStudentsToScheduleDto, user: DecodedUserPayload) {
-        const { fromScheduleId, toScheduleId, studentsCurriculumIds } = dto;
-        if (fromScheduleId == toScheduleId) {
-            throw new BadRequestException(
-                'O horário de origem e o horário de destino devem ser diferentes',
-            );
-        }
-        const from = await this.getschedule(fromScheduleId);
-        if (!from || from.length === 0) {
-            throw new NotFoundException(
-                `Horário ${from}  de Origem não encontrado ou inativo`,
-            );
-        }
+    async moveStudentToScheduleCorrection(dto: MoveStudentsToScheduleCorrectionDto, user: DecodedUserPayload) {
+        const { toScheduleId, studentsCurriculumIds } = dto;
+
+
         const to = await this.getschedule(toScheduleId);
         if (!to || to.length === 0) {
             throw new NotFoundException(
-                `Horário ${to} de Destino não encontrado ou inativo`,
+                `Horário ${toScheduleId} de Destino não encontrado ou inativo`,
             );
         }
 

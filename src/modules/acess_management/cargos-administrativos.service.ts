@@ -617,7 +617,7 @@ export class CargosAdministrativosService {
         `
         UPDATE FK2_TB_CURSOS
         SET COORDENADOR = :coordenador
-        WHERE CODIGO = :cursoId?
+        WHERE CODIGO = :cursoId
         `,
         { coordenador: nome?.NOME, cursoId: dto.cursoId },
       );
