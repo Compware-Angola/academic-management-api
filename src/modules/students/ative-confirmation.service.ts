@@ -94,57 +94,70 @@ export class AtiveConfirmationService {
         const codigoConfirmacao = result.outId[0];
         return { message: `Matricula ${matricula} confirmada com sucesso`, codigoConfirmacao };
     }
-    private async getNextClass(matricula: number) {
-        const query = `
+    private async getNextClass(matricula: number, anoLectivo?: number) {
+        const anoLectivoFilter = anoLectivo
+            ? `AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo`
+            : `AND ftgca.CODIGO_ANO_LECTIVO = (
+            SELECT MAX(CODIGO_ANO_LECTIVO)
+            FROM FK2_TB_GRADE_CURRICULAR_ALUNO
+            WHERE CODIGO_MATRICULA = m.CODIGO
+              AND CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+          )`;
+
+        const sql = `
         SELECT
-            m.CODIGO,
-            c.DURACAO,
-            (
-                SELECT cl.CODIGO
-                FROM FK2_TB_GRADE_CURRICULAR_ALUNO ftgca
-                LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc
-                    ON ftgc.CODIGO = ftgca.CODIGO_GRADE_CURRICULAR
-                LEFT JOIN FK2_TB_CLASSES cl
-                    ON cl.CODIGO = ftgc.CODIGO_CLASSE
-                WHERE ftgca.CODIGO_MATRICULA = m.CODIGO
-                  AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
-                
-                GROUP BY cl.CODIGO, cl.DESIGNACAO
-                ORDER BY COUNT(ftgca.CODIGO) DESC
-                FETCH FIRST 1 ROWS ONLY
-            ) AS CLASSE_CODIGO
+            cl.CODIGO    AS CLASSE_CODIGO,
+            c.DURACAO    AS DURACAO,
+            CASE WHEN ce.CODIGO_CURSO_ESPECIALIDADE IS NOT NULL THEN 1 ELSE 0 END AS IS_ESPECIALIDADE
         FROM FK2_TB_MATRICULAS m
         INNER JOIN FK2_TB_CURSOS c
             ON c.CODIGO = m.CODIGO_CURSO
+        LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO ftgca
+            ON ftgca.CODIGO_MATRICULA = m.CODIGO
+        LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc
+            ON ftgc.CODIGO = ftgca.CODIGO_GRADE_CURRICULAR
+        LEFT JOIN FK2_TB_CLASSES cl
+            ON cl.CODIGO = ftgc.CODIGO_CLASSE
+        LEFT JOIN FK2_TB_CURSO_ESPECIALIDADE ce
+            ON ce.CODIGO_CURSO_ESPECIALIDADE = c.CODIGO
         WHERE m.CODIGO = :matricula
-        FETCH FIRST 1 ROW ONLY
+          AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+          ${anoLectivoFilter}
+        GROUP BY cl.CODIGO, c.DURACAO, ce.CODIGO_CURSO_ESPECIALIDADE
+        ORDER BY COUNT(ftgca.CODIGO) DESC
+        FETCH FIRST 1 ROWS ONLY
     `;
 
-        const result = await this.dataSource.query(query, { matricula } as any);
-        console.log('Result =>', result);
+        const queryParams: any = { matricula };
+        if (anoLectivo) queryParams.anoLectivo = anoLectivo;
 
-        if (result.length === 0) {
+        const result = await this.dataSource.query(sql, queryParams as any);
+
+        if (!result || result.length === 0) {
             throw new BadRequestException(`Matrícula ${matricula} não encontrada`);
         }
 
         const classeAtual = result[0].CLASSE_CODIGO;
         const duracao = result[0].DURACAO;
+        const isEspecialidade = result[0].IS_ESPECIALIDADE === 1;
 
         if (classeAtual === null || classeAtual === undefined) {
             return 1;
         }
 
-        if (classeAtual > duracao) {
-            throw new BadRequestException(
-                `Matrícula ${matricula} já atingiu a classe máxima (${duracao})`
-            );
-        } else if (classeAtual === duracao) {
+        // Curso de especialidade → mantém a mesma classe
+        if (isEspecialidade) {
             return classeAtual;
         }
 
-        return classeAtual;
-    }
+        if (classeAtual >= duracao) {
+            throw new BadRequestException(
+                `Matrícula ${matricula} já atingiu a classe máxima (${duracao})`
+            );
+        }
 
+        return classeAtual + 1;
+    }
     private async getCanal(matricula: number) {
         const query = `SELECT FK2_TB_MATRICULAS.CANAL FROM FK2_TB_MATRICULAS
         WHERE  FK2_TB_MATRICULAS.CODIGO= :matricula
