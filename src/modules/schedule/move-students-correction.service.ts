@@ -4,12 +4,13 @@ import { escapeQuotes } from "../util/escape-quotes";
 import { DataSource } from "typeorm";
 import { DecodedUserPayload } from "../common/types/token-validation-response.interface";
 import { MoveStudentsToScheduleCorrectionDto } from "./dto/move-students-to-schedule-correction.dto copy";
+import { Injectable } from "@nestjs/common";
 
-
+@Injectable()
 export class MoveStudentsCorrectionService {
     constructor(
         private dataSource: DataSource,
-        private logger: Logger,
+        
     ) { }
 
     async moveStudentToScheduleCorrection(dto: MoveStudentsToScheduleCorrectionDto, user: DecodedUserPayload) {
