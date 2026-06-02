@@ -147,7 +147,16 @@ export class AtiveConfirmationService {
 
         // Curso de especialidade → mantém a mesma classe
         if (isEspecialidade) {
-            return classeAtual;
+            const sql = `
+            SELECT 
+                CLASSE
+            FROM FK2_TB_CONFIRMACOES
+            WHERE CODIGO_MATRICULA = :matricula
+            ORDER BY CLASSE DESC
+            FETCH FIRST 1 ROW ONLY
+        `;
+            const result = await this.dataSource.query(sql, { matricula } as any);
+            return result[0].CLASSE;
         }
 
         if (classeAtual >= duracao) {
