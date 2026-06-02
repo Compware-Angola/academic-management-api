@@ -145,6 +145,13 @@ export class ScheduleController {
       query,
     );
   }
+  @Get('estudantes-sem-horarios')
+  @ApiOperation({ summary: 'Buscar Estudantes Sem Horário' })
+  findStudentWithoutSchedule(
+    @Query(ValidationPipe) query: FindStudentsWithoutScheduleDto,
+  ) {
+    return this.studentWithoutScheduleService.findAll(query);
+  }
 
   @Get('by-uc')
   @ApiOperation({ summary: 'Listar horários por UC com filtros avançados' })
@@ -411,10 +418,5 @@ export class ScheduleController {
       ip: ip,
     });
     return result;
-  }
-  @Get('estudantes-sem-horarios')
-  @ApiOperation({ summary: 'Buscar Estudantes Sem Horário' })
-  findStudentWithoutSchedule(@Query() query: FindStudentsWithoutScheduleDto) {
-    return this.studentWithoutScheduleService.findAll(query);
   }
 }
