@@ -7,10 +7,11 @@ import { GenerateMesTempDTO } from './dto/generate-mes-temp.dto';
 import { MESTEMP, mesTempConfig } from '../util/generator-mes-temp';
 import { formatDisplay } from '../util/formate-date';
 import { CreateMesTempDTO, MesItemDTO } from './dto/create-mes-temp.dto';
+import { AnoLectivoUtil } from '../util/current-academic-year';
 
 @Injectable()
 export class AcademicCalendarService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource, private readonly anoLectivoUtil: AnoLectivoUtil) { }
   async viewMonths(params: ViewMonthsDto) {
     let query = `
     SELECT
@@ -185,4 +186,27 @@ export class AcademicCalendarService {
     });
     return result;
   }
+
+
+  async configuracaoGeral() {
+    const semestreAtual = await this.anoLectivoUtil.getSemestreAtual();
+    const semestresConfigurados = await this.anoLectivoUtil.getSemestresConfigurados();
+
+    return {
+      anoLectivo: {
+        id: semestreAtual.anoId,
+        designacao: semestresConfigurados.anoLectivoDesignacao,
+      },
+      semestreAtual: {
+        semestre: semestreAtual.semestre,
+        descricao: semestreAtual.descricao,
+        dataFim: semestreAtual.dataFim,
+      },
+      semestresConfigurados: {
+        primeiroSemestre: semestresConfigurados.primeiroSemestre,
+        segundoSemestre: semestresConfigurados.segundoSemestre,
+      },
+    };
+  }
+
 }
