@@ -14,7 +14,7 @@ export class AnoLectivoUtil {
   constructor(
     @InjectRepository(AcademicYear)
     private readonly anoLectivoRepo: Repository<AcademicYear>,
-  ) {}
+  ) { }
 
   async getAnoAtualId(): Promise<number> {
     const now = Date.now();
@@ -125,6 +125,7 @@ export class AnoLectivoUtil {
    */
   async getSemestresConfigurados(): Promise<{
     anoId: number;
+    anoLectivoDesignacao: string;
     primeiroSemestre: {
       dataInicio: Date;
       dataFim: Date;
@@ -146,6 +147,7 @@ export class AnoLectivoUtil {
         'dataFimPrimeiroSemestre',
         'dataInicioSegundoSemestre',
         'dataFimSegundoSemestre',
+        'Designacao',
       ],
     });
 
@@ -156,23 +158,24 @@ export class AnoLectivoUtil {
     const primeiroSemestre =
       ano.dataInicioPrimeiroSemestre && ano.dataFimPrimeiroSemestre
         ? {
-            dataInicio: new Date(ano.dataInicioPrimeiroSemestre),
-            dataFim: new Date(ano.dataFimPrimeiroSemestre),
-            descricao: 'PRIMEIRO_SEMESTRE',
-          }
+          dataInicio: new Date(ano.dataInicioPrimeiroSemestre),
+          dataFim: new Date(ano.dataFimPrimeiroSemestre),
+          descricao: 'PRIMEIRO_SEMESTRE',
+        }
         : null;
 
     const segundoSemestre =
       ano.dataInicioSegundoSemestre && ano.dataFimSegundoSemestre
         ? {
-            dataInicio: new Date(ano.dataInicioSegundoSemestre),
-            dataFim: new Date(ano.dataFimSegundoSemestre),
-            descricao: 'SEGUNDO_SEMESTRE',
-          }
+          dataInicio: new Date(ano.dataInicioSegundoSemestre),
+          dataFim: new Date(ano.dataFimSegundoSemestre),
+          descricao: 'SEGUNDO_SEMESTRE',
+        }
         : null;
 
     return {
       anoId,
+      anoLectivoDesignacao: ano.Designacao,
       primeiroSemestre,
       segundoSemestre,
     };

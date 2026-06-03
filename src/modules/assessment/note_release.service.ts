@@ -15,12 +15,10 @@ import { Queue } from 'bullmq';
 @Injectable()
 export class NoteReleaseService {
   constructor(
-
     @InjectQueue('final_average')
     private readonly finalAverageQueue: Queue,
     private readonly dataSource: DataSource,
     private readonly promptToCreateAndEditService: promptToCreateAndEditService,
-
   ) { }
 
   async findstudents(filters: StudentFiltersDto) {
@@ -304,9 +302,10 @@ export class NoteReleaseService {
             refUtilizador: JSON.stringify(refUtilizador),
           } as any,
         );
-        //Chama o processor  se for P2 ou recurso ou exame 
-        // await this.queueFinalAverage(gradeCurricularAluno);
+
+
       }
+      await this.queueFinalAverage(gradeCurricularAluno);
     }
 
     return { message: 'Avaliação inserida ou atualizada com sucesso' };
@@ -522,16 +521,15 @@ export class NoteReleaseService {
     } as any);
   }
 
-
   async queueFinalAverage(
     codigoGradeAluno: number,
-
   ): Promise<{ message: string; taskId: string | undefined }> {
+
+
     const job = await this.finalAverageQueue.add(
       'processFinalAverage',
       {
-        codigoGradeAluno
-
+        codigoGradeAluno,
       },
       {
         removeOnComplete: true,
@@ -540,6 +538,8 @@ export class NoteReleaseService {
         backoff: 5000,
       },
     );
+    console.log(job);
+
     return {
       message: 'Processamento iniciado: Calcular média final ...',
       taskId: job.id,

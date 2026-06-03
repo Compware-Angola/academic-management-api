@@ -696,7 +696,18 @@ export class StudentNoteService {
       pauta.notaOEE = notaOEE?.NOTA?.toString() ?? '';
 
       const temPrazo = await this.temPrazo(gradeAluno);
-      if (temPrazo) {
+      const possuiNotasAlemDa1f = this.notasPosterioresA1fForamLancadas(
+        nota2f,
+        notaEx,
+        notaRec,
+        notaPra,
+        notaOr,
+        notaOrRec,
+  notaMel,
+  notaEE,
+  notaOEE,
+);
+      if (temPrazo  && !possuiNotasAlemDa1f) {
         pauta.resultado = EstadoAvaliacaoEnum.PENDENTE;
       }
 
@@ -712,6 +723,35 @@ export class StudentNoteService {
       throw error;
     }
   }
+  private notasPosterioresA1fForamLancadas(
+  nota2f: any,
+  notaEx: any,
+  notaRec: any,
+  notaPra: any,
+  notaOr: any,
+  notaOrRec: any,
+  notaMel: any,
+  notaEE: any,
+  notaOEE: any,
+): boolean {
+  const temNota = (nota: any): boolean =>
+    nota !== null &&
+    nota !== undefined &&
+    nota.NOTA !== null &&
+    nota.NOTA !== undefined;
+
+  return (
+    temNota(nota2f) ||
+    temNota(notaEx) ||
+    temNota(notaRec) ||
+    temNota(notaPra) ||
+    temNota(notaOr) ||
+    temNota(notaOrRec) ||
+    temNota(notaMel) ||
+    temNota(notaEE) ||
+    temNota(notaOEE)
+  );
+}
 
   private async buscarAvaliacoes(gradeAlunoId: number): Promise<any[]> {
     return await this.dataSource.query(

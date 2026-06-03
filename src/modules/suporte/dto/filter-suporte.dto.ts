@@ -55,6 +55,15 @@ export class FilterSuporteDto {
   @IsString()
   status?: string;
 
+  @ApiPropertyOptional({
+    description: 'Código da matrícula do estudante',
+    example: '62800',
+  })
+  @IsOptional()
+ @IsInt()
+@Type(() => Number)
+  codigo_matricula?: number;
+
 
 
 }

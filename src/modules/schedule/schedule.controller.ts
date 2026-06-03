@@ -13,7 +13,6 @@ import {
   UsePipes,
   UseGuards,
   Req,
-
 } from '@nestjs/common';
 
 import { ScheduleService } from './schedule.service';
@@ -24,7 +23,7 @@ import { ListScheduleDto } from './dto/list-schedule.dto';
 import { ListScheduleUCDto } from './dto/list-schedule-uc.dto';
 import { CreatePermissionEditScheduleDto } from './dto/create-permission-edit-schedule.dto';
 import { ListScheduleDocenteDto } from './dto/list-schedule-docente.dto';
-import { MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
+import {  MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
 import { ListScheduleDayOfWeekto } from './dto/list-schedule-day-of-week.dto';
 import { ListScheduleClassRoomDto } from './dto/list-schedule-class-room.dto';
 import { FindScheduleByDesignationDto } from './dto/find-schedule-by-designation.dto';
@@ -41,19 +40,31 @@ import { RequiredPermissions } from '../common/pipes/permissions.decorator';
 import { GetAulasOcupadasDto } from './dto/get-aulas-ocupadas.dto';
 import { ScheduleParamDto } from './dto/parametros.dto';
 import { UpdateScheduleParamDto } from './dto/update-schedule-params.dto';
+import { MoveStudentsCorrectionService } from './move-students-correction.service';
+import { DecodedUserPayload } from '../common/types/token-validation-response.interface';
+import { StudentWithoutScheduleService } from './student-without-schedule.service';
+import { FindStudentsWithoutScheduleDto } from './dto/find-students-without-schedule.dto';
+import { MoveStudentsToScheduleCorrectionDto } from './dto/move-students-to-schedule-correction.dto copy';
 
 @ApiTags('schedule')
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('schedule')
 export class ScheduleController {
-  constructor(private readonly scheduleService: ScheduleService, private httpService: HttpService) { }
+  constructor(
+    private readonly scheduleService: ScheduleService,
+    private httpService: HttpService,
+    private readonly moveStudentsCorrectionService: MoveStudentsCorrectionService,
+    private readonly studentWithoutScheduleService: StudentWithoutScheduleService,
+  ) {}
 
   // ================ PERMISSÃO DE EDIÇÃO ================
   @Post('permission')
   @ApiOperation({ summary: 'Criar nova permissão para editar horário' })
   @ApiResponse({ status: 201, description: 'Permissão criada com sucesso.' })
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
-  @RequiredPermissions(PermissionTypeDetails.PERMISSAO_PARA_EDITAR_HORARIO.sigla)
+  @RequiredPermissions(
+    PermissionTypeDetails.PERMISSAO_PARA_EDITAR_HORARIO.sigla,
+  )
   async createPermission(
     @Body(ValidationPipe)
     createPermissionEditScheduleDto: CreatePermissionEditScheduleDto,
@@ -73,7 +84,6 @@ export class ScheduleController {
       ip: ip,
     });
     return result;
-
   }
   @Get('aulas-ocupadas/:salaCodigo')
   async getAulasOcupadas(
@@ -94,21 +104,22 @@ export class ScheduleController {
   @ApiOperation({
     summary: 'Listar horários com filtros avançados e paginação',
   })
-  findAll(@Query(ValidationPipe) query: ListScheduleDto, @Req() req: any,) {
-
+  findAll(@Query(ValidationPipe) query: ListScheduleDto, @Req() req: any) {
     return this.scheduleService.findAll(query);
   }
   @Get('params')
   @ApiOperation({
-    summary: "Listagem dos Parametros dos horários"
-
+    summary: 'Listagem dos Parametros dos horários',
   })
   getParams(@Query(ValidationPipe) query: ScheduleParamDto, @Req() req: any) {
-    return this.scheduleService.scheduleParams(query)
-
+    return this.scheduleService.scheduleParams(query);
   }
   @Patch('parametros/:pk')
-  async updateScheduleParam(@Param('pk') pk: string, @Body() body: UpdateScheduleParamDto, @Req() req: any) {
+  async updateScheduleParam(
+    @Param('pk') pk: string,
+    @Body() body: UpdateScheduleParamDto,
+    @Req() req: any,
+  ) {
     return this.scheduleService.updateScheduleParam(body, req.user.sub);
   }
 
@@ -135,6 +146,13 @@ export class ScheduleController {
       query,
     );
   }
+  @Get('estudantes-sem-horarios')
+  @ApiOperation({ summary: 'Buscar Estudantes Sem Horário' })
+  findStudentWithoutSchedule(
+    @Query(ValidationPipe) query: FindStudentsWithoutScheduleDto,
+  ) {
+    return this.studentWithoutScheduleService.findAll(query);
+  }
 
   @Get('by-uc')
   @ApiOperation({ summary: 'Listar horários por UC com filtros avançados' })
@@ -144,7 +162,9 @@ export class ScheduleController {
 
   @Get('by-docente')
   @ApiOperation({ summary: 'Listar horário por docente' })
-  @RequiredPermissions(PermissionTypeDetails.VISUALIZAR_HORARIO_POR_DOCENTE.sigla)
+  @RequiredPermissions(
+    PermissionTypeDetails.VISUALIZAR_HORARIO_POR_DOCENTE.sigla,
+  )
   findScheduleByDocente(@Query(ValidationPipe) query: ListScheduleDocenteDto) {
     return this.scheduleService.findScheduleByDocente(query);
   }
@@ -214,11 +234,14 @@ export class ScheduleController {
   @ApiResponse({ status: 400, description: 'Dados inválidos.' })
   async create(
     @Body(ValidationPipe) createScheduleDto: CreateScheduleDto,
-    @Req() req: any
+    @Req() req: any,
   ) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-    const user = req.user
-    const schedule = await this.scheduleService.create(user.sub, createScheduleDto);
+    const user = req.user;
+    const schedule = await this.scheduleService.create(
+      user.sub,
+      createScheduleDto,
+    );
     await AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${user?.nome} Criou Horário ${schedule.horarioId}`,
       fkAcesso: 6,
@@ -228,9 +251,7 @@ export class ScheduleController {
       ip: ip,
     });
 
-
     return schedule;
-
   }
 
   // ================ ATUALIZAÇÃO ================
@@ -240,11 +261,15 @@ export class ScheduleController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body(ValidationPipe) updateScheduleDto: UpdateScheduleDto,
-    @Req() req: any
+    @Req() req: any,
   ) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const user = req.user;
-    const result = await this.scheduleService.update(user.sub, id, updateScheduleDto);
+    const result = await this.scheduleService.update(
+      user.sub,
+      id,
+      updateScheduleDto,
+    );
     await AccessLogHelper.logAccess(this.httpService, {
       descricao: `Utilizador ${user?.nome} Atualizou Horário ID ${id}`,
       fkAcesso: 6,
@@ -258,13 +283,15 @@ export class ScheduleController {
 
   // ================ MOVIMENTAR ESTUDANTES ================
   @Post('move-students/:userId')
-  @RequiredPermissions(PermissionTypeDetails.MOVIMENTAR_ESTUDANTES_POR_HORARIO.sigla)
+  @RequiredPermissions(
+    PermissionTypeDetails.MOVIMENTAR_ESTUDANTES_POR_HORARIO.sigla,
+  )
   @ApiOperation({ summary: 'Movimentar Estudante' })
   @ApiParam({ name: 'userId', type: Number, description: 'ID do usuário' })
   async moveStudents(
     @Param('userId', ParseIntPipe) userId: number,
     @Body(ValidationPipe) dto: MoveStudentsToScheduleDto,
-    @Req() req: any
+    @Req() req: any,
   ) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const user = req.user;
@@ -280,17 +307,45 @@ export class ScheduleController {
     return result;
   }
 
+  // ================ REPARAR GRADES E HORARIOS PARA ETUDANTES SEM HORARIOS ================
+  @Post('repair-schedule')
+  @RequiredPermissions(
+    PermissionTypeDetails.MOVIMENTAR_ESTUDANTES_POR_HORARIO.sigla,
+  )
+  @ApiOperation({
+    summary: 'Reparar Grada e Horarios para Estudantes Sem Horarios',
+  })
+  async repairSchedule(
+    @Body(ValidationPipe) dto: MoveStudentsToScheduleCorrectionDto,
+    @Req() req: any,
+  ) {
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user;
+    const result =
+      await this.moveStudentsCorrectionService.moveStudentToScheduleCorrection(
+        dto,
+        user as DecodedUserPayload,
+      );
+    AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Utilizador ${user?.nome} Reparou Grada e Horarios para Estudantes Sem Horarios`,
+      fkAcesso: 6,
+      fkFuncionalidade: 91,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 10,
+      ip: ip,
+    });
+    return result;
+  }
+
   // ================ OUTRAS AÇÕES ================
   @Delete(':horarioId/excluir/:userId')
-
   @ApiOperation({ summary: 'Excluir horário de uma UC' })
   @ApiParam({ name: 'horarioId', type: Number })
   @ApiParam({ name: 'userId', type: Number })
-
   async delete(
     @Param('horarioId', ParseIntPipe) horarioId: number,
     @Param('userId', ParseIntPipe) userId: number,
-    @Req() req: any
+    @Req() req: any,
   ) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const user = req.user;
@@ -304,14 +359,13 @@ export class ScheduleController {
       ip: ip,
     });
     return result;
-
   }
 
   @Patch(':horarioId/disponibilidade/:userId')
   async toggleAvailability(
     @Param('horarioId', ParseIntPipe) horarioId: number,
     @Param('userId', ParseIntPipe) userId: number,
-    @Req() req: any
+    @Req() req: any,
   ) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const user = req.user;
@@ -345,7 +399,6 @@ export class ScheduleController {
       ip: ip,
     });
     return result;
-
   }
 
   @Patch(':horarioId/restaurar/:userId')
@@ -366,6 +419,5 @@ export class ScheduleController {
       ip: ip,
     });
     return result;
-
   }
 }
