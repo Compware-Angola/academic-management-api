@@ -23,7 +23,7 @@ import { ListScheduleDto } from './dto/list-schedule.dto';
 import { ListScheduleUCDto } from './dto/list-schedule-uc.dto';
 import { CreatePermissionEditScheduleDto } from './dto/create-permission-edit-schedule.dto';
 import { ListScheduleDocenteDto } from './dto/list-schedule-docente.dto';
-import { MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
+import {  MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
 import { ListScheduleDayOfWeekto } from './dto/list-schedule-day-of-week.dto';
 import { ListScheduleClassRoomDto } from './dto/list-schedule-class-room.dto';
 import { FindScheduleByDesignationDto } from './dto/find-schedule-by-designation.dto';
@@ -44,6 +44,7 @@ import { MoveStudentsCorrectionService } from './move-students-correction.servic
 import { DecodedUserPayload } from '../common/types/token-validation-response.interface';
 import { StudentWithoutScheduleService } from './student-without-schedule.service';
 import { FindStudentsWithoutScheduleDto } from './dto/find-students-without-schedule.dto';
+import { MoveStudentsToScheduleCorrectionDto } from './dto/move-students-to-schedule-correction.dto copy';
 
 @ApiTags('schedule')
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -315,7 +316,7 @@ export class ScheduleController {
     summary: 'Reparar Grada e Horarios para Estudantes Sem Horarios',
   })
   async repairSchedule(
-    @Body(ValidationPipe) dto: MoveStudentsToScheduleDto,
+    @Body(ValidationPipe) dto: MoveStudentsToScheduleCorrectionDto,
     @Req() req: any,
   ) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
