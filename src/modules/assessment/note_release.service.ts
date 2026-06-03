@@ -302,7 +302,7 @@ export class NoteReleaseService {
             refUtilizador: JSON.stringify(refUtilizador),
           } as any,
         );
-        //Chama o processor  se for P2 ou recurso ou exame
+
 
       }
       await this.queueFinalAverage(gradeCurricularAluno);
