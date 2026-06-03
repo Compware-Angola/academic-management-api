@@ -25,6 +25,7 @@ export class SuporteService {
       search,
       tipo_suporte,
       status,
+      codigo_matricula
     } = filter;
 
     const offset = (page - 1) * limit;
@@ -62,6 +63,12 @@ export class SuporteService {
       )`;
       params.search = searchTerm;
       countParams.search = searchTerm;
+    }
+
+    if (codigo_matricula) {
+      whereClause += ` AND m.Codigo = :codigo_matricula`;
+      params.codigo_matricula = codigo_matricula;
+      countParams.codigo_matricula= codigo_matricula;
     }
 
     const joins = `
