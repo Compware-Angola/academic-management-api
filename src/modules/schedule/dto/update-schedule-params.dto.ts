@@ -3,8 +3,10 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  IsObject,
+  IsArray,
+  ValidateIf,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class UpdateScheduleParamDto {
   @ApiProperty({
@@ -32,18 +34,38 @@ export class UpdateScheduleParamDto {
 
   @ApiPropertyOptional({
     description: 'Sigla do parâmetro',
-    example: 'PH',
+    example: 'ipp',
   })
   @IsOptional()
   @IsString()
   sigla?: string;
 
   @ApiPropertyOptional({
-    description: 'Argumentos adicionais (objeto ou string)',
-    example: { tempoMax: 60 },
+    description: `Argumentos do parâmetro.
+    - IPP:  array de { periodo, hora_inicio (HH:MM), qtd_de_tempo }
+    - DTL:  array de { curso, duracao (HH:MM) }
+    - IETL: array de { curso, seq: [{ duracao (HH:MM) }] }`,
+    examples: {
+      ipp: {
+        summary: 'IPP',
+        value: [
+          { periodo: 1, hora_inicio: '07:20', qtd_de_tempo: 6 },
+          { periodo: 0, hora_inicio: '07:20', qtd_de_tempo: 6 },
+        ],
+      },
+      dtl: {
+        summary: 'DTL',
+        value: [{ curso: 0, duracao: '01:30' }],
+      },
+      ietl: {
+        summary: 'IETL',
+        value: [{ curso: 0, seq: [{ duracao: '00:10' }] }],
+      },
+    },
   })
   @IsOptional()
-  args?: Record<string, unknown> | string;
+  @ValidateIf((o) => o.args !== undefined)
+  args?: Record<string, unknown>[] | Record<string, unknown> | string;
 
   @ApiPropertyOptional({
     description: 'Observações',
@@ -59,15 +81,16 @@ export class UpdateScheduleParamDto {
   })
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   ordem?: number;
 
   @ApiPropertyOptional({
     description: 'Estado ativo (1 = ativo, 0 = inativo)',
     example: 1,
+    enum: [0, 1],
   })
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   active_state?: number;
-
-
 }
