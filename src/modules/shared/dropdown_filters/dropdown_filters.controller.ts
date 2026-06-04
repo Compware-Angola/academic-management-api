@@ -5,6 +5,7 @@ import {
   HttpStatus,
   Param,
   ParseIntPipe,
+  Query,
 } from '@nestjs/common';
 import { EscalaoService } from './services/escalao.service';
 import { ApiTags } from '@nestjs/swagger';
@@ -16,6 +17,7 @@ import { ProfissaoService } from './services/profissao.service';
 import { NacionalidadeService } from './services/nacionalidade.service';
 import { NecessidadeEspecialService } from './services/necessidade-especial.service';
 import { AnoLectivoConfirmadosService } from './services/anolectivo-confirmados.service';
+import { SituationService } from './services/situation.service';
 
 @ApiTags('DROPDOWN-FILTERS')
 @Controller('dropdown-filters')
@@ -30,6 +32,7 @@ export class DropdownFiltersController {
     private readonly nacionalidadeService: NacionalidadeService,
     private readonly necessidadeEspecialService: NecessidadeEspecialService,
     private readonly anoLectivoConfirmadosService: AnoLectivoConfirmadosService,
+    private readonly situationService: SituationService,
   ) {}
 
   @Get('escalao')
@@ -73,4 +76,15 @@ export class DropdownFiltersController {
   async getNecessidadeEspeciasDropdown() {
     return this.necessidadeEspecialService.getNecessidadeEspecialDropdown();
   }
+  @Get('situacao')
+  async getSituationDropdown() {
+    return this.situationService.situation();
+  }
+  @Get('motivo-situacao')
+  async getReasonSituationDropdown(
+    @Query('estado', new ParseIntPipe()) estado?: number,
+  ) {
+    return this.situationService.reasonSituation(estado);
+  }
+ 
 }
