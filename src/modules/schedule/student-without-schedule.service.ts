@@ -28,7 +28,7 @@ export class StudentWithoutScheduleService {
 
     conditions.push(`al.REF_HORARIO IS NULL`);
     conditions.push(`al.CODIGO_ANO_LECTIVO = :anoLectivo`);
-
+    conditions.push(`al.CODIGO_STATUS_GRADE_CURRICULAR <> 5`);
     params.anoLectivo = anoLectivo;
 
     if (semestre) {
