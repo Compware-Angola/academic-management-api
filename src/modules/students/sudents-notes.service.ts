@@ -286,6 +286,49 @@ export class StudentNoteService {
       const notaEE = getNota(11);
       const notaOEE = getNota(24);
 
+      //====================== Já tem nota não calcula ========================================
+      if (
+        gradeAluno.CODIGO_ANO_LECTIVO !== anoCorrente &&
+        gradeAluno.NOTA !== null &&
+        gradeAluno.NOTA !== undefined &&
+        Number(gradeAluno.NOTA) > 0
+      ) {
+        media = Number(gradeAluno.NOTA);
+        resultado =
+          media >= 10
+            ? EstadoAvaliacaoEnum.APROVADO
+            : EstadoAvaliacaoEnum.REPROVADO;
+
+        pauta.ano = gradeAluno.CLASSE;
+        pauta.codigoGradeAluno = gradeAluno.CODIGO;
+        pauta.disciplina = gradeAluno.DISCIPLINA;
+        pauta.duracao = gradeAluno.DURACAO_PLANO;
+        pauta.gradeCurricula = gradeAluno.CODIGO_GRADE_CURRICULA;
+        pauta.matricula = gradeAluno.CODIGO_MATRICULA;
+        pauta.media = media.toString();
+        pauta.nome_completo = gradeAluno.NOME_COMPLETO;
+        pauta.num_matricula = gradeAluno.CODIGO_MATRICULA.toString();
+        pauta.resultado = resultado;
+        pauta.semestre = gradeAluno.SEMESTRE;
+        pauta.unidadeCurricular = gradeAluno.DISCIPLINA;
+        pauta.obs.push(
+          'Média calculada a partir da nota consolidada da grade.',
+        );
+
+        pauta.nota1f = nota1f?.NOTA?.toString() ?? '';
+        pauta.nota2f = nota2f?.NOTA?.toString() ?? '';
+        pauta.notaEx = notaEx?.NOTA?.toString() ?? '';
+        pauta.notaRec = notaRec?.NOTA?.toString() ?? '';
+        pauta.notaPra = notaPra?.NOTA?.toString() ?? '';
+        pauta.notaOr = notaOr?.NOTA?.toString() ?? '';
+        pauta.notaOrRec = notaOrRec?.NOTA?.toString() ?? '';
+        pauta.notaMel = notaMel?.NOTA?.toString() ?? '';
+        pauta.notaEE = notaEE?.NOTA?.toString() ?? '';
+        pauta.notaOEE = notaOEE?.NOTA?.toString() ?? '';
+
+        return pauta;
+      }
+
       const temNota = (nota: any): boolean =>
         nota !== null &&
         nota !== undefined &&
@@ -382,7 +425,7 @@ export class StudentNoteService {
           } else if (nota2f!.NOTA! < nota_min_segunda_freq) {
             media = this.round(
               nota1f!.NOTA! * (peso_primeira_freq / 100) +
-              nota2f!.NOTA! * (peso_segunda_freq / 100),
+                nota2f!.NOTA! * (peso_segunda_freq / 100),
             );
             resultado = EstadoAvaliacaoEnum.RECURSO;
             descricao =
@@ -390,7 +433,7 @@ export class StudentNoteService {
           } else {
             const mediaFreq = this.round(
               nota1f!.NOTA! * (peso_primeira_freq / 100) +
-              nota2f!.NOTA! * (peso_segunda_freq / 100),
+                nota2f!.NOTA! * (peso_segunda_freq / 100),
             );
 
             if (hasPratica) {
@@ -533,7 +576,7 @@ export class StudentNoteService {
 
             media = this.round(
               notaTeorica * ((100 - peso_pratica) / 100) +
-              notaPra!.NOTA! * (peso_pratica / 100),
+                notaPra!.NOTA! * (peso_pratica / 100),
             );
 
             if (media >= 10) {
@@ -703,11 +746,11 @@ export class StudentNoteService {
         notaPra,
         notaOr,
         notaOrRec,
-  notaMel,
-  notaEE,
-  notaOEE,
-);
-      if (temPrazo  && !possuiNotasAlemDa1f) {
+        notaMel,
+        notaEE,
+        notaOEE,
+      );
+      if (temPrazo && !possuiNotasAlemDa1f) {
         pauta.resultado = EstadoAvaliacaoEnum.PENDENTE;
       }
 
@@ -724,34 +767,34 @@ export class StudentNoteService {
     }
   }
   private notasPosterioresA1fForamLancadas(
-  nota2f: any,
-  notaEx: any,
-  notaRec: any,
-  notaPra: any,
-  notaOr: any,
-  notaOrRec: any,
-  notaMel: any,
-  notaEE: any,
-  notaOEE: any,
-): boolean {
-  const temNota = (nota: any): boolean =>
-    nota !== null &&
-    nota !== undefined &&
-    nota.NOTA !== null &&
-    nota.NOTA !== undefined;
+    nota2f: any,
+    notaEx: any,
+    notaRec: any,
+    notaPra: any,
+    notaOr: any,
+    notaOrRec: any,
+    notaMel: any,
+    notaEE: any,
+    notaOEE: any,
+  ): boolean {
+    const temNota = (nota: any): boolean =>
+      nota !== null &&
+      nota !== undefined &&
+      nota.NOTA !== null &&
+      nota.NOTA !== undefined;
 
-  return (
-    temNota(nota2f) ||
-    temNota(notaEx) ||
-    temNota(notaRec) ||
-    temNota(notaPra) ||
-    temNota(notaOr) ||
-    temNota(notaOrRec) ||
-    temNota(notaMel) ||
-    temNota(notaEE) ||
-    temNota(notaOEE)
-  );
-}
+    return (
+      temNota(nota2f) ||
+      temNota(notaEx) ||
+      temNota(notaRec) ||
+      temNota(notaPra) ||
+      temNota(notaOr) ||
+      temNota(notaOrRec) ||
+      temNota(notaMel) ||
+      temNota(notaEE) ||
+      temNota(notaOEE)
+    );
+  }
 
   private async buscarAvaliacoes(gradeAlunoId: number): Promise<any[]> {
     return await this.dataSource.query(
