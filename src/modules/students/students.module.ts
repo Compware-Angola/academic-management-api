@@ -22,6 +22,8 @@ import { AtiveConfirmationService } from './ative-confirmation.service';
 import { ChangeShiftController } from './change-shift.controller';
 import { ChangeShiftService } from './change-shift.service';
 import { EquivalenceTFCMigration } from './equivalence-tfc-migration.service';
+import { StudentSituationService } from './student-situation.service';
+import { StudentSituationController } from './student-stituation.controller';
 
 
 @Module({
@@ -38,6 +40,7 @@ import { EquivalenceTFCMigration } from './equivalence-tfc-migration.service';
     PreRegistrationController,
     StudentsProvasController,
     ChangeShiftController,
+    StudentSituationController
   ],
 
   providers: [
@@ -53,11 +56,9 @@ import { EquivalenceTFCMigration } from './equivalence-tfc-migration.service';
     StudentsProvasService,
     PrazosService,
     AtiveConfirmationService,
-
     ChangeShiftService,
-
     EquivalenceTFCMigration,
-
+    StudentSituationService
   ],
 })
 export class StudentsModule { }
