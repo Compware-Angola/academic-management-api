@@ -2372,97 +2372,97 @@ WHERE ${baseWhere}
       obs,
       ordem,
       active_state,
-
     } = dto;
 
-    // 1. Verifica se existe
-    const checkQuery = `
-    SELECT PK_PARAMETRO
-    FROM FK2_MGH_TB_PARAMETRO
-    WHERE PK_PARAMETRO = :pk
-  `;
-    const existing = await this.dataSource.query(checkQuery, { pk: pk_parametro } as any);
+    // 1. Verifica se existe (reutiliza o padrão MAIÚSCULAS do Oracle)
+    const existing = await this.dataSource.query(
+      `SELECT PK_PARAMETRO FROM FK2_MGH_TB_PARAMETRO WHERE PK_PARAMETRO = :pk`,
+      [pk_parametro],
+    );
 
-    if (!existing || existing.length === 0) {
-      throw new NotFoundException(
-        `Parâmetro com PK ${pk_parametro} não encontrado.`,
-      );
+    if (!existing?.length) {
+      throw new NotFoundException(`Parâmetro com PK ${pk_parametro} não encontrado.`);
     }
 
-    // 2. Serializa args para string se vier como objeto
-    const argsSerialized =
-      args !== undefined
-        ? typeof args === 'string'
-          ? args
-          : JSON.stringify(args)
-        : undefined;
+    // 2. Serializa args — valida o JSON antes de persistir
+    let argsSerialized: string | undefined;
+    if (args !== undefined) {
+      if (typeof args === 'string') {
+        try {
+          JSON.parse(args); // garante que a string já é JSON válido
+          argsSerialized = args;
+        } catch {
+          throw new BadRequestException(`O campo 'args' contém JSON inválido.`);
+        }
+      } else {
+        argsSerialized = JSON.stringify(args);
+      }
+    }
 
-    // 3. Monta SET dinâmico apenas com os campos enviados
+    // 3. Monta SET dinâmico — só campos enviados no DTO
     const setClauses: string[] = ['UPDATED_AT = SYSDATE'];
-    const params: Record<string, unknown> = { pk: pk_parametro };
+    const bindValues: unknown[] = [];
+    let bindIndex = 1;
 
-    if (designacao !== undefined) {
-      setClauses.push('DESIGNACAO = :designacao');
-      params['designacao'] = designacao;
-    }
-    if (descricao !== undefined) {
-      setClauses.push('DESCRICAO = :descricao');
-      params['descricao'] = descricao;
-    }
-    if (sigla !== undefined) {
-      setClauses.push('SIGLA = :sigla');
-      params['sigla'] = sigla;
-    }
-    if (argsSerialized !== undefined) {
-      setClauses.push('ARGS = :args');
-      params['args'] = argsSerialized;
-    }
-    if (obs !== undefined) {
-      setClauses.push('OBS = :obs');
-      params['obs'] = obs;
-    }
-    if (ordem !== undefined) {
-      setClauses.push('ORDEM = :ordem');
-      params['ordem'] = ordem;
-    }
-    if (active_state !== undefined) {
-      setClauses.push('ACTIVE_STATE = :active_state');
-      params['active_state'] = active_state;
-    }
-    if (last_updated_by !== undefined) {
-      setClauses.push('LAST_UPDATED_BY = :last_updated_by');
-      params['last_updated_by'] = last_updated_by;
+    const addClause = (column: string, value: unknown) => {
+      setClauses.push(`${column} = :${bindIndex}`);
+      bindValues.push(value);
+      bindIndex++;
+    };
+
+    if (designacao !== undefined) addClause('DESIGNACAO', designacao);
+    if (descricao !== undefined) addClause('DESCRICAO', descricao);
+    if (sigla !== undefined) addClause('SIGLA', sigla);
+    if (argsSerialized !== undefined) addClause('ARGS', argsSerialized);
+    if (obs !== undefined) addClause('OBS', obs);
+    if (ordem !== undefined) addClause('ORDEM', ordem);
+    if (active_state !== undefined) addClause('ACTIVE_STATE', active_state);
+    if (last_updated_by !== undefined) addClause('LAST_UPDATED_BY', last_updated_by);
+
+    // Nada para atualizar além do UPDATED_AT — rejeita logo
+    if (setClauses.length === 1) {
+      throw new BadRequestException('Nenhum campo foi enviado para atualização.');
     }
 
-    // 4. Executa o UPDATE
-    const updateQuery = `
-    UPDATE FK2_MGH_TB_PARAMETRO
-    SET ${setClauses.join(', ')}
-    WHERE PK_PARAMETRO = :pk
-  `;
+    // 4. Executa UPDATE — pk no final como positional bind
+    bindValues.push(pk_parametro);
 
-    await this.dataSource.query(updateQuery, params as any);
+    await this.dataSource.query(
+      `UPDATE FK2_MGH_TB_PARAMETRO SET ${setClauses.join(', ')} WHERE PK_PARAMETRO = :${bindIndex}`,
+      bindValues,
+    );
 
-    // 5. Retorna o registo atualizado
-    const selectQuery = `
-    SELECT
-      P.PK_PARAMETRO,
-      P.DESIGNACAO,
-      P.DESCRICAO,
-      P.SIGLA,
-      P.ARGS,
-      P.OBS,
-      P.ORDEM,
-      P.ACTIVE_STATE
-    FROM FK2_MGH_TB_PARAMETRO P
-    WHERE P.PK_PARAMETRO = :pk
-  `;
+    // 5. Devolve o registo atualizado (colunas Oracle em MAIÚSCULAS → normaliza)
+    const rows = await this.dataSource.query(
+      `SELECT PK_PARAMETRO, DESIGNACAO, DESCRICAO, SIGLA, ARGS, OBS, ORDEM, ACTIVE_STATE
+     FROM FK2_MGH_TB_PARAMETRO
+     WHERE PK_PARAMETRO = :1`,
+      [pk_parametro],
+    );
 
-    const result = await this.dataSource.query(selectQuery, { pk: pk_parametro } as any);
+    const row = rows[0];
+
+    // Tenta parsear ARGS de volta para objeto na resposta
+    let parsedArgs: unknown = row.ARGS ?? row.args;
+    try {
+      if (parsedArgs) parsedArgs = JSON.parse(parsedArgs as string);
+    } catch {
+      // mantém como string se não for JSON válido
+    }
 
     return {
       success: true,
-      menssage: "Parametros Atualizados !",
+      message: 'Parâmetro atualizado com sucesso.',
+      data: {
+        pkParametro: row.PK_PARAMETRO ?? row.pk_parametro,
+        designacao: row.DESIGNACAO ?? row.designacao,
+        descricao: row.DESCRICAO ?? row.descricao,
+        sigla: row.SIGLA ?? row.sigla,
+        args: parsedArgs,
+        obs: row.OBS ?? row.obs,
+        ordem: row.ORDEM ?? row.ordem,
+        activeState: row.ACTIVE_STATE ?? row.active_state,
+      },
     };
   }
   private async createOrUpdateHorario(

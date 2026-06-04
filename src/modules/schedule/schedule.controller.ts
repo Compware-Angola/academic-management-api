@@ -23,7 +23,7 @@ import { ListScheduleDto } from './dto/list-schedule.dto';
 import { ListScheduleUCDto } from './dto/list-schedule-uc.dto';
 import { CreatePermissionEditScheduleDto } from './dto/create-permission-edit-schedule.dto';
 import { ListScheduleDocenteDto } from './dto/list-schedule-docente.dto';
-import {  MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
+import { MoveStudentsToScheduleDto } from './dto/move-students-to-schedule.dto';
 import { ListScheduleDayOfWeekto } from './dto/list-schedule-day-of-week.dto';
 import { ListScheduleClassRoomDto } from './dto/list-schedule-class-room.dto';
 import { FindScheduleByDesignationDto } from './dto/find-schedule-by-designation.dto';
@@ -45,6 +45,7 @@ import { DecodedUserPayload } from '../common/types/token-validation-response.in
 import { StudentWithoutScheduleService } from './student-without-schedule.service';
 import { FindStudentsWithoutScheduleDto } from './dto/find-students-without-schedule.dto';
 import { MoveStudentsToScheduleCorrectionDto } from './dto/move-students-to-schedule-correction.dto copy';
+import { ClassTimesScheduleService } from './class-times-schedule.service';
 
 @ApiTags('schedule')
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -55,7 +56,8 @@ export class ScheduleController {
     private httpService: HttpService,
     private readonly moveStudentsCorrectionService: MoveStudentsCorrectionService,
     private readonly studentWithoutScheduleService: StudentWithoutScheduleService,
-  ) {}
+    private readonly classTimesScheduleService: ClassTimesScheduleService,
+  ) { }
 
   // ================ PERMISSÃO DE EDIÇÃO ================
   @Post('permission')
@@ -120,7 +122,7 @@ export class ScheduleController {
     @Body() body: UpdateScheduleParamDto,
     @Req() req: any,
   ) {
-    return this.scheduleService.updateScheduleParam(body, req.user.sub);
+    return this.classTimesScheduleService.updateScheduleParam(body, req.user.sub);
   }
 
   @Get('with-permission')
