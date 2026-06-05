@@ -25,17 +25,20 @@ import { DefinirEspecialidadeDTO } from './dto/definir-especialidade.dto';
 import { formatarDataExtenso, notaExtenso } from '../util/diploma.util';
 import { GerarCertificadoDto } from './dto/gerar-certificado.dto';
 import { ListarDiplomadosDTO } from './dto/listar-diplomados-dto';
-
+import { StudentsResultPlanService } from './students-result-plan.service';
 
 @Injectable()
 export class StudentsService {
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly anoLectivoUtil: AnoLectivoUtil,
+    private readonly planStudent: StudentsResultPlanService,
+  ) {}
 
-  constructor(private readonly dataSource: DataSource, private readonly anoLectivoUtil: AnoLectivoUtil) {
-
-  }
-
-
-  async getProfileEstatistic(codigoMatricula: number, anoLectivo?: number): Promise<any> {
+  async getProfileEstatistic(
+    codigoMatricula: number,
+    anoLectivo?: number,
+  ): Promise<any> {
     const anoLectivoFilter = anoLectivo
       ? `AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo`
       : `AND ftgca.CODIGO_ANO_LECTIVO = (
@@ -162,7 +165,7 @@ export class StudentsService {
     if (isEspecialidade && row.CLASSE_CONFIRMACAO_MAX != null) {
       const classeResult = await this.dataSource.query(
         `SELECT DESIGNACAO FROM FK2_TB_CLASSES WHERE CODIGO = :codigo`,
-        { codigo: row.CLASSE_CONFIRMACAO_MAX } as any
+        { codigo: row.CLASSE_CONFIRMACAO_MAX } as any,
       );
 
       if (classeResult && classeResult.length > 0) {
@@ -456,16 +459,10 @@ export class StudentsService {
   }
 
   async listarMapaAnualFinalistas(filter: FilterMapaAnualFinalistasDto) {
-    const {
-      page = 1,
-      limit = 10,
-      anoLectivo = 0,
-      grau = 0,
-      search,
-    } = filter;
+    const { page = 1, limit = 10, anoLectivo = 0, grau = 0, search } = filter;
 
     if (!anoLectivo || anoLectivo === 0) {
-      throw new BadRequestException("O ano lectivo é obrigatório");
+      throw new BadRequestException('O ano lectivo é obrigatório');
     }
 
     const offset = (page - 1) * limit;
@@ -476,7 +473,7 @@ export class StudentsService {
       grau_zero: grau,
     };
 
-    let searchClause = "";
+    let searchClause = '';
     if (search && search.trim()) {
       searchClause = `
       AND (
@@ -583,12 +580,16 @@ export class StudentsService {
             AND tm.CODIGO_CURSO = tgc.CODIGO_CURSO
         )
       ) = 1
-      ${search && search.trim() ? `
+      ${
+        search && search.trim()
+          ? `
         AND (
           UPPER(tp.NOME_COMPLETO) LIKE :search
           OR UPPER(NVL(tp.BILHETE_IDENTIDADE, '-')) LIKE :search
         )
-      ` : ``}
+      `
+          : ``
+      }
     ) q
   ) t
   WHERE t.RN BETWEEN :offset + 1 AND :offset + :limit
@@ -648,12 +649,16 @@ export class StudentsService {
           AND tm.CODIGO_CURSO = tgc.CODIGO_CURSO
       )
     ) = 1
-    ${search && search.trim() ? `
+    ${
+      search && search.trim()
+        ? `
       AND (
         UPPER(tp.NOME_COMPLETO) LIKE :search
         OR UPPER(NVL(tp.BILHETE_IDENTIDADE, '-')) LIKE :search
       )
-    ` : ``}
+    `
+        : ``
+    }
   )
 `;
 
@@ -701,13 +706,7 @@ export class StudentsService {
   async listarRegistoPrimarioExamesAcesso(
     filter: FilterRegistoPrimarioExamesAcessoDto,
   ) {
-    const {
-      page = 1,
-      limit = 10,
-      anoLectivo = 0,
-      grau = 0,
-      search,
-    } = filter;
+    const { page = 1, limit = 10, anoLectivo = 0, grau = 0, search } = filter;
 
     if (!anoLectivo || anoLectivo === 0) {
       throw new BadRequestException('O ano lectivo é obrigatório');
@@ -724,7 +723,7 @@ export class StudentsService {
       grau,
     };
 
-    let innerSearchClause = "";
+    let innerSearchClause = '';
     if (search && search.trim()) {
       innerSearchClause = `
     AND (
@@ -898,7 +897,6 @@ export class StudentsService {
     };
   }
 
-
   async listarRegistoPrimarioMatriculados(filter: any) {
     const {
       page = 1,
@@ -1039,36 +1037,36 @@ export class StudentsService {
 
     if (estadoNum === 1 || estadoNum === 0) {
       sqlParams = [
-        anoCurricularNum,   // :1
-        anoCurricularNum,   // :2
-        anoLectivoNum,      // :3
-        grauNum,            // :4
-        grauNum,            // :4 repetido
-        anoLectivoNum,      // :5
-        anoLectivoNum,      // :6
-        searchValue,        // :7
-        searchValue,        // :8
-        searchValue,        // :9
-        searchValue,        // :10
-        searchValue,        // :11
-        offset + 1,         // :12
+        anoCurricularNum, // :1
+        anoCurricularNum, // :2
+        anoLectivoNum, // :3
+        grauNum, // :4
+        grauNum, // :4 repetido
+        anoLectivoNum, // :5
+        anoLectivoNum, // :6
+        searchValue, // :7
+        searchValue, // :8
+        searchValue, // :9
+        searchValue, // :10
+        searchValue, // :11
+        offset + 1, // :12
         offset + safeLimit, // :13
       ];
     } else {
       // estado = 2 (todos)
       sqlParams = [
-        anoCurricularNum,   // :1
-        anoCurricularNum,   // :2
-        anoLectivoNum,      // :3
-        grauNum,            // :4
-        grauNum,            // :4 repetido
-        anoLectivoNum,      // :6
-        searchValue,        // :7
-        searchValue,        // :8
-        searchValue,        // :9
-        searchValue,        // :10
-        searchValue,        // :11
-        offset + 1,         // :12
+        anoCurricularNum, // :1
+        anoCurricularNum, // :2
+        anoLectivoNum, // :3
+        grauNum, // :4
+        grauNum, // :4 repetido
+        anoLectivoNum, // :6
+        searchValue, // :7
+        searchValue, // :8
+        searchValue, // :9
+        searchValue, // :10
+        searchValue, // :11
+        offset + 1, // :12
         offset + safeLimit, // :13
       ];
     }
@@ -1116,14 +1114,14 @@ export class StudentsService {
     if (estadoNum === 1 || estadoNum === 0) {
       countParams = [
         anoLectivoNum, // :1
-        grauNum,       // :2
-        grauNum,       // :2 repetido
+        grauNum, // :2
+        grauNum, // :2 repetido
         anoLectivoNum, // :5
-        searchValue,   // :6
-        searchValue,   // :7
-        searchValue,   // :8
-        searchValue,   // :9
-        searchValue,   // :10
+        searchValue, // :6
+        searchValue, // :7
+        searchValue, // :8
+        searchValue, // :9
+        searchValue, // :10
       ];
     } else {
       countSqlFinal = `
@@ -1164,13 +1162,13 @@ export class StudentsService {
 
       countParams = [
         anoLectivoNum, // :1
-        grauNum,       // :2
-        grauNum,       // :2 repetido
-        searchValue,   // :3
-        searchValue,   // :4
-        searchValue,   // :5
-        searchValue,   // :6
-        searchValue,   // :7
+        grauNum, // :2
+        grauNum, // :2 repetido
+        searchValue, // :3
+        searchValue, // :4
+        searchValue, // :5
+        searchValue, // :6
+        searchValue, // :7
       ];
     }
 
@@ -1207,7 +1205,6 @@ export class StudentsService {
       totalPages: Math.ceil(total / safeLimit) || 1,
     };
   }
-
 
   async resetPassword(body: ResetStudentPasswordDTO) {
     const sql = `SELECT
@@ -1371,21 +1368,25 @@ WHERE M."CODIGO" = :codigoMatricula`;
     const { codigoMatricula, anoLectivoId } = dto;
 
     if (!codigoMatricula || !anoLectivoId) {
-      throw new BadRequestException('Código da matrícula e ano letivo são obrigatórios');
+      throw new BadRequestException(
+        'Código da matrícula e ano letivo são obrigatórios',
+      );
     }
 
     try {
-
       const sqlVerificarDiplomado = `
-      SELECT 
+      SELECT
         M."ESTADO_MATRICULA"
       FROM FK2_TB_MATRICULAS M
       WHERE M."CODIGO" = :codigoMatricula
     `;
 
-      const matriculaAtual = await this.dataSource.query(sqlVerificarDiplomado, {
-        codigoMatricula
-      } as any);
+      const matriculaAtual = await this.dataSource.query(
+        sqlVerificarDiplomado,
+        {
+          codigoMatricula,
+        } as any,
+      );
 
       if (matriculaAtual.length === 0) {
         throw new NotFoundException('Matrícula não encontrada');
@@ -1394,22 +1395,25 @@ WHERE M."CODIGO" = :codigoMatricula`;
       const status = matriculaAtual[0];
 
       // Se já estiver diplomado, não permite ativar novamente
-      if (status.ESTADO_MATRICULA === 'Diplomado' ||
+      if (
+        status.ESTADO_MATRICULA === 'Diplomado' ||
         status.ESTADO_MATRICULA === 'diplomado' ||
-        status.ESTADO_MATRICULA === 'concluido') {
-
-        throw new BadRequestException('Não é possível ativar esta matrícula. O aluno já está diplomado.');
+        status.ESTADO_MATRICULA === 'concluido'
+      ) {
+        throw new BadRequestException(
+          'Não é possível ativar esta matrícula. O aluno já está diplomado.',
+        );
       }
       // ====================== 1. BUSCAR ISENÇÕES DE PROPINA ATIVAS ======================
       const sqlBuscarPropinas = `
-      SELECT 
+      SELECT
         I.CODIGO as "codigoIsencao",
         S.DESCRICAO as "servico",
         S.PRECO as "valor",
         I.MES_TEMP_ID as "mesId",
         I.OBS as "observacao"
       FROM FK2_TB_ISENCOES I
-      INNER JOIN FK2_TB_TIPO_SERVICOS S 
+      INNER JOIN FK2_TB_TIPO_SERVICOS S
         ON S."CODIGO" = I."CODIGO_SERVICO"
       WHERE I.CODIGO_ANOLECTIVO = :anoLectivoId
         AND I.CODIGO_MATRICULA = :codigoMatricula
@@ -1428,7 +1432,12 @@ WHERE M."CODIGO" = :codigoMatricula`;
       let isencoesDesativadas = 0;
 
       if (isencoesPropina.length > 0) {
-        const ref_utilizado = { pk: usuarioLogado?.sub, desc: usuarioLogado?.name, corLetra: "black", disponivel: false };
+        const ref_utilizado = {
+          pk: usuarioLogado?.sub,
+          desc: usuarioLogado?.name,
+          corLetra: 'black',
+          disponivel: false,
+        };
 
         // Desativar as isenções
         const sqlDesativarPropinas = `
@@ -1441,8 +1450,8 @@ WHERE M."CODIGO" = :codigoMatricula`;
           AND I.CODIGO_MATRICULA = :codigoMatricula
           AND UPPER(I.ESTADO_ISENSAO) = 'ACTIVO'
           AND I."CODIGO_SERVICO" IN (
-            SELECT S."CODIGO" 
-            FROM FK2_TB_TIPO_SERVICOS S 
+            SELECT S."CODIGO"
+            FROM FK2_TB_TIPO_SERVICOS S
             WHERE UPPER(S."DESCRICAO") LIKE 'PROPINA%'
           )
       `;
@@ -1455,7 +1464,6 @@ WHERE M."CODIGO" = :codigoMatricula`;
 
         console.log(result);
 
-
         isencoesDesativadas = result || 0;
 
         // ====================== 3. DESATIVAR FACTURAS E ITENS DE PROPINA ======================
@@ -1464,26 +1472,29 @@ WHERE M."CODIGO" = :codigoMatricula`;
         UPDATE FK2_FACTURA_ITEMS fi
         SET fi.ESTADO = 0
         WHERE fi.MES_TEMP_ID IN (
-          SELECT I.MES_TEMP_ID 
+          SELECT I.MES_TEMP_ID
           FROM FK2_TB_ISENCOES I
           WHERE I.CODIGO_ANOLECTIVO = :anoLectivoId
             AND I.CODIGO_MATRICULA = :codigoMatricula
-            AND UPPER(I.ESTADO_ISENSAO) = 'INACTIVO' 
+            AND UPPER(I.ESTADO_ISENSAO) = 'INACTIVO'
             AND I."CODIGO_SERVICO" IN (
-              SELECT S."CODIGO" 
-              FROM FK2_TB_TIPO_SERVICOS S 
+              SELECT S."CODIGO"
+              FROM FK2_TB_TIPO_SERVICOS S
               WHERE UPPER(S."DESCRICAO") LIKE 'PROPINA%'
             )
         )
         AND EXISTS (
-          SELECT 1 FROM FK2_FACTURA f 
+          SELECT 1 FROM FK2_FACTURA f
           WHERE f.CODIGO = fi.CODIGOFACTURA
             AND f.CODIGOMATRICULA = :codigoMatricula
             AND f.ANO_LECTIVO = :anoLectivoId
         )
       `;
 
-        await this.dataSource.query(sqlDesativarItems, { codigoMatricula, anoLectivoId } as any);
+        await this.dataSource.query(sqlDesativarItems, {
+          codigoMatricula,
+          anoLectivoId,
+        } as any);
 
         // Atualiza as FACTURAS
         const sqlDesativarFacturas = `
@@ -1493,22 +1504,25 @@ WHERE M."CODIGO" = :codigoMatricula`;
         WHERE f.CODIGOMATRICULA = :codigoMatricula
           AND f.ANO_LECTIVO = :anoLectivoId
           AND EXISTS (
-            SELECT 1 FROM FK2_FACTURA_ITEMS fi 
+            SELECT 1 FROM FK2_FACTURA_ITEMS fi
             WHERE fi.CODIGOFACTURA = f.CODIGO
               AND fi.MES_TEMP_ID IN (
-                SELECT I.MES_TEMP_ID 
+                SELECT I.MES_TEMP_ID
                 FROM FK2_TB_ISENCOES I
                 WHERE I.CODIGO_ANOLECTIVO = :anoLectivoId
                   AND I.CODIGO_MATRICULA = :codigoMatricula
                   AND I."CODIGO_SERVICO" IN (
-                    SELECT S."CODIGO" FROM FK2_TB_TIPO_SERVICOS S 
+                    SELECT S."CODIGO" FROM FK2_TB_TIPO_SERVICOS S
                     WHERE UPPER(S."DESCRICAO") LIKE 'PROPINA%'
                   )
               )
           )
       `;
 
-        await this.dataSource.query(sqlDesativarFacturas, { codigoMatricula, anoLectivoId } as any);
+        await this.dataSource.query(sqlDesativarFacturas, {
+          codigoMatricula,
+          anoLectivoId,
+        } as any);
       }
 
       // ====================== 4. ATIVAR A MATRÍCULA ======================
@@ -1520,7 +1534,7 @@ WHERE M."CODIGO" = :codigoMatricula`;
     `;
 
       const resultMatricula = await this.dataSource.query(sqlAtivarMatricula, {
-        codigoMatricula
+        codigoMatricula,
       } as any);
 
       if (resultMatricula[1] === 0) {
@@ -1532,11 +1546,11 @@ WHERE M."CODIGO" = :codigoMatricula`;
         sucesso: true,
         mensagem: 'Matrícula ativada com sucesso',
         isencoesDePropinaDesativadas: isencoesDesativadas,
-        detalhes: isencoesPropina.length > 0
-          ? `${isencoesDesativadas} isenção(ões) de propina foram desativadas e as faturas relacionadas foram anuladas.`
-          : 'Nenhuma isenção de propina ativa foi encontrada.'
+        detalhes:
+          isencoesPropina.length > 0
+            ? `${isencoesDesativadas} isenção(ões) de propina foram desativadas e as faturas relacionadas foram anuladas.`
+            : 'Nenhuma isenção de propina ativa foi encontrada.',
       };
-
     } catch (error) {
       console.error('Erro ao ativar matrícula:', error);
       throw new BadRequestException(error || 'Erro ao ativar matrícula');
@@ -1544,7 +1558,16 @@ WHERE M."CODIGO" = :codigoMatricula`;
   }
 
   async academicHistory(dto: AcademicHistoryDTO) {
-    const { anoLectivoId, matriculaId, tipoProvaId, tipoAvaliacaoId, classeId, search, page = 1, limit = 10 } = dto;
+    const {
+      anoLectivoId,
+      matriculaId,
+      tipoProvaId,
+      tipoAvaliacaoId,
+      classeId,
+      search,
+      page = 1,
+      limit = 10,
+    } = dto;
 
     const offset = (page - 1) * limit;
 
@@ -1607,7 +1630,6 @@ WHERE M."CODIGO" = :codigoMatricula`;
     if (tipoAvaliacaoId) params.tipoAvaliacaoId = tipoAvaliacaoId;
     if (classeId) params.classeId = classeId;
 
-
     if (search) params.search = `%${search}%`;
 
     const result = await this.dataSource.query(query, params as any);
@@ -1637,7 +1659,7 @@ WHERE M."CODIGO" = :codigoMatricula`;
     const offset = (page - 1) * limit;
 
     const query = `
-    SELECT 
+    SELECT
       al.codigo,
       d.DESIGNACAO AS unidade_curricular,
       cla.DESIGNACAO AS classes,
@@ -1649,12 +1671,12 @@ WHERE M."CODIGO" = :codigoMatricula`;
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
 
     INNER JOIN FK2_TB_GRADE_CURRICULAR ga
-      ON ga.codigo = al.CODIGO_GRADE_CURRICULAR 
+      ON ga.codigo = al.CODIGO_GRADE_CURRICULAR
 
-    INNER JOIN FK2_TB_DISCIPLINAS d 
+    INNER JOIN FK2_TB_DISCIPLINAS d
       ON d.codigo = ga.CODIGO_DISCIPLINA
 
-    INNER JOIN FK2_TB_CLASSES cla 
+    INNER JOIN FK2_TB_CLASSES cla
       ON cla.CODIGO = ga.CODIGO_CLASSE
 
     INNER JOIN FK2_TB_ANO_LECTIVO an
@@ -1663,14 +1685,14 @@ WHERE M."CODIGO" = :codigoMatricula`;
     INNER JOIN FK2_TB_CURSOS c
       ON c.CODIGO = ga.CODIGO_CURSO
 
-    WHERE 
+    WHERE
       al.EQUIVALENCIA = 1
       AND al.CODIGO_MATRICULA = :matriculaId
       ${anoLectivoId ? 'AND al.CODIGO_ANO_LECTIVO = :anoLectivoId' : ''}
       ${classeId ? 'AND ga.CODIGO_CLASSE = :classeId' : ''}
       ${search ? 'AND UPPER(d.DESIGNACAO) LIKE UPPER(:search)' : ''}
 
-    GROUP BY 
+    GROUP BY
       al.codigo,
       d.DESIGNACAO,
       cla.DESIGNACAO,
@@ -1678,7 +1700,7 @@ WHERE M."CODIGO" = :codigoMatricula`;
       c.DESIGNACAO,
       al.EPOCA
 
-    ORDER BY 
+    ORDER BY
       cla.DESIGNACAO,
       d.DESIGNACAO ASC
 
@@ -1722,7 +1744,7 @@ WHERE M."CODIGO" = :codigoMatricula`;
     const offset = (page - 1) * limit;
 
     const query = `
-    SELECT 
+    SELECT
       al.codigo,
       d.DESIGNACAO AS unidade_curricular,
       cla.DESIGNACAO AS classes,
@@ -1734,12 +1756,12 @@ WHERE M."CODIGO" = :codigoMatricula`;
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
 
     INNER JOIN FK2_TB_GRADE_CURRICULAR ga
-      ON ga.codigo = al.CODIGO_GRADE_CURRICULAR 
+      ON ga.codigo = al.CODIGO_GRADE_CURRICULAR
 
-    INNER JOIN FK2_TB_DISCIPLINAS d 
+    INNER JOIN FK2_TB_DISCIPLINAS d
       ON d.codigo = ga.CODIGO_DISCIPLINA
 
-    INNER JOIN FK2_TB_CLASSES cla 
+    INNER JOIN FK2_TB_CLASSES cla
       ON cla.CODIGO = ga.CODIGO_CLASSE
 
     INNER JOIN FK2_TB_ANO_LECTIVO an
@@ -1748,7 +1770,7 @@ WHERE M."CODIGO" = :codigoMatricula`;
     INNER JOIN FK2_TB_CURSOS c
       ON c.CODIGO = ga.CODIGO_CURSO
 
-    WHERE 
+    WHERE
       al.CANAL = 8
       AND al.CODIGO_MATRICULA = :matriculaId
       AND al.CODIGO_STATUS_GRADE_CURRICULAR = 3
@@ -1756,7 +1778,7 @@ WHERE M."CODIGO" = :codigoMatricula`;
       ${classeId ? 'AND ga.CODIGO_CLASSE = :classeId' : ''}
       ${search ? 'AND UPPER(d.DESIGNACAO) LIKE UPPER(:search)' : ''}
 
-    GROUP BY 
+    GROUP BY
       al.codigo,
       d.DESIGNACAO,
       cla.DESIGNACAO,
@@ -1765,7 +1787,7 @@ WHERE M."CODIGO" = :codigoMatricula`;
       al.EPOCA,
       al.CODIGO_STATUS_GRADE_CURRICULAR
 
-    ORDER BY 
+    ORDER BY
       cla.DESIGNACAO,
       d.DESIGNACAO ASC
 
@@ -1796,29 +1818,34 @@ WHERE M."CODIGO" = :codigoMatricula`;
     };
   }
 
-
-  async updateHorarioGradeCurricular({ codigoGradeCurricularAluno, horarioID }: { codigoGradeCurricularAluno: number, horarioID: number }) {
+  async updateHorarioGradeCurricular({
+    codigoGradeCurricularAluno,
+    horarioID,
+  }: {
+    codigoGradeCurricularAluno: number;
+    horarioID: number;
+  }) {
     const gradeCurricularID = codigoGradeCurricularAluno;
     const STATUS_PERMITIDO = 2;
-    console.log({ codigoGradeCurricularAluno, horarioID })
+    console.log({ codigoGradeCurricularAluno, horarioID });
 
     const [gradeResult, statusResult, horarioResult] = await Promise.all([
       this.dataSource.query(
         `
-      SELECT 
+      SELECT
         al.codigo as codigo_grade_curricular_aluno,
         al.REF_HORARIO as ref_horario,
         al.CODIGO_STATUS_GRADE_CURRICULAR as codigo_status_grade_curricular
       FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
       WHERE al.CODIGO = :1
-      
+
       `,
         [gradeCurricularID],
       ),
 
       this.dataSource.query(
         `
-      SELECT 
+      SELECT
         sgc.DESIGNACAO as status_nome
       FROM FK2_TB_STATUS_GRADE_CURRICULAR sgc
       WHERE sgc.codigo = :1
@@ -1828,7 +1855,7 @@ WHERE M."CODIGO" = :codigoMatricula`;
 
       this.dataSource.query(
         `
-      SELECT 
+      SELECT
         hr.pk_horario as pk,
         hr.designacao as designacao
       FROM FK2_MGH_TB_HORARIO hr
@@ -1841,7 +1868,6 @@ WHERE M."CODIGO" = :codigoMatricula`;
     const [gradeCurricular] = toLowerCaseKeys(gradeResult);
     const [statusGradeCurricular] = toLowerCaseKeys(statusResult);
     const [horario] = toLowerCaseKeys(horarioResult);
-
 
     if (!gradeCurricular) {
       throw new BadRequestException('Grade curricular não encontrada');
@@ -1859,7 +1885,10 @@ WHERE M."CODIGO" = :codigoMatricula`;
       );
     }
 
-    const REF_HORARIO = JSON.stringify({ pk: horario.pk, desc: horario.designacao });
+    const REF_HORARIO = JSON.stringify({
+      pk: horario.pk,
+      desc: horario.designacao,
+    });
 
     await this.dataSource.query(
       `
@@ -1870,25 +1899,27 @@ WHERE M."CODIGO" = :codigoMatricula`;
       [REF_HORARIO, gradeCurricularID],
     );
 
-
-
     return {
       message: 'Horário da grade curricular atualizado com sucesso',
     };
   }
 
-  async deleteGrade({ codigoGradeCurricularAluno }: { codigoGradeCurricularAluno: number }) {
-    console.log({ codigoGradeCurricularAluno })
+  async deleteGrade({
+    codigoGradeCurricularAluno,
+  }: {
+    codigoGradeCurricularAluno: number;
+  }) {
+    console.log({ codigoGradeCurricularAluno });
     const gradeCurricularResult = await this.dataSource.query(
       `
-    SELECT 
+    SELECT
       al.CODIGO_STATUS_GRADE_CURRICULAR as codigo_status_grade_curricular
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
     WHERE al.CODIGO = :1
     `,
       [codigoGradeCurricularAluno],
     );
-    console.log({ gradeCurricularResult })
+    console.log({ gradeCurricularResult });
     const [gradeCurricular] = toLowerCaseKeys(gradeCurricularResult);
 
     if (!gradeCurricular) {
@@ -1900,7 +1931,6 @@ WHERE M."CODIGO" = :codigoMatricula`;
         'Não é possível deletar grade curricular Concluida',
       );
     }
-
 
     await this.dataSource.query(
       `
@@ -1915,10 +1945,14 @@ WHERE M."CODIGO" = :codigoMatricula`;
     };
   }
 
-  async restoreGrade({ codigoGradeCurricularAluno }: { codigoGradeCurricularAluno: number }) {
+  async restoreGrade({
+    codigoGradeCurricularAluno,
+  }: {
+    codigoGradeCurricularAluno: number;
+  }) {
     const gradeCurricularResult = await this.dataSource.query(
       `
-    SELECT 
+    SELECT
       al.CODIGO_STATUS_GRADE_CURRICULAR as codigo_status_grade_curricular
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
     WHERE al.CODIGO = :1
@@ -1945,7 +1979,6 @@ WHERE M."CODIGO" = :codigoMatricula`;
     };
   }
 
-
   async definirEspecialidade(dto: DefinirEspecialidadeDTO) {
     const { codigoMatricula, codigoCursoEspecialidade } = dto;
 
@@ -1956,16 +1989,16 @@ WHERE M."CODIGO" = :codigoMatricula`;
 
     const matriculas = toLowerCaseKeys(matriculaResult);
 
-
     if (!matriculas || matriculas.length === 0) {
       throw new NotFoundException('Matrícula não encontrada');
     }
 
     const matricula = matriculas[0];
 
-
     if (matricula.estado_matricula?.toLowerCase() === 'diplomado') {
-      throw new BadRequestException('Não é possível definir especialidade para aluno diplomado');
+      throw new BadRequestException(
+        'Não é possível definir especialidade para aluno diplomado',
+      );
     }
     await this.dataSource.query(
       `
@@ -1980,10 +2013,7 @@ WHERE M."CODIGO" = :codigoMatricula`;
     return {
       message: 'Especialidade definida com sucesso',
     };
-
   }
-
-
 
   async changeCourse(dto: ChangeCourseDTO) {
     const { PoloId, matriculaId, cursoId } = dto;
@@ -1998,29 +2028,32 @@ WHERE M."CODIGO" = :codigoMatricula`;
       throw new BadRequestException('Código da matrícula é obrigatório');
     }
     if (!PoloId && !cursoId) {
-      throw new BadRequestException('Polo ou curso deve ser informado para a alteração');
+      throw new BadRequestException(
+        'Polo ou curso deve ser informado para a alteração',
+      );
     }
     const matriculaDetails = await this.getMatriculaDetails(matriculaId);
-    const confirmationExists = await this.confirmationExists(matriculaId, anoCorrente);
-    if (confirmationExists || matriculaDetails.estado.toLowerCase() === 'activo') {
+    const confirmationExists = await this.confirmationExists(
+      matriculaId,
+      anoCorrente,
+    );
+    if (
+      confirmationExists ||
+      matriculaDetails.estado.toLowerCase() === 'activo'
+    ) {
       return {
         message: 'Funcionalidade de mudança de curso ainda não implementada',
         matriculaDetails,
-        confirmationExists
+        confirmationExists,
       };
-
     } else {
       return {
-        message: 'Matrícula não ativa e sem confirmação para o ano letivo atual. A troca de curso não pode ser realizada.',
+        message:
+          'Matrícula não ativa e sem confirmação para o ano letivo atual. A troca de curso não pode ser realizada.',
         matriculaDetails,
-        confirmationExists
+        confirmationExists,
       };
-
     }
-
-
-
-
   }
 
   private async getMatriculaDetails(codigoMatricula: number) {
@@ -2054,7 +2087,10 @@ WHERE M."CODIGO" = :codigoMatricula`;
 
     return toLowerCaseKeys(result[0]);
   }
-  private async confirmationExists(codigoMatricula: number, anoLectivoId: number): Promise<boolean> {
+  private async confirmationExists(
+    codigoMatricula: number,
+    anoLectivoId: number,
+  ): Promise<boolean> {
     const sql = `
       SELECT *
       FROM FK2_TB_CONFIRMACOES con
@@ -2075,9 +2111,9 @@ WHERE M."CODIGO" = :codigoMatricula`;
     const max = Math.max(anoMin, anoMax);
 
     const sql = `
-      SELECT 
+      SELECT
           g.codigo,
-          TRIM(d.designacao) AS disciplina, 
+          TRIM(d.designacao) AS disciplina,
           al.nota,
           g.HORASTEORICAS as horas_teoricas,
           g.HORASTEORICOSPRATICAS as horas_teorico_praticas,
@@ -2091,22 +2127,19 @@ WHERE M."CODIGO" = :codigoMatricula`;
       INNER JOIN FK2_TB_DISCIPLINAS d       ON d.codigo = g.CODIGO_DISCIPLINA
       INNER JOIN FK2_TB_DURACAO dur         ON dur.CODIGO = d.DURACAO
       INNER JOIN FK2_TB_ANO_LECTIVO an      ON an.CODIGO = al.CODIGO_ANO_LECTIVO
-      WHERE al.CODIGO_STATUS_GRADE_CURRICULAR = 3 
-        AND al.NOTA >= 10 
+      WHERE al.CODIGO_STATUS_GRADE_CURRICULAR = 3
+        AND al.NOTA >= 10
         AND al.CODIGO_MATRICULA = :matriculaId
         AND g.CODIGO_CLASSE BETWEEN :min AND :max
-      ORDER BY 
-          g.CODIGO_CLASSE ASC, 
-          g.CODIGO_SEMESTRE ASC, 
+      ORDER BY
+          g.CODIGO_CLASSE ASC,
+          g.CODIGO_SEMESTRE ASC,
           NLSSORT(TRIM(d.designacao), 'NLS_SORT=BINARY_AI') ASC
     `;
 
-
     const result = await this.dataSource.query(sql, [matriculaId, min, max]);
     return toLowerCaseKeys(result);
-
   }
-
 
   async diplomarAluno(
     body: {
@@ -2132,7 +2165,9 @@ WHERE M."CODIGO" = :codigoMatricula`;
       throw new BadRequestException('Ano lectivo actual não encontrado');
     }
 
-    const dataConclusaoFinal = dataConclusao ? new Date(dataConclusao) : new Date();
+    const dataConclusaoFinal = dataConclusao
+      ? new Date(dataConclusao)
+      : new Date();
 
     if (Number.isNaN(dataConclusaoFinal.getTime())) {
       throw new BadRequestException('Data de conclusão inválida');
@@ -2165,42 +2200,42 @@ WHERE M."CODIGO" = :codigoMatricula`;
       }
 
       // Verifica se o estudante reúne condições para diplomar
-      const elegibilidadeResult = await manager.query(
-        `
-      SELECT
-        NVL((
-          SELECT COUNT(DISTINCT
-            GC.CODIGO_DISCIPLINA || '-' ||
-            GC.CODIGO_CLASSE || '-' ||
-            GC.CODIGO_SEMESTRE
-          )
-          FROM FK2_TB_GRADE_CURRICULAR_ALUNO GCA
-          INNER JOIN FK2_TB_GRADE_CURRICULAR GC
-            ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
-          WHERE GCA.CODIGO_MATRICULA = :codigoMatricula
-            AND GCA.CODIGO_STATUS_GRADE_CURRICULAR = 3
-            AND GC.CODIGO_CURSO = :codigoCurso
-        ), 0) AS TOTAL_FEITAS,
-        NVL((
-          SELECT COUNT(DISTINCT
-            GC.CODIGO_DISCIPLINA || '-' ||
-            GC.CODIGO_CLASSE || '-' ||
-            GC.CODIGO_SEMESTRE
-          )
-          FROM FK2_TB_GRADE_CURRICULAR GC
-          WHERE GC.CODIGO_CURSO = :codigoCurso
-            AND GC.STATUS_ = 1
-        ), 0) AS TOTAL_CURSO
-      FROM DUAL
-      `,
-        {
-          codigoMatricula,
-          codigoCurso: matricula.CODIGO_CURSO,
-        } as any,
-      );
-
-      const totalFeitas = Number(elegibilidadeResult?.[0]?.TOTAL_FEITAS ?? 0);
-      const totalCurso = Number(elegibilidadeResult?.[0]?.TOTAL_CURSO ?? 0);
+      // const elegibilidadeResult = await manager.query(
+      //   `
+      // SELECT
+      //   NVL((
+      //     SELECT COUNT(DISTINCT
+      //       GC.CODIGO_DISCIPLINA || '-' ||
+      //       GC.CODIGO_CLASSE || '-' ||
+      //       GC.CODIGO_SEMESTRE
+      //     )
+      //     FROM FK2_TB_GRADE_CURRICULAR_ALUNO GCA
+      //     INNER JOIN FK2_TB_GRADE_CURRICULAR GC
+      //       ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
+      //     WHERE GCA.CODIGO_MATRICULA = :codigoMatricula
+      //       AND GCA.CODIGO_STATUS_GRADE_CURRICULAR = 3
+      //       AND GC.CODIGO_CURSO = :codigoCurso
+      //   ), 0) AS TOTAL_FEITAS,
+      //   NVL((
+      //     SELECT COUNT(DISTINCT
+      //       GC.CODIGO_DISCIPLINA || '-' ||
+      //       GC.CODIGO_CLASSE || '-' ||
+      //       GC.CODIGO_SEMESTRE
+      //     )
+      //     FROM FK2_TB_GRADE_CURRICULAR GC
+      //     WHERE GC.CODIGO_CURSO = :codigoCurso
+      //       AND GC.STATUS_ = 1
+      //   ), 0) AS TOTAL_CURSO
+      // FROM DUAL
+      // `,
+      //   {
+      //     codigoMatricula,
+      //     codigoCurso: matricula.CODIGO_CURSO,
+      //   } as any,
+      // );
+      const grades = await this.planStudent.findPlan(codigoMatricula);
+      const totalFeitas = grades.totalGrasesAluno;
+      const totalCurso = grades.totalGradesCurso;
 
       if (!totalCurso || totalFeitas < totalCurso) {
         throw new BadRequestException(
@@ -2209,24 +2244,32 @@ WHERE M."CODIGO" = :codigoMatricula`;
       }
 
       // Média final
-      const notaResult = await manager.query(
-        `
-      SELECT
-        NVL(ROUND(AVG(GCA.NOTA), 0), 0) AS NOTA_FINAL
-      FROM FK2_TB_GRADE_CURRICULAR_ALUNO GCA
-      INNER JOIN FK2_TB_GRADE_CURRICULAR GC
-        ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
-      WHERE GCA.CODIGO_MATRICULA = :codigoMatricula
-        AND GCA.CODIGO_STATUS_GRADE_CURRICULAR = 3
-        AND GC.CODIGO_CURSO = :codigoCurso
-      `,
-        {
-          codigoMatricula,
-          codigoCurso: matricula.CODIGO_CURSO,
-        } as any,
-      );
+      // const notaResult = await manager.query(
+      //   `
+      // SELECT
+      //   NVL(ROUND(AVG(GCA.NOTA), 0), 0) AS NOTA_FINAL
+      // FROM FK2_TB_GRADE_CURRICULAR_ALUNO GCA
+      // INNER JOIN FK2_TB_GRADE_CURRICULAR GC
+      //   ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
+      // WHERE GCA.CODIGO_MATRICULA = :codigoMatricula
+      //   AND GCA.CODIGO_STATUS_GRADE_CURRICULAR = 3
+      //   AND GC.CODIGO_CURSO = :codigoCurso
+      // `,
+      //   {
+      //     codigoMatricula,
+      //     codigoCurso: matricula.CODIGO_CURSO,
+      //   } as any,
+      // );
+      // const m = grades.grades.map(t => t.nota)
+      // const notaFinal = Number(notaResult?.[0]?.NOTA_FINAL ?? 0);
 
-      const notaFinal = Number(notaResult?.[0]?.NOTA_FINAL ?? 0);
+      const somaNotas = grades.grades.reduce(
+        (total, item) => total + item.nota,
+        0,
+      );
+      const quantidadeNotas = grades.grades.length;
+      const notaFinal =
+        quantidadeNotas > 0 ? Math.round(somaNotas / quantidadeNotas) : 0;
 
       // Atualiza estado da matrícula
       await manager.query(
@@ -2242,9 +2285,9 @@ WHERE M."CODIGO" = :codigoMatricula`;
       const refUtilizador =
         usuarioLogado?.sub || usuarioLogado?.name
           ? JSON.stringify({
-            pk: usuarioLogado?.sub ?? null,
-            desc: usuarioLogado?.name ?? null,
-          })
+              pk: usuarioLogado?.sub ?? null,
+              desc: usuarioLogado?.name ?? null,
+            })
           : null;
 
       // Verifica se já existe conclusão para esta matrícula
@@ -2501,12 +2544,10 @@ WHERE M."CODIGO" = :codigoMatricula`;
     });
   }
 
-  async gerarDiploma(
-    body: {
-      codigoMatricula: number;
-      segundaViaDiploma?: boolean;
-    },
-  ) {
+  async gerarDiploma(body: {
+    codigoMatricula: number;
+    segundaViaDiploma?: boolean;
+  }) {
     const { codigoMatricula, segundaViaDiploma = false } = body;
 
     if (!codigoMatricula) {
@@ -2644,9 +2685,7 @@ WHERE M."CODIGO" = :codigoMatricula`;
       limit: offset + limit,
     };
 
-    params.search = search?.trim()
-      ? `%${search.trim().toUpperCase()}%`
-      : null;
+    params.search = search?.trim() ? `%${search.trim().toUpperCase()}%` : null;
 
     const sql = `
     SELECT *
@@ -2727,6 +2766,4 @@ WHERE M."CODIGO" = :codigoMatricula`;
       totalPages: Math.ceil(total / limit) || 1,
     };
   }
-
-
 }

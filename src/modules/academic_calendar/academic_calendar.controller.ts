@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Body,
   Patch,
   Param,
@@ -9,6 +10,7 @@ import {
   Query,
   ValidationPipe,
   UseGuards,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { AcademicCalendarService } from './academic_calendar.service';
 
@@ -28,6 +30,96 @@ export class AcademicCalendarController {
   async searchCurricularByStudenty(@Query() params: GenerateMesTempDTO) {
     return this.academicCalendarService.generateMesTemp(params);
   }
+
+  @Get('academic-year/all')
+  @ApiOperation({ summary: 'Lista anos lectivos com periodos semestrais configurados' })
+  @ApiResponse({ status: 200, description: 'Consulta de anos lectivos realizada com sucesso' })
+  async findAcademicYearsWithConfiguredSemesters() {
+    return this.academicCalendarService.findAcademicYearsWithConfiguredSemesters();
+  }
+
+  @Get('application-types/all')
+  @ApiOperation({ summary: 'Lista tipos de candidatura ativos' })
+  @ApiResponse({ status: 200, description: 'Tipos de candidatura retornados com sucesso' })
+  async findActiveApplicationTypes() {
+    return this.academicCalendarService.findActiveApplicationTypes();
+  }
+
+  @Get('academic-year/:anolectivo')
+  @ApiOperation({ summary: 'Busca parametros de um ano lectivo especifico' })
+  @ApiResponse({ status: 200, description: 'Ano lectivo retornado com sucesso' })
+  async findAcademicYearParams(@Param('anolectivo', ParseIntPipe) anolectivo: number) {
+    return this.academicCalendarService.findAcademicYearParams(anolectivo);
+  }
+
+  @Post('academic-year')
+  @ApiOperation({ summary: 'Cria um ano lectivo com os periodos semestrais' })
+  @ApiResponse({ status: 201, description: 'Ano lectivo criado com sucesso' })
+  @ApiResponse({ status: 400, description: 'Dados inválidos ou ano lectivo já existente' })
+  async createAcademicYear(@Body() body: any) {
+    return this.academicCalendarService.createAcademicYear(body);
+  }
+
+  @Put('academic-year/:anolectivo')
+  @ApiOperation({ summary: 'Atualiza o estado de um ano lectivo' })
+  @ApiResponse({ status: 200, description: 'Estado do ano lectivo atualizado com sucesso' })
+  @ApiResponse({ status: 400, description: 'Dados inválidos ou ano lectivo não encontrado' })
+  async updateAcademicYearState(
+    @Param('anolectivo', ParseIntPipe) anolectivo: number,
+    @Body('estado', ParseIntPipe) estado: number,
+  ) {
+    return this.academicCalendarService.updateAcademicYearState(
+      anolectivo,
+      estado,
+    );
+  }
+
+  @Get('vacancies/:anolectivo/:tpcandidatura')
+  @ApiOperation({ summary: 'Lista vagas por ano lectivo e tipo de candidatura' })
+  @ApiResponse({ status: 200, description: 'Vagas retornadas com sucesso' })
+  async findVacanciesByAcademicYearAndApplicationType(
+    @Param('anolectivo', ParseIntPipe) anolectivo: number,
+    @Param('tpcandidatura', ParseIntPipe) tpcandidatura: number,
+  ) {
+    return this.academicCalendarService.findVacanciesByAcademicYearAndApplicationType(
+      anolectivo,
+      tpcandidatura,
+    );
+  }
+
+  @Post('vacancies')
+  @ApiOperation({ summary: 'Cria vagas para um ano lectivo' })
+  @ApiResponse({ status: 201, description: 'Vagas criadas com sucesso' })
+  @ApiResponse({ status: 400, description: 'Dados inválidos' })
+  async createAcademicYearVacancies(@Body() body: any) {
+    return this.academicCalendarService.createAcademicYearVacancies(body);
+  }
+
+  @Put('vacancies')
+  @ApiOperation({ summary: 'Atualiza o numero de vagas' })
+  @ApiResponse({ status: 200, description: 'Numero de vagas atualizado com sucesso' })
+  @ApiResponse({ status: 400, description: 'Dados inválidos ou vaga não encontrada' })
+  async updateVacancyNumber(
+    @Body('id', ParseIntPipe) id: number,
+    @Body('num_vagas', ParseIntPipe) numVagas: number,
+  ) {
+    return this.academicCalendarService.updateVacancyNumber(id, numVagas);
+  }
+
+  @Get('vacancies')
+  @ApiOperation({ summary: 'Lista vagas do ano lectivo ativo' })
+  @ApiResponse({ status: 200, description: 'Vagas retornadas com sucesso' })
+  async findVacanciesFromActiveAcademicYear() {
+    return this.academicCalendarService.findVacanciesFromActiveAcademicYear();
+  }
+
+  @Get('monthly-fees/:anolectivo')
+  @ApiOperation({ summary: 'Lista mensalidades por ano lectivo' })
+  @ApiResponse({ status: 200, description: 'Mensalidades retornadas com sucesso' })
+  async findMonthlyFeesByAcademicYear(@Param('anolectivo', ParseIntPipe) anolectivo: number) {
+    return this.academicCalendarService.findMonthlyFeesByAcademicYear(anolectivo);
+  }
+
   @Get('meses-prestacoes')
   @ApiOperation({
     summary: 'Lista os meses/prestações configurados',
