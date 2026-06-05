@@ -14,7 +14,7 @@ import { CreateAvisoUmaDto } from './dto/create.aviso.dto';
 
 @Injectable()
 export class SolicitacaoService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
   async findEncaminhamentos({
     serviceId,
     estado,
@@ -440,16 +440,16 @@ export class SolicitacaoService {
   }
 
   async listarServicosSolicao(
-  estado_solicitacao: number = 1,
-  codigo_ano_lectivo: number,
-) {
+    estado_solicitacao: number = 1,
+    codigo_ano_lectivo: number,
+  ) {
 
-   if (!codigo_ano_lectivo || isNaN(codigo_ano_lectivo)) {
-    throw new Error('codigo_ano_lectivo inválido');
-  }
+    if (!codigo_ano_lectivo || isNaN(codigo_ano_lectivo)) {
+      throw new Error('codigo_ano_lectivo inválido');
+    }
 
-  const result = await this.dataSource.query(
-    `
+    const result = await this.dataSource.query(
+      `
     SELECT 
       codigo,
       DBMS_LOB.SUBSTR(descricao, 4000, 1) AS descricao
@@ -458,53 +458,53 @@ export class SolicitacaoService {
       AND codigo_ano_lectivo = :codigo_ano_lectivo
     ORDER BY descricao
     `,
-    [estado_solicitacao, codigo_ano_lectivo]
-  );
+      [estado_solicitacao, codigo_ano_lectivo]
+    );
 
-  return result;
-}
+    return result;
+  }
 
   async listarOnlySolicitacoes(params: {
-  limit?: number;
-  page?: number;
-  estadoSolicitacao: string;
-  tipoServicoSelecionado: number;
-  userId: number;
-  searchServico?: string;
-}) {
+    limit?: number;
+    page?: number;
+    estadoSolicitacao: string;
+    tipoServicoSelecionado: number;
+    userId: number;
+    searchServico?: string;
+  }) {
 
-  
-  const {
-    limit = 10,
-    page = 1,
-    estadoSolicitacao,
-    tipoServicoSelecionado,
-    searchServico
-  } = params;
 
-  const safePage = Number(page) > 0 ? Number(page) : 1;
-  const safeLimit = Number(limit) > 0 ? Number(limit) : 10;
-  const offset = (safePage - 1) * safeLimit;
+    const {
+      limit = 10,
+      page = 1,
+      estadoSolicitacao,
+      tipoServicoSelecionado,
+      searchServico
+    } = params;
 
-  const destinos = ['Reitoria', 'Tesouraria'];
+    const safePage = Number(page) > 0 ? Number(page) : 1;
+    const safeLimit = Number(limit) > 0 ? Number(limit) : 10;
+    const offset = (safePage - 1) * safeLimit;
 
-  const queryParams: any = {
-    estadoSolicitacao,
-    tipoServicoSelecionado,
-    destino0: destinos[0],
-    destino1: destinos[1],
-  };
+    const destinos = ['Reitoria', 'Tesouraria'];
 
-  let filtroServicoDescricao = "";
+    const queryParams: any = {
+      estadoSolicitacao,
+      tipoServicoSelecionado,
+      destino0: destinos[0],
+      destino1: destinos[1],
+    };
 
-if (searchServico && searchServico.trim() !== "") {
-  filtroServicoDescricao = `
+    let filtroServicoDescricao = "";
+
+    if (searchServico && searchServico.trim() !== "") {
+      filtroServicoDescricao = `
     AND LOWER(SER.DESCRICAO) LIKE LOWER(:searchServico)
   `;
-  queryParams.searchServico = `%${searchServico.trim()}%`;
-}
+      queryParams.searchServico = `%${searchServico.trim()}%`;
+    }
 
-  const sql = `
+    const sql = `
     SELECT
       FK_TB_S.ID                   AS CODIGO_SOLICITACAO,
       FK_TB_S.CODIGO_MATRICULA     AS MATRICULA,
@@ -538,7 +538,7 @@ if (searchServico && searchServico.trim() !== "") {
     OFFSET ${offset} ROWS FETCH NEXT ${safeLimit} ROWS ONLY
   `;
 
-  const sqlCount = `
+    const sqlCount = `
   SELECT COUNT(*) AS TOTAL
   FROM FK2_TB_SOLICITACAO_UMA FK_TB_S
     LEFT JOIN FK2_TB_TIPO_SERVICOS SER
@@ -559,41 +559,41 @@ if (searchServico && searchServico.trim() !== "") {
 
 
 
-  const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql, queryParams),
-    this.dataSource.query(sqlCount, queryParams),
-  ]);
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, queryParams),
+      this.dataSource.query(sqlCount, queryParams),
+    ]);
 
-  const total = Number(countResult[0]?.TOTAL ?? 0);
-  const totalPages = Math.ceil(total / safeLimit);
+    const total = Number(countResult[0]?.TOTAL ?? 0);
+    const totalPages = Math.ceil(total / safeLimit);
 
-  return {
-    data: await toLowerCaseKeys(result),
-    total,
-    page: safePage,
-    limit: safeLimit,
-    totalPages,
-  };
-}
-
-async listarAvisos(
-  params?: { limit?: number; page?: number; assunto?: string },
-) {
-  const { limit = 10, page = 1, assunto } = params || {};
-  const offset = (page - 1) * limit;
-
-  const conditions: string[] = [];
-  const countParams: any[] = [];
-
-  if (assunto?.trim()) {
-    conditions.push(`UPPER(AVS.ASSUNTO) LIKE UPPER(:1)`);
-    countParams.push(`%${assunto.trim()}%`);
+    return {
+      data: await toLowerCaseKeys(result),
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages,
+    };
   }
 
-  const whereClause =
-    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  async listarAvisos(
+    params?: { limit?: number; page?: number; assunto?: string },
+  ) {
+    const { limit = 10, page = 1, assunto } = params || {};
+    const offset = (page - 1) * limit;
 
-  const sql = `
+    const conditions: string[] = [];
+    const countParams: any[] = [];
+
+    if (assunto?.trim()) {
+      conditions.push(`UPPER(AVS.ASSUNTO) LIKE UPPER(:1)`);
+      countParams.push(`%${assunto.trim()}%`);
+    }
+
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    const sql = `
     SELECT 
       AVS.ID AS CODIGO,
       AVS.ASSUNTO,
@@ -617,32 +617,32 @@ async listarAvisos(
     FETCH NEXT :${countParams.length + 2} ROWS ONLY
   `;
 
-  const sqlCount = `
+    const sqlCount = `
     SELECT COUNT(*) AS TOTAL
     FROM FK2_TB_AVISO_UMA AVS
     ${whereClause}
   `;
 
-  const dataParams = [...countParams, offset, limit];
+    const dataParams = [...countParams, offset, limit];
 
-  const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql, dataParams),
-    this.dataSource.query(sqlCount, countParams),
-  ]);
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, dataParams),
+      this.dataSource.query(sqlCount, countParams),
+    ]);
 
-  const total = Number(countResult[0].TOTAL ?? 0);
-  const totalPages = Math.ceil(total / limit);
+    const total = Number(countResult[0].TOTAL ?? 0);
+    const totalPages = Math.ceil(total / limit);
 
-  return {
-    data: result,
-    total,
-    page,
-    limit,
-    totalPages,
-  };
-}
+    return {
+      data: result,
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
 
-async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
+  async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
     // aceita date_expiracao ou dateExpiracao
     const rawDateExpiracao: any =
       (dto as any).date_expiracao ?? (dto as any).dateExpiracao ?? null;
@@ -711,7 +711,7 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
     return { message: 'Aviso criado com sucesso' };
   }
 
-    async listarRoles(): Promise<any[]> {
+  async listarRoles(): Promise<any[]> {
     const sql = `
       SELECT
         ID, 
@@ -725,45 +725,44 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
     return await toLowerCaseKeys(result);
   }
 
-    async updateAvisoImagem(fileName: string): Promise<{ message: string }> {
+
+
+  async getAvisoGeralStudent(sigla: string): Promise<any> {
     const result = await this.dataSource.query(
       `
-          INSERT INTO FK2_TB_AVISO_UMA (
-          FILE_NAME,
-          UPDATED_AT
-        )
-        VALUES (
-          :1,
-          SYSDATE
-        )
-      `,
-      [fileName],
-    );
-
-    return { message: 'Imagem do aviso atualizada com sucesso' };
-  }
-
+      SELECT 
+      AVS.ASSUNTO,
+      AVS.DATE_EXPIRACAO,
   
-  async getAvisoImagem(): Promise<string> {
-  const result = await this.dataSource.query(
-    `
-      SELECT FILE_NAME
-      FROM FK2_TB_AVISO_UMA
-      WHERE FILE_NAME IS NOT NULL
-      ORDER BY UPDATED_AT DESC
-      FETCH FIRST 1 ROWS ONLY
-    `
-  );
+      AVS.DESCRICAO,
+      AVS.SIGLA,
+      AVS.FILE_NAME,
 
-  if (!result?.length) {
-    throw new Error('Imagem do aviso não encontrada');
- 
+    
+      AVS.CREATED_AT,
+      AVS.UPDATED_AT,
+      AVS.CANAL,
+      AVS.TIPO_AVISO,
+      AVS.STATUS_,
+      AVS.ORIGEM,
+      AVS.ID
+      FROM FK2_TB_AVISO_UMA AVS
+      LEFT JOIN FK2_MCA_TB_GRUPO G
+      ON G.PK_GRUPO = AVS.DESTINO
+     WHERE  AVS.DATE_EXPIRACAO >= SYSDATE
+      AND G.SIGLA = :sigla
+      AND STATUS_= 1
+      ORDER BY UPDATED_AT DESC
+     
+    `
+      , { sigla } as any);
+
+
+
+    return toLowerCaseKeys(result);
   }
 
-  return result[0].FILE_NAME;
-}
-
- async updateAvisoUma(
+  async updateAvisoUma(
     id: number,
     dto: CreateAvisoUmaDto,
   ): Promise<{ message: string }> {
@@ -817,47 +816,46 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
 
     return { message: 'Aviso atualizado com sucesso' };
   }
-
   async listarAvisosPorGrupo(params: {
-  sigla?: string;
-  curso?: number;
-  periodo?: number;
-}) {
-  const { sigla, curso, periodo } = params;
+    sigla?: string;
+    curso?: number;
+    periodo?: number;
+  }) {
+    const { sigla, curso, periodo } = params;
 
-  const temSigla = !!sigla && sigla.trim() !== '';
-  const temCurso = curso !== undefined && curso !== 0;
-  const temPeriodo = periodo !== undefined && periodo !== 0;
+    const temSigla = !!sigla && sigla.trim() !== '';
+    const temCurso = curso !== undefined && curso !== 0;
+    const temPeriodo = periodo !== undefined && periodo !== 0;
 
-  if (!temSigla && !temCurso && !temPeriodo) {
-    return [];
-  }
+    if (!temSigla && !temCurso && !temPeriodo) {
+      return [];
+    }
 
-  const conditions: string[] = [
-    `AVS.STATUS_ = 1`,
-    `(AVS.DATE_EXPIRACAO IS NULL OR AVS.DATE_EXPIRACAO >= SYSDATE)`
-  ];
+    const conditions: string[] = [
+      `AVS.STATUS_ = 1`,
+      `(AVS.DATE_EXPIRACAO IS NULL OR AVS.DATE_EXPIRACAO >= SYSDATE)`
+    ];
 
-  const queryParams: Record<string, any> = {};
+    const queryParams: Record<string, any> = {};
 
-  if (temSigla) {
-    conditions.push(`G.SIGLA = :sigla`);
-    queryParams.sigla = sigla.trim();
-  }
+    if (temSigla) {
+      conditions.push(`G.SIGLA = :sigla`);
+      queryParams.sigla = sigla.trim();
+    }
 
-  if (temCurso) {
-    conditions.push(`(AVS.CURSO = :curso OR AVS.CURSO = 0 OR AVS.CURSO IS NULL)`);
-    queryParams.curso = curso;
-  }
+    if (temCurso) {
+      conditions.push(`(AVS.CURSO = :curso OR AVS.CURSO = 0 OR AVS.CURSO IS NULL)`);
+      queryParams.curso = curso;
+    }
 
-  if (temPeriodo) {
-    conditions.push(`(AVS.PERIODO = :periodo OR AVS.PERIODO = 0 OR AVS.PERIODO IS NULL)`);
-    queryParams.periodo = periodo;
-  }
+    if (temPeriodo) {
+      conditions.push(`(AVS.PERIODO = :periodo OR AVS.PERIODO = 0 OR AVS.PERIODO IS NULL)`);
+      queryParams.periodo = periodo;
+    }
 
-  const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
-  const sql = `
+    const sql = `
     SELECT
       AVS.ID AS CODIGO,
       AVS.ASSUNTO,
@@ -883,31 +881,31 @@ async createAvisoUma(dto: CreateAvisoUmaDto): Promise<{ message: string }> {
     ORDER BY AVS.CREATED_AT DESC
   `;
 
-  const result = await this.dataSource.query(sql, queryParams as any);
-  return result;
-}
-
-async listarAvisosPorGrupos(params: { grupoIds?: number[] }) {
-  const { grupoIds } = params;
-
-  const grupoIdsValidos =
-    grupoIds?.filter((id) => id !== undefined && id !== null && id !== 0) ?? [];
-
-  if (grupoIdsValidos.length === 0) {
-    return [];
+    const result = await this.dataSource.query(sql, queryParams as any);
+    return result;
   }
 
-  const placeholders = grupoIdsValidos
-    .map((_, index) => `:grupoId${index}`)
-    .join(", ");
+  async listarAvisosPorGrupos(params: { grupoIds?: number[] }) {
+    const { grupoIds } = params;
 
-  const queryParams: Record<string, any> = {};
+    const grupoIdsValidos =
+      grupoIds?.filter((id) => id !== undefined && id !== null && id !== 0) ?? [];
 
-  grupoIdsValidos.forEach((id, index) => {
-    queryParams[`grupoId${index}`] = id;
-  });
+    if (grupoIdsValidos.length === 0) {
+      return [];
+    }
 
-  const sql = `
+    const placeholders = grupoIdsValidos
+      .map((_, index) => `:grupoId${index}`)
+      .join(", ");
+
+    const queryParams: Record<string, any> = {};
+
+    grupoIdsValidos.forEach((id, index) => {
+      queryParams[`grupoId${index}`] = id;
+    });
+
+    const sql = `
     SELECT
       AVS.ID AS CODIGO,
       AVS.ASSUNTO,
@@ -937,47 +935,46 @@ async listarAvisosPorGrupos(params: { grupoIds?: number[] }) {
     ORDER BY AVS.CREATED_AT DESC
   `;
 
-  const result = await this.dataSource.query(sql, queryParams as any);
-  return result;
-}
-
-async alterarStatusAviso(
-  id: number,
-  status: number,
-): Promise<{ message: string }> {
-  if (status !== 0 && status !== 1) {
-    throw new BadRequestException('O status deve ser 0 ou 1');
+    const result = await this.dataSource.query(sql, queryParams as any);
+    return result;
   }
+  async alterarStatusAviso(
+    id: number,
+    status: number,
+  ): Promise<{ message: string }> {
+    if (status !== 0 && status !== 1) {
+      throw new BadRequestException('O status deve ser 0 ou 1');
+    }
 
-  const exists = await this.dataSource.query(
-    `
+    const exists = await this.dataSource.query(
+      `
     SELECT ID, STATUS_
     FROM FK2_TB_AVISO_UMA
     WHERE ID = :id
     `,
-    { id } as any,
-  );
+      { id } as any,
+    );
 
-  if (!exists.length) {
-    throw new NotFoundException(`Aviso com ID ${id} não encontrado`);
-  }
+    if (!exists.length) {
+      throw new NotFoundException(`Aviso com ID ${id} não encontrado`);
+    }
 
-  await this.dataSource.query(
-    `
+    await this.dataSource.query(
+      `
     UPDATE FK2_TB_AVISO_UMA
     SET STATUS_ = :status,
         UPDATED_AT = SYSDATE
     WHERE ID = :id
     `,
-    { id, status } as any,
-  );
+      { id, status } as any,
+    );
 
-  return {
-    message:
-      status === 1
-        ? 'Aviso ativado com sucesso'
-        : 'Aviso desativado com sucesso',
-  };
-}
+    return {
+      message:
+        status === 1
+          ? 'Aviso ativado com sucesso'
+          : 'Aviso desativado com sucesso',
+    };
+  }
 
 }
