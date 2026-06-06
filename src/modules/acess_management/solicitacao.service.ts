@@ -1,5 +1,11 @@
 // src/users/referencias.service.ts
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FetchEncaminhamentoSolicitacaoDTO } from './dto/fetch-encaminhamento-solicitacao.dto';
@@ -11,6 +17,8 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { CreateAvisoUmaDto } from './dto/create.aviso.dto';
+import { AvisoImagemSigla } from './dto/update-aviso-imagem.dto';
+import { DecodedUserPayload } from '../common/types/token-validation-response.interface';
 
 @Injectable()
 export class SolicitacaoService {
@@ -747,12 +755,14 @@ export class SolicitacaoService {
       AVS.ORIGEM,
       AVS.ID
       FROM FK2_TB_AVISO_UMA AVS
-      LEFT JOIN FK2_MCA_TB_GRUPO G
-      ON G.PK_GRUPO = AVS.DESTINO
-     WHERE  AVS.DATE_EXPIRACAO >= SYSDATE
-      AND G.SIGLA = :sigla
-      AND STATUS_= 1
-      ORDER BY UPDATED_AT DESC
+      INNER JOIN FK2_MCA_TB_GRUPO G
+        ON G.PK_GRUPO = AVS.DESTINO
+      WHERE G.SIGLA = :sigla
+        AND AVS.STATUS_ = 1
+        AND (AVS.DATE_EXPIRACAO IS NULL OR AVS.DATE_EXPIRACAO >= SYSDATE)
+        AND (AVS.CURSO IS NULL OR AVS.CURSO = 0)
+        AND (AVS.PERIODO IS NULL OR AVS.PERIODO = 0)
+      ORDER BY AVS.UPDATED_AT DESC
      
     `
       , { sigla } as any);
@@ -760,6 +770,157 @@ export class SolicitacaoService {
 
 
     return toLowerCaseKeys(result);
+  }
+
+  async salvarImagemPorSigla(
+    sigla: AvisoImagemSigla,
+    filename: string,
+    user: DecodedUserPayload,
+  ): Promise<{
+    message: string;
+    sigla: AvisoImagemSigla;
+    filename: string;
+    operacao: 'criado' | 'atualizado';
+  }> {
+    const filenameNormalizado = filename.trim();
+    const codigoUtilizador = Number(
+      user?.sub ??
+      user?.userId ??
+      user?.PK_UTILIZADOR ??
+      user?.pk_utilizador ??
+      user?.id,
+    );
+
+    if (!filenameNormalizado) {
+      throw new BadRequestException('O nome do ficheiro é obrigatório');
+    }
+
+    if (!Number.isFinite(codigoUtilizador) || codigoUtilizador <= 0) {
+      throw new UnauthorizedException('Utilizador autenticado não encontrado');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      await queryRunner.query(
+        `LOCK TABLE FK2_TB_AVISO_UMA IN SHARE ROW EXCLUSIVE MODE`,
+      );
+
+      const registos = await queryRunner.query(
+        `
+        SELECT ID
+        FROM FK2_TB_AVISO_UMA
+        WHERE TRIM(UPPER(SIGLA)) = :sigla
+        ORDER BY UPDATED_AT DESC, ID DESC
+        `,
+        { sigla } as any,
+      );
+
+      if (registos.length > 1) {
+        throw new ConflictException(
+          `Existem vários registos configurados para a sigla ${sigla}`,
+        );
+      }
+
+      let operacao: 'criado' | 'atualizado';
+
+      if (registos.length === 1) {
+        await queryRunner.query(
+          `
+          UPDATE FK2_TB_AVISO_UMA
+          SET FILE_NAME = :filename,
+              USER_ID = :codigoUtilizador,
+              STATUS_ = 1,
+              UPDATED_AT = SYSDATE
+          WHERE ID = :id
+          `,
+          {
+            filename: filenameNormalizado,
+            codigoUtilizador,
+            id: registos[0].ID,
+          } as any,
+        );
+
+        operacao = 'atualizado';
+      } else {
+        await queryRunner.query(
+          `
+          INSERT INTO FK2_TB_AVISO_UMA (
+            ASSUNTO,
+            USER_ID,
+            DESCRICAO,
+            SIGLA,
+            FILE_NAME,
+            CREATED_AT,
+            UPDATED_AT,
+            STATUS_
+          )
+          VALUES (
+            :assunto,
+            :codigoUtilizador,
+            :descricao,
+            :sigla,
+            :filename,
+            SYSDATE,
+            SYSDATE,
+            1
+          )
+          `,
+          {
+            assunto: `Imagem de abertura - ${sigla}`,
+            codigoUtilizador,
+            descricao: `Configuração da imagem de abertura ${sigla}`,
+            sigla,
+            filename: filenameNormalizado,
+          } as any,
+        );
+
+        operacao = 'criado';
+      }
+
+      await queryRunner.commitTransaction();
+
+      return {
+        message:
+          operacao === 'criado'
+            ? 'Imagem cadastrada com sucesso'
+            : 'Imagem atualizada com sucesso',
+        sigla,
+        filename: filenameNormalizado,
+        operacao,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async buscarImagemPorSigla(sigla: AvisoImagemSigla): Promise<{
+    sigla: AvisoImagemSigla;
+    filename: string | null;
+    updatedAt: Date | null;
+  }> {
+    const result = await this.dataSource.query(
+      `
+      SELECT FILE_NAME, UPDATED_AT
+      FROM FK2_TB_AVISO_UMA
+      WHERE TRIM(UPPER(SIGLA)) = :sigla
+        AND STATUS_ = 1
+      ORDER BY UPDATED_AT DESC, ID DESC
+      FETCH FIRST 1 ROW ONLY
+      `,
+      { sigla } as any,
+    );
+
+    return {
+      sigla,
+      filename: result[0]?.FILE_NAME ?? null,
+      updatedAt: result[0]?.UPDATED_AT ?? null,
+    };
   }
 
   async updateAvisoUma(
