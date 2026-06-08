@@ -1,7 +1,6 @@
 // src/users/referencias.service.ts
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -609,7 +608,8 @@ export class SolicitacaoService {
       AVS.DESCRICAO,
       U.NOME,
       C.DESIGNACAO AS CURSO,
-      G.DESIGNACAO AS DESTINO,
+      AVS.DESTINO AS DESTINO_ID,
+      G.DESIGNACAO AS DESTINO_NOME,
       AVS.PERIODO,
       AVS.DATE_EXPIRACAO
     FROM FK2_TB_AVISO_UMA AVS
@@ -783,6 +783,7 @@ export class SolicitacaoService {
     operacao: 'criado' | 'atualizado';
   }> {
     const filenameNormalizado = filename.trim();
+    const siglaNormalizada = sigla.trim().toUpperCase() as AvisoImagemSigla;
     const codigoUtilizador = Number(
       user?.sub ??
       user?.userId ??
@@ -805,80 +806,67 @@ export class SolicitacaoService {
 
     try {
       await queryRunner.query(
-        `LOCK TABLE FK2_TB_AVISO_UMA IN SHARE ROW EXCLUSIVE MODE`,
+        `LOCK TABLE FK2_TB_IMAGEM_SISTEMA IN SHARE ROW EXCLUSIVE MODE`,
       );
 
       const registos = await queryRunner.query(
         `
-        SELECT ID
-        FROM FK2_TB_AVISO_UMA
-        WHERE TRIM(UPPER(SIGLA)) = :sigla
-        ORDER BY UPDATED_AT DESC, ID DESC
+        SELECT CODIGO
+        FROM FK2_TB_IMAGEM_SISTEMA
+        WHERE SIGLA = :sigla
         `,
-        { sigla } as any,
+        { sigla: siglaNormalizada } as any,
       );
 
-      if (registos.length > 1) {
-        throw new ConflictException(
-          `Existem vários registos configurados para a sigla ${sigla}`,
-        );
-      }
+      const operacao: 'criado' | 'atualizado' =
+        registos.length === 0 ? 'criado' : 'atualizado';
 
-      let operacao: 'criado' | 'atualizado';
-
-      if (registos.length === 1) {
-        await queryRunner.query(
-          `
-          UPDATE FK2_TB_AVISO_UMA
-          SET FILE_NAME = :filename,
-              USER_ID = :codigoUtilizador,
-              STATUS_ = 1,
-              UPDATED_AT = SYSDATE
-          WHERE ID = :id
-          `,
-          {
-            filename: filenameNormalizado,
-            codigoUtilizador,
-            id: registos[0].ID,
-          } as any,
-        );
-
-        operacao = 'atualizado';
-      } else {
-        await queryRunner.query(
-          `
-          INSERT INTO FK2_TB_AVISO_UMA (
-            ASSUNTO,
-            USER_ID,
-            DESCRICAO,
+      await queryRunner.query(
+        `
+        MERGE INTO FK2_TB_IMAGEM_SISTEMA DESTINO
+        USING (
+          SELECT
+            :sigla AS SIGLA,
+            :filename AS FILE_NAME,
+            :codigoUtilizador AS CODIGO_UTILIZADOR
+          FROM DUAL
+        ) ORIGEM
+        ON (DESTINO.SIGLA = ORIGEM.SIGLA)
+        WHEN MATCHED THEN
+          UPDATE SET
+            DESTINO.FILE_NAME = ORIGEM.FILE_NAME,
+            DESTINO.UPDATED_BY = ORIGEM.CODIGO_UTILIZADOR,
+            DESTINO.UPDATED_AT = SYSDATE,
+            DESTINO.ESTADO = 1,
+            DESTINO.DELETED_AT = NULL
+        WHEN NOT MATCHED THEN
+          INSERT (
             SIGLA,
             FILE_NAME,
+            CREATED_BY,
+            UPDATED_BY,
+            ESTADO,
             CREATED_AT,
             UPDATED_AT,
-            STATUS_
+            DELETED_AT
           )
           VALUES (
-            :assunto,
-            :codigoUtilizador,
-            :descricao,
-            :sigla,
-            :filename,
+            ORIGEM.SIGLA,
+            ORIGEM.FILE_NAME,
+            ORIGEM.CODIGO_UTILIZADOR,
+            ORIGEM.CODIGO_UTILIZADOR,
+            1,
             SYSDATE,
             SYSDATE,
-            1
+            NULL
           )
-          `,
-          {
-            assunto: `Imagem de abertura - ${sigla}`,
-            codigoUtilizador,
-            descricao: `Configuração da imagem de abertura ${sigla}`,
-            sigla,
-            filename: filenameNormalizado,
-          } as any,
-        );
-
-        operacao = 'criado';
-      }
+        `,
+        {
+          sigla: siglaNormalizada,
+          filename: filenameNormalizado,
+          codigoUtilizador,
+        } as any,
+      );
 
       await queryRunner.commitTransaction();
 
@@ -887,7 +875,7 @@ export class SolicitacaoService {
           operacao === 'criado'
             ? 'Imagem cadastrada com sucesso'
             : 'Imagem atualizada com sucesso',
-        sigla,
+        sigla: siglaNormalizada,
         filename: filenameNormalizado,
         operacao,
       };
@@ -907,13 +895,12 @@ export class SolicitacaoService {
     const result = await this.dataSource.query(
       `
       SELECT FILE_NAME, UPDATED_AT
-      FROM FK2_TB_AVISO_UMA
-      WHERE TRIM(UPPER(SIGLA)) = :sigla
-        AND STATUS_ = 1
-      ORDER BY UPDATED_AT DESC, ID DESC
-      FETCH FIRST 1 ROW ONLY
+      FROM FK2_TB_IMAGEM_SISTEMA
+      WHERE SIGLA = :sigla
+        AND ESTADO = 1
+        AND DELETED_AT IS NULL
       `,
-      { sigla } as any,
+      { sigla: sigla.trim().toUpperCase() } as any,
     );
 
     return {
