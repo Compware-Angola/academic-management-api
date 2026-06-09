@@ -3,13 +3,21 @@ import { DataSource } from "typeorm";
 import { AnoLectivoUtil } from "../util/current-academic-year";
 
 import * as oracledb from 'oracledb';
+import { StudentsResultPlanService } from "./students-result-plan.service";
+
 
 @Injectable()
 export class AtiveConfirmationService {
 
-    constructor(private readonly dataSource: DataSource, private readonly anoLectivoUtil: AnoLectivoUtil) { }
+    constructor(private readonly dataSource: DataSource, private readonly anoLectivoUtil: AnoLectivoUtil, private readonly studentResultPlanService: StudentsResultPlanService) { }
 
     async activeConfirmation(matricula: number) {
+        const { totalGradesCurso, totalGrasesAluno } = await this.studentResultPlanService.findPlan(matricula);
+
+        if (totalGradesCurso === totalGrasesAluno) {
+            throw new BadRequestException(`Confirmação não pode ser realizada para a Matricula ${matricula} Por Ter Concluído Todas as Disciplinas do seu Curso`);
+        }
+
         const anoLetivo = await this.anoLectivoUtil.getAnoAtualId();
         const semestre = await this.anoLectivoUtil.getSemestreAtual();
         const student = await this.getStudent(matricula, anoLetivo, semestre.semestre || 1);
@@ -145,7 +153,6 @@ export class AtiveConfirmationService {
             return 1;
         }
 
-        // Curso de especialidade → mantém a mesma classe
         if (isEspecialidade) {
             const sql = `
             SELECT 
