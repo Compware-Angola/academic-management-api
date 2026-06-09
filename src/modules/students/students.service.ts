@@ -33,7 +33,7 @@ export class StudentsService {
     private readonly dataSource: DataSource,
     private readonly anoLectivoUtil: AnoLectivoUtil,
     private readonly planStudent: StudentsResultPlanService,
-  ) {}
+  ) { }
 
   async getProfileEstatistic(
     codigoMatricula: number,
@@ -184,33 +184,63 @@ export class StudentsService {
       return [];
     }
 
+    const anoLectivo = await this.anoLectivoUtil.getAnoAtualId();
+    const semestre =
+      (await this.anoLectivoUtil.getSemestreAtual()).semestre ?? 1;
+
     const sql = `
     SELECT
-        m.codigo               AS codigo_matricula,
+        m.CODIGO               AS codigo_matricula,
         p.BILHETE_IDENTIDADE   AS bi,
-        c.designacao           AS curso,
+        p.NOME_COMPLETO        AS nome_completo,
+        c.DESIGNACAO           AS curso,
         pe.DESIGNACAO          AS periodo,
-         p.Nome_Completo              AS nome_completo,
-        m.ESTADO_MATRICULA     AS estado
-    FROM FK2_TB_MATRICULAS m
-    INNER JOIN FK2_TB_ADMISSAO      a  ON a.codigo  = m.CODIGO_ALUNO
-     INNER JOIN FK2_TB_PREINSCRICAO p
-             ON p.Codigo = a.pre_incricao
-    INNER JOIN FK2_TB_PREINSCRICAO  p  ON p.codigo  = a.PRE_INCRICAO
-    INNER JOIN FK2_TB_CURSOS        c  ON c.codigo  = m.CODIGO_CURSO
-    INNER JOIN FK2_TB_PERIODOS      pe ON pe.codigo = p.CODIGO_TURNO
-    WHERE
-        TO_CHAR(m.codigo)         LIKE :search
-       OR p.BILHETE_IDENTIDADE      LIKE :search
-       OR LOWER(c.designacao)       LIKE LOWER(:search)
-       OR  LOWER(p.Nome_Completo)          LIKE LOWER(:search)
+        m.ESTADO_MATRICULA     AS estado,
 
+        CASE
+          WHEN EXISTS (
+            SELECT 1
+            FROM FK2_TB_BOLSEIROS b
+            WHERE b.CODIGO_MATRICULA = m.CODIGO
+              AND b.CODIGO_ANOLECTIVO = :anoLectivo
+              AND b.SEMESTRE = :semestre
+          )
+          THEN 1
+          ELSE 0
+        END AS is_bolseiro
+
+    FROM FK2_TB_MATRICULAS m
+
+    INNER JOIN FK2_TB_ADMISSAO a
+      ON a.CODIGO = m.CODIGO_ALUNO
+
+    INNER JOIN FK2_TB_PREINSCRICAO p
+      ON p.CODIGO = a.PRE_INCRICAO
+
+    INNER JOIN FK2_TB_CURSOS c
+      ON c.CODIGO = m.CODIGO_CURSO
+
+    INNER JOIN FK2_TB_PERIODOS pe
+      ON pe.CODIGO = p.CODIGO_TURNO
+
+    WHERE
+         TO_CHAR(m.CODIGO) LIKE :search
+      OR p.BILHETE_IDENTIDADE LIKE :search
+      OR LOWER(c.DESIGNACAO) LIKE LOWER(:search)
+      OR LOWER(p.NOME_COMPLETO) LIKE LOWER(:search)
 
     FETCH FIRST 10 ROWS ONLY
   `;
-    const result = await this.dataSource.query(sql, {
-      search: `%${search}%`,
-    } as any);
+
+    const result = await this.dataSource.query(
+      sql,
+      {
+        search: `%${search}%`,
+        anoLectivo,
+        semestre,
+      } as any,
+    );
+
     return toLowerCaseKeys(result);
   }
 
@@ -580,15 +610,14 @@ export class StudentsService {
             AND tm.CODIGO_CURSO = tgc.CODIGO_CURSO
         )
       ) = 1
-      ${
-        search && search.trim()
-          ? `
+      ${search && search.trim()
+        ? `
         AND (
           UPPER(tp.NOME_COMPLETO) LIKE :search
           OR UPPER(NVL(tp.BILHETE_IDENTIDADE, '-')) LIKE :search
         )
       `
-          : ``
+        : ``
       }
     ) q
   ) t
@@ -649,8 +678,7 @@ export class StudentsService {
           AND tm.CODIGO_CURSO = tgc.CODIGO_CURSO
       )
     ) = 1
-    ${
-      search && search.trim()
+    ${search && search.trim()
         ? `
       AND (
         UPPER(tp.NOME_COMPLETO) LIKE :search
@@ -658,7 +686,7 @@ export class StudentsService {
       )
     `
         : ``
-    }
+      }
   )
 `;
 
@@ -2285,9 +2313,9 @@ WHERE M."CODIGO" = :codigoMatricula`;
       const refUtilizador =
         usuarioLogado?.sub || usuarioLogado?.name
           ? JSON.stringify({
-              pk: usuarioLogado?.sub ?? null,
-              desc: usuarioLogado?.name ?? null,
-            })
+            pk: usuarioLogado?.sub ?? null,
+            desc: usuarioLogado?.name ?? null,
+          })
           : null;
 
       // Verifica se já existe conclusão para esta matrícula

@@ -1,6 +1,6 @@
 // src/users/referencias.controller.ts
 
-import {  BadRequestException, Param, ParseIntPipe, Patch, Put, Req } from '@nestjs/common';
+import { BadRequestException, Param, ParseIntPipe, Patch, Put, Req } from '@nestjs/common';
 
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -24,8 +24,8 @@ export class SolicitacaoController {
     private readonly solicitacaoService: SolicitacaoService,
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
-    
-  ) {}
+
+  ) { }
 
   @Get('solicitacoes')
   @RequiredPermissions(PermissionTypeDetails.LISTAR_SOLICITACOES.sigla)
@@ -61,12 +61,12 @@ export class SolicitacaoController {
     );
   }
 
-@Get('servicos')
-@ApiOperation({ summary: 'Listar serviços por estado e ano lectivo' })
-@ApiResponse({
-  status: 200,
-  description: 'Lista de serviços filtrados com sucesso',
-})
+  @Get('servicos')
+  @ApiOperation({ summary: 'Listar serviços por estado e ano lectivo' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de serviços filtrados com sucesso',
+  })
   async listarServicos(@Query() query: FetchServicosSolicDTO) {
     return this.solicitacaoService.listarServicosSolicao(
       query.estado_solicitacao,
@@ -74,32 +74,32 @@ export class SolicitacaoController {
     );
   }
 
-@Get('all-solicitacoes')
-@RequiredPermissions(PermissionTypeDetails.LISTAR_SOLICITACOES.sigla)
-@ApiOperation({ summary: 'Listar todas as solicitações' })
-@ApiResponse({ status: 200 })
-async findAllSolicitacoes(@Query() query: ListAllSolicitacoesDto) {
-  
-  return this.solicitacaoService.listarOnlySolicitacoes(query);
-}
+  @Get('all-solicitacoes')
+  @RequiredPermissions(PermissionTypeDetails.LISTAR_SOLICITACOES.sigla)
+  @ApiOperation({ summary: 'Listar todas as solicitações' })
+  @ApiResponse({ status: 200 })
+  async findAllSolicitacoes(@Query() query: ListAllSolicitacoesDto) {
+
+    return this.solicitacaoService.listarOnlySolicitacoes(query);
+  }
 
   @Get('avisos')
-@ApiOperation({ summary: 'Listar avisos com paginação e filtro por assunto' })
-@ApiResponse({ status: 200 })
-@ApiQuery({ name: 'page', required: false, type: Number })
-@ApiQuery({ name: 'limit', required: false, type: Number })
-@ApiQuery({ name: 'assunto', required: false, type: String })
-async listarAvisos(
-  @Query('page') page: number = 1,
-  @Query('limit') limit: number = 10,
-  @Query('assunto') assunto?: string,
-) {
-  return this.solicitacaoService.listarAvisos({
-    page: Number(page),
-    limit: Number(limit),
-    assunto,
-  });
-}
+  @ApiOperation({ summary: 'Listar avisos com paginação e filtro por assunto' })
+  @ApiResponse({ status: 200 })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'assunto', required: false, type: String })
+  async listarAvisos(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Query('assunto') assunto?: string,
+  ) {
+    return this.solicitacaoService.listarAvisos({
+      page: Number(page),
+      limit: Number(limit),
+      assunto,
+    });
+  }
 
   @Post('aviso')
   @ApiOperation({ summary: 'Criar novo aviso' })
@@ -134,35 +134,17 @@ async listarAvisos(
   }
 
 
-@Post('aviso/upload')
-async uploadAvisoImagem(
-  @Body('filename') filename: string,
-) {
-  if (!filename) {
-    throw new BadRequestException('Filename é obrigatório');
-  }
 
-  await this.solicitacaoService.updateAvisoImagem(filename);
 
-  return {
-    message: 'Imagem do aviso atualizada com sucesso',
-    file: filename,
-  };
-}
-
-  @Get('aviso/imagem')
-  @ApiOperation({ summary: 'Buscar imagem atual de abertura do portal' })
+  @Get('aviso/geral-student')
+  @ApiOperation({ summary: 'Buscar aviso geral de estudante' })
   @ApiResponse({
     status: 200,
-    description: 'Lista de roles retornada com sucesso',
+    description: 'Lista de aviso geral de estudante retornada com sucesso',
   })
-  async getImagemAviso() {
-      const fileName = await this.solicitacaoService.getAvisoImagem();
-
-      return {
-        filename: fileName,
-      };
-    }
+  async getImagemAviso(@Query('sigla') sigla: string) {
+    return await this.solicitacaoService.getAvisoGeralStudent(sigla)
+  }
 
   @Put('aviso/:id')
   @ApiOperation({ summary: 'Editar aviso existente' })
@@ -174,47 +156,47 @@ async uploadAvisoImagem(
     return this.solicitacaoService.updateAvisoUma(Number(id), dto);
   }
 
-@Get('avisos-por-grupo')
-@ApiOperation({ summary: 'Listar avisos por grupo' })
-@ApiQuery({ name: 'sigla', required: false, type: String })
-@ApiQuery({ name: 'curso', required: false, type: Number })
-@ApiQuery({ name: 'periodo', required: false, type: Number })
-async listarAvisosPorGrupo(
-  @Query('sigla') sigla?: string,
-  @Query('curso') curso?: number,
-  @Query('periodo') periodo?: number,
-) {
-  return this.solicitacaoService.listarAvisosPorGrupo({
-    sigla: sigla?.trim() || undefined,
-    curso: curso ? Number(curso) : undefined,
-    periodo: periodo ? Number(periodo) : undefined,
-  });
-}
+  @Get('avisos-por-grupo')
+  @ApiOperation({ summary: 'Listar avisos por grupo' })
+  @ApiQuery({ name: 'sigla', required: false, type: String })
+  @ApiQuery({ name: 'curso', required: false, type: Number })
+  @ApiQuery({ name: 'periodo', required: false, type: Number })
+  async listarAvisosPorGrupo(
+    @Query('sigla') sigla?: string,
+    @Query('curso') curso?: number,
+    @Query('periodo') periodo?: number,
+  ) {
+    return this.solicitacaoService.listarAvisosPorGrupo({
+      sigla: sigla?.trim() || undefined,
+      curso: curso ? Number(curso) : undefined,
+      periodo: periodo ? Number(periodo) : undefined,
+    });
+  }
 
-@Post('avisos-por-grupos')
-@ApiOperation({ summary: 'Listar avisos por múltiplos grupos' })
- @ApiBody({ type: ListarAvisosPorGruposDto })
-listarAvisosPorGrupos(@Body() body: { grupoIds?: number[] }) {
-  return this.solicitacaoService.listarAvisosPorGrupos(body);
-}
+  @Post('avisos-por-grupos')
+  @ApiOperation({ summary: 'Listar avisos por múltiplos grupos' })
+  @ApiBody({ type: ListarAvisosPorGruposDto })
+  listarAvisosPorGrupos(@Body() body: { grupoIds?: number[] }) {
+    return this.solicitacaoService.listarAvisosPorGrupos(body);
+  }
 
-@Patch('aviso/:id/status')
-@ApiOperation({ summary: 'Ativar ou desativar aviso' })
-@ApiParam({ name: 'id', type: Number, example: 1 })
-@ApiBody({
-  schema: {
-    type: 'object',
-    properties: {
-      status: { type: 'number', example: 1 },
+  @Patch('aviso/:id/status')
+  @ApiOperation({ summary: 'Ativar ou desativar aviso' })
+  @ApiParam({ name: 'id', type: Number, example: 1 })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        status: { type: 'number', example: 1 },
+      },
+      required: ['status'],
     },
-    required: ['status'],
-  },
-})
-async alterarStatusAviso(
-  @Param('id', ParseIntPipe) id: number,
-  @Body('status') status: number,
-) {
-  return this.solicitacaoService.alterarStatusAviso(id, status);
-}
+  })
+  async alterarStatusAviso(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('status') status: number,
+  ) {
+    return this.solicitacaoService.alterarStatusAviso(id, status);
+  }
 
 }
