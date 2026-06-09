@@ -29,17 +29,20 @@ export class DisciplineService {
     ignorarEliminados,
   }: FindDisciplinaAlunoDTO) {
     const offset = (page - 1) * limit;
-
+    const filtroEliminados =
+  ignorarEliminados === 1
+    ? `AND al.codigo_status_grade_curricular != 5`
+    : '';
     const baseWhere = `
-    al.codigo_matricula = ${matriculaId}
-    AND g.status_ = 1
-    AND al.estado != 3
-    AND mat.CODIGO_CURSO = g.CODIGO_CURSO
-    AND cfr.codigo_ano_lectivo = ${anoLectivo}
-    ${ignorarEliminados == 1 ? ` AND al.codigo_status_grade_curricular != 5 ` : ``}
-    ${semestre ? `AND s.codigo = ${semestre}` : ''}
-    ${classes ? `AND g.codigo_classe = ${classes}` : ''}
-  `;
+  al.codigo_matricula = ${matriculaId}
+  AND g.status_ = 1
+  AND al.estado != 3
+  AND mat.CODIGO_CURSO = g.CODIGO_CURSO
+  AND cfr.codigo_ano_lectivo = ${anoLectivo}
+  ${filtroEliminados}
+  ${semestre ? `AND s.codigo = ${semestre}` : ''}
+  ${classes ? `AND g.codigo_classe = ${classes}` : ''}
+`;
 
     const sql = `
     SELECT DISTINCT
