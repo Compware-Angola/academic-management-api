@@ -33,6 +33,7 @@ export interface FindGradeAlunoAprovadoReturnDTO {
   codigo_disciplina: number;
   codigo_classe: number;
   classe: string;
+  codigo_grade_aluno?: number;
 }
 interface FindMatriculaDetails {
   codigo_matricula: number;
@@ -211,7 +212,8 @@ export class StudentsResultPlanService {
         ga.CODIGO_CLASSE                        AS CODIGO_CLASSE,
         cl.DESIGNACAO                           AS CLASSE,
         dur.DESIGNACAO                          AS DURACAO,
-        s.DESIGNACAO                            AS SEMESTRE
+        s.DESIGNACAO                            AS SEMESTRE,
+        al.CODIGO                               AS CODIGO_GRADE_ALUNO
 
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
     INNER JOIN FK2_TB_GRADE_CURRICULAR ga
