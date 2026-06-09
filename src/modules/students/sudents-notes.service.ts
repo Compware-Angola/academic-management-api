@@ -265,8 +265,7 @@ export class StudentNoteService {
         planoCurricularGrade?.PESO_SEGUNDA_FREQ ??
         gradeAluno?.PESO_SEGUNDA_FREQ;
 
-      const peso_pratica =
-        planoCurricularGrade?.PESO_PRATICA ?? gradeAluno?.PESO_PRATICA;
+      const peso_pratica = planoCurricularGrade?.PESO_PRATICA;
 
       const hasPratica = await this.temPratica(peso_pratica);
       const hasOral = await this.temOral(gradeAluno.CODIGO_GRADE_CURRICULAR);
