@@ -71,7 +71,7 @@ export class AttendanceListService {
         WHERE codigo_anolectivo = ${anoLectivo}
           AND (desconto = 0 OR desconto = 100)
           AND SEMESTRE = ${semestre}
-          AND STATUS_  = 1
+          ---AND STATUS_  = 1
         GROUP BY codigo_matricula
       ) b ON b.codigo_matricula = m.codigo
       -- meses pagos
