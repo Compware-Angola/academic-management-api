@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { FindPrimaryRecordsDto } from './dto/find-primary-records.dto';
 
@@ -15,8 +15,6 @@ export class PostGraduationService {
       limit = 20,
     } = filters;
     const offset = (page - 1) * limit;
-
-    await this.validateFilters(academicYearId, applicationTypeId);
 
     const conditions = [
       'P.CODIGO_TIPO_CANDIDATURA IN (2, 3)',
@@ -152,44 +150,4 @@ export class PostGraduationService {
     };
   }
 
-  private async validateFilters(
-    academicYearId: number,
-    applicationTypeId?: number,
-  ): Promise<void> {
-    const [academicYear] = await this.dataSource.query(
-      `
-        SELECT CODIGO
-        FROM FK2_TB_ANO_LECTIVO
-        WHERE CODIGO = :academicYearId
-        FETCH FIRST 1 ROWS ONLY
-      `,
-      { academicYearId } as any,
-    );
-
-    if (!academicYear) {
-      throw new NotFoundException('Ano lectivo nao encontrado.');
-    }
-
-    if (!applicationTypeId) {
-      return;
-    }
-
-    const [applicationType] = await this.dataSource.query(
-      `
-        SELECT ID
-        FROM FK2_TB_TIPO_CANDIDATURA
-        WHERE ID = :applicationTypeId
-          AND ID IN (2, 3)
-          AND STATUS_ = 1
-        FETCH FIRST 1 ROWS ONLY
-      `,
-      { applicationTypeId } as any,
-    );
-
-    if (!applicationType) {
-      throw new NotFoundException(
-        'Tipo de candidatura de Pos-Graduacao nao encontrado.',
-      );
-    }
-  }
 }
