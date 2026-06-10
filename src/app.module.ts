@@ -42,6 +42,7 @@ import { ProvasModule } from './modules/provas/provas.module';
 import { VagasModule } from './modules/vagas/vagas.module';
 import { PrazosModule } from './modules/prazos/prazos.module';
 import { ScriptModule } from './modules/script/script.module';
+import { PostGraduationModule } from './modules/post-graduation/post-graduation.module';
 
 
 @Module({
@@ -139,6 +140,7 @@ import { ScriptModule } from './modules/script/script.module';
     VagasModule,
     PrazosModule,
     ScriptModule,
+    PostGraduationModule,
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService,
