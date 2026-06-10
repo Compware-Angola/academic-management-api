@@ -22,7 +22,7 @@ interface GradeSemestreDTO {
 
 @Injectable()
 export class StudentsEnrollmentUCService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   private queryRunner: QueryRunner;
 
@@ -215,8 +215,9 @@ export class StudentsEnrollmentUCService {
         semestre
       FROM fk2_tb_confirmacoes
       WHERE codigo_ano_lectivo = :codigoAnoLectivo
-        AND estado = 1
+      --  AND estado = 1
         AND codigo_matricula = :codigoMatricula
+        
     `;
 
     return this.queryRunner.query(sql, {
@@ -365,9 +366,6 @@ export class StudentsEnrollmentUCService {
       codigoAnoLectivo,
     );
 
-    if (!confirmacoes?.length) {
-      throw new BadRequestException('Erro ao encontrar confirmações');
-    }
 
     const codigoPrimeiro = await this.resolverConfirmacaoPorSemestre(
       confirmacoes,

@@ -140,6 +140,8 @@ export class AtiveConfirmationService {
         if (anoLectivo) queryParams.anoLectivo = anoLectivo;
 
         const result = await this.dataSource.query(sql, queryParams as any);
+        console.log('result', result);
+
 
         if (!result || result.length === 0) {
             throw new BadRequestException(`Matrícula ${matricula} não encontrada`);
@@ -166,10 +168,13 @@ export class AtiveConfirmationService {
             return result[0].CLASSE;
         }
 
-        if (classeAtual >= duracao) {
+        if (classeAtual > duracao) {
             throw new BadRequestException(
                 `Matrícula ${matricula} já atingiu a classe máxima (${duracao})`
             );
+        }
+        if (classeAtual === duracao) {
+            return classeAtual;
         }
 
         return classeAtual + 1;
