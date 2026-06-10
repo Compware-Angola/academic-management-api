@@ -6,6 +6,34 @@ import { FindPrimaryRecordsDto } from './dto/find-primary-records.dto';
 export class PostGraduationService {
   constructor(private readonly dataSource: DataSource) {}
 
+  async findDegrees() {
+    const rows = await this.dataSource.query(`
+      SELECT
+        ID,
+        CASE ID
+          WHEN 2 THEN 'Mestrado'
+          WHEN 3 THEN 'Doutoramento'
+        END AS DESIGNATION
+      FROM FK2_TB_TIPO_CANDIDATURA
+      WHERE ID IN (2, 3)
+        AND STATUS_ = 1
+      ORDER BY ID
+    `);
+
+    return {
+      data: [
+        {
+          id: null,
+          designation: 'Todos',
+        },
+        ...rows.map((row: Record<string, unknown>) => ({
+          id: Number(row.ID),
+          designation: row.DESIGNATION,
+        })),
+      ],
+    };
+  }
+
   async findPrimaryRecords(filters: FindPrimaryRecordsDto) {
     const {
       academicYearId,
