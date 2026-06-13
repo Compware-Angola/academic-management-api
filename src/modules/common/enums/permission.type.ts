@@ -170,6 +170,7 @@ export enum PermissionType {
 
 
   DEFINIR_FORMULA_UNIDADE_CURRICULAR = "DEFINIR_FORMULA_UNIDADE_CURRICULAR",
+  DEFINIR_UNIDADE_CURRICULAR_COM_ORAL = "DEFINIR_UNIDADE_CURRICULAR_COM_ORAL",
   LISTA_PRESENCA_MAV = "LISTA_PRESENCA_MAV",
   ACTUALIZAR_SENHA_ESTUDANTE = "ACTUALIZAR_SENHA_ESTUDANTE",
   DOCENTES_SEM_AFECTACAO = "DOCENTES_SEM_AFECTACAO",
@@ -397,6 +398,10 @@ export const PermissionTypeDetails = {
   PARAMETROS_MSA: { designacao: "Parâmetros", sigla: "msa_p_i" },
 
  DEFINIR_FORMULA_UNIDADE_CURRICULAR: { designacao: "Definir Fórmula Para Unidade Curricular", sigla: "mav_a_dfuc" },
+  DEFINIR_UNIDADE_CURRICULAR_COM_ORAL: {
+    designacao: "Definir Unidade Curricular Com Oral",
+    sigla: "mav_ducco",
+  },
   LISTA_PRESENCA_MAV: { designacao: "Lista de Presença", sigla: "mav_a_lp" },
   ACTUALIZAR_SENHA_ESTUDANTE: { designacao: "Atualizar Senha", sigla: "mga_a_as" },
   DOCENTES_SEM_AFECTACAO: { designacao: "Docentes Sem Afectação", sigla: "mgd_dsa" },

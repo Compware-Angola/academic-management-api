@@ -1,6 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { FindPrimaryRecordsDto } from './dto/find-primary-records.dto';
+import { FindExamCalendarsDto } from './dto/find-exam-calendars.dto';
+import { FindCurricularUnitFormulasDto } from './dto/find-curricular-unit-formulas.dto';
+import { UpdateCurricularUnitFormulaDto } from './dto/update-curricular-unit-formula.dto';
+import { FindOralCurricularUnitsDto } from './dto/find-oral-curricular-units.dto';
+import { UpdateOralCurricularUnitStatusDto } from './dto/update-oral-curricular-unit-status.dto';
+
+const COORDINATOR_ROLE_ID = 9;
 
 @Injectable()
 export class PostGraduationService {
@@ -178,4 +190,564 @@ export class PostGraduationService {
     };
   }
 
+  async findExamCalendars({ academicYearId, degreeId }: FindExamCalendarsDto) {
+    const [academicYearRows, degreeRows] = await Promise.all([
+      this.dataSource.query(
+        `
+        SELECT CODIGO
+        FROM FK2_TB_ANO_LECTIVO
+        WHERE CODIGO = :academicYearId
+        FETCH FIRST 1 ROWS ONLY
+        `,
+        { academicYearId } as any,
+      ),
+      this.dataSource.query(
+        `
+        SELECT ID
+        FROM FK2_TB_TIPO_CANDIDATURA
+        WHERE ID = :degreeId
+          AND STATUS_ = 1
+        FETCH FIRST 1 ROWS ONLY
+        `,
+        { degreeId } as any,
+      ),
+    ]);
+
+    if (!academicYearRows.length) {
+      throw new NotFoundException('Ano lectivo nao encontrado');
+    }
+
+    if (!degreeRows.length) {
+      throw new NotFoundException('Grau de Pos-Graduacao nao encontrado');
+    }
+
+    const rows = await this.dataSource.query(
+      `
+      SELECT
+        CAL.CODIGO AS ID,
+        CAL.CODIGO_ANO_LECTIVO AS ACADEMIC_YEAR_ID,
+        ANO.DESIGNACAO AS ACADEMIC_YEAR,
+        CAL.TIPO_CANDIDATURA AS DEGREE_ID,
+        GRAU.DESIGNACAO AS DEGREE,
+        CAL.CODIGO_SEMESTRE AS SEMESTER_ID,
+        SEM.DESIGNACAO AS SEMESTER,
+        CAL.CODIGO_EPOCA AS ASSESSMENT_PERIOD_ID,
+        EPOCA.DESCRICAO AS ASSESSMENT_PERIOD,
+        TO_CHAR(CAL.DATA_INICIO, 'YYYY-MM-DD') AS START_DATE,
+        TO_CHAR(CAL.DATA_TERMINO, 'YYYY-MM-DD') AS END_DATE,
+        CAL.OBSERVACAO AS OBSERVATION,
+        COALESCE(CAL.FK_UTILIZADOR, CAL.CODIGO_UTILIZADOR) AS CREATED_BY_ID,
+        COALESCE(UTILIZADOR_FK.NOME, UTILIZADOR_CODIGO.NOME) AS CREATED_BY
+      FROM FK2_TB_CALENDARIO CAL
+      INNER JOIN FK2_TB_ANO_LECTIVO ANO
+        ON ANO.CODIGO = CAL.CODIGO_ANO_LECTIVO
+      INNER JOIN FK2_TB_TIPO_CANDIDATURA GRAU
+        ON GRAU.ID = CAL.TIPO_CANDIDATURA
+      LEFT JOIN FK2_TB_SEMESTRES SEM
+        ON SEM.CODIGO = CAL.CODIGO_SEMESTRE
+      LEFT JOIN FK2_TB_EPOCA_AVALICOES EPOCA
+        ON EPOCA.CODIGO = CAL.CODIGO_EPOCA
+      LEFT JOIN FK2_MCA_TB_UTILIZADOR UTILIZADOR_FK
+        ON UTILIZADOR_FK.PK_UTILIZADOR = CAL.FK_UTILIZADOR
+      LEFT JOIN FK2_MCA_TB_UTILIZADOR UTILIZADOR_CODIGO
+        ON UTILIZADOR_CODIGO.PK_UTILIZADOR = CAL.CODIGO_UTILIZADOR
+      WHERE CAL.ACTIVE_STATE = 1
+        AND CAL.CODIGO_ANO_LECTIVO = :academicYearId
+        AND CAL.TIPO_CANDIDATURA = :degreeId
+      ORDER BY
+        CAL.DATA_INICIO ASC,
+        CAL.CODIGO_SEMESTRE ASC,
+        CAL.CODIGO_EPOCA ASC,
+        CAL.CODIGO ASC
+      `,
+      { academicYearId, degreeId } as any,
+    );
+
+    return {
+      data: rows.map((row: Record<string, unknown>) => ({
+        id: Number(row.ID),
+        academicYearId: Number(row.ACADEMIC_YEAR_ID),
+        academicYear: row.ACADEMIC_YEAR,
+        degreeId: Number(row.DEGREE_ID),
+        degree: row.DEGREE,
+        semesterId: row.SEMESTER_ID === null ? null : Number(row.SEMESTER_ID),
+        semester: row.SEMESTER,
+        assessmentPeriodId:
+          row.ASSESSMENT_PERIOD_ID === null
+            ? null
+            : Number(row.ASSESSMENT_PERIOD_ID),
+        assessmentPeriod: row.ASSESSMENT_PERIOD,
+        startDate: row.START_DATE,
+        endDate: row.END_DATE,
+        observation: row.OBSERVATION,
+        createdById:
+          row.CREATED_BY_ID === null ? null : Number(row.CREATED_BY_ID),
+        createdBy: row.CREATED_BY,
+      })),
+    };
+  }
+
+  async findCurricularUnitFormulas(
+    filters: FindCurricularUnitFormulasDto,
+    userId: number,
+  ) {
+    const { academicYearId, degreeId, courseId, curricularYearId, semesterId } =
+      filters;
+
+    await this.validatePostGraduationCourse(courseId, degreeId);
+    await this.validateCourseCoordinator(userId, courseId);
+
+    const curricularPlanId = await this.findCurricularPlanId(
+      courseId,
+      academicYearId,
+    );
+
+    const rows = await this.dataSource.query<Record<string, unknown>[]>(
+      `
+      SELECT
+        PCG.CODIGO AS FORMULA_ID,
+        GC.CODIGO AS CURRICULAR_GRADE_ID,
+        D.CODIGO AS CURRICULAR_UNIT_ID,
+        D.DESIGNACAO AS CURRICULAR_UNIT,
+        PCG.NOTA_MIN_PRATICA AS MINIMUM_PRACTICAL_GRADE,
+        PCG.PESO_PRATICA AS PRACTICAL_WEIGHT,
+        PCG.NOTA_MIN_PRIMEIRA_FREQ AS MINIMUM_FIRST_FREQUENCY_GRADE,
+        PCG.PESO_PRIMEIRA_FREQ AS FIRST_FREQUENCY_WEIGHT,
+        PCG.NOTA_MIN_SEGUNDA_FREQ AS MINIMUM_SECOND_FREQUENCY_GRADE,
+        PCG.PESO_SEGUNDA_FREQ AS SECOND_FREQUENCY_WEIGHT,
+        PCG.UTILIZADOR AS UPDATED_BY_ID,
+        U.NOME AS UPDATED_BY
+      FROM FK2_TB_PLANO_CURRICULAR_GRADE PCG
+      INNER JOIN FK2_TB_GRADE_CURRICULAR GC
+        ON GC.CODIGO = PCG.CODIGO_GRADE_CURRICULAR
+      INNER JOIN FK2_TB_DISCIPLINAS D
+        ON D.CODIGO = GC.CODIGO_DISCIPLINA
+      LEFT JOIN FK2_MCA_TB_UTILIZADOR U
+        ON U.PK_UTILIZADOR = PCG.UTILIZADOR
+      WHERE PCG.CODIGO_PLANO_CURRICULAR_CURSO = :curricularPlanId
+        AND GC.CODIGO_CURSO = :courseId
+        AND GC.CODIGO_CLASSE = :curricularYearId
+        AND GC.CODIGO_SEMESTRE = :semesterId
+        AND GC.STATUS_ = 1
+      ORDER BY D.DESIGNACAO
+      `,
+      {
+        curricularPlanId,
+        courseId,
+        curricularYearId,
+        semesterId,
+      } as any,
+    );
+
+    return {
+      data: rows.map((row: Record<string, unknown>) => ({
+        formulaId: Number(row.FORMULA_ID),
+        curricularGradeId: Number(row.CURRICULAR_GRADE_ID),
+        curricularUnitId: Number(row.CURRICULAR_UNIT_ID),
+        curricularUnit: row.CURRICULAR_UNIT,
+        minimumPracticalGrade: this.toNullableNumber(
+          row.MINIMUM_PRACTICAL_GRADE,
+        ),
+        practicalWeight: this.toNullableNumber(row.PRACTICAL_WEIGHT),
+        minimumFirstFrequencyGrade: this.toNullableNumber(
+          row.MINIMUM_FIRST_FREQUENCY_GRADE,
+        ),
+        firstFrequencyWeight: this.toNullableNumber(row.FIRST_FREQUENCY_WEIGHT),
+        minimumSecondFrequencyGrade: this.toNullableNumber(
+          row.MINIMUM_SECOND_FREQUENCY_GRADE,
+        ),
+        secondFrequencyWeight: this.toNullableNumber(
+          row.SECOND_FREQUENCY_WEIGHT,
+        ),
+        updatedById: this.toNullableNumber(row.UPDATED_BY_ID),
+        updatedBy: row.UPDATED_BY,
+      })),
+    };
+  }
+
+  async updateCurricularUnitFormula(
+    formulaId: number,
+    body: UpdateCurricularUnitFormulaDto,
+    userId: number,
+  ) {
+    this.validateFormulaWeights(body);
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const formulaRows = (await queryRunner.query(
+        `
+        SELECT
+          PCG.CODIGO AS FORMULA_ID,
+          GC.CODIGO_CURSO AS COURSE_ID,
+          C.TIPO_CANDIDATURA AS DEGREE_ID
+        FROM FK2_TB_PLANO_CURRICULAR_GRADE PCG
+        INNER JOIN FK2_TB_GRADE_CURRICULAR GC
+          ON GC.CODIGO = PCG.CODIGO_GRADE_CURRICULAR
+        INNER JOIN FK2_TB_CURSOS C
+          ON C.CODIGO = GC.CODIGO_CURSO
+        WHERE PCG.CODIGO = :formulaId
+          AND C.TIPO_CANDIDATURA IN (2, 3)
+        FOR UPDATE
+        `,
+        { formulaId } as any,
+      )) as Array<Record<string, unknown>>;
+
+      if (!formulaRows.length) {
+        throw new NotFoundException(
+          'Formula de UC de Pos-Graduacao nao encontrada',
+        );
+      }
+
+      const courseId = Number(formulaRows[0].COURSE_ID);
+      await this.validateCourseCoordinator(userId, courseId, queryRunner);
+
+      await queryRunner.query(
+        `
+        UPDATE FK2_TB_PLANO_CURRICULAR_GRADE
+        SET
+          NOTA_MIN_PRATICA = :minimumPracticalGrade,
+          PESO_PRATICA = :practicalWeight,
+          NOTA_MIN_PRIMEIRA_FREQ = :minimumFirstFrequencyGrade,
+          PESO_PRIMEIRA_FREQ = :firstFrequencyWeight,
+          NOTA_MIN_SEGUNDA_FREQ = :minimumSecondFrequencyGrade,
+          PESO_SEGUNDA_FREQ = :secondFrequencyWeight,
+          UTILIZADOR = :userId,
+          CODIGO_UTILIZADOR = :userId
+        WHERE CODIGO = :formulaId
+        `,
+        {
+          formulaId,
+          userId,
+          ...body,
+        } as any,
+      );
+
+      await queryRunner.commitTransaction();
+
+      return {
+        message: 'Formula da UC atualizada com sucesso',
+        data: {
+          formulaId,
+          ...body,
+          updatedById: userId,
+        },
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async findOralCurricularUnits(
+    filters: FindOralCurricularUnitsDto,
+    userId: number,
+  ) {
+    const { academicYearId, degreeId, courseId, curricularYearId, semesterId } =
+      filters;
+
+    await this.validatePostGraduationCourse(courseId, degreeId);
+    await this.validateCourseCoordinator(userId, courseId);
+
+    const curricularPlanId = await this.findCurricularPlanId(
+      courseId,
+      academicYearId,
+    );
+
+    const rows = await this.dataSource.query<Record<string, unknown>[]>(
+      `
+      SELECT
+        GC.CODIGO AS CURRICULAR_GRADE_ID,
+        D.CODIGO AS CURRICULAR_UNIT_ID,
+        D.DESIGNACAO AS CURRICULAR_UNIT,
+        NVL(ORAL.HABILITAR, 0) AS ORAL_ENABLED,
+        ORAL.CODIGOUTILIZADOR AS UPDATED_BY_ID,
+        U.NOME AS UPDATED_BY,
+        TO_CHAR(ORAL.DATA, 'YYYY-MM-DD"T"HH24:MI:SS') AS UPDATED_AT
+      FROM FK2_TB_PLANO_CURRICULAR_GRADE PCG
+      INNER JOIN FK2_TB_GRADE_CURRICULAR GC
+        ON GC.CODIGO = PCG.CODIGO_GRADE_CURRICULAR
+      INNER JOIN FK2_TB_DISCIPLINAS D
+        ON D.CODIGO = GC.CODIGO_DISCIPLINA
+      LEFT JOIN (
+        SELECT
+          CONFIG.CODIGOGRADECURRICULAR,
+          CONFIG.HABILITAR,
+          CONFIG.CODIGOUTILIZADOR,
+          CONFIG.DATA,
+          ROW_NUMBER() OVER (
+            PARTITION BY CONFIG.CODIGOGRADECURRICULAR
+            ORDER BY CONFIG.DATA DESC NULLS LAST, CONFIG.CODIGO DESC
+          ) AS POSITION
+        FROM FK2_TB_GRADE_CURRICULAR_DEFINIR_ORAL CONFIG
+      ) ORAL
+        ON ORAL.CODIGOGRADECURRICULAR = GC.CODIGO
+       AND ORAL.POSITION = 1
+      LEFT JOIN FK2_MCA_TB_UTILIZADOR U
+        ON U.PK_UTILIZADOR = ORAL.CODIGOUTILIZADOR
+      WHERE PCG.CODIGO_PLANO_CURRICULAR_CURSO = :curricularPlanId
+        AND GC.CODIGO_CURSO = :courseId
+        AND GC.CODIGO_CLASSE = :curricularYearId
+        AND GC.CODIGO_SEMESTRE = :semesterId
+        AND GC.STATUS_ = 1
+      ORDER BY D.DESIGNACAO
+      `,
+      {
+        curricularPlanId,
+        courseId,
+        curricularYearId,
+        semesterId,
+      } as any,
+    );
+
+    return {
+      data: rows.map((row) => ({
+        curricularGradeId: Number(row.CURRICULAR_GRADE_ID),
+        curricularUnitId: Number(row.CURRICULAR_UNIT_ID),
+        curricularUnit: row.CURRICULAR_UNIT,
+        oralEnabled: Number(row.ORAL_ENABLED) === 1,
+        updatedById: this.toNullableNumber(row.UPDATED_BY_ID),
+        updatedBy: row.UPDATED_BY,
+        updatedAt: row.UPDATED_AT,
+      })),
+    };
+  }
+
+  async updateOralCurricularUnitStatus(
+    curricularGradeId: number,
+    body: UpdateOralCurricularUnitStatusDto,
+    userId: number,
+  ) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const gradeRows = (await queryRunner.query(
+        `
+        SELECT
+          GC.CODIGO AS CURRICULAR_GRADE_ID,
+          GC.CODIGO_CURSO AS COURSE_ID
+        FROM FK2_TB_GRADE_CURRICULAR GC
+        INNER JOIN FK2_TB_CURSOS C
+          ON C.CODIGO = GC.CODIGO_CURSO
+        WHERE GC.CODIGO = :curricularGradeId
+          AND GC.STATUS_ = 1
+          AND C.TIPO_CANDIDATURA IN (2, 3)
+        FOR UPDATE
+        `,
+        { curricularGradeId } as any,
+      )) as Array<Record<string, unknown>>;
+
+      if (!gradeRows.length) {
+        throw new NotFoundException(
+          'Grade curricular de Pos-Graduacao nao encontrada',
+        );
+      }
+
+      const courseId = Number(gradeRows[0].COURSE_ID);
+      await this.validateCourseCoordinator(userId, courseId, queryRunner);
+
+      const configurationRows = (await queryRunner.query(
+        `
+        SELECT CONFIG.CODIGO
+        FROM FK2_TB_GRADE_CURRICULAR_DEFINIR_ORAL CONFIG
+        WHERE CONFIG.CODIGO = (
+          SELECT MAX(LATEST.CODIGO)
+          FROM FK2_TB_GRADE_CURRICULAR_DEFINIR_ORAL LATEST
+          WHERE LATEST.CODIGOGRADECURRICULAR = :curricularGradeId
+        )
+        FOR UPDATE
+        `,
+        { curricularGradeId } as any,
+      )) as Array<Record<string, unknown>>;
+
+      const oralEnabled = body.enabled ? 1 : 0;
+
+      if (configurationRows.length) {
+        await queryRunner.query(
+          `
+          UPDATE FK2_TB_GRADE_CURRICULAR_DEFINIR_ORAL
+          SET
+            HABILITAR = :oralEnabled,
+            CODIGOUTILIZADOR = :userId,
+            DATA = SYSDATE,
+            REF_UTILIZADOR = (
+              SELECT JSON_OBJECT(
+                'pk' VALUE U.PK_UTILIZADOR,
+                'desc' VALUE U.NOME
+                RETURNING CLOB
+              )
+              FROM FK2_MCA_TB_UTILIZADOR U
+              WHERE U.PK_UTILIZADOR = :userId
+            )
+          WHERE CODIGO = :configurationId
+          `,
+          {
+            configurationId: Number(configurationRows[0].CODIGO),
+            oralEnabled,
+            userId,
+          } as any,
+        );
+      } else {
+        await queryRunner.query(
+          `
+          INSERT INTO FK2_TB_GRADE_CURRICULAR_DEFINIR_ORAL (
+            CODIGOGRADECURRICULAR,
+            CODIGOUTILIZADOR,
+            HABILITAR,
+            DATA,
+            REF_UTILIZADOR
+          )
+          VALUES (
+            :curricularGradeId,
+            :userId,
+            :oralEnabled,
+            SYSDATE,
+            (
+              SELECT JSON_OBJECT(
+                'pk' VALUE U.PK_UTILIZADOR,
+                'desc' VALUE U.NOME
+                RETURNING CLOB
+              )
+              FROM FK2_MCA_TB_UTILIZADOR U
+              WHERE U.PK_UTILIZADOR = :userId
+            )
+          )
+          `,
+          {
+            curricularGradeId,
+            oralEnabled,
+            userId,
+          } as any,
+        );
+      }
+
+      await queryRunner.commitTransaction();
+
+      return {
+        message: 'Configuracao de oral atualizada com sucesso',
+        data: {
+          curricularGradeId,
+          oralEnabled: body.enabled,
+          updatedById: userId,
+        },
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  private async validatePostGraduationCourse(
+    courseId: number,
+    degreeId: number,
+  ) {
+    const rows = await this.dataSource.query<Record<string, unknown>[]>(
+      `
+      SELECT CODIGO
+      FROM FK2_TB_CURSOS
+      WHERE CODIGO = :courseId
+        AND TIPO_CANDIDATURA = :degreeId
+        AND TIPO_CANDIDATURA IN (2, 3)
+      FETCH FIRST 1 ROWS ONLY
+      `,
+      { courseId, degreeId } as any,
+    );
+
+    if (!rows.length) {
+      throw new NotFoundException(
+        'Curso nao encontrado no grau de Pos-Graduacao informado',
+      );
+    }
+  }
+
+  private async validateCourseCoordinator(
+    userId: number,
+    courseId: number,
+    queryExecutor: Pick<DataSource, 'query'> = this.dataSource,
+  ) {
+    const rows = (await queryExecutor.query(
+      `
+      SELECT C.PK_CARGO
+      FROM FK2_MGU_TB_CARGOS_ADMINISTRATIVOS C
+      WHERE C.FK_UTILIZADOR = :userId
+        AND C.FK_CURSO = :courseId
+        AND C.FK_TIPO_CARGO = :coordinatorRoleId
+        AND C.ACTIVE = 1
+      FETCH FIRST 1 ROWS ONLY
+      `,
+      {
+        userId,
+        courseId,
+        coordinatorRoleId: COORDINATOR_ROLE_ID,
+      } as any,
+    )) as Array<Record<string, unknown>>;
+
+    if (!rows.length) {
+      throw new ForbiddenException(
+        'O utilizador autenticado nao e coordenador ativo deste curso',
+      );
+    }
+  }
+
+  private async findCurricularPlanId(courseId: number, academicYearId: number) {
+    const [academicYearRows, planRows] = await Promise.all([
+      this.dataSource.query<Array<Record<string, unknown>>>(
+        `
+        SELECT CODIGO
+        FROM FK2_TB_ANO_LECTIVO
+        WHERE CODIGO = :academicYearId
+        FETCH FIRST 1 ROWS ONLY
+        `,
+        { academicYearId } as any,
+      ),
+      this.dataSource.query<Array<Record<string, unknown>>>(
+        `
+        SELECT CODIGO
+        FROM FK2_TB_PLANO_CURRICULAR_CURSO
+        WHERE CODIGO_CURSO = :courseId
+          AND CODIGO_ANO_LECTIVO = :academicYearId
+        ORDER BY CODIGO DESC
+        FETCH FIRST 1 ROWS ONLY
+        `,
+        { courseId, academicYearId } as any,
+      ),
+    ]);
+
+    if (!academicYearRows.length) {
+      throw new NotFoundException('Ano lectivo nao encontrado');
+    }
+
+    if (!planRows.length) {
+      throw new NotFoundException(
+        'Plano curricular nao encontrado para o curso e ano lectivo',
+      );
+    }
+
+    return Number(planRows[0].CODIGO);
+  }
+
+  private validateFormulaWeights(body: UpdateCurricularUnitFormulaDto) {
+    const totalWeight =
+      body.practicalWeight +
+      body.firstFrequencyWeight +
+      body.secondFrequencyWeight;
+
+    if (Math.abs(totalWeight - 100) > 0.001) {
+      throw new BadRequestException(
+        'A soma dos pesos da formula deve ser igual a 100%',
+      );
+    }
+  }
+
+  private toNullableNumber(value: unknown) {
+    return value === null || value === undefined ? null : Number(value);
+  }
 }
