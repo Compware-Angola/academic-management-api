@@ -5,6 +5,7 @@ import {
   Param,
   ParseIntPipe,
   Patch,
+  Post,
   Put,
   Query,
   Req,
@@ -24,6 +25,10 @@ import { UpdateCurricularUnitFormulaDto } from './dto/update-curricular-unit-for
 import { RequestUser } from '../common/types/token-validation-response.interface';
 import { FindOralCurricularUnitsDto } from './dto/find-oral-curricular-units.dto';
 import { UpdateOralCurricularUnitStatusDto } from './dto/update-oral-curricular-unit-status.dto';
+import { FindExamMarkingOptionsDto } from './dto/find-exam-marking-options.dto';
+import { FindExamMarkingsDto } from './dto/find-exam-markings.dto';
+import { CreateExamMarkingDto } from './dto/create-exam-marking.dto';
+import { PostGraduationExamMarkingService } from './post-graduation-exam-marking.service';
 
 interface AuthenticatedRequest {
   user: RequestUser;
@@ -35,6 +40,7 @@ interface AuthenticatedRequest {
 export class PostGraduationController {
   constructor(
     private readonly postGraduationService: PostGraduationService,
+    private readonly examMarkingService: PostGraduationExamMarkingService,
   ) {}
 
   @Get('degrees')
@@ -42,6 +48,7 @@ export class PostGraduationController {
     PermissionTypeDetails.REGISTRO_PRIMARIO_BD_POS_GRADUACAO.sigla,
     PermissionTypeDetails.CALENDARIO_PROVAS.sigla,
     PermissionTypeDetails.DEFINIR_UNIDADE_CURRICULAR_COM_ORAL.sigla,
+    PermissionTypeDetails.MARCAR_PROVA_POS_GRADUACAO.sigla,
   )
   @ApiOperation({
     summary: 'Listar graus de Pos-Graduacao',
@@ -230,5 +237,52 @@ export class PostGraduationController {
       body,
       request.user.sub,
     );
+  }
+
+  @Get('assessments/exam-markings/options')
+  @RequiredPermissions(PermissionTypeDetails.MARCAR_PROVA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Listar opcoes de marcacao de provas permitidas ao docente',
+  })
+  findExamMarkingOptions(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindExamMarkingOptionsDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.examMarkingService.findOptions(query, request.user.sub);
+  }
+
+  @Get('assessments/exam-markings')
+  @RequiredPermissions(PermissionTypeDetails.MARCAR_PROVA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Listar provas de Pos-Graduacao marcadas pelo docente',
+  })
+  findExamMarkings(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindExamMarkingsDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.examMarkingService.findAll(query, request.user.sub);
+  }
+
+  @Post('assessments/exam-markings')
+  @RequiredPermissions(PermissionTypeDetails.MARCAR_PROVA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Marcar uma prova de Pos-Graduacao',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Prova de Pos-Graduacao marcada com sucesso.',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Prova duplicada ou conflito de sala/docente/vigilante.',
+  })
+  createExamMarking(
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    body: CreateExamMarkingDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.examMarkingService.create(body, request.user.sub);
   }
 }
