@@ -67,7 +67,7 @@ export class PostGraduationNoteLaunchService {
           )
         ORDER BY
           C.DESIGNACAO,
-          CL.CODIGO,
+          CURRICULAR_YEAR_ID,
           D.DESIGNACAO,
           H.DESIGNACAO
         `,
