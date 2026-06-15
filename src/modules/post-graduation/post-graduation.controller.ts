@@ -29,6 +29,11 @@ import { FindExamMarkingOptionsDto } from './dto/find-exam-marking-options.dto';
 import { FindExamMarkingsDto } from './dto/find-exam-markings.dto';
 import { CreateExamMarkingDto } from './dto/create-exam-marking.dto';
 import { PostGraduationExamMarkingService } from './post-graduation-exam-marking.service';
+import { FindAttendanceListDto } from './dto/find-attendance-list.dto';
+import { PostGraduationAttendanceListService } from './post-graduation-attendance-list.service';
+import { FindNoteLaunchOptionsDto } from './dto/find-note-launch-options.dto';
+import { FindNoteLaunchStudentsDto } from './dto/find-note-launch-students.dto';
+import { PostGraduationNoteLaunchService } from './post-graduation-note-launch.service';
 
 interface AuthenticatedRequest {
   user: RequestUser;
@@ -41,6 +46,8 @@ export class PostGraduationController {
   constructor(
     private readonly postGraduationService: PostGraduationService,
     private readonly examMarkingService: PostGraduationExamMarkingService,
+    private readonly attendanceListService: PostGraduationAttendanceListService,
+    private readonly noteLaunchService: PostGraduationNoteLaunchService,
   ) {}
 
   @Get('degrees')
@@ -49,6 +56,8 @@ export class PostGraduationController {
     PermissionTypeDetails.CALENDARIO_PROVAS.sigla,
     PermissionTypeDetails.DEFINIR_UNIDADE_CURRICULAR_COM_ORAL.sigla,
     PermissionTypeDetails.MARCAR_PROVA_POS_GRADUACAO.sigla,
+    PermissionTypeDetails.LISTA_PRESENCA.sigla,
+    PermissionTypeDetails.LANCAMENTO_NOTAS_MPGS.sigla,
   )
   @ApiOperation({
     summary: 'Listar graus de Pos-Graduacao',
@@ -240,7 +249,10 @@ export class PostGraduationController {
   }
 
   @Get('assessments/exam-markings/options')
-  @RequiredPermissions(PermissionTypeDetails.MARCAR_PROVA_POS_GRADUACAO.sigla)
+  @RequiredPermissions(
+    PermissionTypeDetails.MARCAR_PROVA_POS_GRADUACAO.sigla,
+    PermissionTypeDetails.LISTA_PRESENCA.sigla,
+  )
   @ApiOperation({
     summary: 'Listar opcoes de marcacao de provas permitidas ao docente',
   })
@@ -253,7 +265,10 @@ export class PostGraduationController {
   }
 
   @Get('assessments/exam-markings')
-  @RequiredPermissions(PermissionTypeDetails.MARCAR_PROVA_POS_GRADUACAO.sigla)
+  @RequiredPermissions(
+    PermissionTypeDetails.MARCAR_PROVA_POS_GRADUACAO.sigla,
+    PermissionTypeDetails.LISTA_PRESENCA.sigla,
+  )
   @ApiOperation({
     summary: 'Listar provas de Pos-Graduacao marcadas pelo docente',
   })
@@ -284,5 +299,68 @@ export class PostGraduationController {
     @Req() request: AuthenticatedRequest,
   ) {
     return this.examMarkingService.create(body, request.user.sub);
+  }
+
+  @Get('assessments/attendance-list')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA.sigla)
+  @ApiOperation({
+    summary: 'Listar estudantes elegiveis para presenca na Pos-Graduacao',
+    description:
+      'Aplica somente criterios academicos. Pagamentos, bolsas e mensalidades nao interferem na lista.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de presenca retornada com sucesso.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Contexto academico de Pos-Graduacao nao encontrado.',
+  })
+  findAttendanceList(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindAttendanceListDto,
+  ) {
+    return this.attendanceListService.findAll(query);
+  }
+
+  @Get('assessments/note-launch/options')
+  @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_NOTAS_MPGS.sigla)
+  @ApiOperation({
+    summary:
+      'Listar opcoes de lancamento de notas da Pos-Graduacao permitidas ao docente',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Opcoes de lancamento de notas retornadas com sucesso.',
+  })
+  findNoteLaunchOptions(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindNoteLaunchOptionsDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.noteLaunchService.findOptions(query, request.user.sub);
+  }
+
+  @Get('assessments/note-launch/students')
+  @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_NOTAS_MPGS.sigla)
+  @ApiOperation({
+    summary:
+      'Listar estudantes e notas existentes para lancamento na Pos-Graduacao',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Estudantes e notas existentes retornados com sucesso.',
+  })
+  @ApiResponse({
+    status: 404,
+    description:
+      'Contexto de lancamento de notas da Pos-Graduacao nao encontrado.',
+  })
+  findNoteLaunchStudents(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindNoteLaunchStudentsDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.noteLaunchService.findStudents(query, request.user.sub);
   }
 }
