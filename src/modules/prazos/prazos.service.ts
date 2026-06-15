@@ -1,9 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-
 import { DataSource } from 'typeorm';
 
 import { PrazoResponse } from './type';
-
 import {
   CodigoTipoCalendario,
   TipoCalendario,
@@ -21,41 +19,77 @@ export class PrazosService {
     private readonly anoLectivoUtil: AnoLectivoUtil,
   ) {}
 
+  // ─────────────────────────────
+  // TIPOS (DADOS)
+  // ─────────────────────────────
+
+  async listarTiposCandidatura() {
+    const sql = `
+      SELECT CODIGO, DESCRICAO
+      FROM FK2_TB_TIPO_CANDIDATURA
+      WHERE STATUS_ = 1
+      ORDER BY CODIGO
+    `;
+
+    return this.dataSource.query(sql);
+  }
+
+  // ─────────────────────────────
+  // API PRINCIPAL
+  // ─────────────────────────────
+
   async obterPrazo(
     tipo: TipoCalendario,
+    codigo_tipo_candidatura: number,
     anoLectivoParam?: number,
-  ): Promise<PrazoResponse> {
+  ) {
     const tipoCodigo = TIPO_CALENDARIO_CODIGO[tipo];
 
     if (!tipoCodigo) {
-      throw new BadRequestException('Tipo de calendário inválido.');
+      throw new BadRequestException('Tipo inválido.');
     }
 
-    return this.verificarPrazo(tipoCodigo, anoLectivoParam);
+    await this.validarCandidatura(codigo_tipo_candidatura);
+
+    return this.verificarPrazo(
+      tipoCodigo,
+      codigo_tipo_candidatura,
+      anoLectivoParam,
+    );
   }
 
   async obterPrazoPorCodigo(
     codigo: number,
+    codigo_tipo_candidatura=1,
     anoLectivoParam?: number,
-  ): Promise<PrazoResponse> {
-    const tipoCodigo = codigo as CodigoTipoCalendario;
-    const sql = `SELECT CODIGO FROM FK2_TB_TIPO_CALENDARIO WHERE CODIGO = :codigo
-  FETCH FIRST 1 ROWS ONLY`;
-
-    const [tipo] = await this.dataSource.query(sql, [tipoCodigo]);
-    console.log({ tipo });
+  ) {
+    const [tipo] = await this.dataSource.query(
+      `SELECT CODIGO FROM FK2_TB_TIPO_CALENDARIO WHERE CODIGO = :1`,
+      [codigo],
+    );
 
     if (!tipo) {
-      throw new BadRequestException('Canlendario não encontrado para');
+      throw new BadRequestException('Calendário não encontrado.');
     }
 
-    return this.verificarPrazo(tipoCodigo, anoLectivoParam);
+    await this.validarCandidatura(codigo_tipo_candidatura);
+
+    return this.verificarPrazo(
+      codigo,
+      codigo_tipo_candidatura,
+      anoLectivoParam,
+    );
   }
 
+  // ─────────────────────────────
+  // REGRAS DE PRAZO
+  // ─────────────────────────────
+
   private async verificarPrazo(
-    tipo: CodigoTipoCalendario,
+    tipo: number,
+    codigo_tipo_candidatura: number,
     anoLectivoParam?: number,
-  ): Promise<PrazoResponse> {
+  ) {
     const mensagens = MENSAGENS_PADRAO[tipo];
 
     const anoLectivo =
@@ -65,120 +99,75 @@ export class PrazosService {
       SELECT
         data_inicio,
         data_termino,
-
         CASE
-          WHEN TRUNC(SYSDATE) < TRUNC(data_inicio)
-            THEN 'ANTES'
-
-          WHEN TRUNC(SYSDATE) > TRUNC(data_termino)
-            THEN 'DEPOIS'
-
-          WHEN TRUNC(SYSDATE)
-            BETWEEN TRUNC(data_inicio)
-            AND TRUNC(data_termino)
-            THEN 'DURANTE'
-
-          ELSE 'DESCONHECIDO'
+          WHEN TRUNC(SYSDATE) < TRUNC(data_inicio) THEN 'ANTES'
+          WHEN TRUNC(SYSDATE) > TRUNC(data_termino) THEN 'DEPOIS'
+          WHEN TRUNC(SYSDATE) BETWEEN TRUNC(data_inicio) AND TRUNC(data_termino) THEN 'DURANTE'
         END AS situacao
-
       FROM FK2_TB_CALENDARIO_ACTIVIDADE_LECTIVAS
-
       WHERE codigo_ano_lectivo = :1
         AND codigo_tipo_calendario = :2
-        AND codigo_tipo_candidatura = 1
-
-      FETCH FIRST 1 ROWS ONLY
+        AND codigo_tipo_candidatura = :3
+        AND ATIVE_STATE = 1
     `;
 
-    const rows = toLowerCaseKeys(
-      await this.dataSource.query(sql, [anoLectivo, tipo]),
-    );
+    const rows = await this.dataSource.query(sql, [
+      anoLectivo,
+      tipo,
+      codigo_tipo_candidatura,
+    ]);
 
     if (!rows?.length) {
       return {
         status: 'NAO_CONFIGURADO',
-
         podeInscrever: false,
-
         mensagem: mensagens.naoConfigurado,
-
-        data: {
-          anoLectivo,
-          codigoStatus: null,
-          dataInicio: null,
-          dataFim: null,
-        },
       };
     }
 
-    const {
-      situacao,
-      data_inicio: dataInicio,
-      data_termino: dataFim,
-    } = rows[0];
+    const row = rows[0];
 
-    const dataBase = {
-      anoLectivo,
-      dataInicio,
-      dataFim,
-    };
-
-    switch (situacao) {
+    switch (row.situacao) {
       case 'ANTES':
         return {
           status: 'NAO_DISPONIVEL',
-
           podeInscrever: false,
-
           mensagem: mensagens.antes,
-
-          data: {
-            ...dataBase,
-            codigoStatus: null,
-          },
         };
 
       case 'DEPOIS':
         return {
           status: 'ENCERRADO',
-
           podeInscrever: false,
-
           mensagem: mensagens.depois,
-
-          data: {
-            ...dataBase,
-            codigoStatus: null,
-          },
         };
 
       case 'DURANTE':
         return {
           status: 'ABERTO',
-
           podeInscrever: true,
-
           mensagem: mensagens.durante,
-
-          data: {
-            ...dataBase,
-            codigoStatus: 1,
-          },
         };
+    }
+  }
 
-      default:
-        return {
-          status: 'NAO_CONFIGURADO',
+  // ─────────────────────────────
+  // VALIDAÇÃO
+  // ─────────────────────────────
 
-          podeInscrever: false,
+  private async validarCandidatura(codigo: number) {
+    const sql = `
+      SELECT 1
+      FROM FK2_TB_TIPO_CANDIDATURA
+      WHERE CODIGO = :1
+        AND STATUS_ = 1
+      FETCH FIRST 1 ROWS ONLY
+    `;
 
-          mensagem: 'Situação desconhecida.',
+    const rows = await this.dataSource.query(sql, [codigo]);
 
-          data: {
-            ...dataBase,
-            codigoStatus: null,
-          },
-        };
+    if (!rows?.length) {
+      throw new BadRequestException('Tipo de candidatura inválido.');
     }
   }
 }

@@ -21,6 +21,14 @@ export class PrazoQueryDto {
   @Type(() => Number)
   @IsInt()
   anoLectivo?: number;
+
+  @ApiPropertyOptional({
+    example: 1,
+    description: 'Código do tipo de candidatura.',
+  })
+  @Type(() => Number)
+  @IsInt()
+  codigo_tipo_candidatura: number;
 }
 
 export class PrazoQueryWithoutTipoCalendario extends OmitType(PrazoQueryDto, [
