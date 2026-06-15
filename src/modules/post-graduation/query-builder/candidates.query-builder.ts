@@ -52,6 +52,9 @@ export const BASE_JOINS = `
   LEFT JOIN FK2_TB_ADMISSAO ta
     ON ta.PRE_INCRICAO = tp.CODIGO
 
+  INNER JOIN FK2_TB_ANO_LECTIVO alu
+    ON alu.CODIGO = tp.ANOLECTIVO
+
   INNER JOIN FK2_TB_TIPO_CANDIDATURA tc
     ON tc.ID = tp.CODIGO_TIPO_CANDIDATURA
 
@@ -150,7 +153,8 @@ export function buildDataQuery(
       candidatura,
       curso_candidatura,
       estado,
-      pagamento_realizado
+      pagamento_realizado,
+      ano_lectivo
     FROM (
       SELECT
         tp.CODIGO                AS codigo_preinscricao,
@@ -162,6 +166,7 @@ export function buildDataQuery(
         tp.EMAIL                 AS email,
         tc.DESIGNACAO            AS candidatura,
         tcurso.DESIGNACAO        AS curso_candidatura,
+        alu.DESIGNACAO            AS ano_lectivo,
         CASE
           WHEN trca.PK_REJEICAO_CANDIDATURA IS NOT NULL THEN 'Rejeitado'
           WHEN ta.CODIGO IS NOT NULL                    THEN 'Admitido'
