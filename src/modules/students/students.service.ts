@@ -204,6 +204,7 @@ export class StudentsService {
             WHERE b.CODIGO_MATRICULA = m.CODIGO
               AND b.CODIGO_ANOLECTIVO = :anoLectivo
               AND b.SEMESTRE = :semestre
+              AND b.STATUS_ = 1
           )
           THEN 1
           ELSE 0
