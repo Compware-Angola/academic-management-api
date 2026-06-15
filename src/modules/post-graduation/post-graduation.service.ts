@@ -71,9 +71,7 @@ export class PostGraduationService {
     };
 
     if (applicationTypeId) {
-      conditions.push(
-        'P.CODIGO_TIPO_CANDIDATURA = :applicationTypeId',
-      );
+      conditions.push('P.CODIGO_TIPO_CANDIDATURA = :applicationTypeId');
       params.applicationTypeId = applicationTypeId;
     }
 
@@ -150,14 +148,11 @@ export class PostGraduationService {
     `;
 
     const [rows, countRows] = await Promise.all([
-      this.dataSource.query(
-        dataSql,
-        {
-          ...params,
-          rowOffset: offset,
-          rowLimit: limit,
-        } as any,
-      ),
+      this.dataSource.query(dataSql, {
+        ...params,
+        rowOffset: offset,
+        rowLimit: limit,
+      } as any),
       this.dataSource.query(countSql, params as any),
     ]);
 

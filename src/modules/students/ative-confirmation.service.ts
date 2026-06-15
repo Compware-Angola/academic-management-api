@@ -3,13 +3,21 @@ import { DataSource } from "typeorm";
 import { AnoLectivoUtil } from "../util/current-academic-year";
 
 import * as oracledb from 'oracledb';
+import { StudentsResultPlanService } from "./students-result-plan.service";
+
 
 @Injectable()
 export class AtiveConfirmationService {
 
-    constructor(private readonly dataSource: DataSource, private readonly anoLectivoUtil: AnoLectivoUtil) { }
+    constructor(private readonly dataSource: DataSource, private readonly anoLectivoUtil: AnoLectivoUtil, private readonly studentResultPlanService: StudentsResultPlanService) { }
 
     async activeConfirmation(matricula: number) {
+        const { totalGradesCurso, totalGrasesAluno } = await this.studentResultPlanService.findPlan(matricula);
+
+        if (totalGradesCurso === totalGrasesAluno) {
+            throw new BadRequestException(`Confirmação não pode ser realizada para a Matricula ${matricula} Por Ter Concluído Todas as Disciplinas do seu Curso`);
+        }
+
         const anoLetivo = await this.anoLectivoUtil.getAnoAtualId();
         const semestre = await this.anoLectivoUtil.getSemestreAtual();
         const student = await this.getStudent(matricula, anoLetivo, semestre.semestre || 1);
@@ -132,6 +140,8 @@ export class AtiveConfirmationService {
         if (anoLectivo) queryParams.anoLectivo = anoLectivo;
 
         const result = await this.dataSource.query(sql, queryParams as any);
+        console.log('result', result);
+
 
         if (!result || result.length === 0) {
             throw new BadRequestException(`Matrícula ${matricula} não encontrada`);
@@ -145,7 +155,6 @@ export class AtiveConfirmationService {
             return 1;
         }
 
-        // Curso de especialidade → mantém a mesma classe
         if (isEspecialidade) {
             const sql = `
             SELECT 
@@ -159,10 +168,13 @@ export class AtiveConfirmationService {
             return result[0].CLASSE;
         }
 
-        if (classeAtual >= duracao) {
+        if (classeAtual > duracao) {
             throw new BadRequestException(
                 `Matrícula ${matricula} já atingiu a classe máxima (${duracao})`
             );
+        }
+        if (classeAtual === duracao) {
+            return classeAtual;
         }
 
         return classeAtual + 1;

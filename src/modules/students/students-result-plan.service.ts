@@ -33,6 +33,7 @@ export interface FindGradeAlunoAprovadoReturnDTO {
   codigo_disciplina: number;
   codigo_classe: number;
   classe: string;
+  codigo_grade_aluno?: number;
 }
 interface FindMatriculaDetails {
   codigo_matricula: number;
@@ -76,16 +77,17 @@ export class StudentsResultPlanService {
       gradesCursoMap.set(g.disciplina?.trim().toUpperCase(), true);
     }
 
-    const disciplinasExcedentes = gradesAluno.filter(
-      (t) =>
-        !gradesCursoMap.has(String(t.codigo_disciplina)) &&
-        !gradesCursoMap.has(t.disciplina?.trim().toUpperCase()),
-    );
+    // const disciplinasExcedentes = gradesAluno.filter(
+    //   (t) =>
+    //     !gradesCursoMap.has(String(t.codigo_disciplina)) &&
+    //     !gradesCursoMap.has(t.disciplina?.trim().toUpperCase()),
+    // );
 
-    const gradesCursoIncluindoExcendentes = [
-      ...gradesCursoSemDuplicidade,
-      ...disciplinasExcedentes,
-    ];
+    const gradesCursoIncluindoExcendentes =
+      this.mergeGradesPreservandoMaiorNota(
+        gradesCursoSemDuplicidade,
+        gradesAluno,
+      );
 
     return {
       grades: gradesCursoIncluindoExcendentes,
@@ -210,7 +212,8 @@ export class StudentsResultPlanService {
         ga.CODIGO_CLASSE                        AS CODIGO_CLASSE,
         cl.DESIGNACAO                           AS CLASSE,
         dur.DESIGNACAO                          AS DURACAO,
-        s.DESIGNACAO                            AS SEMESTRE
+        s.DESIGNACAO                            AS SEMESTRE,
+        al.CODIGO                               AS CODIGO_GRADE_ALUNO
 
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
     INNER JOIN FK2_TB_GRADE_CURRICULAR ga
@@ -239,7 +242,34 @@ export class StudentsResultPlanService {
     if (!result || result.length == 0) return [];
     return toLowerCaseKeys(result);
   }
+  private mergeGradesPreservandoMaiorNota(
+    gradesCurso: FindGradeCursoReturnDTO[],
+    disciplinasExcedentes: FindGradeAlunoAprovadoReturnDTO[],
+  ): FindGradeCursoReturnDTO[] {
+    const map = new Map<string, FindGradeCursoReturnDTO>();
+    for (const g of gradesCurso) {
+      map.set(g.disciplina?.trim().toUpperCase(), g);
+    }
 
+    for (const excedente of disciplinasExcedentes) {
+      const key = excedente.disciplina?.trim().toUpperCase();
+      const existing = map.get(key);
+
+      if (!existing) {
+        map.set(key, excedente as unknown as FindGradeCursoReturnDTO);
+        continue;
+      }
+
+      const notaExistente = existing.nota ?? -1;
+      const notaExcedente = excedente.nota ?? -1;
+
+      if (notaExcedente > notaExistente) {
+        map.set(key, excedente as unknown as FindGradeCursoReturnDTO);
+      }
+    }
+
+    return Array.from(map.values());
+  }
   private deduplicateGradesCurso(
     data: FindGradeCursoReturnDTO[],
   ): FindGradeCursoReturnDTO[] {
