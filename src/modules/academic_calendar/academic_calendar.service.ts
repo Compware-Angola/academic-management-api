@@ -32,15 +32,20 @@ export class AcademicCalendarService {
     };
   }
 
-  async findActiveApplicationTypes() {
-    const result = await this.dataSource.query(`
+  async findActiveApplicationTypes(posgraduacao?: boolean) {
+    const baseQuery = `
       SELECT
         ID AS codigo,
         DESIGNACAO AS designacao
       FROM FK2_TB_TIPO_CANDIDATURA
       WHERE STATUS_ = 1
-      ORDER BY ID
-    `);
+    `;
+
+    const query = posgraduacao
+      ? `${baseQuery} AND ID IN (2, 3) ORDER BY ID`
+      : `${baseQuery} ORDER BY ID`;
+
+    const result = await this.dataSource.query(query);
 
     return {
       tipo_candidaturas: toLowerCaseKeys(result),

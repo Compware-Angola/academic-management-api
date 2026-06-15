@@ -40,9 +40,19 @@ export class AcademicCalendarController {
 
   @Get('application-types/all')
   @ApiOperation({ summary: 'Lista tipos de candidatura ativos' })
+  @ApiQuery({
+    name: 'posgraduacao',
+    required: false,
+    type: Boolean,
+    description:
+      'Quando true, retorna apenas tipos de pós-graduação (Mestrado = 2 e Doutoramento = 3)',
+  })
   @ApiResponse({ status: 200, description: 'Tipos de candidatura retornados com sucesso' })
-  async findActiveApplicationTypes() {
-    return this.academicCalendarService.findActiveApplicationTypes();
+  async findActiveApplicationTypes(
+    @Query('posgraduacao') posgraduacao?: string,
+  ) {
+    const onlyPosGraduacao = posgraduacao === 'true' || posgraduacao === '1';
+    return this.academicCalendarService.findActiveApplicationTypes(onlyPosGraduacao);
   }
 
   @Get('academic-year/:anolectivo')
