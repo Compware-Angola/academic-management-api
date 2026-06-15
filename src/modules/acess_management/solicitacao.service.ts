@@ -1,5 +1,10 @@
 // src/users/referencias.service.ts
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FetchEncaminhamentoSolicitacaoDTO } from './dto/fetch-encaminhamento-solicitacao.dto';
@@ -11,6 +16,8 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { CreateAvisoUmaDto } from './dto/create.aviso.dto';
+import { AvisoImagemSigla } from './dto/update-aviso-imagem.dto';
+import { DecodedUserPayload } from '../common/types/token-validation-response.interface';
 
 @Injectable()
 export class SolicitacaoService {
@@ -601,7 +608,8 @@ export class SolicitacaoService {
       AVS.DESCRICAO,
       U.NOME,
       C.DESIGNACAO AS CURSO,
-      G.DESIGNACAO AS DESTINO,
+      AVS.DESTINO AS DESTINO_ID,
+      G.DESIGNACAO AS DESTINO_NOME,
       AVS.PERIODO,
       AVS.DATE_EXPIRACAO
     FROM FK2_TB_AVISO_UMA AVS
@@ -747,12 +755,14 @@ export class SolicitacaoService {
       AVS.ORIGEM,
       AVS.ID
       FROM FK2_TB_AVISO_UMA AVS
-      LEFT JOIN FK2_MCA_TB_GRUPO G
-      ON G.PK_GRUPO = AVS.DESTINO
-     WHERE  AVS.DATE_EXPIRACAO >= SYSDATE
-      AND G.SIGLA = :sigla
-      AND STATUS_= 1
-      ORDER BY UPDATED_AT DESC
+      INNER JOIN FK2_MCA_TB_GRUPO G
+        ON G.PK_GRUPO = AVS.DESTINO
+      WHERE G.SIGLA = :sigla
+        AND AVS.STATUS_ = 1
+        AND (AVS.DATE_EXPIRACAO IS NULL OR AVS.DATE_EXPIRACAO >= SYSDATE)
+        AND (AVS.CURSO IS NULL OR AVS.CURSO = 0)
+        AND (AVS.PERIODO IS NULL OR AVS.PERIODO = 0)
+      ORDER BY AVS.UPDATED_AT DESC
      
     `
       , { sigla } as any);
@@ -760,6 +770,144 @@ export class SolicitacaoService {
 
 
     return toLowerCaseKeys(result);
+  }
+
+  async salvarImagemPorSigla(
+    sigla: AvisoImagemSigla,
+    filename: string,
+    user: DecodedUserPayload,
+  ): Promise<{
+    message: string;
+    sigla: AvisoImagemSigla;
+    filename: string;
+    operacao: 'criado' | 'atualizado';
+  }> {
+    const filenameNormalizado = filename.trim();
+    const siglaNormalizada = sigla.trim().toUpperCase() as AvisoImagemSigla;
+    const codigoUtilizador = Number(
+      user?.sub ??
+      user?.userId ??
+      user?.PK_UTILIZADOR ??
+      user?.pk_utilizador ??
+      user?.id,
+    );
+
+    if (!filenameNormalizado) {
+      throw new BadRequestException('O nome do ficheiro é obrigatório');
+    }
+
+    if (!Number.isFinite(codigoUtilizador) || codigoUtilizador <= 0) {
+      throw new UnauthorizedException('Utilizador autenticado não encontrado');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      await queryRunner.query(
+        `LOCK TABLE FK2_TB_IMAGEM_SISTEMA IN SHARE ROW EXCLUSIVE MODE`,
+      );
+
+      const registos = await queryRunner.query(
+        `
+        SELECT CODIGO
+        FROM FK2_TB_IMAGEM_SISTEMA
+        WHERE SIGLA = :sigla
+        `,
+        { sigla: siglaNormalizada } as any,
+      );
+
+      const operacao: 'criado' | 'atualizado' =
+        registos.length === 0 ? 'criado' : 'atualizado';
+
+      await queryRunner.query(
+        `
+        MERGE INTO FK2_TB_IMAGEM_SISTEMA DESTINO
+        USING (
+          SELECT
+            :sigla AS SIGLA,
+            :filename AS FILE_NAME,
+            :codigoUtilizador AS CODIGO_UTILIZADOR
+          FROM DUAL
+        ) ORIGEM
+        ON (DESTINO.SIGLA = ORIGEM.SIGLA)
+        WHEN MATCHED THEN
+          UPDATE SET
+            DESTINO.FILE_NAME = ORIGEM.FILE_NAME,
+            DESTINO.UPDATED_BY = ORIGEM.CODIGO_UTILIZADOR,
+            DESTINO.UPDATED_AT = SYSDATE,
+            DESTINO.ESTADO = 1,
+            DESTINO.DELETED_AT = NULL
+        WHEN NOT MATCHED THEN
+          INSERT (
+            SIGLA,
+            FILE_NAME,
+            CREATED_BY,
+            UPDATED_BY,
+            ESTADO,
+            CREATED_AT,
+            UPDATED_AT,
+            DELETED_AT
+          )
+          VALUES (
+            ORIGEM.SIGLA,
+            ORIGEM.FILE_NAME,
+            ORIGEM.CODIGO_UTILIZADOR,
+            ORIGEM.CODIGO_UTILIZADOR,
+            1,
+            SYSDATE,
+            SYSDATE,
+            NULL
+          )
+        `,
+        {
+          sigla: siglaNormalizada,
+          filename: filenameNormalizado,
+          codigoUtilizador,
+        } as any,
+      );
+
+      await queryRunner.commitTransaction();
+
+      return {
+        message:
+          operacao === 'criado'
+            ? 'Imagem cadastrada com sucesso'
+            : 'Imagem atualizada com sucesso',
+        sigla: siglaNormalizada,
+        filename: filenameNormalizado,
+        operacao,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async buscarImagemPorSigla(sigla: AvisoImagemSigla): Promise<{
+    sigla: AvisoImagemSigla;
+    filename: string | null;
+    updatedAt: Date | null;
+  }> {
+    const result = await this.dataSource.query(
+      `
+      SELECT FILE_NAME, UPDATED_AT
+      FROM FK2_TB_IMAGEM_SISTEMA
+      WHERE SIGLA = :sigla
+        AND ESTADO = 1
+        AND DELETED_AT IS NULL
+      `,
+      { sigla: sigla.trim().toUpperCase() } as any,
+    );
+
+    return {
+      sigla,
+      filename: result[0]?.FILE_NAME ?? null,
+      updatedAt: result[0]?.UPDATED_AT ?? null,
+    };
   }
 
   async updateAvisoUma(

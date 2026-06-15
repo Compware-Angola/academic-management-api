@@ -1,6 +1,16 @@
 // src/users/referencias.controller.ts
 
-import { BadRequestException, Param, ParseIntPipe, Patch, Put, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Param,
+  ParseEnumPipe,
+  ParseIntPipe,
+  Patch,
+  Put,
+  Req,
+  UseGuards,
+  ValidationPipe,
+} from '@nestjs/common';
 
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -16,6 +26,12 @@ import { FetchServicosSolicDTO } from './dto/listar-servicos-solicitacao.dto';
 import { CreateAvisoUmaDto } from './dto/create.aviso.dto';
 import { ListAllSolicitacoesDto } from './dto/listar-solicitacao.dto';
 import { ListarAvisosPorGruposDto } from './dto/listar-avisos-por-grupos.dto';
+import {
+  AvisoImagemSigla,
+  UpdateAvisoImagemDto,
+} from './dto/update-aviso-imagem.dto';
+import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../common/secret/permissions.guard';
 
 @ApiTags('solicitacao')
 @Controller('solicitacoa')
@@ -144,6 +160,53 @@ export class SolicitacaoController {
   })
   async getImagemAviso(@Query('sigla') sigla: string) {
     return await this.solicitacaoService.getAvisoGeralStudent(sigla)
+  }
+
+  @Put('aviso/imagem/:sigla')
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+  @RequiredPermissions(
+    PermissionTypeDetails.IMAGEM_ABERTURA_PORTAL_ESTUDANTE.sigla,
+  )
+  @ApiOperation({ summary: 'Cadastrar ou atualizar uma imagem por sigla' })
+  @ApiParam({
+    name: 'sigla',
+    enum: AvisoImagemSigla,
+    example: AvisoImagemSigla.LOGIN_GA,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Imagem cadastrada ou atualizada com sucesso',
+  })
+  async salvarImagemPorSigla(
+    @Param('sigla', new ParseEnumPipe(AvisoImagemSigla))
+    sigla: AvisoImagemSigla,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    dto: UpdateAvisoImagemDto,
+    @Req() req: any,
+  ) {
+    return this.solicitacaoService.salvarImagemPorSigla(
+      sigla,
+      dto.filename,
+      req.user,
+    );
+  }
+
+  @Get('aviso/imagem/:sigla')
+  @ApiOperation({ summary: 'Buscar a imagem configurada para uma sigla' })
+  @ApiParam({
+    name: 'sigla',
+    enum: AvisoImagemSigla,
+    example: AvisoImagemSigla.LOGIN_GA,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Configuração da imagem retornada com sucesso',
+  })
+  async buscarImagemPorSigla(
+    @Param('sigla', new ParseEnumPipe(AvisoImagemSigla))
+    sigla: AvisoImagemSigla,
+  ) {
+    return this.solicitacaoService.buscarImagemPorSigla(sigla);
   }
 
   @Put('aviso/:id')
