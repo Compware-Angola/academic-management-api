@@ -12,23 +12,23 @@ export class PrazosController {
 
   @Get()
   async obterPrazo(@Query() query: PrazoQueryDto) {
-    return this.prazosService.obterPrazo(
-      query.tipo,
-      query.codigo_tipo_candidatura,
-      query.anoLectivo,
-    );
+    return this.prazosService.obterPrazo({
+      tipo: query.tipo,
+      anoLectivoParam: query.anoLectivo,
+      codigo_tipo_candidatura: query.codigo_tipo_candidatura,
+    });
   }
 
-  
+  @Get(':codigo')
   async obterPrazoPorCodigo(
     @Param('codigo', ParseIntPipe) codigo: number,
     @Query() query: PrazoQueryWithoutTipoCalendario,
   ) {
-    return this.prazosService.obterPrazoPorCodigo(
+    return this.prazosService.obterPrazoPorCodigo({
       codigo,
-      query.codigo_tipo_candidatura,
-      query.anoLectivo,
-    );
+      anoLectivoParam: query.anoLectivo,
+      codigo_tipo_candidatura: query.codigo_tipo_candidatura,
+    });
   }
 
 

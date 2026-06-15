@@ -26,9 +26,10 @@ export class PrazoQueryDto {
     example: 1,
     description: 'Código do tipo de candidatura.',
   })
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
-  codigo_tipo_candidatura: number;
+  codigo_tipo_candidatura?: number;
 }
 
 export class PrazoQueryWithoutTipoCalendario extends OmitType(PrazoQueryDto, [
