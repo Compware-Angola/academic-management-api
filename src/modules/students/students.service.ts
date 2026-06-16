@@ -185,8 +185,7 @@ export class StudentsService {
     }
 
     const anoLectivo = await this.anoLectivoUtil.getAnoAtualId();
-    const semestre =
-      (await this.anoLectivoUtil.getSemestreAtual()).semestre ?? 1;
+    const semestre = (await this.anoLectivoUtil.getSemestreAtual()).semestre ?? 1;
 
     const sql = `
     SELECT
@@ -201,10 +200,14 @@ export class StudentsService {
           WHEN EXISTS (
             SELECT 1
             FROM FK2_TB_BOLSEIROS b
-            WHERE b.CODIGO_MATRICULA = m.CODIGO
+            WHERE b.CODIGO_MATRICULA  = m.CODIGO
               AND b.CODIGO_ANOLECTIVO = :anoLectivo
-              AND b.SEMESTRE = :semestre
-              AND b.STATUS_ = 1
+              AND b.STATUS_           = 1
+              AND (
+                :semestre = 3
+                OR b.SEMESTRE = 3
+                OR b.SEMESTRE = :semestre
+              )
           )
           THEN 1
           ELSE 0
@@ -233,14 +236,11 @@ export class StudentsService {
     FETCH FIRST 10 ROWS ONLY
   `;
 
-    const result = await this.dataSource.query(
-      sql,
-      {
-        search: `%${search}%`,
-        anoLectivo,
-        semestre,
-      } as any,
-    );
+    const result = await this.dataSource.query(sql, {
+      search: `%${search}%`,
+      anoLectivo,
+      semestre,
+    } as any);
 
     return toLowerCaseKeys(result);
   }
