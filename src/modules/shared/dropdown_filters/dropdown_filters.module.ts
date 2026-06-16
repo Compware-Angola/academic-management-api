@@ -11,6 +11,7 @@ import { NacionalidadeService } from './services/nacionalidade.service';
 import { NecessidadeEspecialService } from './services/necessidade-especial.service';
 import { AnoLectivoConfirmadosService } from './services/anolectivo-confirmados.service';
 import { SituationService } from './services/situation.service';
+import { SearchClientService } from './services/search-client.service';
 
 @Module({
   controllers: [DropdownFiltersController],
@@ -24,7 +25,8 @@ import { SituationService } from './services/situation.service';
     NacionalidadeService,
     NecessidadeEspecialService,
     AnoLectivoConfirmadosService,
-    SituationService
+    SituationService,
+    SearchClientService,
   ],
 })
 export class DropdownFiltersModule {}
