@@ -6,15 +6,18 @@ import { PostGraduationAttendanceListService } from './post-graduation-attendanc
 import { PostGraduationNoteLaunchService } from './post-graduation-note-launch.service';
 import { CandidatesService } from './services/candidates.service';
 import { CandidatesController } from './controllers/candidates.controller';
+import { GuidanceResearchManagementController } from './controllers/guidance-research-management.controller';
+import { GuidanceResearchManagementService } from './services/guidance-research-management.service';
 
 @Module({
-  controllers: [PostGraduationController, CandidatesController],
+  controllers: [PostGraduationController, CandidatesController, GuidanceResearchManagementController],
   providers: [
     PostGraduationService,
     PostGraduationExamMarkingService,
     PostGraduationAttendanceListService,
     PostGraduationNoteLaunchService,
-    CandidatesService
+    CandidatesService,
+    GuidanceResearchManagementService
   ],
   exports: [],
 })

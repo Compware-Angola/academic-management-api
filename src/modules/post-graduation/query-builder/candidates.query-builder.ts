@@ -1,22 +1,8 @@
 import { FindCandidatesDto } from '../dto/candidates.dto';
 import { CandidateStatus, PaymentStatus, SortBy, SortOrder } from '../enums';
+import { QueryConditions } from '../types/query.builder';
 
-// ─── tipos ────────────────────────────────────────────────────────────────────
 
-export interface QueryConditions {
-  clauses: string[];
-  params: Record<string, any>;
-}
-
-export interface PaginatedResult<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-
-// ─── ordenação ────────────────────────────────────────────────────────────────
 
 const SORT_COLUMN: Record<SortBy, string> = {
   [SortBy.NOME]: 'tp.NOME_COMPLETO',
