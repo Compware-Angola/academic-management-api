@@ -6,6 +6,7 @@ import {
   Param,
   ParseIntPipe,
   Query,
+  ValidationPipe,
 } from '@nestjs/common';
 import { EscalaoService } from './services/escalao.service';
 import { ApiTags } from '@nestjs/swagger';
@@ -18,6 +19,8 @@ import { NacionalidadeService } from './services/nacionalidade.service';
 import { NecessidadeEspecialService } from './services/necessidade-especial.service';
 import { AnoLectivoConfirmadosService } from './services/anolectivo-confirmados.service';
 import { SituationService } from './services/situation.service';
+import { SearchClientDto } from './dto/search.client.dto';
+import { SearchClientService } from './services/search-client.service';
 
 @ApiTags('DROPDOWN-FILTERS')
 @Controller('dropdown-filters')
@@ -33,6 +36,7 @@ export class DropdownFiltersController {
     private readonly necessidadeEspecialService: NecessidadeEspecialService,
     private readonly anoLectivoConfirmadosService: AnoLectivoConfirmadosService,
     private readonly situationService: SituationService,
+    private readonly searchClientService: SearchClientService,
   ) {}
 
   @Get('escalao')
@@ -86,5 +90,9 @@ export class DropdownFiltersController {
   ) {
     return this.situationService.reasonSituation(estado);
   }
- 
+
+  @Get('search-client')
+  async searchClient(@Query() query: SearchClientDto) {
+    return this.searchClientService.find(query);
+  }
 }

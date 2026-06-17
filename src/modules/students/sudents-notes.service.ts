@@ -398,9 +398,10 @@ export class StudentNoteService {
       else {
         // 1ª Frequência
         if (!temNota(nota1f)) {
-          resultado = EstadoAvaliacaoEnum.EXAME;
+          resultado = EstadoAvaliacaoEnum.FREQUENCIA_2;
+          // resultado = EstadoAvaliacaoEnum.EXAME;
           descricao =
-            'Não possui nota na 1ª Frequência, deve fazer a prova de Exame!';
+            'Não possui nota na 1ª Frequência, deve fazer a prova de Segunda Frequência!';
         } else {
           media = this.round(nota1f!.NOTA! * (peso_primeira_freq / 100));
           // if (nota1f!.NOTA! < nota_min_primeira_freq) {

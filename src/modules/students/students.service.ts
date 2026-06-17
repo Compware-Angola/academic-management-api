@@ -1259,10 +1259,11 @@ WHERE M."CODIGO" = :codigoMatricula`;
     await this.dataSource.query(
       `
     UPDATE FK2_USERS
-    SET "PASSWORD" = :hash
+    SET "PASSWORD" = :hash,
+    PASSWORD_RESET_REQUIRED = :passwordResetRequired
     WHERE "ID" = :user_id
     `,
-      { hash: hash, user_id: toLowerCaseKeys(result[0]).user_id } as any,
+      { hash: hash, user_id: toLowerCaseKeys(result[0]).user_id, passwordResetRequired: 1 } as any,
     );
 
     return { message: 'Senha atualizada com sucesso' };
@@ -1270,6 +1271,7 @@ WHERE M."CODIGO" = :codigoMatricula`;
 
   async updateContactos(body: UpdateStudentContactDTO) {
     const { codigoMatricula, email, contacto, contactoAlternativo } = body;
+
 
     if (!email && !contacto && !contactoAlternativo) {
       throw new BadRequestException(
@@ -1323,6 +1325,51 @@ WHERE M."CODIGO" = :codigoMatricula`;
     `,
       params,
     );
+    // Buscar o USER_ID primeiro
+    const [usuario] = await this.dataSource.query(
+      `
+    SELECT TP."USER_ID"
+    FROM FK2_TB_MATRICULAS M
+    INNER JOIN FK2_TB_ADMISSAO TA
+      ON TA."CODIGO" = M."CODIGO_ALUNO"
+    INNER JOIN FK2_TB_PREINSCRICAO TP
+      ON TP."CODIGO" = TA."PRE_INCRICAO"
+    WHERE M."CODIGO" = :codigoMatricula
+    `,
+      { codigoMatricula } as any,
+    );
+
+    if (!usuario) {
+      throw new NotFoundException('Matrícula não encontrada');
+    }
+    console.log(usuario);
+
+    const secondParams: any = {};
+
+    // Montar campos dinâmicos para FK2_USERS
+    const userFields: string[] = [];
+    console.log(email, contacto, contactoAlternativo);
+
+    if (email) {
+      userFields.push(`"EMAIL" = :email`);
+      secondParams.email = email;
+    }
+    if (contacto) {
+      userFields.push(`"TELEFONE" = :contacto`);
+      secondParams.contacto = contacto;
+    }
+    secondParams.userId = usuario.USER_ID;
+
+    if (userFields.length > 0) {
+      await this.dataSource.query(
+        `
+    UPDATE FK2_USERS
+    SET ${userFields.join(', ')}
+    WHERE "ID" = :userId
+    `,
+        secondParams,
+      );
+    }
 
     if (!result) {
       throw new NotFoundException('Matrícula não encontrada');
