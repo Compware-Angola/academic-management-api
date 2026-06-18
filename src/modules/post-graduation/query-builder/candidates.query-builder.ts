@@ -4,6 +4,8 @@ import { QueryConditions } from '../types/query.builder';
 
 
 
+// ─── ordenação ────────────────────────────────────────────────────────────────
+
 const SORT_COLUMN: Record<SortBy, string> = {
   [SortBy.NOME]: 'tp.NOME_COMPLETO',
   [SortBy.DATA]: 'tp.DATA_PREESCRINCAO',

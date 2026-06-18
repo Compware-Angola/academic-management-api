@@ -1,16 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { FindCandidatesDto } from '../dto/candidates.dto';
-
-import {
-  buildCountQuery,
-  buildDataQuery,
-  buildOrderClause,
-  buildWhereClause,
-
-} from '../query-builder/candidates.query-builder';
-import { toLowerCaseKeys } from 'src/modules/util/toLowerCaseKeys';
 import { PaginatedResult } from '../types/query.builder';
+import { buildCountQuery, buildDataQuery, buildOrderClause, buildWhereClause } from '../query-builder/candidates.query-builder';
+import { toLowerCaseKeys } from 'src/modules/util/toLowerCaseKeys';
+
+
 
 @Injectable()
 export class CandidatesService {
@@ -28,7 +23,9 @@ export class CandidatesService {
 
     const [rows, countResult] = await Promise.all([
       this.dataSource.query(buildDataQuery(whereClause, orderClause), {
-        ...params
+        ...params,
+        offset,
+        limit,
       } as any),
       this.dataSource.query(buildCountQuery(whereClause), params as any),
     ]);
