@@ -34,6 +34,7 @@ import { PostGraduationAttendanceListService } from './post-graduation-attendanc
 import { FindNoteLaunchOptionsDto } from './dto/find-note-launch-options.dto';
 import { FindNoteLaunchStudentsDto } from './dto/find-note-launch-students.dto';
 import { PostGraduationNoteLaunchService } from './post-graduation-note-launch.service';
+import { UpsertPostGraduationNotesDto } from './dto/upsert-note-launch.dto';
 
 interface AuthenticatedRequest {
   user: RequestUser;
@@ -363,4 +364,17 @@ export class PostGraduationController {
   ) {
     return this.noteLaunchService.findStudents(query, request.user.sub);
   }
+
+@Put('assessments/note-launch')
+@RequiredPermissions(PermissionTypeDetails.LANCAMENTO_NOTAS_MPGS.sigla)
+@ApiOperation({
+  summary: 'Criar ou atualizar notas da Pós-Graduação',
+})
+upsertPostGraduationNotes(
+  @Body(new ValidationPipe({ transform: true, whitelist: true }))
+  body: UpsertPostGraduationNotesDto,
+  @Req() request: AuthenticatedRequest,
+) {
+  return this.noteLaunchService.upsertNotes(body, request.user);
+}
 }
