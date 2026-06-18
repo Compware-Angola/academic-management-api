@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { CandidatesService } from '../services/candidates.service';
 import { FindCandidatesDto } from '../dto/candidates.dto';
 import { ApiTags } from '@nestjs/swagger';
@@ -11,5 +11,10 @@ export class CandidatesController {
   @Get()
   async findCandidates(@Query() query: FindCandidatesDto) {
     return  this.candidatesService.findCandidates(query);
+  }
+
+  @Get(':id/documents')
+  async findCandidateDocuments(@Param('id') id: string) {
+    return  this.candidatesService.findCandidateDocuments(parseInt(id));
   }
 }

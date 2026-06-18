@@ -179,3 +179,14 @@ export function buildCountQuery(whereClause: string): string {
     WHERE ${whereClause}
   `;
 }
+
+export const buildCandidateDocumentsQuery = ()=> {
+  return `
+  SELECT 
+    tbda.NOME_ARQUIVO, tbdn.DESCRICAO
+        FROM FK2_DOCUMENTOS_ADMISSAO tbda
+        INNER JOIN FK2_TB_DOCUMENTOS_NECESSARIOS tbdn
+            ON tbdn.CODIGO = tbda.TIPO_DOCUMENTO_ID
+        WHERE  CANDIDATO_ID = :id
+  `
+}

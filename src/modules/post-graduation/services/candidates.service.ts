@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { FindCandidatesDto } from '../dto/candidates.dto';
 import { PaginatedResult } from '../types/query.builder';
-import { buildCountQuery, buildDataQuery, buildOrderClause, buildWhereClause } from '../query-builder/candidates.query-builder';
+import { buildCandidateDocumentsQuery, buildCountQuery, buildDataQuery, buildOrderClause, buildWhereClause } from '../query-builder/candidates.query-builder';
 import { toLowerCaseKeys } from 'src/modules/util/toLowerCaseKeys';
 
 
@@ -10,7 +10,6 @@ import { toLowerCaseKeys } from 'src/modules/util/toLowerCaseKeys';
 @Injectable()
 export class CandidatesService {
   constructor(private readonly dataSource: DataSource) {}
-
   async findCandidates(
     filters: FindCandidatesDto,
   ): Promise<PaginatedResult<any>> {
@@ -40,5 +39,13 @@ export class CandidatesService {
       limit,
       totalPages,
     };
+  }
+  async findCandidateDocuments(
+    id: number,
+  ): Promise<PaginatedResult<any>> {
+    const rows = await this.dataSource.query(buildCandidateDocumentsQuery(), {
+      id,
+    } as any);
+    return toLowerCaseKeys(rows);
   }
 }
