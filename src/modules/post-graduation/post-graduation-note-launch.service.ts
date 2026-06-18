@@ -1,13 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { DataSource, EntityManager } from 'typeorm';
 import { FindNoteLaunchOptionsDto } from './dto/find-note-launch-options.dto';
 import { FindNoteLaunchStudentsDto } from './dto/find-note-launch-students.dto';
+import { UpsertPostGraduationNotesDto } from './dto/upsert-note-launch.dto';
+import { Queue } from 'bullmq';
+import { InjectQueue } from '@nestjs/bullmq';
 
 type DatabaseRow = Record<string, unknown>;
 
 @Injectable()
 export class PostGraduationNoteLaunchService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectQueue('final_average') private readonly finalAverageQueue: Queue,
+    private readonly dataSource: DataSource) {}
 
   async findOptions(filters: FindNoteLaunchOptionsDto, userId: number) {
     const { academicYearId, degreeId, semesterId, courseId } = filters;
@@ -445,4 +450,330 @@ export class PostGraduationNoteLaunchService {
   private toNullableNumber(value: unknown): number | null {
     return value === null || value === undefined ? null : Number(value);
   }
+
+  /**
+   * Cria ou actualiza um lote de notas.  Assegura validações e transacção.
+   *
+   * @param dto  Payload com o contexto académico e a lista de notas
+   * @param user Utilizador autenticado (payload do token)
+   */
+  async upsertNotes(dto: UpsertPostGraduationNotesDto, user: any): Promise<{ message: string; created: number; updated: number; total: number }> {
+    // 1. Não permitir estudantes repetidos
+    this.ensureUniqueStudents(dto.items);
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    let created = 0;
+    let updated = 0;
+    const studentIds: number[] = [];
+
+    try {
+      // 2. Valida e bloqueia o contexto académico
+      await this.findAndLockAcademicContext(queryRunner.manager, dto, user.sub);
+
+      // 3. Valida e bloqueia os estudantes
+      await this.findAndLockStudents(queryRunner.manager, dto);
+
+      // 4. Processa cada estudante individualmente
+      for (const item of dto.items) {
+        const existingNote = await this.findAndLockCurrentNote(
+          queryRunner.manager,
+          dto,
+          item.studentCurricularGradeId,
+        );
+
+        if (existingNote) {
+          await this.updateNote(queryRunner.manager, dto, item, existingNote, user);
+          updated++;
+        } else {
+          await this.createNote(queryRunner.manager, dto, item, user);
+          created++;
+        }
+
+        studentIds.push(item.studentCurricularGradeId);
+      }
+
+      // 5. Commit da transacção
+      await queryRunner.commitTransaction();
+
+      // 6. Aciona recálculo de médias fora da transacção
+      await this.queueFinalAverages(studentIds);
+
+      return {
+        message: 'Notas guardadas com sucesso.',
+        created,
+        updated,
+        total: dto.items.length,
+      };
+    } catch (err) {
+      // rollback em caso de qualquer erro
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      // libertação do QueryRunner
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Garante que o mesmo estudante não aparece mais do que uma vez no payload.
+   *
+   * @throws BadRequestException se detectar duplicados
+   */
+  private ensureUniqueStudents(items: Array<{ studentCurricularGradeId: number }>): void {
+    const seen = new Set<number>();
+    for (const item of items) {
+      if (seen.has(item.studentCurricularGradeId)) {
+        throw new BadRequestException('Não é permitido repetir estudante no mesmo lote');
+      }
+      seen.add(item.studentCurricularGradeId);
+    }
+  }
+
+  /**
+   * Valida o contexto académico do lançamento de notas e bloqueia as
+   * linhas para evitar concorrência.  É necessário verificar que o
+   * contexto pertence à Pós‑Graduação (TIPO_CANDIDATURA 2 ou 3) e que o
+   * utilizador afectado tem vínculo ao horário.
+   *
+   * Esta função usa a estrutura do serviço de licenciatura como referência
+   * (ver findAcademicContext()), adicionando cláusulas `FOR UPDATE`.
+   *
+   * @param manager  EntityManager ligado ao QueryRunner
+   * @param dto      DTO contendo contexto académico
+   * @param userId   Identificador do docente autenticado
+   * @throws BadRequestException se o contexto não for válido
+   */
+  private async findAndLockAcademicContext(manager: EntityManager, dto: any, userId: number): Promise<any> {
+    // Construção da query baseada na SQL fornecida no documento
+    // Valida: TIPO_CANDIDATURA, ano lectivo, semestre, período, curso,
+    // ano curricular, grade curricular, horário, tipo de prova, tipo de
+    // avaliação e vínculo do docente ao horário
+    const result = await manager
+      .query(
+        `
+        SELECT 1
+        FROM FK2_TB_CURSOS C
+        JOIN FK2_TB_GRADE_CURRICULAR GC ON GC.CODIGO_CURSO = C.CODIGO
+        JOIN FK2_MGH_TB_HORARIO H ON H.FK_CURSOS_PERMITIDOS = C.CODIGO
+        WHERE C.CODIGO = :courseId
+          AND C.TIPO_CANDIDATURA = :degreeId
+          AND C.TIPO_CANDIDATURA IN (2, 3)
+          AND GC.CODIGO = :curricularGradeId
+          AND H.PK_HORARIO = :scheduleId
+          AND EXISTS (
+            SELECT 1
+            FROM FK2_MGH_TB_AULA A
+            WHERE A.FK_HORARIO = H.PK_HORARIO
+              AND A.ACTIVE_STATE = 1
+              AND JSON_VALUE(A.REF_DOCENTE, '$.pkDocente' RETURNING NUMBER NULL ON ERROR) = :userId
+          )
+        FOR UPDATE
+        `,
+        {
+          courseId: dto.courseId,
+          degreeId: dto.degreeId,
+          curricularGradeId: dto.curricularGradeId,
+          scheduleId: dto.scheduleId,
+          userId,
+        } as unknown as any[],
+      );
+
+    if (!result || result.length === 0) {
+      throw new BadRequestException('Contexto académico inválido ou não pertence ao docente');
+    }
+    return result;
+  }
+
+  /**
+   * Valida que todos os estudantes do payload pertencem ao contexto
+   * seleccionado (grade curricular, ano lectivo e horário) e bloqueia
+   * essas linhas para evitar alterações concorrentes.
+   *
+   * @throws BadRequestException se algum estudante estiver fora do contexto
+   */
+  private async findAndLockStudents(manager: EntityManager, dto: any): Promise<any[]> {
+    const studentIds = dto.items.map((i: any) => i.studentCurricularGradeId);
+    const results = await manager.query(
+      `
+      SELECT GCA.CODIGO
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO GCA
+      WHERE GCA.CODIGO IN (:...ids)
+        AND GCA.CODIGO_GRADE_CURRICULAR = :curricularGradeId
+        AND GCA.CODIGO_ANO_LECTIVO = :academicYearId
+        AND JSON_VALUE(GCA.REF_HORARIO, '$.pk' RETURNING NUMBER NULL ON ERROR) = :scheduleId
+        AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
+      FOR UPDATE
+      `,
+      {
+        ids: studentIds,
+        curricularGradeId: dto.curricularGradeId,
+        academicYearId: dto.academicYearId,
+        scheduleId: dto.scheduleId,
+      } as unknown as any[],
+    );
+
+    if (!results || results.length !== studentIds.length) {
+      throw new BadRequestException('Um ou mais estudantes não pertencem ao contexto seleccionado');
+    }
+
+    return results;
+  }
+
+  /**
+   * Procura e bloqueia (pessimistic write) a nota existente, se houver,
+   * para um determinado estudante e tipo de avaliação.  Caso não exista,
+   * retorna undefined.
+   */
+  private async findAndLockCurrentNote(
+    manager: EntityManager,
+    dto: any,
+    studentCurricularGradeId: number,
+  ): Promise<any | undefined> {
+    const notes = await manager.query(
+      `
+      SELECT CODIGO, NOTA, OBSERVACAO, STATUS_, CREATED_AT, UPDATE_AT
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES
+      WHERE GRADE_CURRICULAR_ALUNO = :studentCurricularGradeId
+        AND TIPO_DE_PROVA = :examTypeId
+        AND TIPO_AVALIACAO = :assessmentTypeId
+      ORDER BY NVL(UPDATE_AT, CREATED_AT) DESC, CODIGO DESC
+      FOR UPDATE
+      `,
+      {
+        studentCurricularGradeId,
+        examTypeId: dto.examTypeId,
+        assessmentTypeId: dto.assessmentTypeId,
+      } as unknown as any[],
+    );
+    return notes && notes.length ? notes[0] : undefined;
+  }
+
+  /**
+   * Cria uma nova nota na tabela de avaliações.  Usa os dados do DTO e
+   * do item, e injeta as informações do utilizador a partir do token.
+   */
+  private async createNote(
+    manager: EntityManager,
+    dto: any,
+    item: any,
+    user: any,
+  ): Promise<void> {
+    const userReference = this.buildUserReference(user);
+    await manager.query(
+      `
+      INSERT INTO FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES (
+        GRADE_CURRICULAR_ALUNO,
+        UTILIZADOR,
+        NOTA,
+        TIPO_DE_PROVA,
+        EPOCA,
+        CREATED_AT,
+        UPDATE_AT,
+        TIPO_AVALIACAO,
+        OBSERVACAO,
+        STATUS_,
+        NOTA_ANTERIOR,
+        REF_UTILIZADOR
+      ) VALUES (
+        :studentCurricularGradeId,
+        :userId,
+        :grade,
+        :examTypeId,
+        :termId,
+        SYSDATE,
+        SYSDATE,
+        :assessmentTypeId,
+        :observation,
+        2,
+        NULL,
+        :userReference
+      )
+      `,
+      {
+        studentCurricularGradeId: item.studentCurricularGradeId,
+        userId: user.sub,
+        grade: item.grade,
+        examTypeId: dto.examTypeId,
+        termId: dto.termId,
+        assessmentTypeId: dto.assessmentTypeId,
+        observation: item.observation ?? null,
+        userReference: JSON.stringify(userReference),
+      } as unknown as any[],
+    );
+  }
+
+  /**
+   * Actualiza uma nota existente.  Guarda a nota antiga em NOTA_ANTERIOR
+   * e regista a autoria do utilizador autenticado.
+   */
+  private async updateNote(
+    manager: EntityManager,
+    dto: any,
+    item: any,
+    existingNote: any,
+    user: any,
+  ): Promise<void> {
+    const userReference = this.buildUserReference(user);
+    await manager.query(
+      `
+      UPDATE FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES
+      SET UTILIZADOR = :userId,
+          NOTA_ANTERIOR = NOTA,
+          NOTA = :grade,
+          EPOCA = :termId,
+          OBSERVACAO = :observation,
+          STATUS_ = 2,
+          REF_UTILIZADOR = :userReference,
+          UPDATE_AT = SYSDATE
+      WHERE CODIGO = :noteId
+      `,
+      {
+        userId: user.sub,
+        grade: item.grade,
+        termId: dto.termId,
+        observation: item.observation ?? null,
+        userReference: JSON.stringify(userReference),
+        noteId: existingNote.CODIGO,
+      } as unknown as any[],
+    );
+  }
+
+  /**
+   * Aciona o recálculo das médias finais para os estudantes afectados.
+   * Este método deve ser executado fora da transacção Oracle principal.
+   * A implementação exacta dependerá do serviço de médias finais já
+   * existente na aplicação.  Aqui apenas é mostrado um placeholder.
+   */
+  private async queueFinalAverages(studentCurricularGradeIds: number[]): Promise<void> {
+     for (const id of studentCurricularGradeIds) {
+    await this.finalAverageQueue.add(
+      'processFinalAverage',
+      { codigoGradeAluno: id },
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        attempts: 3,
+        backoff: 5000,
+      },
+    );
+  }
+  }
+
+  /**
+   * Monta o JSON de auditoria do utilizador.  Este JSON é gravado na
+   * coluna REF_UTILIZADOR e segue o formato utilizado no sistema:
+   * `{ "pk": number, "desc": string, "corLetra": string, "disponivel": boolean }`.
+   */
+  private buildUserReference(user: any): { pk: number; desc: string; corLetra: string; disponivel: boolean } {
+    return {
+      pk: Number(user.sub),
+      desc: user.username,
+      corLetra: 'black',
+      disponivel: true,
+    };
+  }
+
 }
