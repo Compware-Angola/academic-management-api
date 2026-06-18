@@ -47,8 +47,8 @@ export const buildStudentQuery = (
   return `
     SELECT
       tbp.Nome_Completo AS nome,
-      tbp.BILHETE_IDENTIDADE AS bilhete_identidade,
-      tbp.CODIGO AS codigo_matricula,
+      tbp.BILHETE_IDENTIDADE AS bilhete,
+      tbp.CODIGO AS matricula,
       tbp.Sexo AS genero,
       tbc.Designacao AS curso,
       tbca.DESIGNACAO AS candidatura
