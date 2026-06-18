@@ -35,9 +35,13 @@ import { FindNoteLaunchOptionsDto } from './dto/find-note-launch-options.dto';
 import { FindNoteLaunchStudentsDto } from './dto/find-note-launch-students.dto';
 import { PostGraduationNoteLaunchService } from './post-graduation-note-launch.service';
 import { UpsertPostGraduationNotesDto } from './dto/upsert-note-launch.dto';
+import { HttpService } from '@nestjs/axios';
+import { AccessLogHelper } from '../common/helpers/access-log.helper';
 
 interface AuthenticatedRequest {
   user: RequestUser;
+  ip?: string;
+  headers: Record<string, string | string[] | undefined>;
 }
 
 @ApiTags('post-graduation')
@@ -49,6 +53,7 @@ export class PostGraduationController {
     private readonly examMarkingService: PostGraduationExamMarkingService,
     private readonly attendanceListService: PostGraduationAttendanceListService,
     private readonly noteLaunchService: PostGraduationNoteLaunchService,
+    private readonly httpService: HttpService,
   ) {}
 
   @Get('degrees')
@@ -365,16 +370,28 @@ export class PostGraduationController {
     return this.noteLaunchService.findStudents(query, request.user.sub);
   }
 
-@Put('assessments/note-launch')
-@RequiredPermissions(PermissionTypeDetails.LANCAMENTO_NOTAS_MPGS.sigla)
-@ApiOperation({
-  summary: 'Criar ou atualizar notas da Pós-Graduação',
-})
-upsertPostGraduationNotes(
-  @Body(new ValidationPipe({ transform: true, whitelist: true }))
-  body: UpsertPostGraduationNotesDto,
-  @Req() request: AuthenticatedRequest,
-) {
-  return this.noteLaunchService.upsertNotes(body, request.user);
-}
+  @Put('assessments/note-launch')
+  @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_NOTAS_MPGS.sigla)
+  @ApiOperation({
+    summary: 'Criar ou atualizar notas da Pós-Graduação',
+  })
+  async upsertPostGraduationNotes(
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    body: UpsertPostGraduationNotesDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const result = await this.noteLaunchService.upsertNotes(body, request.user);
+
+    AccessLogHelper.logAccess(this.httpService, {
+      descricao:
+        `Lançamento de ${body.items.length} nota(s) da Pós-Graduação` +
+        ` | Tipo Avaliação: ${body.assessmentTypeId}` +
+        ` | Época: ${body.termId}`,
+      fkAcesso: 7,
+      fkUtilizadorResponsavel: request.user.sub,
+      ip: request.ip ?? String(request.headers['x-forwarded-for'] ?? 'unknown'),
+    });
+
+    return result;
+  }
 }

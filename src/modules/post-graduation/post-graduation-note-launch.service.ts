@@ -1,18 +1,40 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { FindNoteLaunchOptionsDto } from './dto/find-note-launch-options.dto';
 import { FindNoteLaunchStudentsDto } from './dto/find-note-launch-students.dto';
-import { UpsertPostGraduationNotesDto } from './dto/upsert-note-launch.dto';
+import {
+  UpsertPostGraduationNoteItemDto,
+  UpsertPostGraduationNotesDto,
+} from './dto/upsert-note-launch.dto';
 import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
+import { RequestUser } from '../common/types/token-validation-response.interface';
 
 type DatabaseRow = Record<string, unknown>;
 
+type ExistingNoteRow = {
+  CODIGO: number;
+  NOTA: number | null;
+  OBSERVACAO: string | null;
+  STATUS_: number | null;
+  CREATED_AT: Date | null;
+  UPDATE_AT: Date | null;
+};
+
 @Injectable()
 export class PostGraduationNoteLaunchService {
+  private readonly logger = new Logger(PostGraduationNoteLaunchService.name);
+
   constructor(
-    @InjectQueue('final_average') private readonly finalAverageQueue: Queue,
-    private readonly dataSource: DataSource) {}
+    @InjectQueue('final_average')
+    private readonly finalAverageQueue: Queue,
+    private readonly dataSource: DataSource,
+  ) {}
 
   async findOptions(filters: FindNoteLaunchOptionsDto, userId: number) {
     const { academicYearId, degreeId, semesterId, courseId } = filters;
@@ -457,8 +479,15 @@ export class PostGraduationNoteLaunchService {
    * @param dto  Payload com o contexto académico e a lista de notas
    * @param user Utilizador autenticado (payload do token)
    */
-  async upsertNotes(dto: UpsertPostGraduationNotesDto, user: any): Promise<{ message: string; created: number; updated: number; total: number }> {
-    // 1. Não permitir estudantes repetidos
+  async upsertNotes(
+    dto: UpsertPostGraduationNotesDto,
+    user: RequestUser,
+  ): Promise<{
+    message: string;
+    created: number;
+    updated: number;
+    total: number;
+  }> {
     this.ensureUniqueStudents(dto.items);
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -470,13 +499,9 @@ export class PostGraduationNoteLaunchService {
     const studentIds: number[] = [];
 
     try {
-      // 2. Valida e bloqueia o contexto académico
       await this.findAndLockAcademicContext(queryRunner.manager, dto, user.sub);
-
-      // 3. Valida e bloqueia os estudantes
       await this.findAndLockStudents(queryRunner.manager, dto);
 
-      // 4. Processa cada estudante individualmente
       for (const item of dto.items) {
         const existingNote = await this.findAndLockCurrentNote(
           queryRunner.manager,
@@ -485,36 +510,53 @@ export class PostGraduationNoteLaunchService {
         );
 
         if (existingNote) {
-          await this.updateNote(queryRunner.manager, dto, item, existingNote, user);
-          updated++;
+          await this.updateNote(
+            queryRunner.manager,
+            dto,
+            item,
+            existingNote,
+            user,
+          );
+          updated += 1;
         } else {
+          if (item.grade === null) {
+            throw new BadRequestException(
+              'Não é possível resetar uma nota que ainda não foi lançada',
+            );
+          }
+
           await this.createNote(queryRunner.manager, dto, item, user);
-          created++;
+          created += 1;
         }
 
         studentIds.push(item.studentCurricularGradeId);
       }
 
-      // 5. Commit da transacção
       await queryRunner.commitTransaction();
-
-      // 6. Aciona recálculo de médias fora da transacção
-      await this.queueFinalAverages(studentIds);
-
-      return {
-        message: 'Notas guardadas com sucesso.',
-        created,
-        updated,
-        total: dto.items.length,
-      };
-    } catch (err) {
-      // rollback em caso de qualquer erro
-      await queryRunner.rollbackTransaction();
-      throw err;
+    } catch (error) {
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
+      throw error;
     } finally {
-      // libertação do QueryRunner
       await queryRunner.release();
     }
+
+    try {
+      await this.queueFinalAverages(studentIds);
+    } catch (error) {
+      this.logger.warn(
+        'As notas foram gravadas, mas o recálculo das médias não foi enfileirado.',
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+
+    return {
+      message: 'Notas guardadas com sucesso.',
+      created,
+      updated,
+      total: dto.items.length,
+    };
   }
 
   /**
@@ -522,12 +564,16 @@ export class PostGraduationNoteLaunchService {
    *
    * @throws BadRequestException se detectar duplicados
    */
-  private ensureUniqueStudents(items: Array<{ studentCurricularGradeId: number }>): void {
+  private ensureUniqueStudents(items: UpsertPostGraduationNoteItemDto[]): void {
     const seen = new Set<number>();
+
     for (const item of items) {
       if (seen.has(item.studentCurricularGradeId)) {
-        throw new BadRequestException('Não é permitido repetir estudante no mesmo lote');
+        throw new BadRequestException(
+          'Não é permitido repetir estudante no mesmo lote',
+        );
       }
+
       seen.add(item.studentCurricularGradeId);
     }
   }
@@ -546,45 +592,72 @@ export class PostGraduationNoteLaunchService {
    * @param userId   Identificador do docente autenticado
    * @throws BadRequestException se o contexto não for válido
    */
-  private async findAndLockAcademicContext(manager: EntityManager, dto: any, userId: number): Promise<any> {
-    // Construção da query baseada na SQL fornecida no documento
-    // Valida: TIPO_CANDIDATURA, ano lectivo, semestre, período, curso,
-    // ano curricular, grade curricular, horário, tipo de prova, tipo de
-    // avaliação e vínculo do docente ao horário
-    const result = await manager
-      .query(
-        `
-        SELECT 1
-        FROM FK2_TB_CURSOS C
-        JOIN FK2_TB_GRADE_CURRICULAR GC ON GC.CODIGO_CURSO = C.CODIGO
-        JOIN FK2_MGH_TB_HORARIO H ON H.FK_CURSOS_PERMITIDOS = C.CODIGO
-        WHERE C.CODIGO = :courseId
-          AND C.TIPO_CANDIDATURA = :degreeId
-          AND C.TIPO_CANDIDATURA IN (2, 3)
-          AND GC.CODIGO = :curricularGradeId
-          AND H.PK_HORARIO = :scheduleId
-          AND EXISTS (
-            SELECT 1
-            FROM FK2_MGH_TB_AULA A
-            WHERE A.FK_HORARIO = H.PK_HORARIO
-              AND A.ACTIVE_STATE = 1
-              AND JSON_VALUE(A.REF_DOCENTE, '$.pkDocente' RETURNING NUMBER NULL ON ERROR) = :userId
-          )
-        FOR UPDATE
-        `,
-        {
-          courseId: dto.courseId,
-          degreeId: dto.degreeId,
-          curricularGradeId: dto.curricularGradeId,
-          scheduleId: dto.scheduleId,
-          userId,
-        } as unknown as any[],
-      );
+  private async findAndLockAcademicContext(
+    manager: EntityManager,
+    dto: UpsertPostGraduationNotesDto,
+    userId: number,
+  ): Promise<void> {
+    const result = await manager.query<DatabaseRow[]>(
+      `
+      SELECT H.PK_HORARIO
+      FROM FK2_MGH_TB_HORARIO H
+      INNER JOIN FK2_TB_GRADE_CURRICULAR GC
+        ON GC.CODIGO = TO_NUMBER(NULLIF(H.FK_GRADE_CURRICULAR, ''))
+      INNER JOIN FK2_TB_CURSOS C
+        ON C.CODIGO = GC.CODIGO_CURSO
+      INNER JOIN FK2_TB_TIPO_CANDIDATURA TC
+        ON TC.ID = C.TIPO_CANDIDATURA
+      INNER JOIN FK2_TB_TIPO_PROVA TP
+        ON TP.CODIGO = :examTypeId
+      INNER JOIN FK2_TB_TIPO_AVALIACAO TA
+        ON TA.CODIGO = :assessmentTypeId
+      WHERE H.PK_HORARIO = :scheduleId
+        AND H.FK_ANO_LECTIVO = :academicYearId
+        AND H.FK_SEMESTRE = :semesterId
+        AND H.FK_PERIODO = :periodId
+        AND GC.CODIGO = :curricularGradeId
+        AND GC.CODIGO_CURSO = :courseId
+        AND GC.CODIGO_CLASSE = :curricularYearId
+        AND C.TIPO_CANDIDATURA = :degreeId
+        AND C.TIPO_CANDIDATURA IN (2, 3)
+        AND TA.CODIGO IN (2, 3, 4, 5, 6, 7, 9, 11, 22, 23, 24)
+        AND H.ACTIVE_STATE = 1
+        AND NVL(H.FK_ESTADO_HORARIO_WF, 0) <> 4
+        AND GC.STATUS_ = 1
+        AND C.STATUS_ = 1
+        AND TC.STATUS_ = 1
+        AND EXISTS (
+          SELECT 1
+          FROM FK2_MGH_TB_AULA A
+          WHERE A.FK_HORARIO = H.PK_HORARIO
+            AND A.ACTIVE_STATE = 1
+            AND JSON_VALUE(
+              A.REF_DOCENTE,
+              '$.pkDocente' RETURNING NUMBER NULL ON ERROR
+            ) = :userId
+        )
+      FOR UPDATE OF H.PK_HORARIO
+      `,
+      {
+        academicYearId: dto.academicYearId,
+        degreeId: dto.degreeId,
+        semesterId: dto.semesterId,
+        periodId: dto.periodId,
+        courseId: dto.courseId,
+        curricularYearId: dto.curricularYearId,
+        curricularGradeId: dto.curricularGradeId,
+        scheduleId: dto.scheduleId,
+        examTypeId: dto.examTypeId,
+        assessmentTypeId: dto.assessmentTypeId,
+        userId,
+      } as unknown as any[],
+    );
 
     if (!result || result.length === 0) {
-      throw new BadRequestException('Contexto académico inválido ou não pertence ao docente');
+      throw new BadRequestException(
+        'Contexto académico inválido ou não pertence ao docente',
+      );
     }
-    return result;
   }
 
   /**
@@ -594,21 +667,34 @@ export class PostGraduationNoteLaunchService {
    *
    * @throws BadRequestException se algum estudante estiver fora do contexto
    */
-  private async findAndLockStudents(manager: EntityManager, dto: any): Promise<any[]> {
-    const studentIds = dto.items.map((i: any) => i.studentCurricularGradeId);
-    const results = await manager.query(
+  private async findAndLockStudents(
+    manager: EntityManager,
+    dto: UpsertPostGraduationNotesDto,
+  ): Promise<void> {
+    const studentIds = dto.items.map((item) => item.studentCurricularGradeId);
+    const studentParameters = Object.fromEntries(
+      studentIds.map((studentId, index) => [`studentId${index}`, studentId]),
+    );
+    const studentPlaceholders = studentIds
+      .map((_, index) => `:studentId${index}`)
+      .join(', ');
+
+    const results = await manager.query<DatabaseRow[]>(
       `
       SELECT GCA.CODIGO
       FROM FK2_TB_GRADE_CURRICULAR_ALUNO GCA
-      WHERE GCA.CODIGO IN (:...ids)
+      WHERE GCA.CODIGO IN (${studentPlaceholders})
         AND GCA.CODIGO_GRADE_CURRICULAR = :curricularGradeId
         AND GCA.CODIGO_ANO_LECTIVO = :academicYearId
-        AND JSON_VALUE(GCA.REF_HORARIO, '$.pk' RETURNING NUMBER NULL ON ERROR) = :scheduleId
+        AND JSON_VALUE(
+          GCA.REF_HORARIO,
+          '$.pk' RETURNING NUMBER NULL ON ERROR
+        ) = :scheduleId
         AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
       FOR UPDATE
       `,
       {
-        ids: studentIds,
+        ...studentParameters,
         curricularGradeId: dto.curricularGradeId,
         academicYearId: dto.academicYearId,
         scheduleId: dto.scheduleId,
@@ -616,10 +702,10 @@ export class PostGraduationNoteLaunchService {
     );
 
     if (!results || results.length !== studentIds.length) {
-      throw new BadRequestException('Um ou mais estudantes não pertencem ao contexto seleccionado');
+      throw new BadRequestException(
+        'Um ou mais estudantes não pertencem ao contexto seleccionado',
+      );
     }
-
-    return results;
   }
 
   /**
@@ -629,10 +715,10 @@ export class PostGraduationNoteLaunchService {
    */
   private async findAndLockCurrentNote(
     manager: EntityManager,
-    dto: any,
+    dto: UpsertPostGraduationNotesDto,
     studentCurricularGradeId: number,
-  ): Promise<any | undefined> {
-    const notes = await manager.query(
+  ): Promise<ExistingNoteRow | undefined> {
+    const notes = await manager.query<ExistingNoteRow[]>(
       `
       SELECT CODIGO, NOTA, OBSERVACAO, STATUS_, CREATED_AT, UPDATE_AT
       FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES
@@ -657,9 +743,9 @@ export class PostGraduationNoteLaunchService {
    */
   private async createNote(
     manager: EntityManager,
-    dto: any,
-    item: any,
-    user: any,
+    dto: UpsertPostGraduationNotesDto,
+    item: UpsertPostGraduationNoteItemDto,
+    user: RequestUser,
   ): Promise<void> {
     const userReference = this.buildUserReference(user);
     await manager.query(
@@ -711,10 +797,10 @@ export class PostGraduationNoteLaunchService {
    */
   private async updateNote(
     manager: EntityManager,
-    dto: any,
-    item: any,
-    existingNote: any,
-    user: any,
+    dto: UpsertPostGraduationNotesDto,
+    item: UpsertPostGraduationNoteItemDto,
+    existingNote: ExistingNoteRow,
+    user: RequestUser,
   ): Promise<void> {
     const userReference = this.buildUserReference(user);
     await manager.query(
@@ -747,19 +833,21 @@ export class PostGraduationNoteLaunchService {
    * A implementação exacta dependerá do serviço de médias finais já
    * existente na aplicação.  Aqui apenas é mostrado um placeholder.
    */
-  private async queueFinalAverages(studentCurricularGradeIds: number[]): Promise<void> {
-     for (const id of studentCurricularGradeIds) {
-    await this.finalAverageQueue.add(
-      'processFinalAverage',
-      { codigoGradeAluno: id },
-      {
-        removeOnComplete: true,
-        removeOnFail: false,
-        attempts: 3,
-        backoff: 5000,
-      },
-    );
-  }
+  private async queueFinalAverages(
+    studentCurricularGradeIds: number[],
+  ): Promise<void> {
+    for (const id of studentCurricularGradeIds) {
+      await this.finalAverageQueue.add(
+        'processFinalAverage',
+        { codigoGradeAluno: id },
+        {
+          removeOnComplete: true,
+          removeOnFail: false,
+          attempts: 3,
+          backoff: 5000,
+        },
+      );
+    }
   }
 
   /**
@@ -767,7 +855,12 @@ export class PostGraduationNoteLaunchService {
    * coluna REF_UTILIZADOR e segue o formato utilizado no sistema:
    * `{ "pk": number, "desc": string, "corLetra": string, "disponivel": boolean }`.
    */
-  private buildUserReference(user: any): { pk: number; desc: string; corLetra: string; disponivel: boolean } {
+  private buildUserReference(user: RequestUser): {
+    pk: number;
+    desc: string;
+    corLetra: string;
+    disponivel: boolean;
+  } {
     return {
       pk: Number(user.sub),
       desc: user.username,
@@ -775,5 +868,4 @@ export class PostGraduationNoteLaunchService {
       disponivel: true,
     };
   }
-
 }

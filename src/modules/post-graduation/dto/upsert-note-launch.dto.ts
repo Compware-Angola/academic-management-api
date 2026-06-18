@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -13,6 +13,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
@@ -23,12 +24,13 @@ export class UpsertPostGraduationNoteItemDto {
   @IsPositive()
   studentCurricularGradeId: number;
 
-  @ApiProperty({ minimum: 0, maximum: 20 })
-  @Type(() => Number)
+  @ApiProperty({ minimum: 0, maximum: 20, nullable: true })
+  @Transform(({ value }) => (value === null ? null : Number(value)))
+  @ValidateIf((_, value) => value !== null)
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Max(20)
-  grade: number;
+  grade: number | null;
 
   @ApiPropertyOptional({ maxLength: 1000 })
   @IsOptional()
