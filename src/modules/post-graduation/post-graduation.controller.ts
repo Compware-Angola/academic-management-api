@@ -37,6 +37,10 @@ import { PostGraduationNoteLaunchService } from './post-graduation-note-launch.s
 import { UpsertPostGraduationNotesDto } from './dto/upsert-note-launch.dto';
 import { HttpService } from '@nestjs/axios';
 import { AccessLogHelper } from '../common/helpers/access-log.helper';
+import { FindAgendaLaunchOptionsDto } from './dto/find-agenda-launch-options.dto';
+import { FindAgendaLaunchesDto } from './dto/find-agenda-launches.dto';
+import { CreateAgendaLaunchDto } from './dto/create-agenda-launch.dto';
+import { PostGraduationAgendaLaunchService } from './post-graduation-agenda-launch.service';
 
 interface AuthenticatedRequest {
   user: RequestUser;
@@ -53,6 +57,7 @@ export class PostGraduationController {
     private readonly examMarkingService: PostGraduationExamMarkingService,
     private readonly attendanceListService: PostGraduationAttendanceListService,
     private readonly noteLaunchService: PostGraduationNoteLaunchService,
+    private readonly agendaLaunchService: PostGraduationAgendaLaunchService,
     private readonly httpService: HttpService,
   ) {}
 
@@ -64,6 +69,7 @@ export class PostGraduationController {
     PermissionTypeDetails.MARCAR_PROVA_POS_GRADUACAO.sigla,
     PermissionTypeDetails.LISTA_PRESENCA.sigla,
     PermissionTypeDetails.LANCAMENTO_NOTAS_MPGS.sigla,
+    PermissionTypeDetails.LANCAMENTO_PAUTA.sigla,
   )
   @ApiOperation({
     summary: 'Listar graus de Pos-Graduacao',
@@ -387,6 +393,78 @@ export class PostGraduationController {
         `Lançamento de ${body.items.length} nota(s) da Pós-Graduação` +
         ` | Tipo Avaliação: ${body.assessmentTypeId}` +
         ` | Época: ${body.termId}`,
+      fkAcesso: 7,
+      fkUtilizadorResponsavel: request.user.sub,
+      ip: request.ip ?? String(request.headers['x-forwarded-for'] ?? 'unknown'),
+    });
+
+    return result;
+  }
+
+  @Get('assessments/agenda-launch/options')
+  @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_PAUTA.sigla)
+  @ApiOperation({
+    summary:
+      'Listar opcoes de lancamento de pauta da Pos-Graduacao permitidas ao docente',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Opcoes de lancamento de pauta retornadas com sucesso.',
+  })
+  findAgendaLaunchOptions(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindAgendaLaunchOptionsDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.agendaLaunchService.findOptions(query, request.user.sub);
+  }
+
+  @Get('assessments/agenda-launch')
+  @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_PAUTA.sigla)
+  @ApiOperation({
+    summary: 'Listar pautas de Pos-Graduacao lancadas pelo docente',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pautas de Pos-Graduacao retornadas com sucesso.',
+  })
+  findAgendaLaunches(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindAgendaLaunchesDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.agendaLaunchService.findAll(query, request.user.sub);
+  }
+
+  @Post('assessments/agenda-launch')
+  @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_PAUTA.sigla)
+  @ApiOperation({
+    summary: 'Registar uma pauta de Pos-Graduacao',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Pauta de Pos-Graduacao registada com sucesso.',
+  })
+  @ApiResponse({
+    status: 409,
+    description:
+      'Ja existe uma pauta activa para a UC e tipo de avaliacao informados.',
+  })
+  async createAgendaLaunch(
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    body: CreateAgendaLaunchDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const result = await this.agendaLaunchService.create(
+      body,
+      request.user.sub,
+    );
+
+    AccessLogHelper.logAccess(this.httpService, {
+      descricao:
+        'Lançamento de pauta da Pós-Graduação' +
+        ` | Grade curricular: ${body.curricularGradeId}` +
+        ` | Tipo de avaliação: ${body.assessmentTypeId}`,
       fkAcesso: 7,
       fkUtilizadorResponsavel: request.user.sub,
       ip: request.ip ?? String(request.headers['x-forwarded-for'] ?? 'unknown'),
