@@ -19,7 +19,7 @@ export class ExamesDeAcessoService {
   constructor(private readonly dataSource: DataSource) { }
 
   async buscaCandidatos(filtros: FilterCandidatoDto) {
-    const condicoes: string[] = [];
+    const condicoes: string[] = ["FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA NOT IN (2,3)"];
     const params: any[] = [];
     let paramIndex = 1;
 
