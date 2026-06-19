@@ -27,7 +27,7 @@ export class ExamesDeAcessoController {
   constructor(
     private readonly examesAcessoService: ExamesDeAcessoService,
     private httpService: HttpService,
-  ) {}
+  ) { }
 
   @Get('candidato')
   @ApiOperation({ summary: 'Lista todos os candidatos' })
@@ -255,7 +255,7 @@ export class ExamesDeAcessoController {
   @ApiOperation({ summary: 'Corrige provas automaticamente para o canal 13' })
   @ApiResponse({ status: 200, description: 'Provas corrigidas com sucesso' })
   corrigirProvas() {
-    return this.examesAcessoService.corrigirProvas();
+    return this.examesAcessoService.corrigirTodasAsProvas();
   }
 
   @Get('estatistica/cursos')
