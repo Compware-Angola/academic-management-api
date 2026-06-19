@@ -14,11 +14,22 @@ import { UpdateOralCurricularUnitStatusDto } from './dto/update-oral-curricular-
 
 const COORDINATOR_ROLE_ID = 9;
 
+/**
+ * Centraliza consultas académicas gerais e configurações de avaliação que são
+ * exclusivas de Mestrado e Doutoramento.
+ */
 @Injectable()
 export class PostGraduationService {
   constructor(private readonly dataSource: DataSource) {}
 
+  /**
+   * Lista os graus aceites pelo módulo e acrescenta a opção visual "Todos".
+   */
   async findDegrees() {
+    /*
+     * SELECT limita a origem aos códigos institucionais 2 e 3, traduz as
+     * designações esperadas e ignora tipos de candidatura inativos.
+     */
     const rows = await this.dataSource.query(`
       SELECT
         ID,
@@ -46,6 +57,10 @@ export class PostGraduationService {
     };
   }
 
+  /**
+   * Lista os registos primários dos estudantes confirmados no ano letivo,
+   * preservando estudantes sem província, município ou nacionalidade.
+   */
   async findPrimaryRecords(filters: FindPrimaryRecordsDto) {
     const {
       academicYearId,
@@ -86,6 +101,12 @@ export class PostGraduationService {
     }
 
     const whereClause = conditions.join(' AND ');
+    /*
+     * Bloco relacional compartilhado:
+     * - INNER JOIN exige matrícula, admissão, candidatura, curso e faculdade;
+     * - LEFT JOIN mantém o estudante quando dados geográficos ou período faltam;
+     * - WHERE aplica Pós-Graduação, confirmação, grau opcional e pesquisa.
+     */
     const fromClause = `
       FROM FK2_TB_MATRICULAS M
       INNER JOIN FK2_TB_ADMISSAO ADM
@@ -109,6 +130,12 @@ export class PostGraduationService {
       WHERE ${whereClause}
     `;
 
+    /*
+     * Query de dados:
+     * - SELECT monta o registo institucional e calcula idade/ano curricular;
+     * - a subquery de confirmação obtém a classe válida no ano pesquisado;
+     * - ORDER BY estabiliza a paginação por nome e matrícula.
+     */
     const dataSql = `
       SELECT
         M.CODIGO AS ENROLLMENT_ID,
@@ -142,6 +169,10 @@ export class PostGraduationService {
       OFFSET :rowOffset ROWS FETCH NEXT :rowLimit ROWS ONLY
     `;
 
+    /*
+     * Query de total: reutiliza os mesmos JOINs e filtros da listagem para que
+     * a paginação não conte estudantes diferentes dos apresentados.
+     */
     const countSql = `
       SELECT COUNT(DISTINCT M.CODIGO) AS TOTAL
       ${fromClause}
@@ -185,7 +216,14 @@ export class PostGraduationService {
     };
   }
 
+  /**
+   * Lista os intervalos do calendário de provas de um ano e grau válidos.
+   */
   async findExamCalendars({ academicYearId, degreeId }: FindExamCalendarsDto) {
+    /*
+     * As duas queries de existência validam separadamente o ano letivo e o grau
+     * antes da consulta principal, permitindo mensagens de erro específicas.
+     */
     const [academicYearRows, degreeRows] = await Promise.all([
       this.dataSource.query(
         `
@@ -216,6 +254,13 @@ export class PostGraduationService {
       throw new NotFoundException('Grau de Pos-Graduacao nao encontrado');
     }
 
+    /*
+     * Query principal:
+     * - SELECT devolve datas, semestre, época e autoria;
+     * - JOIN exige ano e grau, enquanto LEFT JOIN tolera referências opcionais;
+     * - COALESCE suporta as duas colunas históricas de utilizador;
+     * - WHERE mantém apenas calendários ativos do contexto solicitado.
+     */
     const rows = await this.dataSource.query(
       `
       SELECT
@@ -282,6 +327,10 @@ export class PostGraduationService {
     };
   }
 
+  /**
+   * Lista a fórmula de avaliação das UCs do plano curricular que o utilizador
+   * está autorizado a coordenar.
+   */
   async findCurricularUnitFormulas(
     filters: FindCurricularUnitFormulasDto,
     userId: number,
@@ -297,6 +346,11 @@ export class PostGraduationService {
       academicYearId,
     );
 
+    /*
+     * SELECT lê notas mínimas, pesos e auditoria; JOIN liga a configuração à
+     * grade e à UC; WHERE restringe plano, curso, ano curricular, semestre e
+     * grades ativas; ORDER BY produz uma lista previsível por UC.
+     */
     const rows = await this.dataSource.query<Record<string, unknown>[]>(
       `
       SELECT
@@ -360,6 +414,10 @@ export class PostGraduationService {
     };
   }
 
+  /**
+   * Atualiza uma fórmula dentro de transação, depois de validar os pesos, a
+   * pertença à Pós-Graduação e a responsabilidade do coordenador.
+   */
   async updateCurricularUnitFormula(
     formulaId: number,
     body: UpdateCurricularUnitFormulaDto,
@@ -372,6 +430,10 @@ export class PostGraduationService {
     await queryRunner.startTransaction();
 
     try {
+      /*
+       * SELECT localiza a fórmula e o respetivo curso; JOIN comprova a cadeia
+       * fórmula -> grade -> curso; FOR UPDATE impede edições concorrentes.
+       */
       const formulaRows = (await queryRunner.query(
         `
         SELECT
@@ -399,6 +461,10 @@ export class PostGraduationService {
       const courseId = Number(formulaRows[0].COURSE_ID);
       await this.validateCourseCoordinator(userId, courseId, queryRunner);
 
+      /*
+       * UPDATE grava os seis parâmetros da fórmula e os identificadores de
+       * auditoria. O WHERE altera somente a fórmula previamente bloqueada.
+       */
       await queryRunner.query(
         `
         UPDATE FK2_TB_PLANO_CURRICULAR_GRADE
@@ -438,6 +504,10 @@ export class PostGraduationService {
     }
   }
 
+  /**
+   * Lista as UCs do plano e resolve, para cada uma, a configuração de avaliação
+   * oral mais recente.
+   */
   async findOralCurricularUnits(
     filters: FindOralCurricularUnitsDto,
     userId: number,
@@ -453,6 +523,11 @@ export class PostGraduationService {
       academicYearId,
     );
 
+    /*
+     * SELECT apresenta a UC e o estado de oral; a subquery com ROW_NUMBER
+     * escolhe a configuração mais recente por grade; LEFT JOIN representa como
+     * desativada uma UC ainda sem configuração; WHERE limita o plano e semestre.
+     */
     const rows = await this.dataSource.query<Record<string, unknown>[]>(
       `
       SELECT
@@ -512,6 +587,10 @@ export class PostGraduationService {
     };
   }
 
+  /**
+   * Ativa ou desativa a avaliação oral de uma grade. Atualiza a configuração
+   * mais recente quando existe; caso contrário, cria o primeiro registo.
+   */
   async updateOralCurricularUnitStatus(
     curricularGradeId: number,
     body: UpdateOralCurricularUnitStatusDto,
@@ -522,6 +601,10 @@ export class PostGraduationService {
     await queryRunner.startTransaction();
 
     try {
+      /*
+       * SELECT valida a grade e recupera o curso; JOIN confirma que o curso é
+       * de Pós-Graduação; FOR UPDATE protege a configuração durante a decisão.
+       */
       const gradeRows = (await queryRunner.query(
         `
         SELECT
@@ -547,6 +630,10 @@ export class PostGraduationService {
       const courseId = Number(gradeRows[0].COURSE_ID);
       await this.validateCourseCoordinator(userId, courseId, queryRunner);
 
+      /*
+       * SELECT encontra e bloqueia a configuração mais recente da grade. A
+       * subquery com MAX evita atualizar um registo histórico mais antigo.
+       */
       const configurationRows = (await queryRunner.query(
         `
         SELECT CONFIG.CODIGO
@@ -564,6 +651,10 @@ export class PostGraduationService {
       const oralEnabled = body.enabled ? 1 : 0;
 
       if (configurationRows.length) {
+        /*
+         * UPDATE altera estado, data e autoria da configuração existente. A
+         * subquery JSON_OBJECT registra uma referência legível do utilizador.
+         */
         await queryRunner.query(
           `
           UPDATE FK2_TB_GRADE_CURRICULAR_DEFINIR_ORAL
@@ -589,6 +680,10 @@ export class PostGraduationService {
           } as any,
         );
       } else {
+        /*
+         * INSERT cria a configuração inicial da grade e registra, no mesmo
+         * momento, o utilizador responsável em colunas simples e JSON.
+         */
         await queryRunner.query(
           `
           INSERT INTO FK2_TB_GRADE_CURRICULAR_DEFINIR_ORAL (
@@ -640,10 +735,18 @@ export class PostGraduationService {
     }
   }
 
+  /**
+   * Garante que o curso pertence exatamente ao grau informado e ao universo
+   * institucional de Mestrado ou Doutoramento.
+   */
   private async validatePostGraduationCourse(
     courseId: number,
     degreeId: number,
   ) {
+    /*
+     * SELECT de existência: o WHERE cruza curso e grau e reforça a lista
+     * permitida (2, 3); FETCH FIRST evita transportar dados desnecessários.
+     */
     const rows = await this.dataSource.query<Record<string, unknown>[]>(
       `
       SELECT CODIGO
@@ -663,11 +766,18 @@ export class PostGraduationService {
     }
   }
 
+  /**
+   * Confirma o vínculo ativo do utilizador como coordenador do curso.
+   */
   private async validateCourseCoordinator(
     userId: number,
     courseId: number,
     queryExecutor: Pick<DataSource, 'query'> = this.dataSource,
   ) {
+    /*
+     * SELECT de autorização institucional: filtra utilizador, curso, cargo 9 e
+     * estado ativo. Pode executar no DataSource ou na transação em curso.
+     */
     const rows = (await queryExecutor.query(
       `
       SELECT C.PK_CARGO
@@ -692,7 +802,14 @@ export class PostGraduationService {
     }
   }
 
+  /**
+   * Obtém o plano curricular mais recente do curso no ano letivo informado.
+   */
   private async findCurricularPlanId(courseId: number, academicYearId: number) {
+    /*
+     * A primeira query confirma o ano; a segunda procura o plano do curso,
+     * priorizando o maior código quando existem versões no mesmo contexto.
+     */
     const [academicYearRows, planRows] = await Promise.all([
       this.dataSource.query<Array<Record<string, unknown>>>(
         `
@@ -729,6 +846,10 @@ export class PostGraduationService {
     return Number(planRows[0].CODIGO);
   }
 
+  /**
+   * Impede fórmulas incoerentes: os pesos das três componentes devem totalizar
+   * 100%, com tolerância apenas para imprecisão decimal.
+   */
   private validateFormulaWeights(body: UpdateCurricularUnitFormulaDto) {
     const totalWeight =
       body.practicalWeight +
@@ -742,6 +863,9 @@ export class PostGraduationService {
     }
   }
 
+  /**
+   * Normaliza números vindos do Oracle sem transformar ausência em zero.
+   */
   private toNullableNumber(value: unknown) {
     return value === null || value === undefined ? null : Number(value);
   }

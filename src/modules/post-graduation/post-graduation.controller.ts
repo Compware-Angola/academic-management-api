@@ -41,6 +41,11 @@ import { FindAgendaLaunchOptionsDto } from './dto/find-agenda-launch-options.dto
 import { FindAgendaLaunchesDto } from './dto/find-agenda-launches.dto';
 import { CreateAgendaLaunchDto } from './dto/create-agenda-launch.dto';
 import { PostGraduationAgendaLaunchService } from './post-graduation-agenda-launch.service';
+import { FindAgendaValidationOptionsDto } from './dto/find-agenda-validation-options.dto';
+import { FindAgendaValidationsDto } from './dto/find-agenda-validations.dto';
+import { UpdateAgendaValidationStatusDto } from './dto/update-agenda-validation-status.dto';
+import { PostGraduationAgendaValidationService } from './post-graduation-agenda-validation.service';
+import { FindMissingAgendaValidationsDto } from './dto/find-missing-agenda-validations.dto';
 
 interface AuthenticatedRequest {
   user: RequestUser;
@@ -58,6 +63,7 @@ export class PostGraduationController {
     private readonly attendanceListService: PostGraduationAttendanceListService,
     private readonly noteLaunchService: PostGraduationNoteLaunchService,
     private readonly agendaLaunchService: PostGraduationAgendaLaunchService,
+    private readonly agendaValidationService: PostGraduationAgendaValidationService,
     private readonly httpService: HttpService,
   ) {}
 
@@ -70,6 +76,7 @@ export class PostGraduationController {
     PermissionTypeDetails.LISTA_PRESENCA.sigla,
     PermissionTypeDetails.LANCAMENTO_NOTAS_MPGS.sigla,
     PermissionTypeDetails.LANCAMENTO_PAUTA.sigla,
+    PermissionTypeDetails.VALIDACAO_PAUTA_DOCENTE.sigla,
   )
   @ApiOperation({
     summary: 'Listar graus de Pos-Graduacao',
@@ -465,6 +472,101 @@ export class PostGraduationController {
         'Lançamento de pauta da Pós-Graduação' +
         ` | Grade curricular: ${body.curricularGradeId}` +
         ` | Tipo de avaliação: ${body.assessmentTypeId}`,
+      fkAcesso: 7,
+      fkUtilizadorResponsavel: request.user.sub,
+      ip: request.ip ?? String(request.headers['x-forwarded-for'] ?? 'unknown'),
+    });
+
+    return result;
+  }
+
+  @Get('assessments/agenda-validation/options')
+  @RequiredPermissions(PermissionTypeDetails.VALIDACAO_PAUTA_DOCENTE.sigla)
+  @ApiOperation({
+    summary:
+      'Listar opcoes de validacao de pauta permitidas ao coordenador de Pos-Graduacao',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Opcoes de validacao retornadas com sucesso.',
+  })
+  findAgendaValidationOptions(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindAgendaValidationOptionsDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.agendaValidationService.findOptions(query, request.user.sub);
+  }
+
+  @Get('assessments/agenda-validation')
+  @RequiredPermissions(PermissionTypeDetails.VALIDACAO_PAUTA_DOCENTE.sigla)
+  @ApiOperation({
+    summary:
+      'Listar pautas de Pos-Graduacao submetidas nos cursos coordenados pelo utilizador',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pautas submetidas retornadas com sucesso.',
+  })
+  findAgendaValidations(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindAgendaValidationsDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.agendaValidationService.findAll(query, request.user.sub);
+  }
+
+  @Get('assessments/agenda-validation/missing')
+  @RequiredPermissions(PermissionTypeDetails.VALIDACAO_PAUTA_DOCENTE.sigla)
+  @ApiOperation({
+    summary:
+      'Listar UCs de Pos-Graduacao sem pauta nos cursos coordenados pelo utilizador',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'UCs sem pauta retornadas com sucesso.',
+  })
+  findMissingAgendaValidations(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindMissingAgendaValidationsDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.agendaValidationService.findMissing(query, request.user.sub);
+  }
+
+  @Patch('assessments/agenda-validation/:agendaId/status')
+  @RequiredPermissions(PermissionTypeDetails.VALIDACAO_PAUTA_DOCENTE.sigla)
+  @ApiOperation({
+    summary: 'Aprovar ou rejeitar uma pauta de Pos-Graduacao',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Estado da pauta atualizado com sucesso.',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'O utilizador nao coordena o curso da pauta.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Pauta activa de Pos-Graduacao nao encontrada.',
+  })
+  async updateAgendaValidationStatus(
+    @Param('agendaId', ParseIntPipe) agendaId: number,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    body: UpdateAgendaValidationStatusDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const result = await this.agendaValidationService.updateStatus(
+      agendaId,
+      body,
+      request.user.sub,
+    );
+
+    AccessLogHelper.logAccess(this.httpService, {
+      descricao:
+        `${body.statusId === 2 ? 'Aprovação' : 'Rejeição'} de pauta da Pós-Graduação` +
+        ` | Pauta: ${agendaId}`,
       fkAcesso: 7,
       fkUtilizadorResponsavel: request.user.sub,
       ip: request.ip ?? String(request.headers['x-forwarded-for'] ?? 'unknown'),

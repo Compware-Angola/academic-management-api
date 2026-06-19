@@ -26,6 +26,10 @@ type ExistingNoteRow = {
   UPDATE_AT: Date | null;
 };
 
+/**
+ * Controla a leitura e a gravação de notas de Pós-Graduação para as UCs
+ * atribuídas ao docente autenticado.
+ */
 @Injectable()
 export class PostGraduationNoteLaunchService {
   private readonly logger = new Logger(PostGraduationNoteLaunchService.name);
@@ -36,6 +40,10 @@ export class PostGraduationNoteLaunchService {
     private readonly dataSource: DataSource,
   ) {}
 
+  /**
+   * Retorna os contextos académicos disponíveis ao docente e os catálogos de
+   * tipo de avaliação e tipo de prova usados pelo formulário.
+   */
   async findOptions(filters: FindNoteLaunchOptionsDto, userId: number) {
     const { academicYearId, degreeId, semesterId, courseId } = filters;
     const params = {
@@ -46,6 +54,12 @@ export class PostGraduationNoteLaunchService {
       userId,
     };
 
+    /*
+     * Queries independentes:
+     * - contextos: curso, UC, horário e período efetivamente atribuídos;
+     * - avaliações: componentes permitidas pelo fluxo de notas;
+     * - provas: catálogo institucional de tipos de prova.
+     */
     const [contexts, assessmentTypes, examTypes] = await Promise.all([
       this.dataSource.query<DatabaseRow[]>(
         `
@@ -194,6 +208,10 @@ export class PostGraduationNoteLaunchService {
     };
   }
 
+  /**
+   * Lista os estudantes do contexto validado e associa a nota mais recente da
+   * combinação de tipo de prova e avaliação.
+   */
   async findStudents(filters: FindNoteLaunchStudentsDto, userId: number) {
     const context = await this.findAcademicContext(filters, userId);
     const { search, page = 1, limit = 20 } = filters;
@@ -236,6 +254,15 @@ export class PostGraduationNoteLaunchService {
       `);
     }
 
+    /*
+     * Query base de estudantes:
+     * - JOIN recompõe matrícula, estudante e estado da inscrição na grade;
+     * - a subquery com ROW_NUMBER escolhe a nota mais recente por combinação;
+     * - LEFT JOIN mantém estudantes que ainda não possuem nota;
+     * - WHERE aplica contexto, estado académico, período e pesquisa;
+     * - a regra adicional de avaliação 6 exclui quem já atingiu a condição
+     *   definida na avaliação anterior.
+     */
     const studentsQuery = `
       SELECT
         GCA.CODIGO AS STUDENT_CURRICULAR_GRADE_ID,
@@ -289,6 +316,10 @@ export class PostGraduationNoteLaunchService {
       WHERE ${conditions.join(' AND ')}
     `;
 
+    /*
+     * A primeira query ordena e pagina; a segunda calcula total, estudantes com
+     * nota e sem nota usando exatamente o mesmo conjunto base.
+     */
     const [rows, summaryRows] = await Promise.all([
       this.dataSource.query<DatabaseRow[]>(
         `
@@ -368,10 +399,19 @@ export class PostGraduationNoteLaunchService {
     };
   }
 
+  /**
+   * Confirma que filtros, catálogos, horário e vínculo docente formam um único
+   * contexto válido antes de expor os estudantes.
+   */
   private async findAcademicContext(
     filters: FindNoteLaunchStudentsDto,
     userId: number,
   ) {
+    /*
+     * SELECT devolve as designações do contexto; JOIN valida todas as
+     * referências; WHERE exige grau 2/3, registos ativos e aula do docente;
+     * FETCH FIRST estabelece um único contexto de retorno.
+     */
     const rows = await this.dataSource.query<DatabaseRow[]>(
       `
       SELECT
@@ -469,15 +509,16 @@ export class PostGraduationNoteLaunchService {
     return rows[0];
   }
 
+  /**
+   * Preserva valores ausentes e converte números Oracle para o contrato HTTP.
+   */
   private toNullableNumber(value: unknown): number | null {
     return value === null || value === undefined ? null : Number(value);
   }
 
   /**
-   * Cria ou actualiza um lote de notas.  Assegura validações e transacção.
-   *
-   * @param dto  Payload com o contexto académico e a lista de notas
-   * @param user Utilizador autenticado (payload do token)
+   * Cria ou atualiza um lote de notas numa única transação. O recálculo das
+   * médias é enfileirado somente depois do commit das notas.
    */
   async upsertNotes(
     dto: UpsertPostGraduationNotesDto,
@@ -560,9 +601,7 @@ export class PostGraduationNoteLaunchService {
   }
 
   /**
-   * Garante que o mesmo estudante não aparece mais do que uma vez no payload.
-   *
-   * @throws BadRequestException se detectar duplicados
+   * Impede que o mesmo estudante seja processado duas vezes no mesmo lote.
    */
   private ensureUniqueStudents(items: UpsertPostGraduationNoteItemDto[]): void {
     const seen = new Set<number>();
@@ -579,24 +618,18 @@ export class PostGraduationNoteLaunchService {
   }
 
   /**
-   * Valida o contexto académico do lançamento de notas e bloqueia as
-   * linhas para evitar concorrência.  É necessário verificar que o
-   * contexto pertence à Pós‑Graduação (TIPO_CANDIDATURA 2 ou 3) e que o
-   * utilizador afectado tem vínculo ao horário.
-   *
-   * Esta função usa a estrutura do serviço de licenciatura como referência
-   * (ver findAcademicContext()), adicionando cláusulas `FOR UPDATE`.
-   *
-   * @param manager  EntityManager ligado ao QueryRunner
-   * @param dto      DTO contendo contexto académico
-   * @param userId   Identificador do docente autenticado
-   * @throws BadRequestException se o contexto não for válido
+   * Valida e bloqueia o horário do lançamento, garantindo grau, curso, UC,
+   * catálogos ativos e vínculo do docente.
    */
   private async findAndLockAcademicContext(
     manager: EntityManager,
     dto: UpsertPostGraduationNotesDto,
     userId: number,
   ): Promise<void> {
+    /*
+     * SELECT recompõe horário, grade, curso, grau e catálogos; EXISTS comprova
+     * a aula do docente; FOR UPDATE bloqueia o horário durante todo o lote.
+     */
     const result = await manager.query<DatabaseRow[]>(
       `
       SELECT H.PK_HORARIO
@@ -661,11 +694,7 @@ export class PostGraduationNoteLaunchService {
   }
 
   /**
-   * Valida que todos os estudantes do payload pertencem ao contexto
-   * seleccionado (grade curricular, ano lectivo e horário) e bloqueia
-   * essas linhas para evitar alterações concorrentes.
-   *
-   * @throws BadRequestException se algum estudante estiver fora do contexto
+   * Valida e bloqueia todas as inscrições na grade recebidas no lote.
    */
   private async findAndLockStudents(
     manager: EntityManager,
@@ -679,6 +708,10 @@ export class PostGraduationNoteLaunchService {
       .map((_, index) => `:studentId${index}`)
       .join(', ');
 
+    /*
+     * SELECT usa binds individuais no IN, restringe grade, ano, horário e
+     * estado académico; FOR UPDATE impede alteração concorrente das inscrições.
+     */
     const results = await manager.query<DatabaseRow[]>(
       `
       SELECT GCA.CODIGO
@@ -709,15 +742,18 @@ export class PostGraduationNoteLaunchService {
   }
 
   /**
-   * Procura e bloqueia (pessimistic write) a nota existente, se houver,
-   * para um determinado estudante e tipo de avaliação.  Caso não exista,
-   * retorna undefined.
+   * Procura e bloqueia a nota mais recente do estudante no mesmo tipo de prova
+   * e avaliação; retorna `undefined` quando a nota ainda não existe.
    */
   private async findAndLockCurrentNote(
     manager: EntityManager,
     dto: UpsertPostGraduationNotesDto,
     studentCurricularGradeId: number,
   ): Promise<ExistingNoteRow | undefined> {
+    /*
+     * SELECT restringe estudante/prova/avaliação, ordena a versão mais recente
+     * primeiro e bloqueia os registos encontrados antes do upsert.
+     */
     const notes = await manager.query<ExistingNoteRow[]>(
       `
       SELECT CODIGO, NOTA, OBSERVACAO, STATUS_, CREATED_AT, UPDATE_AT
@@ -738,8 +774,7 @@ export class PostGraduationNoteLaunchService {
   }
 
   /**
-   * Cria uma nova nota na tabela de avaliações.  Usa os dados do DTO e
-   * do item, e injeta as informações do utilizador a partir do token.
+   * Cria a primeira nota da combinação e registra contexto, estado e autoria.
    */
   private async createNote(
     manager: EntityManager,
@@ -748,6 +783,10 @@ export class PostGraduationNoteLaunchService {
     user: RequestUser,
   ): Promise<void> {
     const userReference = this.buildUserReference(user);
+    /*
+     * INSERT grava a nota no estado operacional 2, associa prova, época e
+     * avaliação e conserva a referência JSON do utilizador autenticado.
+     */
     await manager.query(
       `
       INSERT INTO FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES (
@@ -792,8 +831,7 @@ export class PostGraduationNoteLaunchService {
   }
 
   /**
-   * Actualiza uma nota existente.  Guarda a nota antiga em NOTA_ANTERIOR
-   * e regista a autoria do utilizador autenticado.
+   * Atualiza a nota existente, preservando o valor anterior para auditoria.
    */
   private async updateNote(
     manager: EntityManager,
@@ -803,6 +841,10 @@ export class PostGraduationNoteLaunchService {
     user: RequestUser,
   ): Promise<void> {
     const userReference = this.buildUserReference(user);
+    /*
+     * UPDATE copia NOTA para NOTA_ANTERIOR antes de gravar o novo valor e
+     * atualiza época, observação, autoria, estado e data.
+     */
     await manager.query(
       `
       UPDATE FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES
@@ -828,10 +870,8 @@ export class PostGraduationNoteLaunchService {
   }
 
   /**
-   * Aciona o recálculo das médias finais para os estudantes afectados.
-   * Este método deve ser executado fora da transacção Oracle principal.
-   * A implementação exacta dependerá do serviço de médias finais já
-   * existente na aplicação.  Aqui apenas é mostrado um placeholder.
+   * Enfileira o recálculo da média final depois da transação Oracle. Uma falha
+   * na fila não desfaz notas que já foram confirmadas no banco.
    */
   private async queueFinalAverages(
     studentCurricularGradeIds: number[],
@@ -851,9 +891,7 @@ export class PostGraduationNoteLaunchService {
   }
 
   /**
-   * Monta o JSON de auditoria do utilizador.  Este JSON é gravado na
-   * coluna REF_UTILIZADOR e segue o formato utilizado no sistema:
-   * `{ "pk": number, "desc": string, "corLetra": string, "disponivel": boolean }`.
+   * Monta a referência JSON de auditoria no formato usado pelo sistema.
    */
   private buildUserReference(user: RequestUser): {
     pk: number;

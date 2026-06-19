@@ -13,10 +13,17 @@ import { FindExamMarkingsDto } from './dto/find-exam-markings.dto';
 
 type DatabaseRow = Record<string, unknown>;
 
+/**
+ * Controla a marcação de provas de Pós-Graduação, incluindo opções do
+ * formulário, listagem e validações de conflito antes da criação.
+ */
 @Injectable()
 export class PostGraduationExamMarkingService {
   constructor(private readonly dataSource: DataSource) {}
 
+  /**
+   * Retorna horários atribuídos ao docente e catálogos válidos para a marcação.
+   */
   async findOptions(filters: FindExamMarkingOptionsDto, userId: number) {
     const { academicYearId, degreeId, semesterId, courseId } = filters;
 
@@ -30,6 +37,14 @@ export class PostGraduationExamMarkingService {
       userId,
     };
 
+    /*
+     * Queries independentes:
+     * - horários: somente UCs e cursos atribuídos ao docente;
+     * - prazos: janelas de marcação no ano, grau e semestre;
+     * - salas: espaços utilizáveis e respetiva capacidade;
+     * - tipos, modalidades e períodos: catálogos operacionais ativos;
+     * - docentes: candidatos válidos a vigilante.
+     */
     const [schedules, terms, rooms, examTypes, modalities, periods, teachers] =
       await Promise.all([
         this.dataSource.query<DatabaseRow[]>(
@@ -225,6 +240,9 @@ export class PostGraduationExamMarkingService {
     };
   }
 
+  /**
+   * Lista as provas dos horários atribuídos ao docente autenticado.
+   */
   async findAll(filters: FindExamMarkingsDto, userId: number) {
     const {
       academicYearId,
@@ -270,6 +288,13 @@ export class PostGraduationExamMarkingService {
       params.termId = termId;
     }
 
+    /*
+     * Bloco relacional compartilhado:
+     * - JOIN interpreta as referências JSON de horário e prazo;
+     * - JOIN recompõe UC, curso e prazo;
+     * - LEFT JOIN mantém a prova quando algum catálogo descritivo é opcional;
+     * - WHERE aplica contexto, docente e filtros opcionais.
+     */
     const fromClause = `
       FROM FK2_TB_CALENDARIO_PROVA CP
       INNER JOIN FK2_MGH_TB_HORARIO H
@@ -303,6 +328,10 @@ export class PostGraduationExamMarkingService {
       WHERE ${conditions.join(' AND ')}
     `;
 
+    /*
+     * A query de dados projeta, ordena e pagina as provas; a de contagem usa os
+     * mesmos JOINs e filtros para manter a paginação consistente.
+     */
     const [rows, countRows] = await Promise.all([
       this.dataSource.query<DatabaseRow[]>(
         `
@@ -387,6 +416,10 @@ export class PostGraduationExamMarkingService {
     };
   }
 
+  /**
+   * Marca uma prova numa transação depois de validar contexto, prazo, sala,
+   * docente, vigilantes, duplicidade e conflitos de horário.
+   */
   async create(body: CreateExamMarkingDto, userId: number) {
     const durationMinutes =
       this.timeToMinutes(body.endTime) - this.timeToMinutes(body.startTime);
@@ -437,6 +470,10 @@ export class PostGraduationExamMarkingService {
         pk_tipoAvalicao: term.ASSESSMENT_TYPE_ID,
       });
 
+      /*
+       * INSERT cria a prova com datas, horas e referências JSON compatíveis com
+       * o esquema existente; RETURNING devolve o identificador gerado.
+       */
       const result = (await queryRunner.query(
         `
         INSERT INTO FK2_TB_CALENDARIO_PROVA (
@@ -508,6 +545,10 @@ export class PostGraduationExamMarkingService {
       }
 
       for (const invigilator of invigilators) {
+        /*
+         * INSERT associa cada vigilante validado à prova recém-criada e guarda
+         * as referências de auditoria dentro da mesma transação.
+         */
         await queryRunner.query(
           `
           INSERT INTO FK2_TB_CALENDARIO_PROVA_VIGILANTE (
@@ -562,11 +603,18 @@ export class PostGraduationExamMarkingService {
     }
   }
 
+  /**
+   * Valida ano, grau e curso opcional antes de executar consultas operacionais.
+   */
   private async validateAcademicContext(
     academicYearId: number,
     degreeId: number,
     courseId?: number,
   ) {
+    /*
+     * As queries de existência separam ano e grau para devolver erros
+     * específicos e restringem o grau aos códigos 2 e 3.
+     */
     const [academicYears, degrees] = await Promise.all([
       this.dataSource.query<DatabaseRow[]>(
         `
@@ -598,6 +646,10 @@ export class PostGraduationExamMarkingService {
     }
 
     if (courseId) {
+      /*
+       * SELECT opcional confirma que o curso está ativo e pertence ao grau
+       * solicitado.
+       */
       const courses = await this.dataSource.query<DatabaseRow[]>(
         `
         SELECT CODIGO
@@ -617,7 +669,14 @@ export class PostGraduationExamMarkingService {
     }
   }
 
+  /**
+   * Confirma que o utilizador responsável pela operação permanece ativo.
+   */
   private async findActiveUser(userId: number, queryRunner: QueryRunner) {
+    /*
+     * SELECT de existência também devolve o nome usado na referência de
+     * auditoria da prova.
+     */
     const rows = (await queryRunner.query(
       `
       SELECT PK_UTILIZADOR AS ID, NOME
@@ -637,10 +696,17 @@ export class PostGraduationExamMarkingService {
     return rows[0];
   }
 
+  /**
+   * Valida e bloqueia o horário que será usado pela prova.
+   */
   private async findAndLockSchedule(
     body: CreateExamMarkingDto,
     queryRunner: QueryRunner,
   ) {
+    /*
+     * SELECT cruza horário, grade e curso; WHERE exige correspondência integral
+     * com o DTO e estados ativos; FOR UPDATE protege a criação concorrente.
+     */
     const rows = (await queryRunner.query(
       `
       SELECT
@@ -685,11 +751,18 @@ export class PostGraduationExamMarkingService {
     return rows[0];
   }
 
+  /**
+   * Confirma que o utilizador é docente de uma aula ativa do horário.
+   */
   private async validateScheduleTeacher(
     scheduleId: number,
     userId: number,
     queryRunner: QueryRunner,
   ) {
+    /*
+     * SELECT de existência consulta a aula do horário e interpreta o docente
+     * guardado em REF_DOCENTE.
+     */
     const rows = (await queryRunner.query(
       `
       SELECT 1
@@ -712,10 +785,17 @@ export class PostGraduationExamMarkingService {
     }
   }
 
+  /**
+   * Obtém o prazo de marcação que está ativo e aberto na data corrente.
+   */
   private async findOpenTerm(
     body: CreateExamMarkingDto,
     queryRunner: QueryRunner,
   ) {
+    /*
+     * SELECT recompõe prazo, tipo, semestre, ano e avaliação; WHERE exige tipo
+     * de prazo 4, contexto correspondente e data atual dentro do intervalo.
+     */
     const rows = (await queryRunner.query(
       `
       SELECT
@@ -761,10 +841,17 @@ export class PostGraduationExamMarkingService {
     return rows[0];
   }
 
+  /**
+   * Valida os catálogos simples recebidos no pedido.
+   */
   private async validateSimpleReferences(
     body: CreateExamMarkingDto,
     queryRunner: QueryRunner,
   ) {
+    /*
+     * As três queries de existência validam separadamente tipo de prova,
+     * modalidade ativa e período ativo para produzir mensagens precisas.
+     */
     const [examTypes, modalities, periods] = (await Promise.all([
       queryRunner.query(
         `
@@ -808,11 +895,18 @@ export class PostGraduationExamMarkingService {
     }
   }
 
+  /**
+   * Confirma a disponibilidade da sala e compara sua capacidade com o número
+   * de estudantes inscritos ou, na ausência deles, com a capacidade do horário.
+   */
   private async validateRoomCapacity(
     body: CreateExamMarkingDto,
     schedule: DatabaseRow,
     queryRunner: QueryRunner,
   ) {
+    /*
+     * SELECT da sala exige registo não eliminado e marcado como utilizável.
+     */
     const rooms = (await queryRunner.query(
       `
       SELECT CODIGO AS ID, CAPACIDADE
@@ -831,6 +925,10 @@ export class PostGraduationExamMarkingService {
       );
     }
 
+    /*
+     * COUNT calcula estudantes distintos inscritos na grade, ano e horário nos
+     * estados académicos aceites para dimensionar a sala.
+     */
     const enrollmentRows = (await queryRunner.query(
       `
       SELECT COUNT(DISTINCT GCA.CODIGO_MATRICULA) AS TOTAL
@@ -863,10 +961,17 @@ export class PostGraduationExamMarkingService {
     }
   }
 
+  /**
+   * Impede uma segunda prova para a mesma combinação de horário e prazo.
+   */
   private async validateDuplicate(
     body: CreateExamMarkingDto,
     queryRunner: QueryRunner,
   ) {
+    /*
+     * SELECT interpreta REF_HORARIO e REF_PRAZO e encerra na primeira
+     * combinação já existente.
+     */
     const rows = (await queryRunner.query(
       `
       SELECT CP.CODIGO
@@ -894,10 +999,17 @@ export class PostGraduationExamMarkingService {
     }
   }
 
+  /**
+   * Impede a ocupação simultânea da mesma sala.
+   */
   private async validateRoomConflict(
     body: CreateExamMarkingDto,
     queryRunner: QueryRunner,
   ) {
+    /*
+     * SELECT procura, na mesma data e sala, intervalos que se sobrepõem:
+     * início existente < novo fim e fim existente > novo início.
+     */
     const rows = (await queryRunner.query(
       `
       SELECT CP.CODIGO
@@ -923,11 +1035,18 @@ export class PostGraduationExamMarkingService {
     }
   }
 
+  /**
+   * Impede que o docente responsável tenha duas provas sobrepostas.
+   */
   private async validateTeacherConflict(
     body: CreateExamMarkingDto,
     userId: number,
     queryRunner: QueryRunner,
   ) {
+    /*
+     * SELECT procura sobreposição de horário e usa EXISTS para identificar o
+     * docente nas aulas ligadas ao horário de cada prova existente.
+     */
     const rows = (await queryRunner.query(
       `
       SELECT CP.CODIGO
@@ -965,6 +1084,9 @@ export class PostGraduationExamMarkingService {
     }
   }
 
+  /**
+   * Resolve os utilizadores informados e exige que todos sejam docentes ativos.
+   */
   private async findValidInvigilators(
     invigilatorUserIds: number[],
     queryRunner: QueryRunner,
@@ -977,6 +1099,10 @@ export class PostGraduationExamMarkingService {
       'invigilator',
       invigilatorUserIds,
     );
+    /*
+     * SELECT usa binds dinâmicos seguros no IN, exige utilizadores ativos e
+     * comprova a existência da associação docente.
+     */
     const rows = (await queryRunner.query(
       `
       SELECT DISTINCT U.PK_UTILIZADOR AS ID, U.NOME
@@ -1003,6 +1129,9 @@ export class PostGraduationExamMarkingService {
     return rows;
   }
 
+  /**
+   * Impede que um vigilante participe em provas simultâneas.
+   */
   private async validateInvigilatorConflicts(
     body: CreateExamMarkingDto,
     queryRunner: QueryRunner,
@@ -1015,6 +1144,10 @@ export class PostGraduationExamMarkingService {
       'invigilator',
       body.invigilatorUserIds,
     );
+    /*
+     * SELECT cruza vínculo de vigilância e prova, restringe vigilantes ativos e
+     * aplica a mesma regra de sobreposição de data e horas.
+     */
     const rows = (await queryRunner.query(
       `
       SELECT V.VIGILANTE
@@ -1043,6 +1176,9 @@ export class PostGraduationExamMarkingService {
     }
   }
 
+  /**
+   * Carrega os vigilantes das provas paginadas e os agrupa por prova.
+   */
   private async findInvigilatorsByExam(examIds: number[]) {
     const result = new Map<number, Array<{ id: number; name: unknown }>>();
     if (!examIds.length) {
@@ -1050,6 +1186,10 @@ export class PostGraduationExamMarkingService {
     }
 
     const { placeholders, binds } = this.createInBinds('exam', examIds);
+    /*
+     * SELECT obtém vínculos ativos e usa COALESCE para preferir o nome atual do
+     * utilizador, mantendo a referência JSON como fallback histórico.
+     */
     const rows = await this.dataSource.query<DatabaseRow[]>(
       `
       SELECT
@@ -1078,6 +1218,9 @@ export class PostGraduationExamMarkingService {
     return result;
   }
 
+  /**
+   * Cria placeholders nomeados e binds separados para listas usadas em `IN`.
+   */
   private createInBinds(prefix: string, values: number[]) {
     const binds: Record<string, number> = {};
     const placeholders = values
@@ -1091,11 +1234,17 @@ export class PostGraduationExamMarkingService {
     return { placeholders, binds };
   }
 
+  /**
+   * Converte `HH:mm` em minutos para validar e persistir a duração.
+   */
   private timeToMinutes(value: string) {
     const [hours, minutes] = value.split(':').map(Number);
     return hours * 60 + minutes;
   }
 
+  /**
+   * Converte números Oracle sem transformar valores ausentes em zero.
+   */
   private toNullableNumber(value: unknown) {
     return value === null || value === undefined ? null : Number(value);
   }
