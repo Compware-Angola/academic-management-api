@@ -25,12 +25,20 @@ type AcademicContextRow = DatabaseRow & {
   CURRICULAR_UNIT: string;
 };
 
+/**
+ * Controla a consulta e a submissão de pautas pelo docente, mantendo o fluxo
+ * restrito às UCs que lhe foram atribuídas na Pós-Graduação.
+ */
 @Injectable()
 export class PostGraduationAgendaLaunchService {
   private static readonly INITIAL_STATUS_ID = 1;
 
   constructor(private readonly dataSource: DataSource) {}
 
+  /**
+   * Monta as opções dependentes do docente e os prazos/estados necessários ao
+   * formulário e aos filtros de lançamento de pauta.
+   */
   async findOptions(filters: FindAgendaLaunchOptionsDto, userId: number) {
     await this.validateAcademicContext(
       filters.academicYearId,
@@ -51,6 +59,12 @@ export class PostGraduationAgendaLaunchService {
       semesterId: filters.semesterId,
     };
 
+    /*
+     * As três queries são independentes:
+     * - contextos: cursos, anos curriculares e UCs atribuídos ao docente;
+     * - prazos: janelas de lançamento e respetivos tipos de avaliação;
+     * - estados: catálogo usado na consulta das pautas.
+     */
     const [contexts, terms, statuses] = await Promise.all([
       this.dataSource.query<DatabaseRow[]>(
         `
@@ -185,6 +199,10 @@ export class PostGraduationAgendaLaunchService {
     };
   }
 
+  /**
+   * Lista somente as pautas ativas submetidas pelo docente autenticado no
+   * contexto e filtros informados.
+   */
   async findAll(filters: FindAgendaLaunchesDto, userId: number) {
     await this.validateAcademicContext(
       filters.academicYearId,
@@ -255,6 +273,12 @@ export class PostGraduationAgendaLaunchService {
       'statusId',
     );
 
+    /*
+     * Bloco relacional compartilhado:
+     * - JOIN recompõe as referências JSON da pauta em entidades académicas;
+     * - LEFT JOIN permite exibir a pauta mesmo sem designação de estado;
+     * - WHERE restringe ano, docente, semestre, grau, estado ativo e filtros.
+     */
     const fromAndWhere = `
       FROM FK2_MGD_TB_LANCAMENTO_PAUTA LP
       INNER JOIN FK2_TB_GRADE_CURRICULAR GC
@@ -282,6 +306,10 @@ export class PostGraduationAgendaLaunchService {
       WHERE ${conditions.join('\n        AND ')}
     `;
 
+    /*
+     * A contagem e a listagem reutilizam o mesmo bloco de JOIN/WHERE. A query
+     * de dados acrescenta projeção, ordenação estável e paginação.
+     */
     const [countRows, rows] = await Promise.all([
       this.dataSource.query<DatabaseRow[]>(
         `SELECT COUNT(*) AS TOTAL ${fromAndWhere}`,
@@ -350,6 +378,10 @@ export class PostGraduationAgendaLaunchService {
     };
   }
 
+  /**
+   * Regista uma pauta pendente depois de validar docente, contexto, atribuição,
+   * prazo e duplicidade dentro de uma única transação.
+   */
   async create(body: CreateAgendaLaunchDto, userId: number) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -379,6 +411,10 @@ export class PostGraduationAgendaLaunchService {
         corLetra: 'black',
       });
 
+      /*
+       * INSERT grava as referências legadas em JSON, inicia a pauta no estado
+       * pendente e devolve a chave gerada pelo Oracle por meio de bind de saída.
+       */
       const result = (await queryRunner.query(
         `
         INSERT INTO FK2_MGD_TB_LANCAMENTO_PAUTA (
@@ -436,11 +472,19 @@ export class PostGraduationAgendaLaunchService {
     }
   }
 
+  /**
+   * Valida a existência do ano, do grau e, quando informado, do curso ativo
+   * pertencente ao mesmo grau de Pós-Graduação.
+   */
   private async validateAcademicContext(
     academicYearId: number,
     degreeId: number,
     courseId?: number,
   ) {
+    /*
+     * As duas consultas de existência separam ano e grau para produzir erros
+     * específicos sem carregar dados além do primeiro registo encontrado.
+     */
     const [academicYears, degrees] = await Promise.all([
       this.dataSource.query<DatabaseRow[]>(
         `
@@ -472,6 +516,10 @@ export class PostGraduationAgendaLaunchService {
     }
 
     if (courseId) {
+      /*
+       * SELECT opcional confirma que o curso está ativo, pertence ao grau
+       * selecionado e continua dentro da fronteira 2/3.
+       */
       const courses = await this.dataSource.query<DatabaseRow[]>(
         `
         SELECT CODIGO
@@ -493,10 +541,17 @@ export class PostGraduationAgendaLaunchService {
     }
   }
 
+  /**
+   * Resolve o docente ativo associado ao utilizador autenticado.
+   */
   private async findTeacherByUser(
     userId: number,
     executor: Pick<DataSource, 'query'> | Pick<QueryRunner, 'query'>,
   ): Promise<TeacherRow> {
+    /*
+     * SELECT liga docente e utilizador pela referência JSON armazenada no
+     * cadastro docente e exige que o utilizador permaneça ativo.
+     */
     const rows = (await executor.query(
       `
       SELECT
@@ -524,10 +579,17 @@ export class PostGraduationAgendaLaunchService {
     return rows[0];
   }
 
+  /**
+   * Confirma e bloqueia a grade curricular que receberá a pauta.
+   */
   private async findAndLockAcademicContext(
     body: CreateAgendaLaunchDto,
     queryRunner: QueryRunner,
   ): Promise<AcademicContextRow> {
+    /*
+     * SELECT recompõe grade, UC, curso e ano; WHERE exige correspondência
+     * integral com o DTO; FOR UPDATE OF bloqueia a grade durante a submissão.
+     */
     const rows = (await queryRunner.query(
       `
       SELECT
@@ -571,11 +633,18 @@ export class PostGraduationAgendaLaunchService {
     return rows[0];
   }
 
+  /**
+   * Garante que o utilizador autenticado é o docente de uma aula ativa da UC.
+   */
   private async validateTeacherAssignment(
     body: CreateAgendaLaunchDto,
     userId: number,
     queryRunner: QueryRunner,
   ) {
+    /*
+     * SELECT de existência procura horário ativo da grade e usa EXISTS para
+     * comprovar uma aula ativa cuja referência aponta para o utilizador.
+     */
     const rows = (await queryRunner.query(
       `
       SELECT 1
@@ -613,10 +682,17 @@ export class PostGraduationAgendaLaunchService {
     }
   }
 
+  /**
+   * Confirma que o prazo escolhido corresponde ao contexto e está aberto hoje.
+   */
   private async validateOpenTerm(
     body: CreateAgendaLaunchDto,
     queryRunner: QueryRunner,
   ) {
+    /*
+     * SELECT cruza prazo e tipo de prazo; WHERE valida ano, semestre, grau,
+     * avaliação, sigla LN, estado ativo e intervalo cronológico inclusivo.
+     */
     const rows = (await queryRunner.query(
       `
       SELECT P.PK_PRAZO
@@ -651,10 +727,17 @@ export class PostGraduationAgendaLaunchService {
     }
   }
 
+  /**
+   * Impede mais de uma pauta ativa para a mesma UC, ano e tipo de avaliação.
+   */
   private async validateDuplicate(
     body: CreateAgendaLaunchDto,
     queryRunner: QueryRunner,
   ) {
+    /*
+     * SELECT interpreta as referências JSON da pauta e procura uma combinação
+     * ativa já existente antes do INSERT.
+     */
     const rows = (await queryRunner.query(
       `
       SELECT LP.PK_LANCAMENTO_PAUTA
@@ -685,6 +768,9 @@ export class PostGraduationAgendaLaunchService {
     }
   }
 
+  /**
+   * Acrescenta condição e bind apenas quando o filtro opcional foi informado.
+   */
   private addOptionalFilter(
     conditions: string[],
     params: Record<string, number>,

@@ -4,10 +4,19 @@ import { FindAttendanceListDto } from './dto/find-attendance-list.dto';
 
 type DatabaseRow = Record<string, unknown>;
 
+/**
+ * Produz a lista de presença de Pós-Graduação a partir de critérios
+ * exclusivamente académicos. A situação financeira do estudante não participa
+ * da elegibilidade deste fluxo.
+ */
 @Injectable()
 export class PostGraduationAttendanceListService {
   constructor(private readonly dataSource: DataSource) {}
 
+  /**
+   * Valida o contexto selecionado e lista, com pesquisa e paginação, os
+   * estudantes ativos inscritos na respetiva grade curricular e horário.
+   */
   async findAll(filters: FindAttendanceListDto) {
     const context = await this.findAcademicContext(filters);
     const { search, page = 1, limit = 20 } = filters;
@@ -39,6 +48,13 @@ export class PostGraduationAttendanceListService {
       params.search = search;
     }
 
+    /*
+     * Query de elegibilidade:
+     * - SELECT identifica matrícula, nome e estado académico;
+     * - JOIN recompõe o estudante desde a inscrição na grade até à pré-inscrição;
+     * - WHERE restringe ao contexto e aos estados académicos aceites;
+     * - nenhum bloco consulta pagamentos, bolsas, dívidas ou mensalidades.
+     */
     const eligibleStudents = `
       SELECT DISTINCT
         M.CODIGO AS ENROLLMENT_ID,
@@ -56,6 +72,10 @@ export class PostGraduationAttendanceListService {
       WHERE ${conditions.join(' AND ')}
     `;
 
+    /*
+     * A primeira query ordena e pagina a seleção elegível. A segunda reutiliza
+     * exatamente a mesma seleção para contar o total sem divergência de filtros.
+     */
     const [rows, countRows] = await Promise.all([
       this.dataSource.query<DatabaseRow[]>(
         `
@@ -114,7 +134,18 @@ export class PostGraduationAttendanceListService {
     };
   }
 
+  /**
+   * Confirma que todos os identificadores recebidos representam o mesmo
+   * contexto ativo de Pós-Graduação antes de consultar os estudantes.
+   */
   private async findAcademicContext(filters: FindAttendanceListDto) {
+    /*
+     * Query de contexto:
+     * - SELECT devolve as designações usadas no cabeçalho da lista;
+     * - JOIN valida a cadeia horário -> grade -> UC -> curso e referências;
+     * - WHERE exige correspondência integral dos filtros, grau 2/3 e registos ativos;
+     * - FETCH FIRST protege o contrato de retorno de um único contexto.
+     */
     const rows = await this.dataSource.query<DatabaseRow[]>(
       `
       SELECT
