@@ -692,10 +692,12 @@ export class PreRegistrationService {
 
    CASE
   WHEN p.Codigo    IS NULL                                                    THEN 'SEM_PRE_INSCRICAO'
+  WHEN p.CODIGO_TIPO_CANDIDATURA IN (2,3)                                     THEN 'PREINSCRITO_MESTRADO_POS_GRADUACAO'
   WHEN tc.id       IS NULL                                                    THEN 'SEM_ADMISSAO'
   WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) = TRUNC(SYSDATE)        THEN 'DIA_DA_PROVA'
   WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) > TRUNC(SYSDATE)        THEN 'AGUARDANDO_DIA_DA_PROVA'
   WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) < TRUNC(SYSDATE)        THEN 'AGUARDANDO_RESULTADO'
+  WHEN tc.STATUS_  = 1 AND  a.PRE_INCRICAO IS NULL                             THEN 'AGUARDANDO_RESULTADO'
   WHEN a.mediafinal < 10                                                      THEN 'NAO_ADMITIDO'
   WHEN tc.STATUS_  = 1 AND TRUNC(hp.data_realizacao) > TRUNC(SYSDATE)  AND tc.NOTA < 10       THEN 'NAO_ADMITIDO'
   WHEN a.mediafinal >= 10 AND m.Codigo IS NULL                                THEN 'ADMITIDO_SEM_MATRICULA'
@@ -761,7 +763,7 @@ END AS estado_aluno
                     .map((s: string) => s.trim())
                     .filter((s: string) => s.length > 0)
                 : [];
-
+            console.log({ row, listaProvas })
             return {
                 ...row,
                 lista_de_provas: listaProvas,
@@ -778,6 +780,7 @@ END AS estado_aluno
 
         return toLowerCaseKeys({ ...data[0], payments });
     }
+
     private async getInvoce(codigo: number) {
         const rows = await this.dataSource.query(
             `SELECT * FROM FK2_FACTURA WHERE CODIGO_PREINSCRICAO = :codigo`,

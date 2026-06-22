@@ -1,4 +1,5 @@
 export interface PrazoResponse {
+  codigoTipoCandidatura:number
   status: 'ABERTO' | 'ENCERRADO' | 'NAO_DISPONIVEL' | 'NAO_CONFIGURADO';
 
   podeInscrever: boolean;
