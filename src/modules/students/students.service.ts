@@ -1263,7 +1263,7 @@ WHERE M."CODIGO" = :codigoMatricula`;
     PASSWORD_RESET_REQUIRED = :passwordResetRequired
     WHERE "ID" = :user_id
     `,
-      { hash: hash, user_id: toLowerCaseKeys(result[0]).user_id, passwordResetRequired: 1 } as any,
+      { hash: hash, user_id: toLowerCaseKeys(result[0]).user_id, passwordResetRequired: 0 } as any,
     );
 
     return { message: 'Senha atualizada com sucesso' };
