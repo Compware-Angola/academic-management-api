@@ -80,22 +80,33 @@ export class EquivalenceTFCMigration {
         grades: gradesAluno,
         totalGradesCurso: gradesAluno.length,
         totalGrasesAluno: gradesAluno.length,
+        isEspecializacao: false,
       };
     }
-
-    const gradesCurso = await this.findGradeCurso({
-      codigoCurso: matricula.codigo_curso,
-      codigoMatricula: matricula.codigo_matricula,
-    });
-
-    const gradesCursoSemDuplicidade =
-      await this.deduplicateGradesCurso(gradesCurso);
-
-    const gradesCursoMap = new Map<string, true>();
-    for (const g of gradesCursoSemDuplicidade) {
-      gradesCursoMap.set(String(g.codigo_disciplina), true);
-      gradesCursoMap.set(g.disciplina?.trim().toUpperCase(), true);
+    // Verificar se o curso actual é especialização e obter o curso anterior
+    const codigoCursoAnterior = await this.findCursoAnteriorEspecialidade(
+      matricula.codigo_curso,
+    );
+    // Buscar grades do curso actual (e do curso anterior se existir), em paralelo
+    const gradesCursoQueries: Promise<FindGradeCursoReturnDTO[]>[] = [
+      this.findGradeCurso({
+        codigoCurso: matricula.codigo_curso,
+        codigoMatricula: matricula.codigo_matricula,
+      }),
+    ];
+    if (codigoCursoAnterior !== null) {
+      gradesCursoQueries.push(
+        this.findGradeCurso({
+          codigoCurso: codigoCursoAnterior,
+          codigoMatricula: matricula.codigo_matricula,
+        }),
+      );
     }
+    const gradesPorCurso = await Promise.all(gradesCursoQueries);
+    // Juntar os resultados dos dois planos (actual + anterior se existir)
+    const todasGradesCurso = gradesPorCurso.flat();
+    const gradesCursoSemDuplicidade =
+      this.deduplicateGradesCurso(todasGradesCurso);
 
     const gradesCursoIncluindoExcendentes =
       this.mergeGradesPreservandoMaiorNota(
@@ -104,10 +115,35 @@ export class EquivalenceTFCMigration {
       );
 
     return {
-      grades: gradesCursoIncluindoExcendentes,
+      grades: gradesCursoIncluindoExcendentes.sort(
+        (a, b) => a.codigo_classe - b.codigo_classe,
+      ),
       totalGradesCurso: gradesCursoIncluindoExcendentes.length,
       totalGrasesAluno: gradesAluno.length,
+      isEspecializacao: codigoCursoAnterior !== null,
     };
+  }
+  /**
+   * Verifica se o curso é de especialização.
+   * Retorna o CODIGO_CURSO anterior (base) se for, ou null se não for.
+   */
+  private async findCursoAnteriorEspecialidade(
+    codigoCursoEspecialidade: number,
+  ): Promise<number | null> {
+    const sql = `
+      SELECT CODIGO_CURSO AS codigo_curso_anterior
+      FROM FK2_TB_CURSO_ESPECIALIDADE
+      WHERE CODIGO_CURSO_ESPECIALIDADE = :codigoCursoEspecialidade
+    `;
+
+    const result = await this.dataSource.query(sql, {
+      codigoCursoEspecialidade,
+    } as any);
+
+    if (!result?.length) return null;
+
+    const row = toLowerCaseKeys(result[0]);
+    return row.codigo_curso_anterior ?? null;
   }
   private async getMatriculaDetails(
     codigoMatricula: number,

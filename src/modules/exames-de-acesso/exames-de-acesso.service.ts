@@ -13,10 +13,17 @@ import { FilterResultadosFinaisDto } from './dto/filter-resultados-finais.dto';
 import { FilterEstatisticaCandidatosDto } from './dto/filter-estatistica-candidatos.dto';
 import { FilterEstatisticaCursosDto } from './dto/filter-estatistica-cursos.dto';
 import { gerarHashExterno } from '../util/hash.util';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+
 
 @Injectable()
 export class ExamesDeAcessoService {
-  constructor(private readonly dataSource: DataSource) { }
+
+  constructor(
+    private readonly dataSource: DataSource,
+    @InjectQueue('results_final_exam') private readonly resultsFinalExamQueue: Queue,
+  ) { }
 
   async buscaCandidatos(filtros: FilterCandidatoDto) {
     const condicoes: string[] = ["FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA NOT IN (2,3)"];
@@ -1816,6 +1823,14 @@ export class ExamesDeAcessoService {
     });
   }
 
+
+
+
+  async corrigirTodasAsProvas() {
+    return await this.queueProcessFinalResult();
+  }
+
+
   async buscaEstatisticaCursos(filtros: FilterEstatisticaCursosDto) {
     const { codigoPolo, codigoAnoLetivo, page = 1, limit = 10 } = filtros;
 
@@ -1979,4 +1994,25 @@ export class ExamesDeAcessoService {
     }
     return data;
   }
+
+
+
+  async queueProcessFinalResult(
+  ): Promise<{ message: string; taskId: string | undefined }> {
+    const job = await this.resultsFinalExamQueue.add(
+      'processResultsFinalExam',
+      {},
+      {
+        removeOnComplete: true,
+        removeOnFail: false,
+        attempts: 5,
+        backoff: 5000,
+      },
+    );
+    return {
+      message: 'Processamento iniciado: Calculo da NotaFinal Dos Candidatos',
+      taskId: job.id,
+    };
+  }
+
 }

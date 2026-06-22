@@ -6,11 +6,11 @@ import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 
 @Injectable()
 export class HistoryNoteReleaseService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
-     async searchCurricularByStudenty(params: FilterCurriculumGradeAlunoDto) {
-        return this.searchCurricularByRegistrationNumberAndAcademicYear(params)
-    }
+  async searchCurricularByStudenty(params: FilterCurriculumGradeAlunoDto) {
+    return this.searchCurricularByRegistrationNumberAndAcademicYear(params)
+  }
 
   /**
    * Busca todas as disciplinas do aluno por matrícula e ano letivo
@@ -57,8 +57,11 @@ export class HistoryNoteReleaseService {
         tgcaab.NOTA AS nota_lancada,
         tgcaab.CREATED_AT AS datalancada,
         tgcaab.CODIGO AS Codigo,
+        tta.DESIGNACAO AS tipo_avaliacao,
         tp2.NOME_COMPLETO AS utilizador
       FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES tgcaab 
+      LEFT JOIN FK2_TB_TIPO_AVALIACAO tta
+      ON tgcaab.TIPO_AVALIACAO = tta.CODIGO
       INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca 
         ON tgca.CODIGO = tgcaab.GRADE_CURRICULAR_ALUNO 
       INNER JOIN FK2_TB_GRADE_CURRICULAR tgc 
@@ -88,24 +91,24 @@ export class HistoryNoteReleaseService {
    * - Se passar codigo_grade_curricular_aluno → histórico de uma única disciplina
    * - Senão → histórico de TODAS as disciplinas do aluno no ano/matricula
    */
-async historyNoteRelease(params: HistoryNoteReleaseDto): Promise<any[]> {
-  const { codigoAnoLectivo, codigoMatricula, codigo_grade_curricular_aluno } = params;
+  async historyNoteRelease(params: HistoryNoteReleaseDto): Promise<any[]> {
+    const { codigoAnoLectivo, codigoMatricula, codigo_grade_curricular_aluno } = params;
 
-  // Caso 1: Busca apenas uma disciplina específica (mantemos a query otimizada original)
-  if (codigo_grade_curricular_aluno) {
-    const registros = await this.getReleaseHistory(codigo_grade_curricular_aluno);
-    return toLowerCaseKeys(registros);
-  }
+    // Caso 1: Busca apenas uma disciplina específica (mantemos a query otimizada original)
+    if (codigo_grade_curricular_aluno) {
+      const registros = await this.getReleaseHistory(codigo_grade_curricular_aluno);
+      return toLowerCaseKeys(registros);
+    }
 
-  // Caso 2: Todas as disciplinas do aluno → validação
-  if (!codigoAnoLectivo || !codigoMatricula) {
-    throw new BadRequestException(
-      'codigoAnoLectivo e codigoMatricula são obrigatórios quando não informado codigo_grade_curricular_aluno',
-    );
-  }
+    // Caso 2: Todas as disciplinas do aluno → validação
+    if (!codigoAnoLectivo || !codigoMatricula) {
+      throw new BadRequestException(
+        'codigoAnoLectivo e codigoMatricula são obrigatórios quando não informado codigo_grade_curricular_aluno',
+      );
+    }
 
-  // Query ÚNICA que traz o histórico de TODAS as disciplinas do aluno no ano/matricula
-  const sql = `
+    // Query ÚNICA que traz o histórico de TODAS as disciplinas do aluno no ano/matricula
+    const sql = `
     SELECT 
       tm.CODIGO AS matricula,
       tp.NOME_COMPLETO AS nome,
@@ -113,10 +116,13 @@ async historyNoteRelease(params: HistoryNoteReleaseDto): Promise<any[]> {
       tgcaab.NOTA AS nota_lancada,
       tgcaab.CREATED_AT AS datalancada,
       tgcaab.CODIGO AS Codigo,
+      tta.DESIGNACAO AS tipo_avaliacao,
       mtu.NOME AS utilizador
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES tgcaab 
     INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca 
       ON tgca.CODIGO = tgcaab.GRADE_CURRICULAR_ALUNO 
+      LEFT JOIN FK2_TB_TIPO_AVALIACAO tta
+      ON tgcaab.TIPO_AVALIACAO = tta.CODIGO
     INNER JOIN FK2_TB_GRADE_CURRICULAR tgc 
       ON tgc.CODIGO = tgca.CODIGO_GRADE_CURRICULAR 
     LEFT JOIN FK2_MCA_TB_UTILIZADOR mtu 
@@ -136,15 +142,15 @@ async historyNoteRelease(params: HistoryNoteReleaseDto): Promise<any[]> {
     ORDER BY tgcaab.CREATED_AT DESC
   `;
 
-  const resultados = await this.dataSource.query(sql, [
-    codigoAnoLectivo,
-    codigoMatricula,
-  ]);
+    const resultados = await this.dataSource.query(sql, [
+      codigoAnoLectivo,
+      codigoMatricula,
+    ]);
 
-  if (resultados.length === 0) {
-    return [];
+    if (resultados.length === 0) {
+      return [];
+    }
+
+    return toLowerCaseKeys(resultados);
   }
-
-  return toLowerCaseKeys(resultados);
-}
 }
