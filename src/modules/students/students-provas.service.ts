@@ -517,11 +517,11 @@ export class StudentsProvasService {
       this.dadosAluno(dto.codigoMatricula),
     ]);
 
-    const prazo = await this.prazosService.obterPrazo(
-      TipoCalendario.RECURSO,
-      anoLectivo.codigo,
-    );
-    if (!prazo.podeInscrever) throw new BadRequestException(prazo.mensagem);
+    const prazo = await this.prazosService.obterPrazo({
+      tipo: TipoCalendario.RECURSO,
+      anoLectivoParam: anoLectivo.codigo,
+    });
+    if (prazo && !prazo.podeInscrever) throw new BadRequestException(prazo.mensagem);
 
     const servico = await this.buscarPrecoServico(
       SIGLA_SERVICO.RECURSO,
@@ -571,11 +571,11 @@ export class StudentsProvasService {
       this.dadosAluno(dto.codigoMatricula),
     ]);
 
-    const prazo = await this.prazosService.obterPrazo(
-      TipoCalendario.EXAME_ESPECIAL,
-      anoLectivo.codigo,
-    );
-    if (!prazo.podeInscrever) throw new BadRequestException(prazo.mensagem);
+    const prazo = await this.prazosService.obterPrazo({
+      tipo: TipoCalendario.EXAME_ESPECIAL,
+      anoLectivoParam: anoLectivo.codigo,
+    });
+    if (prazo && !prazo.podeInscrever) throw new BadRequestException(prazo.mensagem);
 
     const servico = await this.buscarPrecoServico(
       SIGLA_SERVICO.EXAME_ESPECIAL,
