@@ -6,6 +6,7 @@ import { PostGraduationAttendanceListService } from './post-graduation-attendanc
 import { PostGraduationNoteLaunchService } from './post-graduation-note-launch.service';
 import { PostGraduationAgendaLaunchService } from './post-graduation-agenda-launch.service';
 import { PostGraduationAgendaValidationService } from './post-graduation-agenda-validation.service';
+import { PostGraduationVacancyService } from './post-graduation-vacancy.service';
 
 import { CandidatesService } from './services/candidates.service';
 import { CandidatesController } from './controllers/candidates.controller';
@@ -36,6 +37,7 @@ import { HttpModule } from '@nestjs/axios';
     PostGraduationNoteLaunchService,
     PostGraduationAgendaLaunchService,
     PostGraduationAgendaValidationService,
+    PostGraduationVacancyService,
     CandidatesService,
     GuidanceResearchManagementService,
   ],
