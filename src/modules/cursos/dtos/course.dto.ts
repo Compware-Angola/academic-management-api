@@ -28,13 +28,13 @@ export class CoursesQueryDto {
      @IsOptional()
      @IsInt()
      @Type(() => Number)
-     falcudadeId?:number
+     faculdadeId?:number
 
      @ApiPropertyOptional({ description: 'Código do tipo de candidatura', example: 1 })
      @IsOptional()
      @IsInt()
      @Type(() => Number)
-     tipocandidatura?:number
+     tipoCandidaturaId?:number
    
      @ApiPropertyOptional({ description: 'Número de registros por página', example: 10 })
      @IsOptional()

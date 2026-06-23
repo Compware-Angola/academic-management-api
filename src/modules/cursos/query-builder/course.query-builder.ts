@@ -4,9 +4,9 @@ export const buildCursosWhereClause = (filters: CoursesQueryDto) => {
     const clauses:string[] = []
     const params: Record<string, any> = {};
 
-    const { search,level,tipocandidatura } = filters;
+    const { search,level,tipoCandidaturaId } = filters;
 
-    if(level && !tipocandidatura) {
+    if(level && !tipoCandidaturaId) {
         if(level === "GRADUATION") {
             clauses.push(`TIPO_CANDIDATURA IN(1)`);
         }
@@ -15,14 +15,14 @@ export const buildCursosWhereClause = (filters: CoursesQueryDto) => {
         }
     }
 
-    if(tipocandidatura){
-        clauses.push(`TIPO_CANDIDATURA = :tipocandidatura`);
-        params.tipocandidatura = tipocandidatura;
+    if(tipoCandidaturaId){
+        clauses.push(`TIPO_CANDIDATURA = :tipoCandidaturaId`);
+        params.tipoCandidaturaId = tipoCandidaturaId;
     }
 
-    if(filters.falcudadeId){
-        clauses.push(`FACULDADE_ID = :falcudadeId`);
-        params.falcudadeId = filters.falcudadeId;
+    if(filters.faculdadeId){
+        clauses.push(`FACULDADE_ID = :faculdadeId`);
+        params.faculdadeId = filters.faculdadeId;
     }
 
     if(search) {
