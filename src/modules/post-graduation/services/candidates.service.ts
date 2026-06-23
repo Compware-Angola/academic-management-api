@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { FindCandidatesDto } from '../dto/candidates.dto';
 import { PaginatedResult } from '../types/query.builder';
@@ -47,5 +47,53 @@ export class CandidatesService {
       id,
     } as any);
     return toLowerCaseKeys(rows);
+  }
+
+   async reject(candidateId: number, reason: string) {
+    const candidate = await this.dataSource.query(
+      `
+      SELECT CODIGO
+      FROM FK2_TB_PREINSCRICAO
+      WHERE CODIGO = :candidateId
+      `,
+      { candidateId } as any,
+    );
+
+    if (!candidate.length) {
+      throw new NotFoundException('Candidato não encontrado');
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+
+      await manager.query(
+        `
+        DELETE FROM FK2_TB_REJEICAO_CANDIDATURA_ALUNO
+        WHERE FK_PREINSCRICAO = :candidateId
+        `,
+        { candidateId } as any,
+      );
+
+      await manager.query(
+        `
+        INSERT INTO FK2_TB_REJEICAO_CANDIDATURA_ALUNO (
+          FK_PREINSCRICAO,
+          MOTIVO
+        )
+        VALUES (
+          :candidateId,
+          :reason
+        )
+        `,
+        {
+          candidateId,
+          reason,
+        } as any,
+      );
+    });
+
+    return {
+      success: true,
+      message: 'Candidato rejeitado com sucesso',
+    };
   }
 }
