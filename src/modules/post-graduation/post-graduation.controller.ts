@@ -51,6 +51,8 @@ import { FindPostGraduationVacanciesDto } from './dto/find-vacancies.dto';
 import { CreatePostGraduationVacancyDto } from './dto/create-vacancy.dto';
 import { UpdatePostGraduationVacancyDto } from './dto/update-vacancy.dto';
 import { PostGraduationVacancyService } from './post-graduation-vacancy.service';
+import { FindPostGraduationFinalResultsDto } from './dto/find-final-results.dto';
+import { PostGraduationFinalResultsService } from './post-graduation-final-results.service';
 
 interface AuthenticatedRequest {
   user: RequestUser;
@@ -70,6 +72,7 @@ export class PostGraduationController {
     private readonly agendaLaunchService: PostGraduationAgendaLaunchService,
     private readonly agendaValidationService: PostGraduationAgendaValidationService,
     private readonly vacancyService: PostGraduationVacancyService,
+    private readonly finalResultsService: PostGraduationFinalResultsService,
     private readonly httpService: HttpService,
   ) {}
 
@@ -85,6 +88,7 @@ export class PostGraduationController {
     PermissionTypeDetails.LANCAMENTO_PAUTA_POS_GRADUACAO.sigla,
     PermissionTypeDetails.VALIDACAO_PAUTA_POS_GRADUACAO.sigla,
     PermissionTypeDetails.DEFINIR_VAGAS_POS_GRADUACAO.sigla,
+    PermissionTypeDetails.RESULTADOS_FINAIS_POS_GRADUACAO.sigla,
   )
   @ApiOperation({
     summary: 'Listar graus de Pos-Graduacao',
@@ -177,6 +181,28 @@ export class PostGraduationController {
     query: FindPostGraduationVacanciesDto,
   ) {
     return this.vacancyService.findAll(query);
+  }
+
+  @Get('access-exam/final-results')
+  @RequiredPermissions(
+    PermissionTypeDetails.RESULTADOS_FINAIS_POS_GRADUACAO.sigla,
+  )
+  @ApiOperation({
+    summary: 'Listar resultados finais do Exame de Acesso da Pós-Graduação',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Resultados finais retornados com sucesso.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Ano lectivo ou grau de Pós-Graduação não encontrado.',
+  })
+  findFinalResults(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindPostGraduationFinalResultsDto,
+  ) {
+    return this.finalResultsService.findAll(query);
   }
 
   @Post('vacancies')
