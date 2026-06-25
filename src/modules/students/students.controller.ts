@@ -29,6 +29,7 @@ import {
   UpdateStudentPersonalDataDTO,
 } from './dto/find-students.dto';
 import { ActivateRegistrationDTO } from './dto/activate-registration.dto';
+import { InactivateRegistrationDTO } from './dto/inactivate-registration.dto';
 import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { AcademicHistoryDTO } from './dto/academic-history';
@@ -230,6 +231,23 @@ export class StudentsController {
 
     return result;
   }
+
+  @Put('inactivate-registration')
+  @RequiredPermissions(PermissionTypeDetails.INATIVAR_MATRICULA.sigla)
+  async inativarMatricula(
+    @Body(ValidationPipe) dto: InactivateRegistrationDTO,
+    @Req() req: any,
+  ) {
+    const result = await this.studentsService.inactivateRegistration(dto);
+
+    this.log(
+      req,
+      `Utilizador ${req.user?.nome} inativou matrícula do estudante com o codigo de matricula ${dto.codigoMatricula}`,
+    );
+
+    return result;
+  }
+
   @Put('acitve-confirmation/:codigoMatricula')
   async activarConfirmacao(
     @Param('codigoMatricula') codigoMatricula: number,
