@@ -20,6 +20,7 @@ import { PermissionsGuard } from '../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
 import { GenerateMesTempDTO } from './dto/generate-mes-temp.dto';
 import { CreateMesTempDTO } from './dto/create-mes-temp.dto';
+import { CreateAcademicCalendarDto } from './dto/create-academic_calendar.dto';
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('academic-calendar')
 export class AcademicCalendarController {
@@ -66,7 +67,7 @@ export class AcademicCalendarController {
   @ApiOperation({ summary: 'Cria um ano lectivo com os periodos semestrais' })
   @ApiResponse({ status: 201, description: 'Ano lectivo criado com sucesso' })
   @ApiResponse({ status: 400, description: 'Dados inválidos ou ano lectivo já existente' })
-  async createAcademicYear(@Body() body: any) {
+  async createAcademicYear(@Body() body: CreateAcademicCalendarDto) {
     return this.academicCalendarService.createAcademicYear(body);
   }
 
