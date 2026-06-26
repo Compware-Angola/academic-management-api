@@ -2,10 +2,144 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { MarkingAssessmentDTO } from './dto/marking-assessment.dto';
+import { CsvExportHelper } from '../../common/helpers/export/csv-export.helper';
+import { PdfExportHelper } from '../../common/helpers/export/pdf-export.helper';
+
+type MarkingAssessmentExportRow = Record<string, unknown> & {
+  curso?: string;
+  disciplina?: string;
+  anolectivo?: string;
+  classe?: string;
+  horario?: string;
+  periodo?: string;
+  tb_salas_designacao?: string;
+  tcp_data_prova?: string | Date | null;
+  duracaoprova?: string;
+  tcp_hora_prova?: string;
+  horatermino?: string;
+};
+
+const MARKING_ASSESSMENT_EXPORT_HEADERS = [
+  'Curso',
+  'Disciplina',
+  'Ano Lectivo',
+  'Classe',
+  'Horário',
+  'Período',
+  'Sala',
+  'Data da Prova',
+  'Duração',
+  'Hora da Prova',
+  'Hora de Término',
+];
 
 @Injectable()
 export class MarkingAssessmentService {
   constructor(private readonly dataSource: DataSource) {}
+
+  async *exportMarkingAssessmentsCsv(
+    filters: MarkingAssessmentDTO,
+  ): AsyncGenerator<string> {
+    yield* CsvExportHelper.generate(
+      MARKING_ASSESSMENT_EXPORT_HEADERS,
+      this.iterateMarkingAssessments(filters),
+      (row) => this.mapMarkingAssessmentExportRow(row),
+    );
+  }
+
+  async writeMarkingAssessmentsPdf(
+    filters: MarkingAssessmentDTO,
+    document: PDFKit.PDFDocument,
+  ): Promise<void> {
+    await PdfExportHelper.writeTable(
+      document,
+      this.iterateMarkingAssessments(filters),
+      {
+        title: 'Marcação de Provas',
+        columns: [
+          { label: 'Curso', key: 'curso', width: 95 },
+          { label: 'Disciplina', key: 'disciplina', width: 120 },
+          { label: 'Ano Lectivo', key: 'anolectivo', width: 58 },
+          { label: 'Classe', key: 'classe', width: 45 },
+          { label: 'Horário', key: 'horario', width: 85 },
+          { label: 'Período', key: 'periodo', width: 55 },
+          { label: 'Sala', key: 'tb_salas_designacao', width: 60 },
+          { label: 'Data', key: 'tcp_data_prova', width: 62 },
+          { label: 'Duração', key: 'duracaoprova', width: 50 },
+          { label: 'Hora Prova', key: 'tcp_hora_prova', width: 55 },
+          { label: 'Hora Fim', key: 'horatermino', width: 60 },
+        ],
+      },
+    );
+  }
+
+  private async *iterateMarkingAssessments(
+    filters: MarkingAssessmentDTO,
+  ): AsyncGenerator<MarkingAssessmentExportRow[]> {
+    const batchSize = 500;
+    let page = 1;
+
+    while (true) {
+      const response = await this.findMarkingAssementService({
+        ...filters,
+        page,
+        limit: batchSize,
+      });
+      const rows = response.data as MarkingAssessmentExportRow[];
+
+      if (!rows.length) {
+        break;
+      }
+
+      yield rows.map((row) => ({
+        ...row,
+        tcp_data_prova: this.formatExportDate(row.tcp_data_prova),
+      }));
+
+      if (rows.length < batchSize || page * batchSize >= response.total) {
+        break;
+      }
+
+      page += 1;
+    }
+  }
+
+  private mapMarkingAssessmentExportRow(
+    row: MarkingAssessmentExportRow,
+  ): unknown[] {
+    return [
+      row.curso,
+      row.disciplina,
+      row.anolectivo,
+      row.classe,
+      row.horario,
+      row.periodo,
+      row.tb_salas_designacao,
+      row.tcp_data_prova,
+      row.duracaoprova,
+      row.tcp_hora_prova,
+      row.horatermino,
+    ];
+  }
+
+  private formatExportDate(value: unknown): string {
+    if (!value) return '';
+    if (value instanceof Date) return value.toISOString().slice(0, 10);
+
+    if (
+      typeof value !== 'string' &&
+      typeof value !== 'number' &&
+      typeof value !== 'boolean' &&
+      typeof value !== 'bigint'
+    ) {
+      return '';
+    }
+
+    const text = String(value);
+    if (!text) return '';
+
+    return text.includes('T') ? text.split('T')[0] : text;
+  }
 
   async findMarkingAssementService(filters: MarkingAssessmentDTO) {
     const {

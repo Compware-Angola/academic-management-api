@@ -12,7 +12,9 @@ import {
   ParseIntPipe,
   UseGuards,
   Req,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   AssessmentService,
   NotaLancadaResponseDto,
@@ -81,6 +83,7 @@ import { RequiredPermissions } from '../../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../../common/enums/permission.type';
 import { PromptGetPermissionLaunchDTO } from './dto/prompt-get-permission-launch.dto';
 import { GetStudentSummaryDto } from './dto/GetStudentSummaryDto';
+import { HttpExportHelper } from '../../common/helpers/export/http-export.helper';
 
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('assessment')
@@ -477,6 +480,31 @@ export class AssessmentController {
     @Query(ValidationPipe) params: MarkingAssessmentDTO,
   ) {
     return this.markingAssessmentService.findMarkingAssementService(params);
+  }
+
+  @Get('marcacoes-provas/export/csv')
+  async exportarMarcacoesProvasCsv(
+    @Query(ValidationPipe) params: MarkingAssessmentDTO,
+    @Res() response: Response,
+  ) {
+    await HttpExportHelper.streamCsv(
+      response,
+      'marcacoes-provas',
+      this.markingAssessmentService.exportMarkingAssessmentsCsv(params),
+    );
+  }
+
+  @Get('marcacoes-provas/export/pdf')
+  async exportarMarcacoesProvasPdf(
+    @Query(ValidationPipe) params: MarkingAssessmentDTO,
+    @Res() response: Response,
+  ) {
+    await HttpExportHelper.streamPdf(response, 'marcacoes-provas', (document) =>
+      this.markingAssessmentService.writeMarkingAssessmentsPdf(
+        params,
+        document,
+      ),
+    );
   }
 
   @Put('permissoes/:permissionId')
