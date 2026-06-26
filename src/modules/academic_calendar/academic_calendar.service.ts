@@ -8,6 +8,7 @@ import { MESTEMP, mesTempConfig } from '../util/generator-mes-temp';
 import { formatDisplay } from '../util/formate-date';
 import { CreateMesTempDTO, MesItemDTO } from './dto/create-mes-temp.dto';
 import { AnoLectivoUtil } from '../util/current-academic-year';
+import { CreateAcademicCalendarDto } from './dto/create-academic_calendar.dto';
 
 @Injectable()
 export class AcademicCalendarService {
@@ -83,7 +84,7 @@ export class AcademicCalendarService {
     };
   }
 
-  async createAcademicYear(body: any) {
+  async createAcademicYear(body: CreateAcademicCalendarDto) {
     const {
       designacao,
       codigo_utilizador: codigoUtilizador,
@@ -91,6 +92,7 @@ export class AcademicCalendarService {
       data_fim_primeiro_semestre: dataFimPrimeiroSemestre,
       data_inicio_segundo_semestre: dataInicioSegundoSemestre,
       data_fim_segundo_semestre: dataFimSegundoSemestre,
+      codigo_tipo_candidatura: codigoTipoCandidatura
     } = body;
 
     if (
@@ -99,7 +101,8 @@ export class AcademicCalendarService {
       !dataInicioPrimeiroSemestre ||
       !dataFimPrimeiroSemestre ||
       !dataInicioSegundoSemestre ||
-      !dataFimSegundoSemestre
+      !dataFimSegundoSemestre ||
+      !codigoTipoCandidatura
     ) {
       throw new BadRequestException('Os campos são obrigatórios');
     }
@@ -131,41 +134,42 @@ export class AcademicCalendarService {
       const codigo = Number(nextCodeResult[0]?.CODIGO);
 
       await queryRunner.query(
-        `
-          INSERT INTO FK2_TB_ANO_LECTIVO (
-            CODIGO,
-            DESIGNACAO,
-            DATAINICIOPRIMEIROSEMESTRE,
-            DATAFIMPRIMEIROSEMESTRE,
-            DATAINICIOSEGUNDOSEMESTRE,
-            DATAFIMSEGUNDOSEMESTRE,
-            ESTADO,
-            DATA_ULTIMA_ATUALIZACAO,
-            UTILIZADOR,
-            STATUS_,
-            EPOCA_EXAME_ACESSO
-          ) VALUES (
-            :1,
-            :2,
-            TO_DATE(:3, 'YYYY-MM-DD'),
-            TO_DATE(:4, 'YYYY-MM-DD'),
-            TO_DATE(:5, 'YYYY-MM-DD'),
-            TO_DATE(:6, 'YYYY-MM-DD'),
-            'Desactivo',
-            SYSDATE,
-            :7,
-            0,
-            1
-          )
-        `,
+       `INSERT INTO FK2_TB_ANO_LECTIVO (
+  CODIGO,
+  DESIGNACAO,
+  DATAINICIOPRIMEIROSEMESTRE,
+  DATAFIMPRIMEIROSEMESTRE,
+  DATAINICIOSEGUNDOSEMESTRE,
+  DATAFIMSEGUNDOSEMESTRE,
+  ESTADO,
+  DATA_ULTIMA_ATUALIZACAO,
+  UTILIZADOR,
+  STATUS_,
+  EPOCA_EXAME_ACESSO,
+  CODIGO_TIPO_CANDIDATURA
+) VALUES (
+  :1,
+  :2,
+  TO_DATE(:3, 'YYYY-MM-DD'),
+  TO_DATE(:4, 'YYYY-MM-DD'),
+  TO_DATE(:5, 'YYYY-MM-DD'),
+  TO_DATE(:6, 'YYYY-MM-DD'),
+  'Desactivo',
+  SYSDATE,
+  :7,
+  0,
+  1,
+  :8
+)`,
         [
-          codigo,
-          designacao,
-          dataInicioPrimeiroSemestre,
-          dataFimPrimeiroSemestre,
-          dataInicioSegundoSemestre,
-          dataFimSegundoSemestre,
-          codigoUtilizador,
+           codigo,
+  designacao,
+  dataInicioPrimeiroSemestre,
+  dataFimPrimeiroSemestre,
+  dataInicioSegundoSemestre,
+  dataFimSegundoSemestre,
+  codigoUtilizador,
+  codigoTipoCandidatura,
         ],
       );
 
