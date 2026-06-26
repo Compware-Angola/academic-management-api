@@ -13,13 +13,13 @@ import {
 import { ExemptDaysService } from './exempt_days.service';
 import { CreateExemptDayDto } from './dto/create-exempt_day.dto';
 import { UpdateExemptDayDto } from './dto/update-exempt_day.dto';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
 
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('exempt-days')
 export class ExemptDaysController {
-  constructor(private readonly exemptDaysService: ExemptDaysService) {}
+  constructor(private readonly exemptDaysService: ExemptDaysService) { }
 
   @Put(':codigo')
   async update(

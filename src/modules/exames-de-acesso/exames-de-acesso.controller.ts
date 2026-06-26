@@ -14,10 +14,10 @@ import { LancarNotaManualDto } from './dto/lancar-nota-manual.dto';
 import { FilterResultadosFinaisDto } from './dto/filter-resultados-finais.dto';
 import { FilterEstatisticaCandidatosDto } from './dto/filter-estatistica-candidatos.dto';
 import { HttpService } from '@nestjs/axios';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
-import { AccessLogHelper } from '../common/helpers/access-log.helper';
-import { ApiKeyGuard } from '../common/guard/api-key.guard';
+import { PermissionsGuard } from '../../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
+import { AccessLogHelper } from '../../common/helpers/access-log.helper';
+import { ApiKeyGuard } from '../../common/guard/api-key.guard';
 import { FilterEstatisticaCursosDto } from './dto/filter-estatistica-cursos.dto';
 
 

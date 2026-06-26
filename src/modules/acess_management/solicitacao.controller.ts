@@ -20,8 +20,8 @@ import { RejectarEncaminhamentoSolicitacaoDTO } from './dto/rejectar-encaminhame
 import { AprovarEncaminhamentoSolicitacaoDTO } from './dto/aprovar-encaminhamento-solicitacao.dto';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
-import { RequiredPermissions } from '../common/pipes/permissions.decorator';
-import { PermissionTypeDetails } from '../common/enums/permission.type';
+import { RequiredPermissions } from '../../common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from '../../common/enums/permission.type';
 import { FetchServicosSolicDTO } from './dto/listar-servicos-solicitacao.dto';
 import { CreateAvisoUmaDto } from './dto/create.aviso.dto';
 import { ListAllSolicitacoesDto } from './dto/listar-solicitacao.dto';
@@ -30,8 +30,8 @@ import {
   AvisoImagemSigla,
   UpdateAvisoImagemDto,
 } from './dto/update-aviso-imagem.dto';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../../common/secret/permissions.guard';
 
 @ApiTags('solicitacao')
 @Controller('solicitacoa')

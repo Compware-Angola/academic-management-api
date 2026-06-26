@@ -13,7 +13,7 @@ import {
 } from './dto/upsert-note-launch.dto';
 import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
-import { RequestUser } from '../common/types/token-validation-response.interface';
+import { RequestUser } from '../../common/types/token-validation-response.interface';
 
 type DatabaseRow = Record<string, unknown>;
 
@@ -38,7 +38,7 @@ export class PostGraduationNoteLaunchService {
     @InjectQueue('final_average')
     private readonly finalAverageQueue: Queue,
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   /**
    * Retorna os contextos académicos disponíveis ao docente e os catálogos de

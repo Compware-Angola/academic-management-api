@@ -11,13 +11,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { TeamOldRulesService } from './team_old_rules.service';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../../common/secret/permissions.guard';
 
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('team-old-rules')
 export class TeamOldRulesController {
-  constructor(private readonly teamOldRulesService: TeamOldRulesService) {}
+  constructor(private readonly teamOldRulesService: TeamOldRulesService) { }
 
   @Get()
   async findAllUnidadeCurricular(

@@ -14,7 +14,7 @@ import { HttpService } from '@nestjs/axios';
 import {
   FinanceInvoiceHelper,
   InvoicePayload,
-} from '../common/helpers/finance-invoice.helper';
+} from '../../common/helpers/finance-invoice.helper';
 import { TipoCalendario } from '../prazos/utils/tipo-calendario.enum';
 
 export const TIPO_AVALIACAO = {
@@ -67,7 +67,7 @@ export class StudentsProvasService {
     private readonly studentNoteService: StudentNoteService,
     private readonly prazosService: PrazosService,
     private readonly httpService: HttpService,
-  ) {}
+  ) { }
 
   private temNota(valor: string | null | undefined): boolean {
     return valor !== '' && valor !== null && valor !== undefined;

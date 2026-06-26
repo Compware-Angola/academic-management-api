@@ -9,7 +9,7 @@ import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FindMarcacaoPrazoDTO } from './dto/find-marcacao-prova-prazo.dto';
 import { CreateAcademicActivitiesTermsDto } from './dto/create-academic-activities-terms.dto';
-import { DecodedUserPayload } from '../common/types/token-validation-response.interface';
+import { DecodedUserPayload } from '../../common/types/token-validation-response.interface';
 import { FindPrazosMatricula } from './dto/find-prazos-matricula.dto';
 import { definirSemestre } from './util/definir-semestre';
 import { CreateCalendarActivityDto } from './dto/create-calendar-activity.dto';
@@ -19,7 +19,7 @@ import { UpdateAcademicActivityTermDto } from './dto/update-academic-activity-te
 
 @Injectable()
 export class AcademicActivitiesService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   private getCodigoUtilizador(
     user: DecodedUserPayload,
@@ -27,11 +27,11 @@ export class AcademicActivitiesService {
   ): number {
     return Number(
       user?.sub ??
-        user?.userId ??
-        user?.PK_UTILIZADOR ??
-        user?.pk_utilizador ??
-        user?.id ??
-        codigoUtilizadorBody,
+      user?.userId ??
+      user?.PK_UTILIZADOR ??
+      user?.pk_utilizador ??
+      user?.id ??
+      codigoUtilizadorBody,
     );
   }
 
@@ -702,7 +702,7 @@ export class AcademicActivitiesService {
       throw new BadRequestException('Campo "fk_ano_lectivo" é obrigatório');
     }
 
- 
+
 
     /* =========================
      * Criar ref_ano_lectivo (JSON)
@@ -778,7 +778,7 @@ export class AcademicActivitiesService {
       )
       `,
         {
-         
+
           fkTipoAvaliacao: fk_tipo_avaliacao,
           fkSemestre: fk_semestre,
           fkTipoPrazo: fk_tipo_prazo,
@@ -796,7 +796,7 @@ export class AcademicActivitiesService {
       return {
         success: true,
         message: 'Prazo criado com sucesso',
-       
+
       };
     } catch (error) {
       throw new BadRequestException('Erro ao inserir prazo: ' + error.message);

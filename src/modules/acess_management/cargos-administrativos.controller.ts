@@ -19,8 +19,8 @@ import { FilterCargoDto } from './dto/filter-cargo.dto';
 import { CreateCargoDto } from './dto/create-cargo.dto';
 import { UpdateOcupanteDto } from './dto/update-ocupante.dto';
 import { CargoResponseDto } from './dto/cargo.response.dto';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
 
 @ApiTags('Cargos Administrativos')
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)

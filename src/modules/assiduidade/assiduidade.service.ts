@@ -6,7 +6,7 @@ import { AtendanceControlling } from './dto/attendance-controlling.dto';
 import { FindAttendanceTestDto } from './dto/FindAttendanceTestDto';
 import { MarkAttendanceDto } from './dto/MarkAttendanceDto';
 import { GeneralAttendanceCalendarDto } from './dto/GeneralAttendanceCalendarDto';
-import { addDays, parseISODateOrToday, startOfMonth, startOfNextMonth, startOfWeekMonday, toISODate } from '../common/helpers/parseISODateOrToday';
+import { addDays, parseISODateOrToday, startOfMonth, startOfNextMonth, startOfWeekMonday, toISODate } from '../../common/helpers/parseISODateOrToday';
 import { FindTeacherClassCalendarDto } from './dto/FindTeacherClassCalendarDto';
 import { FindEstatisticaAssiduidadeDocenteDto } from './dto/FindEstatisticaAssiduidadeDocenteDto';
 
@@ -581,59 +581,59 @@ FETCH NEXT :limit ROWS ONLY
   }
 
   async attendanceControlling(dto: AtendanceControlling) {
-  const {
-    docente = 0,
-    dataInicial,
-    dataFinal,
-    estado = 0,
-    anoLectivo = 0,
-    semestre = 0,
-    gradeCurricular = 0,
-    page = 1,
-    limit = 20,
-    search = '',
-  } = dto;
+    const {
+      docente = 0,
+      dataInicial,
+      dataFinal,
+      estado = 0,
+      anoLectivo = 0,
+      semestre = 0,
+      gradeCurricular = 0,
+      page = 1,
+      limit = 20,
+      search = '',
+    } = dto;
 
-  const offset = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-  const whereParams: Record<string, any> = {
-    dataInicial,
-    dataFinal,
-  };
+    const whereParams: Record<string, any> = {
+      dataInicial,
+      dataFinal,
+    };
 
-  const conditions: string[] = [
-    'aa.ACTIVE_STATE = 1',
-    'aa.DATA_AULA BETWEEN :dataInicial AND :dataFinal',
-    'h.ACTIVE_STATE = 1',
-  ];
+    const conditions: string[] = [
+      'aa.ACTIVE_STATE = 1',
+      'aa.DATA_AULA BETWEEN :dataInicial AND :dataFinal',
+      'h.ACTIVE_STATE = 1',
+    ];
 
-  if (docente !== 0) {
-    conditions.push('aa.FK_DOCENTE = :docente');
-    whereParams.docente = docente;
-  }
+    if (docente !== 0) {
+      conditions.push('aa.FK_DOCENTE = :docente');
+      whereParams.docente = docente;
+    }
 
-  if (estado !== 0) {
-    conditions.push('aa.FK_ESTADO_AGENDAMENTO = :estado');
-    whereParams.estado = estado;
-  }
+    if (estado !== 0) {
+      conditions.push('aa.FK_ESTADO_AGENDAMENTO = :estado');
+      whereParams.estado = estado;
+    }
 
-  if (anoLectivo !== 0) {
-    conditions.push('h.FK_ANO_LECTIVO = :anoLectivo');
-    whereParams.anoLectivo = anoLectivo;
-  }
+    if (anoLectivo !== 0) {
+      conditions.push('h.FK_ANO_LECTIVO = :anoLectivo');
+      whereParams.anoLectivo = anoLectivo;
+    }
 
-  if (semestre !== 0) {
-    conditions.push('gc.CODIGO_SEMESTRE = :semestre');
-    whereParams.semestre = semestre;
-  }
+    if (semestre !== 0) {
+      conditions.push('gc.CODIGO_SEMESTRE = :semestre');
+      whereParams.semestre = semestre;
+    }
 
-  if (gradeCurricular !== 0) {
-    conditions.push('gc.CODIGO = :gradeCurricular');
-    whereParams.gradeCurricular = gradeCurricular;
-  }
+    if (gradeCurricular !== 0) {
+      conditions.push('gc.CODIGO = :gradeCurricular');
+      whereParams.gradeCurricular = gradeCurricular;
+    }
 
-  if (search.trim() !== '') {
-    conditions.push(`
+    if (search.trim() !== '') {
+      conditions.push(`
       (
         CAST(aa.PK_AGENDAMENTO_AULA AS VARCHAR2(50)) LIKE :search
         OR UPPER(JSON_VALUE(al.REF_DOCENTE, '$.nome')) LIKE UPPER(:search)
@@ -642,13 +642,13 @@ FETCH NEXT :limit ROWS ONLY
       )
     `);
 
-    whereParams.search = `%${search.trim()}%`;
-  }
+      whereParams.search = `%${search.trim()}%`;
+    }
 
-  const whereClause =
-    conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  const sql = `
+    const sql = `
     SELECT
       aa.PK_AGENDAMENTO_AULA AS codigo,
       c2.DESIGNACAO AS curso,
@@ -679,9 +679,9 @@ FETCH NEXT :limit ROWS ONLY
     FETCH NEXT :limit ROWS ONLY
   `;
 
-  const sqlParams = { ...whereParams, offset, limit };
+    const sqlParams = { ...whereParams, offset, limit };
 
-  const countSql = `
+    const countSql = `
     SELECT COUNT(*) AS total
     FROM FK2_MSA_TB_AGENDAMENTO_AULA aa
     INNER JOIN FK2_MGH_TB_AULA al
@@ -699,7 +699,7 @@ FETCH NEXT :limit ROWS ONLY
     ${whereClause}
   `;
 
-  const summarySql = `
+    const summarySql = `
     SELECT
       SUM(CASE WHEN aa.FK_ESTADO_AGENDAMENTO = 1 THEN 1 ELSE 0 END) AS marcacoes_pendentes,
       SUM(CASE WHEN aa.FK_ESTADO_AGENDAMENTO = 2 THEN 1 ELSE 0 END) AS faltas_marcadas,
@@ -720,35 +720,35 @@ FETCH NEXT :limit ROWS ONLY
     ${whereClause}
   `;
 
-  try {
-    const [records, countResult, summaryResult] = await Promise.all([
-      this.dataSource.query(sql, sqlParams as any),
-      this.dataSource.query(countSql, whereParams as any),
-      this.dataSource.query(summarySql, whereParams as any),
-    ]);
+    try {
+      const [records, countResult, summaryResult] = await Promise.all([
+        this.dataSource.query(sql, sqlParams as any),
+        this.dataSource.query(countSql, whereParams as any),
+        this.dataSource.query(summarySql, whereParams as any),
+      ]);
 
-    const total = Number(countResult?.[0]?.TOTAL ?? 0);
+      const total = Number(countResult?.[0]?.TOTAL ?? 0);
 
-    const resumo = {
-      marcacoesPendentes: Number(summaryResult?.[0]?.MARCACOES_PENDENTES ?? 0),
-      faltasMarcadas: Number(summaryResult?.[0]?.FALTAS_MARCADAS ?? 0),
-      presencasMarcadas: Number(summaryResult?.[0]?.PRESENCAS_MARCADAS ?? 0),
-    };
+      const resumo = {
+        marcacoesPendentes: Number(summaryResult?.[0]?.MARCACOES_PENDENTES ?? 0),
+        faltasMarcadas: Number(summaryResult?.[0]?.FALTAS_MARCADAS ?? 0),
+        presencasMarcadas: Number(summaryResult?.[0]?.PRESENCAS_MARCADAS ?? 0),
+      };
 
-    return {
-      data: toLowerCaseKeys(records),
-      resumo,
-      total,
-      page,
-      limit,
-      totalPages: total > 0 ? Math.ceil(total / limit) : 1,
-    };
-  } catch (error) {
-    console.error('Erro ao buscar agendamentos:', error);
-    throw new Error(`Falha ao consultar agendamentos: ${error.message}`);
+      return {
+        data: toLowerCaseKeys(records),
+        resumo,
+        total,
+        page,
+        limit,
+        totalPages: total > 0 ? Math.ceil(total / limit) : 1,
+      };
+    } catch (error) {
+      console.error('Erro ao buscar agendamentos:', error);
+      throw new Error(`Falha ao consultar agendamentos: ${error.message}`);
+    }
   }
-}
-  
+
   async getStateLessonAttendance(): Promise<[]> {
     const result = await this.dataSource.query(
       `
@@ -930,7 +930,7 @@ ${whereClause}
       estado = 0,
       anoLectivo = 0,
       periodoId = 0,
-      
+
       semestre = 0,
       dataInicio,
       dataFim,
@@ -999,8 +999,8 @@ ${whereClause}
       );
     }
     if (periodoId !== 0) {
-         conditions.push("h.FK_PERIODO = :periodoId");
-  
+      conditions.push("h.FK_PERIODO = :periodoId");
+
     }
 
     if (disciplina !== 0) {
@@ -1312,11 +1312,11 @@ ${whereClause}
   `);
       whereParams.search = `%${search}%`;
     }
-  if (dataInicial && dataFinal) {
-  conditions.push(`aa.DATA_AULA BETWEEN TO_DATE(:dataInicial, 'YYYY-MM-DD') AND TO_DATE(:dataFinal, 'YYYY-MM-DD')`);
-  whereParams.dataInicial = dataInicial;
-  whereParams.dataFinal = dataFinal;
-}
+    if (dataInicial && dataFinal) {
+      conditions.push(`aa.DATA_AULA BETWEEN TO_DATE(:dataInicial, 'YYYY-MM-DD') AND TO_DATE(:dataFinal, 'YYYY-MM-DD')`);
+      whereParams.dataInicial = dataInicial;
+      whereParams.dataFinal = dataFinal;
+    }
     if (anoLectivo !== 0) {
       conditions.push('h.FK_ANO_LECTIVO = :anoLectivo');
       whereParams.anoLectivo = anoLectivo;

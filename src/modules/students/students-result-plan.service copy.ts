@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { CreateStudentEnrollmentUC } from './dto/create-student-enrollment-uc';
-import { STATUS_GRADE } from '../common/enums/status.grade';
+import { STATUS_GRADE } from '../../common/enums/status.grade';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 
 interface FindGradeCursoDTO {
@@ -47,7 +47,7 @@ interface FindMatriculaDetails {
 
 @Injectable()
 export class StudentsResultPlanService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   public async findPlan(codigoMatricula: number) {
     const [matricula, gradesAluno] = await Promise.all([

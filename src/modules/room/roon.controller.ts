@@ -20,13 +20,13 @@ import { RoomService } from './roon.service';
 import { CreateRoomDto } from './dto/create-roon.dto';
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { SearchAvailableRoomsDto } from './dto/search-available-rooms.dto';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
 
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('rooms')
 export class RoonController {
-  constructor(private readonly roomService: RoomService) {}
+  constructor(private readonly roomService: RoomService) { }
 
   @Post('')
   @HttpCode(HttpStatus.CREATED)

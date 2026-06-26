@@ -23,13 +23,13 @@ import { UpdateTipoSuporteDto } from './dto/update-tipo-suporte.dto';
 import { FilterTipoSuporteDto } from './dto/filter-tipo-suporte.dto';
 import { CreateRespostaSuporteDto } from './dto/create-resposta-suporte.dto';
 import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../../common/secret/permissions.guard';
 
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('suporte')
 export class SuporteController {
-  constructor(private readonly suporteService: SuporteService) {}
+  constructor(private readonly suporteService: SuporteService) { }
 
   // ─── Solicitações (principal) ──────────────────────────────────────────────
 

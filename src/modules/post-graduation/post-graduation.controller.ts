@@ -15,14 +15,14 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { PostGraduationService } from './post-graduation.service';
 import { FindPrimaryRecordsDto } from './dto/find-primary-records.dto';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
-import { PermissionTypeDetails } from '../common/enums/permission.type';
-import { RequiredPermissions } from '../common/pipes/permissions.decorator';
+import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../../common/secret/permissions.guard';
+import { PermissionTypeDetails } from '../../common/enums/permission.type';
+import { RequiredPermissions } from '../../common/pipes/permissions.decorator';
 import { FindExamCalendarsDto } from './dto/find-exam-calendars.dto';
 import { FindCurricularUnitFormulasDto } from './dto/find-curricular-unit-formulas.dto';
 import { UpdateCurricularUnitFormulaDto } from './dto/update-curricular-unit-formula.dto';
-import { RequestUser } from '../common/types/token-validation-response.interface';
+import { RequestUser } from '../../common/types/token-validation-response.interface';
 import { FindOralCurricularUnitsDto } from './dto/find-oral-curricular-units.dto';
 import { UpdateOralCurricularUnitStatusDto } from './dto/update-oral-curricular-unit-status.dto';
 import { FindExamMarkingOptionsDto } from './dto/find-exam-marking-options.dto';
@@ -36,7 +36,7 @@ import { FindNoteLaunchStudentsDto } from './dto/find-note-launch-students.dto';
 import { PostGraduationNoteLaunchService } from './post-graduation-note-launch.service';
 import { UpsertPostGraduationNotesDto } from './dto/upsert-note-launch.dto';
 import { HttpService } from '@nestjs/axios';
-import { AccessLogHelper } from '../common/helpers/access-log.helper';
+import { AccessLogHelper } from '../../common/helpers/access-log.helper';
 import { FindAgendaLaunchOptionsDto } from './dto/find-agenda-launch-options.dto';
 import { FindAgendaLaunchesDto } from './dto/find-agenda-launches.dto';
 import { CreateAgendaLaunchDto } from './dto/create-agenda-launch.dto';
@@ -65,7 +65,7 @@ export class PostGraduationController {
     private readonly agendaLaunchService: PostGraduationAgendaLaunchService,
     private readonly agendaValidationService: PostGraduationAgendaValidationService,
     private readonly httpService: HttpService,
-  ) {}
+  ) { }
 
   @Get('degrees')
   @RequiredPermissions(

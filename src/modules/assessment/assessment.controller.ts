@@ -72,13 +72,13 @@ import { FetchViewNotesDTO } from './dto/fetch-view-notes.dto';
 // Adicionado da branch develop (funcionalidade útil que não existia na HEAD)
 import { BookTestService } from './book_test.service';
 import { CreateCalendarioProvaDto } from './dto/CreateCalendarioProvaDto';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
-import { AccessLogHelper } from '../common/helpers/access-log.helper';
+import { PermissionsGuard } from '../../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
+import { AccessLogHelper } from '../../common/helpers/access-log.helper';
 import { HttpService } from '@nestjs/axios';
 import { buildFormulaLog } from './util/buildFormulaLog';
-import { RequiredPermissions } from '../common/pipes/permissions.decorator';
-import { PermissionTypeDetails } from '../common/enums/permission.type';
+import { RequiredPermissions } from '../../common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from '../../common/enums/permission.type';
 import { PromptGetPermissionLaunchDTO } from './dto/prompt-get-permission-launch.dto';
 import { GetStudentSummaryDto } from './dto/GetStudentSummaryDto';
 

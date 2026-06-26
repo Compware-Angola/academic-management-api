@@ -2,10 +2,10 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Query, BadRequestExc
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { DocumentsService } from './documents.service';
 import { CreateDocumentoUCDto } from './dto/create-document.dto';
-import { PermissionsGuard } from 'src/modules/common/secret/permissions.guard';
-import { RemoteJwtAuthGuard } from 'src/modules/common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from 'src/common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from 'src/common/guard/remote.jwt-auth.guard';
 import { HttpService } from '@nestjs/axios';
-import { AccessLogHelper } from 'src/modules/common/helpers/access-log.helper';
+import { AccessLogHelper } from 'src/common/helpers/access-log.helper';
 
 
 @ApiTags('Documents')

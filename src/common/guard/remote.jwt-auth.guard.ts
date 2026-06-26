@@ -5,7 +5,7 @@ import {
     Injectable,
     UnauthorizedException,
 } from '@nestjs/common';
-import { DecodedUserPayload } from 'src/modules/common/types/token-validation-response.interface';
+import { DecodedUserPayload } from 'src/common/types/token-validation-response.interface';
 
 @Injectable()
 export class RemoteJwtAuthGuard implements CanActivate {
@@ -32,7 +32,7 @@ export class RemoteJwtAuthGuard implements CanActivate {
             if (!response.data?.valid) {
                 throw new UnauthorizedException('Token inválido');
             }
-          
+
 
             request.user = response.data.user as DecodedUserPayload;
             return true;

@@ -17,7 +17,7 @@ import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { CreateAvisoUmaDto } from './dto/create.aviso.dto';
 import { AvisoImagemSigla } from './dto/update-aviso-imagem.dto';
-import { DecodedUserPayload } from '../common/types/token-validation-response.interface';
+import { DecodedUserPayload } from '../../common/types/token-validation-response.interface';
 
 @Injectable()
 export class SolicitacaoService {

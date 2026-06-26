@@ -3,7 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CreateDocumentoUCDto } from './dto/create-document.dto';
 import { toLowerCaseKeys } from 'src/modules/util/toLowerCaseKeys';
-import { DecodedUserPayload } from 'src/modules/common/types/token-validation-response.interface';
+import { DecodedUserPayload } from 'src/common/types/token-validation-response.interface';
 
 
 @Injectable()
@@ -13,11 +13,11 @@ export class DocumentsService {
     private readonly dataSource: DataSource,
   ) { }
 
-async generateCode(dto:CreateDocumentoUCDto,user:DecodedUserPayload): Promise<{ codigo: string }> {
-  const codigo = this.createRandomCode();
+  async generateCode(dto: CreateDocumentoUCDto, user: DecodedUserPayload): Promise<{ codigo: string }> {
+    const codigo = this.createRandomCode();
 
-  await this.dataSource.query(
-    `INSERT INTO FK2_TB_DOCUMENTOS_UC (
+    await this.dataSource.query(
+      `INSERT INTO FK2_TB_DOCUMENTOS_UC (
       DOCUMENTO,
       ANO_LETIVO,
       UTILIZADOR,
@@ -38,25 +38,25 @@ async generateCode(dto:CreateDocumentoUCDto,user:DecodedUserPayload): Promise<{ 
       :tipoDocumento,
       :refUtilizador
     )`,
-    {
-      documento:dto.documento|| 'Certificado Com Notas',
-      anoLetivo:dto.anoLetivo|| 23,
-      utilizador: null,
-      status: 'Ativo',
-      codigoDocumento: codigo, 
-      codigoMatricula: dto.codigoMatricula,
-      tipoDocumento: dto.tipoDocumento,
-      refUtilizador: JSON.stringify({
-        pk: user?.sub,
-        desc: user?.nome,
-        corLetra: 'black',
-        disponivel: false,
-      })
-    } as any,
-  );
+      {
+        documento: dto.documento || 'Certificado Com Notas',
+        anoLetivo: dto.anoLetivo || 23,
+        utilizador: null,
+        status: 'Ativo',
+        codigoDocumento: codigo,
+        codigoMatricula: dto.codigoMatricula,
+        tipoDocumento: dto.tipoDocumento,
+        refUtilizador: JSON.stringify({
+          pk: user?.sub,
+          desc: user?.nome,
+          corLetra: 'black',
+          disponivel: false,
+        })
+      } as any,
+    );
 
-  return { codigo };
-}
+    return { codigo };
+  }
 
   private createRandomCode(): string {
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -70,9 +70,9 @@ async generateCode(dto:CreateDocumentoUCDto,user:DecodedUserPayload): Promise<{ 
     return `${rand(numbers, 5)}${rand(letters, 5)}`;
   }
 
-async validateDocs(code: string,tipo_docs:number) {
-  const result = await this.dataSource.query(
-    `
+  async validateDocs(code: string, tipo_docs: number) {
+    const result = await this.dataSource.query(
+      `
     SELECT
         -- Matrícula
         m.CODIGO                AS CODIGO_MATRICULA,
@@ -146,13 +146,13 @@ async validateDocs(code: string,tipo_docs:number) {
     WHERE tduc.CODIGO_DOCUMENTO = :code
     FETCH FIRST 1 ROWS ONLY
     `,
-    { code } as any
-  );
+      { code } as any
+    );
 
-  if (!result || result.length === 0) {
-    throw new NotFoundException("Documento não encontrado");
+    if (!result || result.length === 0) {
+      throw new NotFoundException("Documento não encontrado");
+    }
+
+    return toLowerCaseKeys(result[0]);
   }
-
-  return toLowerCaseKeys(result[0]);
-}
 }

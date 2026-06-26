@@ -9,8 +9,8 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { DocenteSubstitutoService } from './docente-substituto.service';
 import { ListDocenteSubstitutoDto } from './dto/list-docente-substituto.dto';
 import { CreateDocenteSubstitutoDto } from './dto/create-docente-substituto.dto';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
 
 @ApiTags('DOCENTE SUBSTITUTO')
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
