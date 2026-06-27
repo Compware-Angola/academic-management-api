@@ -257,4 +257,69 @@ export class MarkingAssessmentService {
       totalPages: 0,
     };
   }
+  async findById(codigo: number) {
+    const sqlCalendario = `
+    SELECT
+        -- Horário
+        hr.PK_HORARIO       AS codigo_horario,
+        hr.DESIGNACAO       AS horario,
+
+        -- Ano Lectivo
+        hr.FK_ANO_LECTIVO   AS codigo_ano_lectivo,
+        hr.FK_SEMESTRE      AS codigo_semestre,
+        hr.FK_PERIODO       AS codigo_periodo,
+
+        -- Grade Curricular
+        g.CODIGO_CURSO      AS codigo_curso,
+        g.CODIGO_CLASSE     AS codigo_classe,
+        g.CODIGO            AS codigo_grade,
+
+        -- Prova
+        cp.CODIGO           AS codigo_prova,
+        cp.CODIGO_TIPO_PROVA AS codigo_tipo_prova,
+        cp.CODIGO_SALA      AS codigo_sala,
+        to_char(cp.HORA_TERMINO,'hh24:mi:ss')     AS hora_termino,
+        to_char(cp.HORA_PROVA ,'hh24:mi:ss')      AS hora_prova,
+        TO_CHAR(cp.DATA_PROVA, 'YYYY-MM-DD')       AS data_prova,
+        cp.CODIGO_MODALIDADE AS codigo_modalidade,
+
+        --Tipo de Prova
+        json_value(cp.REF_PRAZO,'$.pk_prazo') AS codigo_prazo,
+
+        cp.codigo_calendario                     as tipo_candidatura
+
+    FROM FK2_TB_CALENDARIO_PROVA cp
+    INNER JOIN FK2_MGH_TB_HORARIO hr
+        ON hr.PK_HORARIO = JSON_VALUE(cp.REF_HORARIO,'$.pk')
+    INNER JOIN FK2_TB_GRADE_CURRICULAR g
+        ON g.CODIGO = hr.FK_GRADE_CURRICULAR
+    WHERE cp.CODIGO = :codigo
+  `;
+
+    const sqlVigilantes = `
+    SELECT
+        vg.VIGILANTE AS codigo_utilizador,
+        JSON_VALUE(vg.REF_VIGILANTE, '$.desc') AS nome_vigilante,
+        doc.CODIGO AS codigo_docente
+    FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE vg
+    INNER JOIN FK2_MGD_TB_DOCENTE doc
+        ON JSON_VALUE(doc.CODIGO_UTILIZADOR, '$.pk') = vg.VIGILANTE
+    WHERE vg.CALENDARIO_PROVA = :codigo
+  `;
+
+    const [calendarioResult, vigilantesResult] = await Promise.all([
+      this.dataSource.query(sqlCalendario, { codigo } as any),
+      this.dataSource.query(sqlVigilantes, { codigo } as any),
+    ]);
+
+    if (!calendarioResult.length) {
+      return null;
+    }
+
+    const calendario = (await toLowerCaseKeys(calendarioResult))[0];
+
+    calendario.vigilantes = await toLowerCaseKeys(vigilantesResult);
+
+    return calendario;
+  }
 }

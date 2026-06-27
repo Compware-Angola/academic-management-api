@@ -81,6 +81,7 @@ import { RequiredPermissions } from '../../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../../common/enums/permission.type';
 import { PromptGetPermissionLaunchDTO } from './dto/prompt-get-permission-launch.dto';
 import { GetStudentSummaryDto } from './dto/GetStudentSummaryDto';
+import { UpdateCalendarioProvaDto } from './dto/UpdateCalendarioProvaDto';
 
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('assessment')
@@ -102,7 +103,7 @@ export class AssessmentController {
     private readonly viewNotesService: ViewNotesService,
     private httpService: HttpService,
     private readonly calendarioProvaService: BookTestService,
-  ) { }
+  ) {}
 
   @Post('upsert')
   @ApiOperation({
@@ -130,8 +131,8 @@ export class AssessmentController {
     );
 
     await AccessLogHelper.logAccess(this.httpService, {
-      descricao: `Lançamento em massa de ${dto.items.length} nota(s) 
-            | Tipo Avaliação: ${dto.items[0]?.tipoAvaliacao || '—'} 
+      descricao: `Lançamento em massa de ${dto.items.length} nota(s)
+            | Tipo Avaliação: ${dto.items[0]?.tipoAvaliacao || '—'}
             | Época: ${dto.items[0]?.epoca || '—'}
             | Total de alunos: ${dto.items.length}`,
       fkAcesso: 7,
@@ -218,6 +219,17 @@ export class AssessmentController {
   @ApiResponse({ status: 400, description: 'Dados inválidos' })
   async createCalendarioProva(@Body() dto: CreateCalendarioProvaDto) {
     return this.calendarioProvaService.createCalendarioProva(dto);
+  }
+  @Put('update-calendario-prova')
+  @ApiOperation({ summary: 'Actualizar um novo agendamento de prova' })
+  @ApiResponse({ status: 201, description: 'Prova agendada com sucesso' })
+  @ApiResponse({ status: 400, description: 'Dados inválidos' })
+  async updateCalendarioProva(@Body() dto: UpdateCalendarioProvaDto) {
+    return this.calendarioProvaService.editarCalendarioProva(dto);
+  }
+  @Delete('delete-calendario-prova/:id')
+  async deleteMarkingAssessment(@Param('id', ParseIntPipe) id: number) {
+    return this.calendarioProvaService.deleteCalendarioProva(id);
   }
 
   @Get('parametros-avaliacoes')
@@ -497,5 +509,9 @@ export class AssessmentController {
   @Get('visualizar-notas')
   async visualizarNots(@Query(ValidationPipe) params: FetchViewNotesDTO) {
     return this.viewNotesService.findNoteByHorario(params);
+  }
+  @Get('marcacoes-provas/:id')
+  async findMarkingAssessment(@Param('id', ParseIntPipe) id: number) {
+    return this.markingAssessmentService.findById(id);
   }
 }
