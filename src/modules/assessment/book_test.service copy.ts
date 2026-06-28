@@ -3,6 +3,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { CreateCalendarioProvaDto } from './dto/CreateCalendarioProvaDto';
+import { UpdateCalendarioProvaDto } from './dto/UpdateCalendarioProvaDto';
 import oracledb from 'oracledb';
 @Injectable()
 export class BookTestService {
@@ -234,11 +235,205 @@ export class BookTestService {
           codigoCalendario: result.outId[0],
         },
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao inserir calendário de prova:', error);
-      throw new Error(`Falha ao criar calendário de prova: ${error.message}`);
+      throw new Error(`Falha ao criar calendário de prova: ${error?.message}`);
     }
   }
+  async deleteCalendarioProva(id: number) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      await queryRunner.query(
+        `DELETE FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE WHERE CALENDARIO_PROVA = :codigoCalendario`,
+        { codigoCalendario: id } as any,
+      );
+      await queryRunner.query(
+        `DELETE FROM FK2_TB_CALENDARIO_PROVA WHERE CODIGO = :codigoCalendario`,
+        { codigoCalendario: id } as any,
+      );
+      await queryRunner.commitTransaction();
+    } catch (error: any) {
+      await queryRunner.rollbackTransaction();
+      console.error('Erro ao editar calendário de prova:', error);
+      throw new Error(`Falha ao editar calendário de prova: ${error.message}`);
+    } finally {
+      await queryRunner.release();
+    }
+  }
+  async editarCalendarioProva(dto: UpdateCalendarioProvaDto) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const existente = await queryRunner.query(
+        `SELECT CODIGO FROM FK2_TB_CALENDARIO_PROVA WHERE CODIGO = :codigoCalendario`,
+        { codigoCalendario: dto.codigoCalendario } as any,
+      );
+      if (!existente || existente.length === 0) {
+        throw new BadRequestException(
+          `Não foi encontrado calendário de prova com código ${dto.codigoCalendario}`,
+        );
+      }
+
+      const campos: string[] = [];
+      const params: Record<string, any> = {
+        codigoCalendario: dto.codigoCalendario,
+      };
+
+      if (dto.codigoTipoProva !== undefined) {
+        campos.push('CODIGO_TIPO_PROVA = :codigoTipoProva');
+        params.codigoTipoProva = dto.codigoTipoProva;
+      }
+      if (dto.codigoModalidade !== undefined) {
+        campos.push('CODIGO_MODALIDADE = :codigoModalidade');
+        params.codigoModalidade = dto.codigoModalidade;
+      }
+      if (dto.codigoSala !== undefined) {
+        campos.push('CODIGO_SALA = :codigoSala');
+        params.codigoSala = dto.codigoSala;
+      }
+      if (dto.codigoPeriodo !== undefined) {
+        campos.push('CODIGO_PERIODO = :codigoPeriodo');
+        params.codigoPeriodo = dto.codigoPeriodo;
+      }
+      if (dto.dataProva !== undefined) {
+        campos.push(`DATA_PROVA = TO_DATE(:dataProva, 'YYYY-MM-DD')`);
+        params.dataProva = dto.dataProva;
+      }
+      if (dto.duracaoProva !== undefined) {
+        campos.push(
+          `DURACAOPROVA = TO_DATE('1900-01-01','YYYY-MM-DD') + (:duracaoProva * 60) / 86400`,
+        );
+        params.duracaoProva = dto.duracaoProva;
+      }
+      if (dto.horaTermino !== undefined) {
+        campos.push(`HORA_TERMINO = TO_DATE(:horaTermino,'HH24:MI')`);
+        params.horaTermino = dto.horaTermino;
+      }
+      if (dto.horaProva !== undefined) {
+        campos.push(`HORA_PROVA = TO_DATE(:horaProva,'HH24:MI')`);
+        params.horaProva = dto.horaProva;
+      }
+      if (dto.url !== undefined) {
+        campos.push('URL = :url');
+        params.url = dto.url;
+      }
+
+      if (dto.codigoDisciplina !== undefined) {
+        const codigoDisciplina = await this.obterCodigoDisciplinaByGrade(
+          dto.codigoDisciplina,
+        );
+        campos.push('CODIGO_DISCIPLINA = :codigoDisciplina');
+        params.codigoDisciplina = codigoDisciplina;
+      }
+
+      if (dto.Horario !== undefined) {
+        const refHorario = await this.obterHorario(dto.Horario);
+        campos.push('REF_HORARIO = :refHorario');
+        params.refHorario = refHorario;
+      }
+
+      if (dto.prazoId !== undefined) {
+        const refPrazo = await this.obterPrazo(dto.prazoId);
+        campos.push('REF_PRAZO = :refPrazo');
+        params.refPrazo = refPrazo;
+      }
+
+      let refUtilizadorAtual: string | null = null;
+      if (dto.codigoUtilizador !== undefined) {
+        refUtilizadorAtual = await this.obterUtilizador(dto.codigoUtilizador);
+        campos.push('CODIGO_UTILIZADOR = :codigoUtilizador');
+        campos.push('REF_UTILIZADOR = :refUtilizador');
+        params.codigoUtilizador = dto.codigoUtilizador;
+        params.refUtilizador = refUtilizadorAtual;
+      }
+
+      if (campos.length > 0) {
+        const sqlUpdate = `
+          UPDATE FK2_TB_CALENDARIO_PROVA
+          SET ${campos.join(',\n              ')}
+          WHERE CODIGO = :codigoCalendario
+        `;
+        await queryRunner.query(sqlUpdate, params as any);
+      }
+
+      if (dto.vigilantes !== undefined) {
+        const refUtilizadorRegisto =
+          refUtilizadorAtual ??
+          (dto.codigoUtilizador !== undefined
+            ? await this.obterUtilizador(dto.codigoUtilizador)
+            : null);
+
+        await queryRunner.query(
+          `DELETE FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE WHERE CALENDARIO_PROVA = :codigoCalendario`,
+          { codigoCalendario: dto.codigoCalendario } as any,
+        );
+
+        if (dto.vigilantes.length > 0) {
+          const sqlv = `
+            INSERT INTO FK2_TB_CALENDARIO_PROVA_VIGILANTE (
+              CALENDARIO_PROVA,
+              VIGILANTE,
+              DATA,
+              STATUS_,
+              CODIGO_UTILIZADOR_REGISTO,
+              REF_VIGILANTE,
+              REF_UTILIZADOR_REGISTOU,
+              REF_SUMARISTA,
+              ESTADO_AGENDAMENTO
+            ) VALUES (
+              :calendarioProva,
+              :vigilante,
+              SYSDATE,
+              :status,
+              :codigoUtilizadorRegisto,
+              :refVigilante,
+              :refUtilizadorRegisto,
+              NULL,
+              :estadoAgendamento
+            )
+          `;
+
+          for (const vig of dto.vigilantes) {
+            await queryRunner.query(sqlv, {
+              calendarioProva: dto.codigoCalendario,
+              vigilante: vig.codigoUtilizador,
+              status: 1,
+              codigoUtilizadorRegisto: dto.codigoUtilizador ?? null,
+              refVigilante: JSON.stringify({
+                pk: vig.codigoUtilizador,
+                desc: vig.desc,
+                corLetra: 'black',
+                disponivel: true,
+              }),
+              refUtilizadorRegisto,
+              estadoAgendamento: 1,
+            } as any);
+          }
+        }
+      }
+
+      await queryRunner.commitTransaction();
+
+      return {
+        success: true,
+        message: 'Calendário de prova atualizado com sucesso',
+        data: {
+          codigoCalendario: dto.codigoCalendario,
+        },
+      };
+    } catch (error: any) {
+      await queryRunner.rollbackTransaction();
+      console.error('Erro ao editar calendário de prova:', error);
+      throw new Error(`Falha ao editar calendário de prova: ${error.message}`);
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
   private async obterProximoCodigoVigilante(): Promise<number> {
     const result = await this.dataSource.query(`
    SELECT NVL(MAX(CODIGO), 0) + 1 AS proximo_codigo

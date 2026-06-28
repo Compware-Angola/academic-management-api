@@ -103,13 +103,22 @@ export class BookTestService {
   }
 
   async createCalendarioProva(dto: CreateCalendarioProvaDto) {
-    const ref_json_prazo = await this.obterPrazo(dto.prazoId);
-    const ref_json_horario = await this.obterHorario(dto.Horario);
-    const ref_json_utilizador = await this.obterUtilizador(
-      dto.codigoUtilizador,
-    );
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    const sql = `
+    try {
+      // Buscar dados de referência antes da transação (são apenas SELECTs)
+      const ref_json_prazo = await this.obterPrazo(dto.prazoId);
+      const ref_json_horario = await this.obterHorario(dto.Horario);
+      const ref_json_utilizador = await this.obterUtilizador(
+        dto.codigoUtilizador,
+      );
+      const codigoDisciplina = await this.obterCodigoDisciplinaByGrade(
+        dto.codigoDisciplina,
+      );
+
+      const sql = `
       INSERT INTO FK2_TB_CALENDARIO_PROVA (
         CODIGO_CALENDARIO,
         CODIGO_TIPO_PROVA,
@@ -148,14 +157,10 @@ export class BookTestService {
         :refUtilizador,
         :refHorario,
         :refPrazo
-      )RETURNING CODIGO INTO :outId
+      ) RETURNING CODIGO INTO :outId
     `;
 
-    try {
-      const codigoDisciplina = await this.obterCodigoDisciplinaByGrade(
-        dto.codigoDisciplina,
-      );
-      const result = await this.dataSource.query(sql, {
+      const result = await queryRunner.query(sql, {
         codigoCalendario: dto.codigoCalendario,
         codigoTipoProva: dto.codigoTipoProva,
         codigoModalidade: dto.codigoModalidade,
@@ -183,35 +188,35 @@ export class BookTestService {
         );
       }
 
+      const codigoCalendarioCriado: number = result.outId[0];
+
       const sqlv = `
-        INSERT INTO FK2_TB_CALENDARIO_PROVA_VIGILANTE (
-          CALENDARIO_PROVA,
-          VIGILANTE,
-          DATA,
-          STATUS_,
-          CODIGO_UTILIZADOR_REGISTO,
-          REF_VIGILANTE,
-          REF_UTILIZADOR_REGISTOU,
-          REF_SUMARISTA,
-          ESTADO_AGENDAMENTO
-        ) VALUES (
-          :calendarioProva,
-          :vigilante,
-          SYSDATE,
-          :status,
-          :codigoUtilizadorRegisto,
-          :refVigilante,
-          :refUtilizadorRegisto,
-          NULL,
-          :estadoAgendamento
-        )
-      `;
-      // Dentro do seu método, antes do loop
-      let proximoCodigo = await this.obterProximoCodigoVigilante();
-      // Loop
+      INSERT INTO FK2_TB_CALENDARIO_PROVA_VIGILANTE (
+        CALENDARIO_PROVA,
+        VIGILANTE,
+        DATA,
+        STATUS_,
+        CODIGO_UTILIZADOR_REGISTO,
+        REF_VIGILANTE,
+        REF_UTILIZADOR_REGISTOU,
+        REF_SUMARISTA,
+        ESTADO_AGENDAMENTO
+      ) VALUES (
+        :calendarioProva,
+        :vigilante,
+        SYSDATE,
+        :status,
+        :codigoUtilizadorRegisto,
+        :refVigilante,
+        :refUtilizadorRegisto,
+        NULL,
+        :estadoAgendamento
+      )
+    `;
+
       for (const vig of dto.vigilantes) {
-        await this.dataSource.query(sqlv, {
-          calendarioProva: result.outId[0],
+        await queryRunner.query(sqlv, {
+          calendarioProva: codigoCalendarioCriado,
           vigilante: vig.codigoUtilizador,
           status: 1,
           codigoUtilizadorRegisto: dto.codigoUtilizador,
@@ -224,20 +229,23 @@ export class BookTestService {
           refUtilizadorRegisto: ref_json_utilizador,
           estadoAgendamento: 1,
         } as any);
-
-        proximoCodigo++;
       }
+
+      await queryRunner.commitTransaction();
 
       return {
         success: true,
         message: 'Calendário de prova criado com sucesso',
         data: {
-          codigoCalendario: result.outId[0],
+          codigoCalendario: codigoCalendarioCriado,
         },
       };
     } catch (error: any) {
-      console.error('Erro ao inserir calendário de prova:', error);
+      await queryRunner.rollbackTransaction();
+      console.error('Erro ao criar calendário de prova:', error);
       throw new Error(`Falha ao criar calendário de prova: ${error?.message}`);
+    } finally {
+      await queryRunner.release();
     }
   }
   async deleteCalendarioProva(id: number) {

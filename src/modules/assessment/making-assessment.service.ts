@@ -190,7 +190,7 @@ export class MarkingAssessmentService {
             tf.designacao   AS faculdade,
             tp.Designacao   AS periodo,
             tcp.codigo      AS codigoProva,
-            tcp.data_prova  AS tcp_data_prova,
+             TO_CHAR(tcp.data_prova, 'YYYY-MM-DD')  AS tcp_data_prova,
             to_char(tcp.HORA_TERMINO,'hh24:mi:ss') as horatermino,
             ts.Designacao   AS tb_salas_Designacao,
             tt.PK_HORARIO AS codigo_horario,
