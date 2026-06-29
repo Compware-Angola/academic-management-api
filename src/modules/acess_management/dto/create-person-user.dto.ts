@@ -9,8 +9,8 @@ import {
   Validate,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsAtLeastYearsOld } from 'src/modules/common/validators/is-at-least-years-old.validator';
-import { IsValidDocNumber } from 'src/modules/common/validators/is-valid-doc-number.validator';
+import { IsAtLeastYearsOld } from 'src/common/validators/is-at-least-years-old.validator';
+import { IsValidDocNumber } from 'src/common/validators/is-valid-doc-number.validator';
 
 export class CreatePersonUserDto {
   @ApiProperty({ example: 'João António da Silva' })

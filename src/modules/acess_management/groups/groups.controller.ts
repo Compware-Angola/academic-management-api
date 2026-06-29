@@ -12,15 +12,15 @@ import {
 import { GroupsService } from './groups.service';
 import { GroupsDto } from './dto/groups.dto';
 import { GroupsFilterDto } from './dto/filter-groups';
-import { PermissionsGuard } from 'src/modules/common/secret/permissions.guard';
-import { RemoteJwtAuthGuard } from 'src/modules/common/guard/remote.jwt-auth.guard';
-import { RequiredPermissions } from 'src/modules/common/pipes/permissions.decorator';
-import { PermissionTypeDetails } from 'src/modules/common/enums/permission.type';
+import { PermissionsGuard } from 'src/common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from 'src/common/guard/remote.jwt-auth.guard';
+import { RequiredPermissions } from 'src/common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from 'src/common/enums/permission.type';
 
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('groups')
 export class GroupsController {
-  constructor(private readonly groupsService: GroupsService) {}
+  constructor(private readonly groupsService: GroupsService) { }
 
   @Get('find-all')
   @RequiredPermissions(PermissionTypeDetails.GRUPOS.sigla)

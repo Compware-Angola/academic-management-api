@@ -9,7 +9,7 @@ import {
   Validate,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsAtLeastYearsOld } from 'src/modules/common/validators/is-at-least-years-old.validator';
+import { IsAtLeastYearsOld } from 'src/common/validators/is-at-least-years-old.validator';
 
 export class UpdatePersonUserDto {
   @ApiPropertyOptional({ example: 'João António da Silva' })

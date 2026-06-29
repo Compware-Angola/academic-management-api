@@ -12,7 +12,9 @@ import {
   ParseIntPipe,
   UseGuards,
   Req,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   AssessmentService,
   NotaLancadaResponseDto,
@@ -72,15 +74,17 @@ import { FetchViewNotesDTO } from './dto/fetch-view-notes.dto';
 // Adicionado da branch develop (funcionalidade útil que não existia na HEAD)
 import { BookTestService } from './book_test.service';
 import { CreateCalendarioProvaDto } from './dto/CreateCalendarioProvaDto';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
-import { AccessLogHelper } from '../common/helpers/access-log.helper';
+import { PermissionsGuard } from '../../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
+import { AccessLogHelper } from '../../common/helpers/access-log.helper';
 import { HttpService } from '@nestjs/axios';
 import { buildFormulaLog } from './util/buildFormulaLog';
-import { RequiredPermissions } from '../common/pipes/permissions.decorator';
-import { PermissionTypeDetails } from '../common/enums/permission.type';
+import { RequiredPermissions } from '../../common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from '../../common/enums/permission.type';
 import { PromptGetPermissionLaunchDTO } from './dto/prompt-get-permission-launch.dto';
 import { GetStudentSummaryDto } from './dto/GetStudentSummaryDto';
+import { HttpExportHelper } from '../../common/helpers/export/http-export.helper';
+import { UpdateCalendarioProvaDto } from './dto/UpdateCalendarioProvaDto';
 
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('assessment')
@@ -102,7 +106,7 @@ export class AssessmentController {
     private readonly viewNotesService: ViewNotesService,
     private httpService: HttpService,
     private readonly calendarioProvaService: BookTestService,
-  ) { }
+  ) {}
 
   @Post('upsert')
   @ApiOperation({
@@ -130,8 +134,8 @@ export class AssessmentController {
     );
 
     await AccessLogHelper.logAccess(this.httpService, {
-      descricao: `Lançamento em massa de ${dto.items.length} nota(s) 
-            | Tipo Avaliação: ${dto.items[0]?.tipoAvaliacao || '—'} 
+      descricao: `Lançamento em massa de ${dto.items.length} nota(s)
+            | Tipo Avaliação: ${dto.items[0]?.tipoAvaliacao || '—'}
             | Época: ${dto.items[0]?.epoca || '—'}
             | Total de alunos: ${dto.items.length}`,
       fkAcesso: 7,
@@ -218,6 +222,17 @@ export class AssessmentController {
   @ApiResponse({ status: 400, description: 'Dados inválidos' })
   async createCalendarioProva(@Body() dto: CreateCalendarioProvaDto) {
     return this.calendarioProvaService.createCalendarioProva(dto);
+  }
+  @Put('update-calendario-prova')
+  @ApiOperation({ summary: 'Actualizar um novo agendamento de prova' })
+  @ApiResponse({ status: 201, description: 'Prova agendada com sucesso' })
+  @ApiResponse({ status: 400, description: 'Dados inválidos' })
+  async updateCalendarioProva(@Body() dto: UpdateCalendarioProvaDto) {
+    return this.calendarioProvaService.editarCalendarioProva(dto);
+  }
+  @Delete('delete-calendario-prova/:id')
+  async deleteMarkingAssessment(@Param('id', ParseIntPipe) id: number) {
+    return this.calendarioProvaService.deleteCalendarioProva(id);
   }
 
   @Get('parametros-avaliacoes')
@@ -479,6 +494,31 @@ export class AssessmentController {
     return this.markingAssessmentService.findMarkingAssementService(params);
   }
 
+  @Get('marcacoes-provas/export/csv')
+  async exportarMarcacoesProvasCsv(
+    @Query(ValidationPipe) params: MarkingAssessmentDTO,
+    @Res() response: Response,
+  ) {
+    await HttpExportHelper.streamCsv(
+      response,
+      'marcacoes-provas',
+      this.markingAssessmentService.exportMarkingAssessmentsCsv(params),
+    );
+  }
+
+  @Get('marcacoes-provas/export/pdf')
+  async exportarMarcacoesProvasPdf(
+    @Query(ValidationPipe) params: MarkingAssessmentDTO,
+    @Res() response: Response,
+  ) {
+    await HttpExportHelper.streamPdf(response, 'marcacoes-provas', (document) =>
+      this.markingAssessmentService.writeMarkingAssessmentsPdf(
+        params,
+        document,
+      ),
+    );
+  }
+
   @Put('permissoes/:permissionId')
   @ApiOperation({
     summary:
@@ -497,5 +537,9 @@ export class AssessmentController {
   @Get('visualizar-notas')
   async visualizarNots(@Query(ValidationPipe) params: FetchViewNotesDTO) {
     return this.viewNotesService.findNoteByHorario(params);
+  }
+  @Get('marcacoes-provas/:id')
+  async findMarkingAssessment(@Param('id', ParseIntPipe) id: number) {
+    return this.markingAssessmentService.findById(id);
   }
 }

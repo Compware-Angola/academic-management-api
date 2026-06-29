@@ -13,14 +13,14 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { AcademicActivitiesService } from './academic_activities.service';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
 import { FindMarcacaoPrazoDTO } from './dto/find-marcacao-prova-prazo.dto';
 import { promptToCreateAndEditService } from './prompt-to-create-and-edit.service';
 import { ApiQuery } from '@nestjs/swagger/dist/decorators/api-query.decorator';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CreateAcademicActivitiesTermsDto } from './dto/create-academic-activities-terms.dto';
-import { AccessLogHelper } from '../common/helpers/access-log.helper';
+import { AccessLogHelper } from '../../common/helpers/access-log.helper';
 import { HttpService } from '@nestjs/axios/dist/http.service';
 import { FindPrazosMatricula } from './dto/find-prazos-matricula.dto';
 import { CreateCalendarActivityDto } from './dto/create-calendar-activity.dto';
@@ -35,7 +35,7 @@ export class AcademicActivitiesController {
     private readonly academicActivitiesService: AcademicActivitiesService,
     private readonly promptToCreateAndEditService: promptToCreateAndEditService,
     private readonly httpService: HttpService,
-  ) {}
+  ) { }
 
   @Post('calendar-activities')
   @ApiOperation({ summary: 'Criar atividade lectiva no calendário académico' })

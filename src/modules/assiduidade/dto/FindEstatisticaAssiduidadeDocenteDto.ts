@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNumber, IsOptional, IsString, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ToBoolean } from 'src/modules/common/decorators/to-boolean.decorator';
+import { ToBoolean } from 'src/common/decorators/to-boolean.decorator';
 
 
 export class FindEstatisticaAssiduidadeDocenteDto {

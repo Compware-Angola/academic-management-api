@@ -29,8 +29,8 @@ import {
   UpdateStudentPersonalDataDTO,
 } from './dto/find-students.dto';
 import { ActivateRegistrationDTO } from './dto/activate-registration.dto';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
 import { AcademicHistoryDTO } from './dto/academic-history';
 import { ChangeCourseDTO } from './dto/change-course.dto';
 
@@ -57,10 +57,10 @@ import { StudentsChangeCourse } from './students-change.course.service';
 import { StudentsResultPlanService } from './students-result-plan.service';
 import { ListarDiplomadosDTO } from './dto/listar-diplomados-dto';
 import { HttpService } from '@nestjs/axios';
-import { AccessLogHelper } from '../common/helpers/access-log.helper';
+import { AccessLogHelper } from '../../common/helpers/access-log.helper';
 import { AtiveConfirmationService } from './ative-confirmation.service';
-import { RequiredPermissions } from '../common/pipes/permissions.decorator';
-import { PermissionTypeDetails } from '../common/enums/permission.type';
+import { RequiredPermissions } from '../../common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from '../../common/enums/permission.type';
 import { EquivalenceTFCMigration } from './equivalence-tfc-migration.service';
 import { CreateEquivalenceTFCMigration } from './dto/create-equivalence-tfc-migration';
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -77,7 +77,7 @@ export class StudentsController {
     private readonly ativeConfirmationService: AtiveConfirmationService,
     private readonly equivalenceTFMigration: EquivalenceTFCMigration,
     private httpService: HttpService,
-  ) {}
+  ) { }
   private log(req: any, descricao: string) {
     const user = req.user;
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';

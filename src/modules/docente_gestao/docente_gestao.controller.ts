@@ -21,8 +21,8 @@ import { FindDocenteAfectacaoDTO } from './dto/find-docente-afectacao.dto';
 import { UpdateDocenteDto } from './dto/update-docente.dto';
 import { FilterDocenteDto } from './dto/filter-docente.dto';
 import { FilterDocenteRegenteDto } from './dto/filter-docente-regente.dto';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../../common/secret/permissions.guard';
 import {
   ApiBody,
   ApiOperation,
@@ -33,15 +33,15 @@ import {
 import { CreateAfectacaoDTO } from './dto/create-afectaco.dto';
 import { FilterDocenteContratoDto } from './dto/filter-docente-contrato.dto';
 import { DefinirRegenteDto } from './dto/definir-regente.dto';
-import { RequiredPermissions } from '../common/pipes/permissions.decorator';
-import { PermissionTypeDetails } from '../common/enums/permission.type';
+import { RequiredPermissions } from '../../common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from '../../common/enums/permission.type';
 
 @ApiTags('docente-gestao')
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('docente-gestao')
 //@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 export class DocenteGestaoController {
-  constructor(private readonly service: DocenteGestaoService) {}
+  constructor(private readonly service: DocenteGestaoService) { }
   @Get('/parametros')
   @ApiOperation({
     summary: 'Listar parametros',

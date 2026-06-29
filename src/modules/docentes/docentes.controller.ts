@@ -23,10 +23,10 @@ import { CursosResponseDto } from './dto/curso';
 import { CadeirasResponseDto } from './dto/cadeira';
 
 import { UpdateProgramaStatusUCDTO } from './dto/update-programa-uc.dto';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
-import { RequiredPermissions } from '../common/pipes/permissions.decorator';
-import { PermissionTypeDetails } from '../common/enums/permission.type';
+import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../../common/secret/permissions.guard';
+import { RequiredPermissions } from '../../common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from '../../common/enums/permission.type';
 import { FindAssiduidadeDTO } from './dto/find-assiduidade.dto';
 import { FindHorarioVigilantesCDTO } from './dto/find-horario-vigilantes.dto';
 import { FindAfectacaoDTO } from '../docente_gestao/dto/find-afectacao.dto';
@@ -35,7 +35,7 @@ import { UpdateAfectacaoDTO } from '../docente_gestao/dto/update-afectacao.dto';
 @Controller('docentes')
 //@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 export class DocentesController {
-  constructor(private readonly docentesService: DocentesService) {}
+  constructor(private readonly docentesService: DocentesService) { }
 
   @Get('/programa-uc')
   @RequiredPermissions(

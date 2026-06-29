@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
 import { CreateStudentEnrollmentUC } from './dto/create-student-enrollment-uc';
-import { STATUS_GRADE } from '../common/enums/status.grade';
+import { STATUS_GRADE } from '../../common/enums/status.grade';
 import oracledb from 'oracledb';
 
 interface CriarConfirmacoesDTO {

@@ -11,8 +11,8 @@ import {
   Query,
 } from '@nestjs/common';
 import { TeacherService } from './users.service';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
+import { PermissionsGuard } from '../../common/secret/permissions.guard';
 
 
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)

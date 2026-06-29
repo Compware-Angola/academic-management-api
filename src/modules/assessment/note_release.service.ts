@@ -6,7 +6,7 @@ import {
   StudentEvaluationArrayDto,
   StudentEvaluationDto,
 } from './dto/student-evaluation.dto';
-import { DecodedUserPayload } from '../common/types/token-validation-response.interface';
+import { DecodedUserPayload } from '../../common/types/token-validation-response.interface';
 import { promptToCreateAndEditService } from '../academic_activities/prompt-to-create-and-edit.service';
 import { GetStudentSummaryDto } from './dto/GetStudentSummaryDto';
 import { InjectQueue } from '@nestjs/bullmq';

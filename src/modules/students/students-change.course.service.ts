@@ -4,11 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
-import { STATUS_GRADE } from '../common/enums/status.grade';
+import { STATUS_GRADE } from '../../common/enums/status.grade';
 import { ChangeCourseDTO } from './dto/change-course.dto';
 import { AnoLectivoUtil } from '../util/current-academic-year';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
-import { SERVICE_SIGLA } from '../common/enums/service.sigla';
+import { SERVICE_SIGLA } from '../../common/enums/service.sigla';
 import oracledb from 'oracledb';
 interface RegistrarMotivoParams {
   codigoMatricula: number;
@@ -91,7 +91,7 @@ export class StudentsChangeCourse {
   constructor(
     private readonly dataSource: DataSource,
     private readonly anoLectivoUtil: AnoLectivoUtil,
-  ) {}
+  ) { }
   private queryRunner: QueryRunner;
 
   private async getNomeUser(userId: number): Promise<string> {
@@ -868,7 +868,7 @@ export class StudentsChangeCourse {
             t.codigo_grade == n.codigo ||
             t.codigo_disciplina == n.codigo_disciplina ||
             t.disciplina.toUpperCase().trim() ==
-              n.disciplina.toUpperCase().trim(),
+            n.disciplina.toUpperCase().trim(),
         ),
     );
     const nomeUtilizador = await this.getNomeUser(userId);

@@ -43,11 +43,11 @@ import { CreateAcessoDto } from './dto/create-acesso.dto';
 
 import { FilterUserLogadoDto } from './dto/filter-user-logado.dto';
 import { CreateLogsDTO } from './dto/create-logs.dto';
-import { RequiredPermissions } from '../common/pipes/permissions.decorator';
-import { PermissionTypeDetails } from '../common/enums/permission.type';
-import { PermissionsGuard } from '../common/secret/permissions.guard';
-import { RemoteJwtAuthGuard } from '../common/guard/remote.jwt-auth.guard';
-import { AccessLogHelper } from '../common/helpers/access-log.helper';
+import { RequiredPermissions } from '../../common/pipes/permissions.decorator';
+import { PermissionTypeDetails } from '../../common/enums/permission.type';
+import { PermissionsGuard } from '../../common/secret/permissions.guard';
+import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
+import { AccessLogHelper } from '../../common/helpers/access-log.helper';
 import { HttpService } from '@nestjs/axios';
 import { UpdatePersonUserDto } from './dto/update-person-user.dto';
 import { FindUserByGrupoDTO } from './dto/find-user-by-grupo.dto';
@@ -59,7 +59,7 @@ export class AcessManagementController {
     private readonly logsService: LogsService,
     private readonly acessosService: AcessosService,
     private httpService: HttpService,
-  ) {}
+  ) { }
 
   @Post('create-person-user')
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)

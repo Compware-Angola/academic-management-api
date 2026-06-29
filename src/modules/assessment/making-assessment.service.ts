@@ -2,10 +2,144 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { MarkingAssessmentDTO } from './dto/marking-assessment.dto';
+import { CsvExportHelper } from '../../common/helpers/export/csv-export.helper';
+import { PdfExportHelper } from '../../common/helpers/export/pdf-export.helper';
+
+type MarkingAssessmentExportRow = Record<string, unknown> & {
+  curso?: string;
+  disciplina?: string;
+  anolectivo?: string;
+  classe?: string;
+  horario?: string;
+  periodo?: string;
+  tb_salas_designacao?: string;
+  tcp_data_prova?: string | Date | null;
+  duracaoprova?: string;
+  tcp_hora_prova?: string;
+  horatermino?: string;
+};
+
+const MARKING_ASSESSMENT_EXPORT_HEADERS = [
+  'Curso',
+  'Disciplina',
+  'Ano Lectivo',
+  'Classe',
+  'Horário',
+  'Período',
+  'Sala',
+  'Data da Prova',
+  'Duração',
+  'Hora da Prova',
+  'Hora de Término',
+];
 
 @Injectable()
 export class MarkingAssessmentService {
   constructor(private readonly dataSource: DataSource) {}
+
+  async *exportMarkingAssessmentsCsv(
+    filters: MarkingAssessmentDTO,
+  ): AsyncGenerator<string> {
+    yield* CsvExportHelper.generate(
+      MARKING_ASSESSMENT_EXPORT_HEADERS,
+      this.iterateMarkingAssessments(filters),
+      (row) => this.mapMarkingAssessmentExportRow(row),
+    );
+  }
+
+  async writeMarkingAssessmentsPdf(
+    filters: MarkingAssessmentDTO,
+    document: PDFKit.PDFDocument,
+  ): Promise<void> {
+    await PdfExportHelper.writeTable(
+      document,
+      this.iterateMarkingAssessments(filters),
+      {
+        title: 'Marcação de Provas',
+        columns: [
+          { label: 'Curso', key: 'curso', width: 95 },
+          { label: 'Disciplina', key: 'disciplina', width: 120 },
+          { label: 'Ano Lectivo', key: 'anolectivo', width: 58 },
+          { label: 'Classe', key: 'classe', width: 45 },
+          { label: 'Horário', key: 'horario', width: 85 },
+          { label: 'Período', key: 'periodo', width: 55 },
+          { label: 'Sala', key: 'tb_salas_designacao', width: 60 },
+          { label: 'Data', key: 'tcp_data_prova', width: 62 },
+          { label: 'Duração', key: 'duracaoprova', width: 50 },
+          { label: 'Hora Prova', key: 'tcp_hora_prova', width: 55 },
+          { label: 'Hora Fim', key: 'horatermino', width: 60 },
+        ],
+      },
+    );
+  }
+
+  private async *iterateMarkingAssessments(
+    filters: MarkingAssessmentDTO,
+  ): AsyncGenerator<MarkingAssessmentExportRow[]> {
+    const batchSize = 500;
+    let page = 1;
+
+    while (true) {
+      const response = await this.findMarkingAssementService({
+        ...filters,
+        page,
+        limit: batchSize,
+      });
+      const rows = response.data as MarkingAssessmentExportRow[];
+
+      if (!rows.length) {
+        break;
+      }
+
+      yield rows.map((row) => ({
+        ...row,
+        tcp_data_prova: this.formatExportDate(row.tcp_data_prova),
+      }));
+
+      if (rows.length < batchSize || page * batchSize >= response.total) {
+        break;
+      }
+
+      page += 1;
+    }
+  }
+
+  private mapMarkingAssessmentExportRow(
+    row: MarkingAssessmentExportRow,
+  ): unknown[] {
+    return [
+      row.curso,
+      row.disciplina,
+      row.anolectivo,
+      row.classe,
+      row.horario,
+      row.periodo,
+      row.tb_salas_designacao,
+      row.tcp_data_prova,
+      row.duracaoprova,
+      row.tcp_hora_prova,
+      row.horatermino,
+    ];
+  }
+
+  private formatExportDate(value: unknown): string {
+    if (!value) return '';
+    if (value instanceof Date) return value.toISOString().slice(0, 10);
+
+    if (
+      typeof value !== 'string' &&
+      typeof value !== 'number' &&
+      typeof value !== 'boolean' &&
+      typeof value !== 'bigint'
+    ) {
+      return '';
+    }
+
+    const text = String(value);
+    if (!text) return '';
+
+    return text.includes('T') ? text.split('T')[0] : text;
+  }
 
   async findMarkingAssementService(filters: MarkingAssessmentDTO) {
     const {
@@ -56,7 +190,7 @@ export class MarkingAssessmentService {
             tf.designacao   AS faculdade,
             tp.Designacao   AS periodo,
             tcp.codigo      AS codigoProva,
-            tcp.data_prova  AS tcp_data_prova,
+             TO_CHAR(tcp.data_prova, 'YYYY-MM-DD')  AS tcp_data_prova,
             to_char(tcp.HORA_TERMINO,'hh24:mi:ss') as horatermino,
             ts.Designacao   AS tb_salas_Designacao,
             tt.PK_HORARIO AS codigo_horario,
@@ -256,5 +390,70 @@ export class MarkingAssessmentService {
       limit,
       totalPages: 0,
     };
+  }
+  async findById(codigo: number) {
+    const sqlCalendario = `
+    SELECT
+        -- Horário
+        hr.PK_HORARIO       AS codigo_horario,
+        hr.DESIGNACAO       AS horario,
+
+        -- Ano Lectivo
+        hr.FK_ANO_LECTIVO   AS codigo_ano_lectivo,
+        hr.FK_SEMESTRE      AS codigo_semestre,
+        hr.FK_PERIODO       AS codigo_periodo,
+
+        -- Grade Curricular
+        g.CODIGO_CURSO      AS codigo_curso,
+        g.CODIGO_CLASSE     AS codigo_classe,
+        g.CODIGO            AS codigo_grade,
+
+        -- Prova
+        cp.CODIGO           AS codigo_prova,
+        cp.CODIGO_TIPO_PROVA AS codigo_tipo_prova,
+        cp.CODIGO_SALA      AS codigo_sala,
+        to_char(cp.HORA_TERMINO,'hh24:mi:ss')     AS hora_termino,
+        to_char(cp.HORA_PROVA ,'hh24:mi:ss')      AS hora_prova,
+        TO_CHAR(cp.DATA_PROVA, 'YYYY-MM-DD')       AS data_prova,
+        cp.CODIGO_MODALIDADE AS codigo_modalidade,
+
+        --Tipo de Prova
+        json_value(cp.REF_PRAZO,'$.pk_prazo') AS codigo_prazo,
+
+        cp.codigo_calendario                     as tipo_candidatura
+
+    FROM FK2_TB_CALENDARIO_PROVA cp
+    INNER JOIN FK2_MGH_TB_HORARIO hr
+        ON hr.PK_HORARIO = JSON_VALUE(cp.REF_HORARIO,'$.pk')
+    INNER JOIN FK2_TB_GRADE_CURRICULAR g
+        ON g.CODIGO = hr.FK_GRADE_CURRICULAR
+    WHERE cp.CODIGO = :codigo
+  `;
+
+    const sqlVigilantes = `
+    SELECT
+        vg.VIGILANTE AS codigo_utilizador,
+        JSON_VALUE(vg.REF_VIGILANTE, '$.desc') AS nome_vigilante,
+        doc.CODIGO AS codigo_docente
+    FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE vg
+    INNER JOIN FK2_MGD_TB_DOCENTE doc
+        ON JSON_VALUE(doc.CODIGO_UTILIZADOR, '$.pk') = vg.VIGILANTE
+    WHERE vg.CALENDARIO_PROVA = :codigo
+  `;
+
+    const [calendarioResult, vigilantesResult] = await Promise.all([
+      this.dataSource.query(sqlCalendario, { codigo } as any),
+      this.dataSource.query(sqlVigilantes, { codigo } as any),
+    ]);
+
+    if (!calendarioResult.length) {
+      return null;
+    }
+
+    const calendario = (await toLowerCaseKeys(calendarioResult))[0];
+
+    calendario.vigilantes = await toLowerCaseKeys(vigilantesResult);
+
+    return calendario;
   }
 }

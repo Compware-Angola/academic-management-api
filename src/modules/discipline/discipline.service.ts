@@ -37,7 +37,7 @@ export class DisciplineService {
   al.codigo_matricula = ${matriculaId}
   AND g.status_ = 1
   AND al.estado != 3
-  AND mat.CODIGO_CURSO = g.CODIGO_CURSO
+  AND (mat.CODIGO_CURSO = g.CODIGO_CURSO or g.CODIGO_CURSO in (select CODIGO_CURSO from FK2_TB_CURSO_ESPECIALIDADE WHERE CODIGO_CURSO_ESPECIALIDADE = mat.CODIGO_CURSO))
   AND cfr.codigo_ano_lectivo = ${anoLectivo}
   ${filtroEliminados}
   ${semestre ? `AND s.codigo = ${semestre}` : ''}
