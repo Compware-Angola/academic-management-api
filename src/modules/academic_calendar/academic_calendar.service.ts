@@ -8,13 +8,17 @@ import { MESTEMP, mesTempConfig } from '../util/generator-mes-temp';
 import { formatDisplay } from '../util/formate-date';
 import { CreateMesTempDTO, MesItemDTO } from './dto/create-mes-temp.dto';
 import { AnoLectivoUtil } from '../util/current-academic-year';
-import { CreateAcademicCalendarDto } from './dto/create-academic_calendar.dto';
-
+import { CreateAcademicCalendarDto, FetchAcademicCalendarDto } from './dto/create-academic_calendar.dto';
+import { AcademicCalendarDto, ConfigureAcademicCalendarDto } from './dto/configure-academic-calendar.dto';
+import { VagasItemDto } from './dto/vagas.dto';
+type InsertVagasCursoType = { codigoUtilizador: number, codigoAnoLectivo: number, vagas: VagasItemDto[] }
+type CreateAcademicYearUtilType = { periodo: AcademicCalendarDto, codigoUtilizador: number }
 @Injectable()
 export class AcademicCalendarService {
   constructor(private readonly dataSource: DataSource, private readonly anoLectivoUtil: AnoLectivoUtil) { }
 
-  async findAcademicYearsWithConfiguredSemesters() {
+  async findAcademicYearsWithConfiguredSemesters(params: FetchAcademicCalendarDto) {
+    const where = params.tipo_candidatura ? 'AND CODIGO_TIPO_CANDIDATURA = :tipo_candidatura' : '';
     const result = await this.dataSource.query(`
       SELECT
         CODIGO AS codigo,
@@ -25,8 +29,9 @@ export class AcademicCalendarService {
         AND DATAFIMPRIMEIROSEMESTRE IS NOT NULL
         AND DATAINICIOSEGUNDOSEMESTRE IS NOT NULL
         AND DATAFIMSEGUNDOSEMESTRE IS NOT NULL
+        ${where}
       ORDER BY CODIGO DESC
-    `);
+    `, params.tipo_candidatura ? [params.tipo_candidatura] : []);
 
     return {
       anolectivos: toLowerCaseKeys(result),
@@ -113,11 +118,21 @@ export class AcademicCalendarService {
     await queryRunner.startTransaction();
 
     try {
+      const existingPandingDraft = await queryRunner.query(
+        `SELECT CODIGO
+          FROM FK2_TB_ANO_LECTIVO
+          WHERE ESTADO = 'Rascunho'
+        `,
+      );
+
+      if (existingPandingDraft.length > 0) {
+        throw new BadRequestException('Existe um ano lectivo pendente');
+      }
       const existingAcademicYear = await queryRunner.query(
-        `
-          SELECT COUNT(*) AS TOTAL
+        ` SELECT COUNT(*) AS TOTAL
           FROM FK2_TB_ANO_LECTIVO
           WHERE DESIGNACAO = :1
+          AND ESTADO != 'Rascunho'
         `,
         [designacao],
       );
@@ -134,7 +149,7 @@ export class AcademicCalendarService {
       const codigo = Number(nextCodeResult[0]?.CODIGO);
 
       await queryRunner.query(
-       `INSERT INTO FK2_TB_ANO_LECTIVO (
+        `INSERT INTO FK2_TB_ANO_LECTIVO (
   CODIGO,
   DESIGNACAO,
   DATAINICIOPRIMEIROSEMESTRE,
@@ -154,7 +169,7 @@ export class AcademicCalendarService {
   TO_DATE(:4, 'YYYY-MM-DD'),
   TO_DATE(:5, 'YYYY-MM-DD'),
   TO_DATE(:6, 'YYYY-MM-DD'),
-  'Desactivo',
+  'Rascunho',
   SYSDATE,
   :7,
   0,
@@ -162,14 +177,14 @@ export class AcademicCalendarService {
   :8
 )`,
         [
-           codigo,
-  designacao,
-  dataInicioPrimeiroSemestre,
-  dataFimPrimeiroSemestre,
-  dataInicioSegundoSemestre,
-  dataFimSegundoSemestre,
-  codigoUtilizador,
-  codigoTipoCandidatura,
+          codigo,
+          designacao,
+          dataInicioPrimeiroSemestre,
+          dataFimPrimeiroSemestre,
+          dataInicioSegundoSemestre,
+          dataFimSegundoSemestre,
+          codigoUtilizador,
+          codigoTipoCandidatura,
         ],
       );
 
@@ -186,6 +201,37 @@ export class AcademicCalendarService {
     }
   }
 
+  async findDraftAcademicYear() {
+    const [result] = await this.dataSource.query(
+      `SELECT
+        CODIGO,
+        DESIGNACAO,
+        TO_CHAR(DATAINICIOPRIMEIROSEMESTRE, 'YYYY-MM-DD') AS DATA_INICIO_PRIMEIRO_SEMESTRE,
+        TO_CHAR(DATAFIMPRIMEIROSEMESTRE, 'YYYY-MM-DD') AS DATA_FIM_PRIMEIRO_SEMESTRE,
+        TO_CHAR(DATAINICIOSEGUNDOSEMESTRE, 'YYYY-MM-DD') AS DATA_INICIO_SEGUNDO_SEMESTRE,
+        TO_CHAR(DATAFIMSEGUNDOSEMESTRE, 'YYYY-MM-DD') AS DATA_FIM_SEGUNDO_SEMESTRE,
+        ESTADO
+     FROM FK2_TB_ANO_LECTIVO
+     WHERE ESTADO = 'Rascunho'
+     FETCH FIRST 1 ROW ONLY`
+    );
+    if (!result) {
+      return {
+        ano_lectivo: null
+      }
+    }
+    return {
+      ano_lectivo: {
+        codigo: result.CODIGO,
+        designacao: result.DESIGNACAO,
+        dataInicioPrimeiroSemestre: result.DATA_INICIO_PRIMEIRO_SEMESTRE,
+        dataFimPrimeiroSemestre: result.DATA_FIM_PRIMEIRO_SEMESTRE,
+        dataInicioSegundoSemestre: result.DATA_INICIO_SEGUNDO_SEMESTRE,
+        dataFimSegundoSemestre: result.DATA_FIM_SEGUNDO_SEMESTRE,
+        estado: result.ESTADO,
+      },
+    }
+  }
   async updateAcademicYearState(anolectivo: number, estado: number) {
     if (![0, 1].includes(estado)) {
       throw new BadRequestException('O estado deve ser 0 ou 1');
@@ -238,6 +284,7 @@ export class AcademicCalendarService {
     anolectivo: number,
     tpcandidatura: number,
   ) {
+    const mainTable = tpcandidatura === 1 ? 'FK2_VAGAS_CURSOS' : 'FK2_VAGAS_CURSOS_POS_GRADUACAO';
     const result = await this.dataSource.query(
       `
         SELECT
@@ -246,7 +293,7 @@ export class AcademicCalendarService {
           TC.DESIGNACAO AS CURSO_DESCRICAO,
           TC.CODIGO AS CODIGO_CURSO,
           TP.DESIGNACAO AS PERIODO_DESCRICAO
-        FROM FK2_VAGAS_CURSOS VC
+        FROM ${mainTable} VC
         INNER JOIN FK2_TB_CURSOS TC
           ON TC.CODIGO = VC.CURSO_ID
         INNER JOIN FK2_TB_PERIODOS TP
@@ -293,13 +340,14 @@ export class AcademicCalendarService {
       let lastCode = 0;
 
       for (const vaga of vagas) {
+
         const {
           codigo_periodo: codigoPeriodo,
           codigo_curso: codigoCurso,
-          polo_id: codigoPolo,
+          polo_id,
           numero_vagas: numeroVagas,
         } = vaga;
-
+        const codigoPolo = polo_id ?? 4;
         if (
           !codigoPeriodo ||
           !codigoCurso ||
@@ -427,37 +475,65 @@ export class AcademicCalendarService {
     if (!activeAcademicYear.length) {
       throw new BadRequestException('Ano lectivo ativo não encontrado');
     }
-
+    console.log("activeAcademicYear", activeAcademicYear);
     const academicYearId = activeAcademicYear[0].CODIGO;
 
-    const result = await this.dataSource.query(
-      `
-        SELECT
-          VC.NUM_VAGAS AS NUMERO_VAGAS,
-          VC.POLO_ID AS CODIGO_POLO,
-          VC.PERIODO_ID AS CODIGO_PERIODO,
-          TC.DESIGNACAO AS CURSO_DESCRICAO,
-          TC.CODIGO AS CODIGO_CURSO,
-          TP.DESIGNACAO AS PERIODO_DESCRICAO
-        FROM FK2_VAGAS_CURSOS VC
-        INNER JOIN FK2_TB_CURSOS TC
-          ON TC.CODIGO = VC.CURSO_ID
-        INNER JOIN FK2_TB_PERIODOS TP
-          ON TP.CODIGO = VC.PERIODO_ID
-        WHERE VC.ANO_LECTIVO_ID = :1
-        ORDER BY TC.CODIGO, TP.CODIGO
-      `,
-      [academicYearId],
-    );
+    const [vacancies, availableCourses] = await Promise.all([
+      this.dataSource.query(
+        `
+      SELECT
+        VC.NUM_VAGAS AS NUMERO_VAGAS,
+        VC.POLO_ID AS CODIGO_POLO,
+        VC.PERIODO_ID AS CODIGO_PERIODO,
+        TC.DESIGNACAO AS CURSO_DESCRICAO,
+        TC.CODIGO AS CODIGO_CURSO,
+        TP.DESIGNACAO AS PERIODO_DESCRICAO
+      FROM FK2_VAGAS_CURSOS VC
+      INNER JOIN FK2_TB_CURSOS TC
+        ON TC.CODIGO = VC.CURSO_ID
+      INNER JOIN FK2_TB_PERIODOS TP
+        ON TP.CODIGO = VC.PERIODO_ID
+      WHERE VC.ANO_LECTIVO_ID = :1
+        AND TC.TIPO_CANDIDATURA = 1
+      ORDER BY TC.CODIGO, TP.CODIGO
+    `,
+        [academicYearId],
+      ),
+
+      this.dataSource.query(
+        `
+      SELECT
+        TC.CODIGO,
+        TC.DESIGNACAO
+      FROM FK2_TB_CURSOS TC
+      WHERE TC.TIPO_CANDIDATURA = 1
+        AND TC.TIPO_CURSO = 1
+        AND TC.STATUS_= 1
+        AND NOT EXISTS (
+          SELECT 1
+          FROM FK2_VAGAS_CURSOS VC
+          WHERE VC.CURSO_ID = TC.CODIGO 
+            AND VC.ANO_LECTIVO_ID = :1
+        )
+      ORDER BY TC.DESIGNACAO
+    `,
+        [academicYearId],
+      ),
+    ]);
 
     return {
-      vagas: result.map((row) => ({
+      vagas: vacancies.map((row) => ({
         numeroVagas: row.NUMERO_VAGAS,
         cursoDescricao: row.CURSO_DESCRICAO,
         codigoCurso: row.CODIGO_CURSO,
         periodoDescricao: row.PERIODO_DESCRICAO,
         codigo_periodo: row.CODIGO_PERIODO,
         codigo_polo: row.CODIGO_POLO,
+      })),
+
+      cursosDisponiveis: availableCourses.map((row) => ({
+        codigo: row.CODIGO,
+        designacao: row.DESIGNACAO,
       })),
     };
   }
@@ -586,9 +662,10 @@ export class AcademicCalendarService {
       } as any,
     );
   }
+
   async createMesTemp(param: CreateMesTempDTO) {
     const queryRunner = this.dataSource.createQueryRunner();
-
+    ``
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
@@ -686,4 +763,170 @@ export class AcademicCalendarService {
     };
   }
 
+  async configureAcademicCalendar(body: ConfigureAcademicCalendarDto, codigoUtilizador: number) {
+    const { periodo, vagas, meses } = body;
+
+    const queryRunner = this.dataSource.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    console.log({ codigoUtilizador });
+    try {
+
+      await this.createAcademicYearUtil(queryRunner, { periodo, codigoUtilizador })
+      const codigoAnoLectivo = await queryRunner.query(
+        `SELECT CODIGO
+          FROM FK2_TB_ANO_LECTIVO
+          WHERE DESIGNACAO = :1
+          AND ESTADO = 'Rascunho' 
+        `,
+        [periodo.designacao],
+      );
+      if (vagas.length <= 0) {
+        throw new BadRequestException('Vagas não informadas');
+      }
+      await this.insertVagasCurso(queryRunner, { codigoUtilizador, codigoAnoLectivo: codigoAnoLectivo[0].CODIGO, vagas })
+      for (const mes of meses) {
+        await this.insertMesTemp(queryRunner, {
+          ...mes,
+          ano_lectivo: codigoAnoLectivo[0].CODIGO,
+        })
+      }
+
+      const cursovagas = await queryRunner.query(`
+        SELECT * from FK2_VAGAS_CURSOS WHERE ANO_LECTIVO_ID = :1
+      `, [codigoAnoLectivo[0].CODIGO]);
+      await queryRunner.query(
+        `UPDATE FK2_TB_ANO_LECTIVO
+          SET ESTADO = 'Desactivo'
+          WHERE CODIGO = :1
+        `,
+        [codigoAnoLectivo[0].CODIGO],
+      );
+      await queryRunner.commitTransaction();
+      return { message: "Ano lectivo configurado com sucesso" };
+    }
+
+    catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+  private async createAcademicYearUtil(queryRunner: QueryRunner, { periodo, codigoUtilizador }: CreateAcademicYearUtilType) {
+    const existingPandingDraft = await queryRunner.query(
+      `SELECT CODIGO
+          FROM FK2_TB_ANO_LECTIVO
+          WHERE ESTADO = 'Rascunho' AND CODIGO_TIPO_CANDIDATURA =:1 
+        `,
+      [periodo.codigo_tipo_candidatura]
+    );
+
+    if (existingPandingDraft.length > 0) {
+      throw new BadRequestException('Existe um ano lectivo pendente');
+    }
+    const existingAcademicYear = await queryRunner.query(
+      ` SELECT COUNT(*) AS TOTAL
+          FROM FK2_TB_ANO_LECTIVO
+          WHERE DESIGNACAO = :1 AND CODIGO_TIPO_CANDIDATURA =:2
+          AND ESTADO != 'Rascunho'
+        `,
+      [periodo.designacao, periodo.codigo_tipo_candidatura],
+    );
+
+    if (Number(existingAcademicYear[0]?.TOTAL || 0) > 0) {
+      throw new BadRequestException('Ano lectivo já existe');
+    }
+    await queryRunner.query(
+      `
+       INSERT INTO FK2_TB_ANO_LECTIVO (
+           
+            DESIGNACAO,
+            DATAINICIOPRIMEIROSEMESTRE,
+            DATAFIMPRIMEIROSEMESTRE,
+            DATAINICIOSEGUNDOSEMESTRE,
+            DATAFIMSEGUNDOSEMESTRE,
+            ESTADO,
+            DATA_ULTIMA_ATUALIZACAO,
+            UTILIZADOR,
+            STATUS_,
+            EPOCA_EXAME_ACESSO,
+            CODIGO_TIPO_CANDIDATURA
+          ) VALUES (
+            
+            :1,
+            TO_DATE(:2, 'YYYY-MM-DD'),
+            TO_DATE(:3, 'YYYY-MM-DD'),
+            TO_DATE(:4, 'YYYY-MM-DD'),
+            TO_DATE(:5, 'YYYY-MM-DD'),
+            'Rascunho',
+            SYSDATE,
+            :6,
+            0,
+            1,
+            :7
+          )
+       `,
+      [
+
+        periodo.designacao,
+        periodo.data_inicio_primeiro_semestre,
+        periodo.data_fim_primeiro_semestre,
+        periodo.data_inicio_segundo_semestre,
+        periodo.data_fim_segundo_semestre,
+        codigoUtilizador,
+        periodo.codigo_tipo_candidatura,
+      ],
+    );
+
+
+  }
+  private async insertVagasCurso(queryRunner: QueryRunner, { codigoUtilizador, codigoAnoLectivo, vagas }: InsertVagasCursoType) {
+    let vagasCursosLastCode = 0;
+    for (const vaga of vagas) {
+      const codigoPolo = vaga.polo_id ?? 4;
+      const nextCodeResult = await queryRunner.query(`
+          SELECT NVL(MAX(ID), 0) + 1 AS CODIGO
+          FROM FK2_VAGAS_CURSOS
+        `);
+
+      vagasCursosLastCode = Number(nextCodeResult[0]?.CODIGO);
+      await queryRunner.query(`
+            INSERT INTO FK2_VAGAS_CURSOS (
+              ID,
+              CURSO_ID,
+              NUM_VAGAS,
+              POLO_ID,
+              USER_ID,
+              PERIODO_ID,
+              CREATED_AT,
+              UPDATED_AT,
+              ANO_LECTIVO_ID,
+              CANAL
+            ) VALUES (
+              :1,
+              :2,
+              :3,
+              :4,
+              :5,
+              :6,
+              SYSDATE,
+              SYSDATE,
+              :7,
+              2
+            )
+          `,
+        [
+          vagasCursosLastCode,
+          vaga.codigo_curso,
+          vaga.numero_vagas,
+          codigoPolo,
+          codigoUtilizador,
+          vaga.codigo_periodo,
+          codigoAnoLectivo,
+        ]
+      )
+    }
+  }
 }

@@ -4,13 +4,12 @@ import {
   Post,
   Put,
   Body,
-  Patch,
   Param,
-  Delete,
   Query,
   ValidationPipe,
   UseGuards,
   ParseIntPipe,
+  Req,
 } from '@nestjs/common';
 import { AcademicCalendarService } from './academic_calendar.service';
 
@@ -20,13 +19,24 @@ import { PermissionsGuard } from '../../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
 import { GenerateMesTempDTO } from './dto/generate-mes-temp.dto';
 import { CreateMesTempDTO } from './dto/create-mes-temp.dto';
-import { CreateAcademicCalendarDto } from './dto/create-academic_calendar.dto';
+import { CreateAcademicCalendarDto, FetchAcademicCalendarDto } from './dto/create-academic_calendar.dto';
+import { ConfigureAcademicCalendarDto } from './dto/configure-academic-calendar.dto';
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('academic-calendar')
 export class AcademicCalendarController {
   constructor(
     private readonly academicCalendarService: AcademicCalendarService,
   ) { }
+  @Post()
+  @ApiOperation({ summary: 'Cria um ano lectivo com os periodos semestrais' })
+  @ApiResponse({ status: 201, description: 'Ano lectivo criado com sucesso' })
+  @ApiResponse({ status: 400, description: 'Dados inválidos ou ano lectivo já existente' })
+
+  async configureAcademicCalendar(@Body() body: ConfigureAcademicCalendarDto, @Req() req: any) {
+    const codigoUtilizador = req.user.sub;
+    return this.academicCalendarService.configureAcademicCalendar(body, codigoUtilizador);
+  }
+
   @Get('generate-mes-temp')
   async searchCurricularByStudenty(@Query() params: GenerateMesTempDTO) {
     return this.academicCalendarService.generateMesTemp(params);
@@ -35,8 +45,8 @@ export class AcademicCalendarController {
   @Get('academic-year/all')
   @ApiOperation({ summary: 'Lista anos lectivos com periodos semestrais configurados' })
   @ApiResponse({ status: 200, description: 'Consulta de anos lectivos realizada com sucesso' })
-  async findAcademicYearsWithConfiguredSemesters() {
-    return this.academicCalendarService.findAcademicYearsWithConfiguredSemesters();
+  async findAcademicYearsWithConfiguredSemesters(@Query() params: FetchAcademicCalendarDto) {
+    return this.academicCalendarService.findAcademicYearsWithConfiguredSemesters(params);
   }
 
   @Get('application-types/all')
@@ -54,6 +64,12 @@ export class AcademicCalendarController {
   ) {
     const onlyPosGraduacao = posgraduacao === 'true' || posgraduacao === '1';
     return this.academicCalendarService.findActiveApplicationTypes(onlyPosGraduacao);
+  }
+  @Get('academic-year/draft')
+  @ApiOperation({ summary: 'Busca o ano lectivo em rascunho' })
+  @ApiResponse({ status: 200, description: 'Ano lectivo retornado com sucesso' })
+  async findDraftAcademicYear() {
+    return this.academicCalendarService.findDraftAcademicYear();
   }
 
   @Get('academic-year/:anolectivo')
@@ -84,6 +100,7 @@ export class AcademicCalendarController {
       estado,
     );
   }
+
 
   @Get('vacancies/:anolectivo/:tpcandidatura')
   @ApiOperation({ summary: 'Lista vagas por ano lectivo e tipo de candidatura' })
