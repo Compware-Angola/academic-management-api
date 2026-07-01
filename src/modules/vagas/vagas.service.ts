@@ -8,7 +8,7 @@ import { FilterVagasDto } from './dto/filter-vagas.dto';
 import { CreateVagaDto } from './dto/create-vaga.dto';
 import { UpdateVagaDto } from './dto/update-vaga.dto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
-import { buildCountQuery, buildDataQuery, buildWhereClause } from './query-builder\'/list-vaga.query-builder';
+import { buildCountQueryListVagas, buildDataQueryListVagas, buildWhereClauseListVagas } from './query-builder\'/list-vaga.query-builder';
 
 @Injectable()
 export class VagasService {
@@ -38,14 +38,14 @@ export class VagasService {
 
     const tableName = this.getTableName(tipoCandidaturaId);
 
-    const { clauses, params } = buildWhereClause(filtros);
+    const { clauses, params } = buildWhereClauseListVagas(filtros);
 
     const whereClause =
       clauses.length > 0 ? clauses.join(' AND ') : '1=1';
 
     const [rows, countResult] = await Promise.all([
       this.dataSource.query(
-        buildDataQuery(tableName, whereClause),
+        buildDataQueryListVagas(tableName, whereClause),
         {
           ...params,
           offset,
@@ -53,7 +53,7 @@ export class VagasService {
         } as any,
       ),
       this.dataSource.query(
-        buildCountQuery(tableName, whereClause),
+        buildCountQueryListVagas(tableName, whereClause),
         params as any,
       ),
     ]);
@@ -107,7 +107,7 @@ export class VagasService {
     }
 
     const tipoCandidaturaExists = await this.dataSource.query(
-      `SELECT CODIGO FROM  WHERE CODIGO = :1`,
+      `SELECT ID FROM FK2_TB_TIPO_CANDIDATURA WHERE ID = :1`,
       [tipoCandidaturaId],
     );
 

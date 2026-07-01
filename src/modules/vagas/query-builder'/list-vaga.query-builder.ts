@@ -9,7 +9,7 @@ INNER JOIN FK2_TB_ANO_LECTIVO A
     ON V.ANO_LECTIVO_ID = A.CODIGO
 `;
 
-export function buildWhereClause(filters: FilterVagasDto) {
+export function buildWhereClauseListVagas(filters: FilterVagasDto) {
     const clauses: string[] = [];
     const params: Record<string, any> = {};
 
@@ -38,7 +38,7 @@ export function buildWhereClause(filters: FilterVagasDto) {
     };
 }
 
-export function buildDataQuery(
+export function buildDataQueryListVagas(
     tableName: string,
     whereClause: string,
 ) {
@@ -84,7 +84,7 @@ FETCH NEXT :limit ROWS ONLY
 `;
 }
 
-export function buildCountQuery(
+export function buildCountQueryListVagas(
     tableName: string,
     whereClause: string,
 ) {
