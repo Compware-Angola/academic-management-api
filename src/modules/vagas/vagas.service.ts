@@ -11,12 +11,27 @@ import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 
 @Injectable()
 export class VagasService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
+
+  private getTableName(tipoCandidaturaId: number): string {
+    switch (tipoCandidaturaId) {
+      case 1:
+        return 'FK2_VAGAS_CURSOS';
+      case 2:
+        return 'FK2_VAGAS_CURSOS_POS_GRADUACAO';
+      case 3:
+        return 'FK2_VAGAS_CURSOS_POS_GRADUACAO';
+      default:
+        throw new BadRequestException(`Tipo de candidatura com ID ${tipoCandidaturaId} não encontrado`);
+    }
+  }
 
   async findAll(filtros: FilterVagasDto) {
-    const { cursoId, periodoId, anoLetivoId, page = 1, limit = 10 } = filtros;
+    const { cursoId, periodoId, anoLetivoId, page = 1, limit = 10, tipoCandidaturaId = 1 } = filtros;
 
     const offset = (page - 1) * limit;
+
+    const mainTable = this.getTableName(tipoCandidaturaId);
 
     let query = `
       SELECT V.ID,
@@ -39,7 +54,7 @@ export class VagasService {
                           ) AS VAGAS_DISPONIVEIS,
              V.CREATED_AT,
              V.UPDATED_AT
-      FROM FK2_VAGAS_CURSOS V,
+      FROM ${mainTable} V,
            FK2_TB_CURSOS C,
            FK2_TB_PERIODOS P,
            FK2_TB_ANO_LECTIVO A
@@ -70,11 +85,12 @@ export class VagasService {
       paramIndex++;
     }
 
+
     query += ` ORDER BY V.CREATED_AT DESC`;
 
     const countQuery = `
       SELECT COUNT(*) AS TOTAL
-      FROM FK2_VAGAS_CURSOS V,
+      FROM ${mainTable} V,
            FK2_TB_CURSOS C,
            FK2_TB_PERIODOS P,
            FK2_TB_ANO_LECTIVO A
@@ -82,6 +98,7 @@ export class VagasService {
         AND V.CURSO_ID = C.CODIGO
         AND V.PERIODO_ID = P.CODIGO
         AND V.ANO_LECTIVO_ID = A.CODIGO
+        
       ${cursoId ? ` AND V.CURSO_ID = :1` : ''}
       ${periodoId ? ` AND V.PERIODO_ID = :${cursoId ? 2 : 1}` : ''}
       ${anoLetivoId ? ` AND V.ANO_LECTIVO_ID = :${cursoId && periodoId ? 3 : cursoId || periodoId ? 2 : 1}` : ''}
@@ -110,7 +127,7 @@ export class VagasService {
   }
 
   async create(createVagaDto: CreateVagaDto) {
-    const { cursoId, cursosOpcionais, periodoId, anoLetivoId, numVagas } =
+    const { cursoId, cursosOpcionais, periodoId, anoLetivoId, numVagas, tipoCandidaturaId } =
       createVagaDto;
 
     const cursoExists = await this.dataSource.query(
@@ -144,8 +161,19 @@ export class VagasService {
       );
     }
 
+    const tipoCandidaturaExists = await this.dataSource.query(
+      `SELECT CODIGO FROM  WHERE CODIGO = :1`,
+      [tipoCandidaturaId],
+    );
+
+    if (!tipoCandidaturaExists || tipoCandidaturaExists.length === 0) {
+      throw new NotFoundException(
+        `Tipo de candidatura com ID ${tipoCandidaturaId} não encontrado`,
+      );
+    }
+    const mainTable = this.getTableName(tipoCandidaturaId);
     const vagaExists = await this.dataSource.query(
-      `SELECT ID FROM FK2_VAGAS_CURSOS 
+      `SELECT ID FROM ${mainTable} 
        WHERE CURSO_ID = :1 
          AND PERIODO_ID = :2 
          AND ANO_LECTIVO_ID = :3`,
@@ -159,7 +187,7 @@ export class VagasService {
     }
 
     const query = `
-      INSERT INTO FK2_VAGAS_CURSOS (
+      INSERT INTO ${mainTable} (
         CURSO_ID,
         CURSOSOPCIONAIS,
         PERIODO_ID,

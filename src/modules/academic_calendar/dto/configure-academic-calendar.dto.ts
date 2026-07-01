@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer'
 import {
-    IsArray,
+  IsArray,
   IsDateString,
   IsInt,
   IsNotEmpty,
@@ -9,10 +9,10 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator'
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
-import { VagasItemDto } from './vagas.dto'
- 
- export class AcademicCalendarDto {
+import { ApiProperty } from '@nestjs/swagger'
+
+
+export class AcademicCalendarDto {
   @ApiProperty({
     example: '2026-2027',
   })
@@ -53,7 +53,7 @@ import { VagasItemDto } from './vagas.dto'
   @IsInt()
   codigo_tipo_candidatura: number
 }
- export class MesItemDTO {
+export class MesItemDTO {
   @ApiProperty({ example: 'SET-2025' })
   @IsString()
   @IsNotEmpty()
@@ -114,14 +114,6 @@ export class ConfigureAcademicCalendarDto {
   @Type(() => AcademicCalendarDto)
   periodo: AcademicCalendarDto;
   @ApiProperty({
-    description: 'Lista de vagas',
-    type: [VagasItemDto],
-  })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => VagasItemDto)
-  vagas: VagasItemDto[];
-@ApiProperty({
     description: 'Lista de meses',
     type: [MesItemDTO],
   })

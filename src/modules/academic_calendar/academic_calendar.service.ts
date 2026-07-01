@@ -10,7 +10,7 @@ import { CreateMesTempDTO, MesItemDTO } from './dto/create-mes-temp.dto';
 import { AnoLectivoUtil } from '../util/current-academic-year';
 import { CreateAcademicCalendarDto, FetchAcademicCalendarDto } from './dto/create-academic_calendar.dto';
 import { AcademicCalendarDto, ConfigureAcademicCalendarDto } from './dto/configure-academic-calendar.dto';
-import { VagasItemDto } from './dto/vagas.dto';
+import { FetchVacanciesFromActiveAcademicYearDto, VagasItemDto } from './dto/vagas.dto';
 type InsertVagasCursoType = { codigoUtilizador: number, codigoAnoLectivo: number, vagas: VagasItemDto[] }
 type CreateAcademicYearUtilType = { periodo: AcademicCalendarDto, codigoUtilizador: number }
 @Injectable()
@@ -18,7 +18,7 @@ export class AcademicCalendarService {
   constructor(private readonly dataSource: DataSource, private readonly anoLectivoUtil: AnoLectivoUtil) { }
 
   async findAcademicYearsWithConfiguredSemesters(params: FetchAcademicCalendarDto) {
-    const where = params.tipo_candidatura ? 'AND CODIGO_TIPO_CANDIDATURA = :tipo_candidatura' : '';
+    const where = params.tipo_candidatura ? 'AND CODIGO_TIPO_CANDIDATURA = :tipo_candidatura' : 'AND CODIGO_TIPO_CANDIDATURA=1';
     const result = await this.dataSource.query(`
       SELECT
         CODIGO AS codigo,
@@ -463,61 +463,72 @@ export class AcademicCalendarService {
     }
   }
 
-  async findVacanciesFromActiveAcademicYear() {
-    const activeAcademicYear = await this.dataSource.query(`
+  async findVacanciesFromActiveAcademicYear({
+    tipo_candidatura = 1,
+  }: FetchVacanciesFromActiveAcademicYearDto) {
+    const activeAcademicYear = await this.dataSource.query(
+      `
       SELECT CODIGO
       FROM FK2_TB_ANO_LECTIVO
       WHERE STATUS_ = 1
+        AND CODIGO_TIPO_CANDIDATURA = :1
       ORDER BY CODIGO DESC
       FETCH FIRST 1 ROW ONLY
-    `);
+    `,
+      [tipo_candidatura],
+    );
 
     if (!activeAcademicYear.length) {
       throw new BadRequestException('Ano lectivo ativo não encontrado');
     }
-    console.log("activeAcademicYear", activeAcademicYear);
+
     const academicYearId = activeAcademicYear[0].CODIGO;
+
+    const mainTable =
+      tipo_candidatura === 1
+        ? 'FK2_VAGAS_CURSOS'
+        : 'FK2_VAGAS_CURSOS_POS_GRADUACAO';
 
     const [vacancies, availableCourses] = await Promise.all([
       this.dataSource.query(
         `
-      SELECT
-        VC.NUM_VAGAS AS NUMERO_VAGAS,
-        VC.POLO_ID AS CODIGO_POLO,
-        VC.PERIODO_ID AS CODIGO_PERIODO,
-        TC.DESIGNACAO AS CURSO_DESCRICAO,
-        TC.CODIGO AS CODIGO_CURSO,
-        TP.DESIGNACAO AS PERIODO_DESCRICAO
-      FROM FK2_VAGAS_CURSOS VC
-      INNER JOIN FK2_TB_CURSOS TC
-        ON TC.CODIGO = VC.CURSO_ID
-      INNER JOIN FK2_TB_PERIODOS TP
-        ON TP.CODIGO = VC.PERIODO_ID
-      WHERE VC.ANO_LECTIVO_ID = :1
-        AND TC.TIPO_CANDIDATURA = 1
-      ORDER BY TC.CODIGO, TP.CODIGO
-    `,
-        [academicYearId],
+        SELECT
+          VC.NUM_VAGAS AS NUMERO_VAGAS,
+          VC.POLO_ID AS CODIGO_POLO,
+          VC.PERIODO_ID AS CODIGO_PERIODO,
+          TC.DESIGNACAO AS CURSO_DESCRICAO,
+          TC.CODIGO AS CODIGO_CURSO,
+          TP.DESIGNACAO AS PERIODO_DESCRICAO
+        FROM ${mainTable} VC
+        INNER JOIN FK2_TB_CURSOS TC
+          ON TC.CODIGO = VC.CURSO_ID
+        INNER JOIN FK2_TB_PERIODOS TP
+          ON TP.CODIGO = VC.PERIODO_ID
+        WHERE VC.ANO_LECTIVO_ID = :1
+          AND TC.TIPO_CANDIDATURA = :2
+        ORDER BY TC.CODIGO, TP.CODIGO
+      `,
+        [academicYearId, tipo_candidatura],
       ),
 
       this.dataSource.query(
         `
-      SELECT
-        TC.CODIGO,
-        TC.DESIGNACAO
-      FROM FK2_TB_CURSOS TC
-      WHERE TC.TIPO_CANDIDATURA = 1
-        AND TC.TIPO_CURSO = 1
-        AND TC.STATUS_= 1
-        AND NOT EXISTS (
-          SELECT 1
-          FROM FK2_VAGAS_CURSOS VC
-          WHERE VC.CURSO_ID = TC.CODIGO 
-            AND VC.ANO_LECTIVO_ID = :1
-        )
-      ORDER BY TC.DESIGNACAO
-    `,
-        [academicYearId],
+        SELECT
+          TC.CODIGO,
+          TC.DESIGNACAO
+        FROM FK2_TB_CURSOS TC
+        WHERE TC.TIPO_CANDIDATURA = :1
+          AND TC.TIPO_CURSO = 1
+          AND TC.STATUS_ = 1
+          AND NOT EXISTS (
+            SELECT 1
+            FROM ${mainTable} VC
+            WHERE VC.CURSO_ID = TC.CODIGO
+              AND VC.ANO_LECTIVO_ID = :2
+          )
+        ORDER BY TC.DESIGNACAO
+      `,
+        [tipo_candidatura, academicYearId],
       ),
     ]);
 
@@ -741,7 +752,6 @@ export class AcademicCalendarService {
     return result;
   }
 
-
   async configuracaoGeral() {
     const semestreAtual = await this.anoLectivoUtil.getSemestreAtual();
     const semestresConfigurados = await this.anoLectivoUtil.getSemestresConfigurados();
@@ -764,13 +774,13 @@ export class AcademicCalendarService {
   }
 
   async configureAcademicCalendar(body: ConfigureAcademicCalendarDto, codigoUtilizador: number) {
-    const { periodo, vagas, meses } = body;
+    const { periodo, meses } = body;
 
     const queryRunner = this.dataSource.createQueryRunner();
 
     await queryRunner.connect();
     await queryRunner.startTransaction();
-    console.log({ codigoUtilizador });
+
     try {
 
       await this.createAcademicYearUtil(queryRunner, { periodo, codigoUtilizador })
@@ -782,20 +792,13 @@ export class AcademicCalendarService {
         `,
         [periodo.designacao],
       );
-      if (vagas.length <= 0) {
-        throw new BadRequestException('Vagas não informadas');
-      }
-      await this.insertVagasCurso(queryRunner, { codigoUtilizador, codigoAnoLectivo: codigoAnoLectivo[0].CODIGO, vagas })
+
       for (const mes of meses) {
         await this.insertMesTemp(queryRunner, {
           ...mes,
           ano_lectivo: codigoAnoLectivo[0].CODIGO,
         })
       }
-
-      const cursovagas = await queryRunner.query(`
-        SELECT * from FK2_VAGAS_CURSOS WHERE ANO_LECTIVO_ID = :1
-      `, [codigoAnoLectivo[0].CODIGO]);
       await queryRunner.query(
         `UPDATE FK2_TB_ANO_LECTIVO
           SET ESTADO = 'Desactivo'

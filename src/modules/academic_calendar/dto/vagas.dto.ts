@@ -44,4 +44,16 @@ export class VagasItemDto {
     @Type(() => Number)
     @IsInt()
     numero_vagas: number
-} 
+}
+
+
+export class FetchVacanciesFromActiveAcademicYearDto {
+    @ApiPropertyOptional({
+        example: 1,
+        description: 'Tipo de candidatura',
+    })
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    tipo_candidatura?: number
+}

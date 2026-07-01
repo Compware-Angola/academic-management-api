@@ -21,6 +21,7 @@ import { GenerateMesTempDTO } from './dto/generate-mes-temp.dto';
 import { CreateMesTempDTO } from './dto/create-mes-temp.dto';
 import { CreateAcademicCalendarDto, FetchAcademicCalendarDto } from './dto/create-academic_calendar.dto';
 import { ConfigureAcademicCalendarDto } from './dto/configure-academic-calendar.dto';
+import { FetchVacanciesFromActiveAcademicYearDto } from './dto/vagas.dto';
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('academic-calendar')
 export class AcademicCalendarController {
@@ -137,8 +138,8 @@ export class AcademicCalendarController {
   @Get('vacancies')
   @ApiOperation({ summary: 'Lista vagas do ano lectivo ativo' })
   @ApiResponse({ status: 200, description: 'Vagas retornadas com sucesso' })
-  async findVacanciesFromActiveAcademicYear() {
-    return this.academicCalendarService.findVacanciesFromActiveAcademicYear();
+  async findVacanciesFromActiveAcademicYear(@Query(ValidationPipe) params: FetchVacanciesFromActiveAcademicYearDto) {
+    return this.academicCalendarService.findVacanciesFromActiveAcademicYear(params);
   }
 
   @Get('monthly-fees/:anolectivo')
