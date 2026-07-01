@@ -30,15 +30,15 @@ export class DisciplineService {
   }: FindDisciplinaAlunoDTO) {
     const offset = (page - 1) * limit;
     const filtroEliminados =
-  ignorarEliminados === 1
-    ? `AND al.codigo_status_grade_curricular != 5`
-    : '';
+      ignorarEliminados === 1
+        ? `AND al.codigo_status_grade_curricular != 5`
+        : '';
     const baseWhere = `
   al.codigo_matricula = ${matriculaId}
   AND g.status_ = 1
   AND al.estado != 3
   AND (mat.CODIGO_CURSO = g.CODIGO_CURSO or g.CODIGO_CURSO in (select CODIGO_CURSO from FK2_TB_CURSO_ESPECIALIDADE WHERE CODIGO_CURSO_ESPECIALIDADE = mat.CODIGO_CURSO))
-  AND cfr.codigo_ano_lectivo = ${anoLectivo}
+  AND al.codigo_ano_lectivo = ${anoLectivo}
   ${filtroEliminados}
   ${semestre ? `AND s.codigo = ${semestre}` : ''}
   ${classes ? `AND g.codigo_classe = ${classes}` : ''}
@@ -76,10 +76,10 @@ export class DisciplineService {
               ON s.codigo = g.codigo_semestre
       INNER JOIN FK2_TB_DURACAO dur
               ON dur.codigo = d.duracao
-      INNER JOIN FK2_TB_CONFIRMACOES cfr
+      LEFT JOIN FK2_TB_CONFIRMACOES cfr
               ON cfr.codigo = al.codigo_confirmacao
       INNER JOIN FK2_TB_ANO_LECTIVO ano
-              ON ano.codigo = cfr.codigo_ano_lectivo
+              ON ano.codigo = al.codigo_ano_lectivo
       LEFT JOIN FK2_MGH_TB_HORARIO hr
               ON hr.pk_horario = json_value(al.ref_horario, '$.pk')
       LEFT JOIN FK2_MGH_TB_AULA au
@@ -106,7 +106,7 @@ export class DisciplineService {
                 ON d.codigo = g.codigo_disciplina
         INNER JOIN FK2_TB_SEMESTRES s
                 ON s.codigo = g.codigo_semestre
-        INNER JOIN FK2_TB_CONFIRMACOES cfr
+        LEFT JOIN FK2_TB_CONFIRMACOES cfr
                 ON cfr.codigo = al.codigo_confirmacao
       WHERE ${baseWhere}
     )
