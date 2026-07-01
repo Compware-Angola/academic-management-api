@@ -35,6 +35,7 @@ import {
   ApiBadRequestResponse,
   ApiUnauthorizedResponse,
   ApiCreatedResponse,
+  ApiBody,
 } from '@nestjs/swagger';
 import { UserListItemDto } from './dto/user-list-item.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
@@ -51,6 +52,7 @@ import { AccessLogHelper } from '../../common/helpers/access-log.helper';
 import { HttpService } from '@nestjs/axios';
 import { UpdatePersonUserDto } from './dto/update-person-user.dto';
 import { FindUserByGrupoDTO } from './dto/find-user-by-grupo.dto';
+import { RestricaoAcessoDto } from './dto/restricao-acesso.dto';
 
 @Controller('acess_management')
 export class AcessManagementController {
@@ -586,5 +588,61 @@ export class AcessManagementController {
     @Param('userId', ParseIntPipe) userId: number,
   ) {
     return this.acessosService.atualizarEstadoAcesso(acessoId, userId);
+  }
+
+  @Post('restricao')
+  @ApiOperation({
+    summary: 'Cria ou activa uma restrição de acesso para um utilizador (GA)',
+  })
+  @ApiBody({ type: RestricaoAcessoDto })
+  @ApiResponse({ status: 201, description: 'Restrição criada/activada.' })
+  async create(@Body() dto: RestricaoAcessoDto) {
+    const { codigoAcesso, codigoUtilizador } = dto;
+    return this.acessosService.addAccessRestriction(
+      codigoAcesso,
+      codigoUtilizador,
+    );
+  }
+
+  @Delete('restricao/:codigoAcesso/:codigoUtilizador')
+  @ApiOperation({
+    summary: 'Remove (inativa) uma restrição de acesso para um utilizador (GA)',
+  })
+  @ApiParam({ name: 'codigoAcesso', required: true })
+  @ApiParam({ name: 'codigoUtilizador', required: true })
+  @ApiResponse({ status: 200, description: 'Restrição removida (inativada).' })
+  async remove(
+    @Param('codigoAcesso', ParseIntPipe) codigoAcesso: number,
+    @Param('codigoUtilizador', ParseIntPipe) codigoUtilizador: number,
+  ) {
+    return this.acessosService.removeAccessRestriction(
+      codigoAcesso,
+      codigoUtilizador,
+    );
+  }
+
+  @Get('restricao/user/:codigoUtilizador')
+  @ApiOperation({ summary: 'Lista restrições (todas) para um utilizador' })
+  @ApiParam({ name: 'codigoUtilizador', required: true })
+  @ApiResponse({ status: 200, description: 'Lista de restrições.' })
+  async listByUser(
+    @Param('codigoUtilizador', ParseIntPipe) codigoUtilizador: number,
+  ) {
+    return this.acessosService.getRestrictionsByUser(codigoUtilizador);
+  }
+
+  @Get('restricao/access/:codigoAcesso')
+  @ApiOperation({
+    summary: 'Lista utilizadores que têm restrição para um acesso específico',
+  })
+  @ApiParam({ name: 'codigoAcesso', required: true })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de utilizadores restritos para o acesso.',
+  })
+  async listByAccess(
+    @Param('codigoAcesso', ParseIntPipe) codigoAcesso: number,
+  ) {
+    return this.acessosService.getRestrictionsByAccess(codigoAcesso);
   }
 }
