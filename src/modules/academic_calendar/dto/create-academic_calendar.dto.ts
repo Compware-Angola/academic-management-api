@@ -5,11 +5,11 @@ import {
   IsNotEmpty,
   IsString,
   MaxLength,
+  IsOptional
 } from 'class-validator'
-import { ApiProperty } from '@nestjs/swagger'
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 export class CreateAcademicCalendarDto {
-
   @ApiProperty({
     example: 2433,
     description: 'Código do utilizador',
@@ -57,4 +57,15 @@ export class CreateAcademicCalendarDto {
   @Type(() => Number)
   @IsInt()
   codigo_tipo_candidatura: number
+}
+
+export class FetchAcademicCalendarDto {
+  @ApiPropertyOptional({
+    example: 1,
+    description: 'Tipo de candidatura',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  tipo_candidatura?: number
 }
