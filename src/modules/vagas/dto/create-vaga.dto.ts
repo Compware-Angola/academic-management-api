@@ -46,5 +46,14 @@ export class CreateVagaDto {
   @IsInt()
   @Min(1)
   numVagas: number;
+
+  @ApiProperty({
+    description: 'ID do tipo de candidatura',
+    example: 1,
+  })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  tipoCandidaturaId: number;
 }
 

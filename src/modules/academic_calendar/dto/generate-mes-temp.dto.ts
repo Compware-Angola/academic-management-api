@@ -1,5 +1,5 @@
-import { IsInt, IsNotEmpty, IsPositive } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsInt, IsNotEmpty, IsOptional, IsPositive } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 export class GenerateMesTempDTO {
@@ -17,9 +17,19 @@ export class GenerateMesTempDTO {
     description: 'Data Inicial',
     example: 2028,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @IsPositive()
   anoFinal: number;
+
+  @ApiPropertyOptional({
+    description: 'Tipo de candidatura',
+    example: 1,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @IsPositive()
+  tipo_candidatura: number;
 }
