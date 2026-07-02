@@ -4,6 +4,17 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class FilterVagasDto {
   @ApiPropertyOptional({
+    description: 'ID do tipo de candidatura',
+    example: 1,
+    default: 1,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  tipoCandidaturaId?: number;
+
+  @ApiPropertyOptional({
     description: 'ID do curso',
     example: 1,
   })

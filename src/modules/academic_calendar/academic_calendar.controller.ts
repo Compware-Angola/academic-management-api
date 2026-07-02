@@ -4,13 +4,12 @@ import {
   Post,
   Put,
   Body,
-  Patch,
   Param,
-  Delete,
   Query,
   ValidationPipe,
   UseGuards,
   ParseIntPipe,
+  Req,
 } from '@nestjs/common';
 import { AcademicCalendarService } from './academic_calendar.service';
 
@@ -20,12 +19,41 @@ import { PermissionsGuard } from '../../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
 import { GenerateMesTempDTO } from './dto/generate-mes-temp.dto';
 import { CreateMesTempDTO } from './dto/create-mes-temp.dto';
-import { CreateAcademicCalendarDto } from './dto/create-academic_calendar.dto';
+import {
+  CreateAcademicCalendarDto,
+  FetchAcademicCalendarDto,
+} from './dto/create-academic_calendar.dto';
+import { ConfigureAcademicCalendarDto } from './dto/configure-academic-calendar.dto';
+import { FetchVacanciesFromActiveAcademicYearDto } from './dto/vagas.dto';
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('academic-calendar')
 export class AcademicCalendarController {
   constructor(
     private readonly academicCalendarService: AcademicCalendarService,
   ) {}
+  @Post()
+  @ApiOperation({ summary: 'Cria um ano lectivo com os periodos semestrais' })
+  @ApiResponse({ status: 201, description: 'Ano lectivo criado com sucesso' })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos ou ano lectivo já existente',
+  })
+  async configureAcademicCalendar(
+    @Body() body: ConfigureAcademicCalendarDto,
+    @Req() req: any,
+  ) {
+    const codigoUtilizador = req.user.sub;
+    return this.academicCalendarService.configureAcademicCalendar(
+      body,
+      codigoUtilizador,
+    );
+  }
+
+  @Get('generate-mes-temp')
+  async searchCurricularByStudenty(@Query() params: GenerateMesTempDTO) {
+    return this.academicCalendarService.generateMesTemp(params);
+  }
+
   @Get('academic-year/all')
   @ApiOperation({
     summary: 'Lista anos lectivos com periodos semestrais configurados',
@@ -34,15 +62,14 @@ export class AcademicCalendarController {
     status: 200,
     description: 'Consulta de anos lectivos realizada com sucesso',
   })
-  async findAcademicYearsWithConfiguredSemesters() {
-    return this.academicCalendarService.findAcademicYearsWithConfiguredSemesters();
+  async findAcademicYearsWithConfiguredSemesters(
+    @Query() params: FetchAcademicCalendarDto,
+  ) {
+    return this.academicCalendarService.findAcademicYearsWithConfiguredSemesters(
+      params,
+    );
   }
-  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
-  @Get('generate-mes-temp')
-  async searchCurricularByStudenty(@Query() params: GenerateMesTempDTO) {
-    return this.academicCalendarService.generateMesTemp(params);
-  }
-  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+
   @Get('application-types/all')
   @ApiOperation({ summary: 'Lista tipos de candidatura ativos' })
   @ApiQuery({
@@ -64,7 +91,16 @@ export class AcademicCalendarController {
       onlyPosGraduacao,
     );
   }
-  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+  @Get('academic-year/draft')
+  @ApiOperation({ summary: 'Busca o ano lectivo em rascunho' })
+  @ApiResponse({
+    status: 200,
+    description: 'Ano lectivo retornado com sucesso',
+  })
+  async findDraftAcademicYear() {
+    return this.academicCalendarService.findDraftAcademicYear();
+  }
+
   @Get('academic-year/:anolectivo')
   @ApiOperation({ summary: 'Busca parametros de um ano lectivo especifico' })
   @ApiResponse({
@@ -151,8 +187,12 @@ export class AcademicCalendarController {
   @Get('vacancies')
   @ApiOperation({ summary: 'Lista vagas do ano lectivo ativo' })
   @ApiResponse({ status: 200, description: 'Vagas retornadas com sucesso' })
-  async findVacanciesFromActiveAcademicYear() {
-    return this.academicCalendarService.findVacanciesFromActiveAcademicYear();
+  async findVacanciesFromActiveAcademicYear(
+    @Query(ValidationPipe) params: FetchVacanciesFromActiveAcademicYearDto,
+  ) {
+    return this.academicCalendarService.findVacanciesFromActiveAcademicYear(
+      params,
+    );
   }
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('monthly-fees/:anolectivo')
