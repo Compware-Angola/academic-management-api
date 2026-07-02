@@ -25,12 +25,12 @@ import {
 } from './dto/create-academic_calendar.dto';
 import { ConfigureAcademicCalendarDto } from './dto/configure-academic-calendar.dto';
 import { FetchVacanciesFromActiveAcademicYearDto } from './dto/vagas.dto';
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('academic-calendar')
 export class AcademicCalendarController {
   constructor(
     private readonly academicCalendarService: AcademicCalendarService,
   ) {}
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Post()
   @ApiOperation({ summary: 'Cria um ano lectivo com os periodos semestrais' })
   @ApiResponse({ status: 201, description: 'Ano lectivo criado com sucesso' })
@@ -48,7 +48,7 @@ export class AcademicCalendarController {
       codigoUtilizador,
     );
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('generate-mes-temp')
   async searchCurricularByStudenty(@Query() params: GenerateMesTempDTO) {
     return this.academicCalendarService.generateMesTemp(params);
@@ -69,7 +69,7 @@ export class AcademicCalendarController {
       params,
     );
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('application-types/all')
   @ApiOperation({ summary: 'Lista tipos de candidatura ativos' })
   @ApiQuery({
@@ -83,6 +83,7 @@ export class AcademicCalendarController {
     status: 200,
     description: 'Tipos de candidatura retornados com sucesso',
   })
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   async findActiveApplicationTypes(
     @Query('posgraduacao') posgraduacao?: string,
   ) {
@@ -91,6 +92,7 @@ export class AcademicCalendarController {
       onlyPosGraduacao,
     );
   }
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('academic-year/draft')
   @ApiOperation({ summary: 'Busca o ano lectivo em rascunho' })
   @ApiResponse({
@@ -100,7 +102,7 @@ export class AcademicCalendarController {
   async findDraftAcademicYear() {
     return this.academicCalendarService.findDraftAcademicYear();
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('academic-year/:anolectivo')
   @ApiOperation({ summary: 'Busca parametros de um ano lectivo especifico' })
   @ApiResponse({
