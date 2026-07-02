@@ -334,7 +334,7 @@ export class DocenteGestaoService {
         codigo,
         status,
       } as any);
-    } catch (error:any) {
+    } catch (error: any) {
       throw new BadRequestException(error.message);
     }
   }
@@ -700,7 +700,7 @@ export class DocenteGestaoService {
         utilizadorSincronizado: { pk: UTIL_CODIGO, desc },
         camposAtualizados: fields.length - 1,
       };
-    } catch (error:any) {
+    } catch (error: any) {
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -759,57 +759,56 @@ export class DocenteGestaoService {
     return toLowerCaseKeys(result[0]);
   }
 
-  
-async listDocentes(filter: FilterDocenteDto) {
-  const { page = 1, limit = 25, area, search } = filter;
-  const offset = (page - 1) * limit;
+  async listDocentes(filter: FilterDocenteDto) {
+    const { page = 1, limit = 25, area, search } = filter;
+    const offset = (page - 1) * limit;
 
-  const params: Record<string, any> = {
-    offset,
-    limit_plus_offset: offset + limit,
-  };
+    const params: Record<string, any> = {
+      offset,
+      limit_plus_offset: offset + limit,
+    };
 
-  const countParams: Record<string, any> = {};
+    const countParams: Record<string, any> = {};
 
-  let whereClause = `
-    WHERE c.FK_ESTADO_CANDIDATURA = 6
+    let whereClause = `
+    WHERE (c.FK_ESTADO_CANDIDATURA = 6 or c.FK_ESTADO_CANDIDATURA is null)
   `;
 
-  // áreas válidas do legado
-  const validAreas = [1, 2, 3];
+    // áreas válidas do legado
+    const validAreas = [1, 2, 3];
 
-  // mapeamento observado
-  const areaToFaculdadeMap: Record<number, number[]> = {
-    1: [11, 9, 10], // Educação, Teologia e Ciências Humanas
-    2: [9],         // Direito
-    3: [10, 9],     // Administração, Contabilidade e Economia
-  };
+    // mapeamento observado
+    const areaToFaculdadeMap: Record<number, number[]> = {
+      1: [11, 9, 10], // Educação, Teologia e Ciências Humanas
+      2: [9], // Direito
+      3: [10, 9], // Administração, Contabilidade e Economia
+    };
 
-  if (area !== undefined && area !== null && Number(area) !== 0) {
-    const areaId = Number(area);
+    if (area !== undefined && area !== null && Number(area) !== 0) {
+      const areaId = Number(area);
 
-    if (!validAreas.includes(areaId)) {
-      whereClause += ` AND 1 = 0`;
-    } else {
-      const faculdades = areaToFaculdadeMap[areaId] || [];
+      if (!validAreas.includes(areaId)) {
+        whereClause += ` AND 1 = 0`;
+      } else {
+        const faculdades = areaToFaculdadeMap[areaId] || [];
 
-      params.area = areaId;
-      countParams.area = areaId;
+        params.area = areaId;
+        countParams.area = areaId;
 
-      const faculdadeConditions = faculdades
-        .map((faculdadeId, index) => {
-          const key = `faculdade_${index}`;
-          params[key] = faculdadeId;
-          countParams[key] = faculdadeId;
-          return `c.FACULDADE = :${key}`;
-        })
-        .join(' OR ');
+        const faculdadeConditions = faculdades
+          .map((faculdadeId, index) => {
+            const key = `faculdade_${index}`;
+            params[key] = faculdadeId;
+            countParams[key] = faculdadeId;
+            return `c.FACULDADE = :${key}`;
+          })
+          .join(' OR ');
 
-      // pega o nome da área para fallback textual
-      params.area_nome = areaId;
-      countParams.area_nome = areaId;
+        // pega o nome da área para fallback textual
+        params.area_nome = areaId;
+        countParams.area_nome = areaId;
 
-      whereClause += `
+        whereClause += `
         AND (
           (${faculdadeConditions})
 
@@ -846,13 +845,13 @@ async listDocentes(filter: FilterDocenteDto) {
           )
         )
       `;
+      }
     }
-  }
 
-  if (search && search.trim()) {
-    const term = `%${search.trim().toUpperCase()}%`;
+    if (search && search.trim()) {
+      const term = `%${search.trim().toUpperCase()}%`;
 
-    whereClause += `
+      whereClause += `
       AND (
         UPPER(NVL(tp.NOME_COMPLETO, '-')) LIKE :search
         OR UPPER(NVL(tp.EMAIL, '-')) LIKE :search
@@ -863,16 +862,18 @@ async listDocentes(filter: FilterDocenteDto) {
       )
     `;
 
-    params.search = term;
-    countParams.search = term;
-  }
+      params.search = term;
+      countParams.search = term;
+    }
 
-  const countSql = `
+    const countSql = `
     SELECT COUNT(*) AS TOTAL
     FROM (
       SELECT DISTINCT d.CODIGO
       FROM FK2_MGD_TB_DOCENTE d
-      INNER JOIN FK2_MGD_TB_CANDIDATURA c
+      INNER JOIN FK2_MCA_TB_UTILIZADOR ut
+          ON ut.PK_UTILIZADOR = json_value (d.CODIGO_UTILIZADOR, '$.pk')
+      LEFT JOIN FK2_MGD_TB_CANDIDATURA c
         ON c.CODIGO = d.FK_CANDIDATURA
       LEFT JOIN FK2_TB_ESCALAO_DOCENTE esc
         ON esc.CODIGO = d.FK_ESCALAO
@@ -881,19 +882,19 @@ async listDocentes(filter: FilterDocenteDto) {
       LEFT JOIN UMA_TB_GRAU_ACADEMICO grau
         ON grau."Codigo" = c.GRAU_ACADEMICO
       LEFT JOIN FK2_TB_PESSOA tp
-        ON tp.PK_PESSOA = JSON_VALUE(c.FK_PESSOA, '$.pk_pessoa')
+        ON tp.PK_PESSOA = JSON_VALUE(ut.REF_PESSOA, '$.pk')
       ${whereClause}
     )
   `;
 
-  const countResult = await this.dataSource.query(
-    countSql,
-    countParams as any,
-  );
+    const countResult = await this.dataSource.query(
+      countSql,
+      countParams as any,
+    );
 
-  const total = Number(countResult[0]?.TOTAL ?? 0);
+    const total = Number(countResult[0]?.TOTAL ?? 0);
 
-  const dataSql = `
+    const dataSql = `
     SELECT *
     FROM (
       SELECT
@@ -920,7 +921,9 @@ async listDocentes(filter: FilterDocenteDto) {
           cat.CODIGO AS categoriaid,
           grau."Designacao" AS grau_academico
         FROM FK2_MGD_TB_DOCENTE d
-        INNER JOIN FK2_MGD_TB_CANDIDATURA c
+        INNER JOIN FK2_MCA_TB_UTILIZADOR ut
+          ON ut.PK_UTILIZADOR = json_value (d.CODIGO_UTILIZADOR, '$.pk')
+        LEFT JOIN FK2_MGD_TB_CANDIDATURA c
           ON c.CODIGO = d.FK_CANDIDATURA
         LEFT JOIN FK2_TB_ESCALAO_DOCENTE esc
           ON esc.CODIGO = d.FK_ESCALAO
@@ -929,7 +932,7 @@ async listDocentes(filter: FilterDocenteDto) {
         LEFT JOIN UMA_TB_GRAU_ACADEMICO grau
           ON grau."Codigo" = c.GRAU_ACADEMICO
         LEFT JOIN FK2_TB_PESSOA tp
-          ON tp.PK_PESSOA = JSON_VALUE(c.FK_PESSOA, '$.pk_pessoa')
+          ON tp.PK_PESSOA = JSON_VALUE(ut.REF_PESSOA, '$.pk')
         ${whereClause}
       ) base
     ) t
@@ -937,22 +940,21 @@ async listDocentes(filter: FilterDocenteDto) {
     ORDER BY t.rn
   `;
 
-  const result = await this.dataSource.query(dataSql, params as any);
+    const result = await this.dataSource.query(dataSql, params as any);
 
-  const data = result.map((row: any) => {
-    const { RN, rn, ...item } = row;
-    return item;
-  });
+    const data = result.map((row: any) => {
+      const { RN, rn, ...item } = row;
+      return item;
+    });
 
-  return {
-    data: await toLowerCaseKeys(data),
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
-  };
-}
-
+    return {
+      data: await toLowerCaseKeys(data),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
 
   async listDocentesRegentes(filter: FilterDocenteRegenteDto) {
     const {
