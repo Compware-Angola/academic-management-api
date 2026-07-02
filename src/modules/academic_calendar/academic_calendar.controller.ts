@@ -21,24 +21,28 @@ import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
 import { GenerateMesTempDTO } from './dto/generate-mes-temp.dto';
 import { CreateMesTempDTO } from './dto/create-mes-temp.dto';
 import { CreateAcademicCalendarDto } from './dto/create-academic_calendar.dto';
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('academic-calendar')
 export class AcademicCalendarController {
   constructor(
     private readonly academicCalendarService: AcademicCalendarService,
-  ) { }
+  ) {}
+  @Get('academic-year/all')
+  @ApiOperation({
+    summary: 'Lista anos lectivos com periodos semestrais configurados',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Consulta de anos lectivos realizada com sucesso',
+  })
+  async findAcademicYearsWithConfiguredSemesters() {
+    return this.academicCalendarService.findAcademicYearsWithConfiguredSemesters();
+  }
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('generate-mes-temp')
   async searchCurricularByStudenty(@Query() params: GenerateMesTempDTO) {
     return this.academicCalendarService.generateMesTemp(params);
   }
-
-  @Get('academic-year/all')
-  @ApiOperation({ summary: 'Lista anos lectivos com periodos semestrais configurados' })
-  @ApiResponse({ status: 200, description: 'Consulta de anos lectivos realizada com sucesso' })
-  async findAcademicYearsWithConfiguredSemesters() {
-    return this.academicCalendarService.findAcademicYearsWithConfiguredSemesters();
-  }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('application-types/all')
   @ApiOperation({ summary: 'Lista tipos de candidatura ativos' })
   @ApiQuery({
@@ -48,33 +52,52 @@ export class AcademicCalendarController {
     description:
       'Quando true, retorna apenas tipos de pós-graduação (Mestrado = 2 e Doutoramento = 3)',
   })
-  @ApiResponse({ status: 200, description: 'Tipos de candidatura retornados com sucesso' })
+  @ApiResponse({
+    status: 200,
+    description: 'Tipos de candidatura retornados com sucesso',
+  })
   async findActiveApplicationTypes(
     @Query('posgraduacao') posgraduacao?: string,
   ) {
     const onlyPosGraduacao = posgraduacao === 'true' || posgraduacao === '1';
-    return this.academicCalendarService.findActiveApplicationTypes(onlyPosGraduacao);
+    return this.academicCalendarService.findActiveApplicationTypes(
+      onlyPosGraduacao,
+    );
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('academic-year/:anolectivo')
   @ApiOperation({ summary: 'Busca parametros de um ano lectivo especifico' })
-  @ApiResponse({ status: 200, description: 'Ano lectivo retornado com sucesso' })
-  async findAcademicYearParams(@Param('anolectivo', ParseIntPipe) anolectivo: number) {
+  @ApiResponse({
+    status: 200,
+    description: 'Ano lectivo retornado com sucesso',
+  })
+  async findAcademicYearParams(
+    @Param('anolectivo', ParseIntPipe) anolectivo: number,
+  ) {
     return this.academicCalendarService.findAcademicYearParams(anolectivo);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Post('academic-year')
   @ApiOperation({ summary: 'Cria um ano lectivo com os periodos semestrais' })
   @ApiResponse({ status: 201, description: 'Ano lectivo criado com sucesso' })
-  @ApiResponse({ status: 400, description: 'Dados inválidos ou ano lectivo já existente' })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos ou ano lectivo já existente',
+  })
   async createAcademicYear(@Body() body: CreateAcademicCalendarDto) {
     return this.academicCalendarService.createAcademicYear(body);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Put('academic-year/:anolectivo')
   @ApiOperation({ summary: 'Atualiza o estado de um ano lectivo' })
-  @ApiResponse({ status: 200, description: 'Estado do ano lectivo atualizado com sucesso' })
-  @ApiResponse({ status: 400, description: 'Dados inválidos ou ano lectivo não encontrado' })
+  @ApiResponse({
+    status: 200,
+    description: 'Estado do ano lectivo atualizado com sucesso',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos ou ano lectivo não encontrado',
+  })
   async updateAcademicYearState(
     @Param('anolectivo', ParseIntPipe) anolectivo: number,
     @Body('estado', ParseIntPipe) estado: number,
@@ -84,9 +107,11 @@ export class AcademicCalendarController {
       estado,
     );
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('vacancies/:anolectivo/:tpcandidatura')
-  @ApiOperation({ summary: 'Lista vagas por ano lectivo e tipo de candidatura' })
+  @ApiOperation({
+    summary: 'Lista vagas por ano lectivo e tipo de candidatura',
+  })
   @ApiResponse({ status: 200, description: 'Vagas retornadas com sucesso' })
   async findVacanciesByAcademicYearAndApplicationType(
     @Param('anolectivo', ParseIntPipe) anolectivo: number,
@@ -97,7 +122,7 @@ export class AcademicCalendarController {
       tpcandidatura,
     );
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Post('vacancies')
   @ApiOperation({ summary: 'Cria vagas para um ano lectivo' })
   @ApiResponse({ status: 201, description: 'Vagas criadas com sucesso' })
@@ -105,32 +130,45 @@ export class AcademicCalendarController {
   async createAcademicYearVacancies(@Body() body: any) {
     return this.academicCalendarService.createAcademicYearVacancies(body);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Put('vacancies')
   @ApiOperation({ summary: 'Atualiza o numero de vagas' })
-  @ApiResponse({ status: 200, description: 'Numero de vagas atualizado com sucesso' })
-  @ApiResponse({ status: 400, description: 'Dados inválidos ou vaga não encontrada' })
+  @ApiResponse({
+    status: 200,
+    description: 'Numero de vagas atualizado com sucesso',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos ou vaga não encontrada',
+  })
   async updateVacancyNumber(
     @Body('id', ParseIntPipe) id: number,
     @Body('num_vagas', ParseIntPipe) numVagas: number,
   ) {
     return this.academicCalendarService.updateVacancyNumber(id, numVagas);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('vacancies')
   @ApiOperation({ summary: 'Lista vagas do ano lectivo ativo' })
   @ApiResponse({ status: 200, description: 'Vagas retornadas com sucesso' })
   async findVacanciesFromActiveAcademicYear() {
     return this.academicCalendarService.findVacanciesFromActiveAcademicYear();
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('monthly-fees/:anolectivo')
   @ApiOperation({ summary: 'Lista mensalidades por ano lectivo' })
-  @ApiResponse({ status: 200, description: 'Mensalidades retornadas com sucesso' })
-  async findMonthlyFeesByAcademicYear(@Param('anolectivo', ParseIntPipe) anolectivo: number) {
-    return this.academicCalendarService.findMonthlyFeesByAcademicYear(anolectivo);
+  @ApiResponse({
+    status: 200,
+    description: 'Mensalidades retornadas com sucesso',
+  })
+  async findMonthlyFeesByAcademicYear(
+    @Param('anolectivo', ParseIntPipe) anolectivo: number,
+  ) {
+    return this.academicCalendarService.findMonthlyFeesByAcademicYear(
+      anolectivo,
+    );
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('meses-prestacoes')
   @ApiOperation({
     summary: 'Lista os meses/prestações configurados',
@@ -154,7 +192,7 @@ export class AcademicCalendarController {
   async viewMonths(@Query(ValidationPipe) params: ViewMonthsDto) {
     return this.academicCalendarService.viewMonths(params);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Post('create-mes-temp')
   @ApiOperation({ summary: 'Cria um novo novo mes temp' })
   @ApiResponse({ status: 201, description: 'Parâmetro criado com sucesso' })
@@ -162,13 +200,11 @@ export class AcademicCalendarController {
   async createParametro(@Body(ValidationPipe) dto: CreateMesTempDTO) {
     return this.academicCalendarService.createMesTemp(dto);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('configuracao-geral')
   @ApiOperation({
     summary: 'Lista os meses/prestações configurados',
-
   })
-
   @ApiResponse({ status: 200, description: 'Lista retornada com sucesso' })
   @ApiResponse({
     status: 400,
