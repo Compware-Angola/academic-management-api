@@ -16,6 +16,7 @@ import {
   InvoicePayload,
 } from '../../common/helpers/finance-invoice.helper';
 import { TipoCalendario } from '../prazos/utils/tipo-calendario.enum';
+import { StudentsResultPlanService } from './students-result-plan.service';
 
 export const TIPO_AVALIACAO = {
   RECURSO: 7,
@@ -67,7 +68,8 @@ export class StudentsProvasService {
     private readonly studentNoteService: StudentNoteService,
     private readonly prazosService: PrazosService,
     private readonly httpService: HttpService,
-  ) { }
+    private readonly studentsResultPlanService: StudentsResultPlanService,
+  ) {}
 
   private temNota(valor: string | null | undefined): boolean {
     return valor !== '' && valor !== null && valor !== undefined;
@@ -521,7 +523,8 @@ export class StudentsProvasService {
       tipo: TipoCalendario.RECURSO,
       anoLectivoParam: anoLectivo.codigo,
     });
-    if (prazo && !prazo.podeInscrever) throw new BadRequestException(prazo.mensagem);
+    if (prazo && !prazo.podeInscrever)
+      throw new BadRequestException(prazo.mensagem);
 
     const servico = await this.buscarPrecoServico(
       SIGLA_SERVICO.RECURSO,
@@ -571,11 +574,26 @@ export class StudentsProvasService {
       this.dadosAluno(dto.codigoMatricula),
     ]);
 
+    const studentForEpocaEspecial =
+      await this.studentsResultPlanService.findPlan(dto.codigoMatricula);
+
     const prazo = await this.prazosService.obterPrazo({
       tipo: TipoCalendario.EXAME_ESPECIAL,
       anoLectivoParam: anoLectivo.codigo,
     });
-    if (prazo && !prazo.podeInscrever) throw new BadRequestException(prazo.mensagem);
+    if (prazo && !prazo.podeInscrever)
+      throw new BadRequestException(prazo.mensagem);
+
+    if (
+      !(
+        studentForEpocaEspecial.totalGradesCurso -
+          studentForEpocaEspecial.totalGrasesAluno <=
+        4
+      )
+    )
+      throw new BadRequestException(
+        'O aluno não é elegível para inscrição em época especial.',
+      );
 
     const servico = await this.buscarPrecoServico(
       SIGLA_SERVICO.EXAME_ESPECIAL,
