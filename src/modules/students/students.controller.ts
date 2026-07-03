@@ -30,10 +30,11 @@ import {
 } from './dto/find-students.dto';
 import { ActivateRegistrationDTO } from './dto/activate-registration.dto';
 
+
 import { PermissionsGuard } from '../../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
-
 import { InactivateRegistrationDTO } from './dto/inactivate-registration.dto';
+
 
 import { AcademicHistoryDTO } from './dto/academic-history';
 import { ChangeCourseDTO } from './dto/change-course.dto';
