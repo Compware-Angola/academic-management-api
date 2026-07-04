@@ -1,4 +1,11 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import * as oracledb from 'oracledb';
 import { FilterCandidatoDto } from './dto/filter-candidato.dto';
 import { DataSource } from 'typeorm';
@@ -16,17 +23,18 @@ import { gerarHashExterno } from '../util/hash.util';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 
-
 @Injectable()
 export class ExamesDeAcessoService {
-
   constructor(
     private readonly dataSource: DataSource,
-    @InjectQueue('results_final_exam') private readonly resultsFinalExamQueue: Queue,
-  ) { }
+    @InjectQueue('results_final_exam')
+    private readonly resultsFinalExamQueue: Queue,
+  ) {}
 
   async buscaCandidatos(filtros: FilterCandidatoDto) {
-    const condicoes: string[] = ["FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA NOT IN (2,3)"];
+    const condicoes: string[] = [
+      'FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA NOT IN (2,3)',
+    ];
     const params: any[] = [];
     let paramIndex = 1;
 
@@ -311,7 +319,10 @@ export class ExamesDeAcessoService {
     return this.buscaCandidatos({ codigoCandidato, page: 1, limit: 1 });
   }
 
-  private async atualizarSenhaSeAnoLetivoAtivo(dto: UpdateCandidatoDto, codigoCandidato: number) {
+  private async atualizarSenhaSeAnoLetivoAtivo(
+    dto: UpdateCandidatoDto,
+    codigoCandidato: number,
+  ) {
     const sqlSelect = `
     SELECT FK2_TB_PREINSCRICAO.USER_ID AS USER_ID
          , FK2_TB_ANO_LECTIVO.STATUS_  AS ESTADO_ANO_LECTIVO
@@ -323,9 +334,7 @@ export class ExamesDeAcessoService {
        AND FK2_TB_PREINSCRICAO.CODIGO  = :1
   `;
 
-    const rows = await this.dataSource.query(sqlSelect, [
-      codigoCandidato,
-    ]);
+    const rows = await this.dataSource.query(sqlSelect, [codigoCandidato]);
 
     if (!rows.length) {
       return;
@@ -368,7 +377,9 @@ export class ExamesDeAcessoService {
     }
 
     if (filtros.dataRealizacao) {
-      condicoes.push(`FK2_TB_HORARIO_PROVA.DATA_REALIZACAO = TO_DATE(:${paramIndex++}, 'DD/MM/YYYY')`);
+      condicoes.push(
+        `FK2_TB_HORARIO_PROVA.DATA_REALIZACAO = TO_DATE(:${paramIndex++}, 'DD/MM/YYYY')`,
+      );
       params.push(filtros.dataRealizacao);
     }
 
@@ -460,7 +471,6 @@ export class ExamesDeAcessoService {
       condicoes.push(`FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID = :${paramIndex++}`);
       params.push(filtros.codigoAnoLetivo);
     }
-
 
     if (filtros.codigoCurso) {
       condicoes.push(`FK2_TB_HORARIO_PROVA.CURSO_ID = :${paramIndex++}`);
@@ -587,7 +597,9 @@ export class ExamesDeAcessoService {
     }
 
     if (filtros.codigoCurso) {
-      condicoes.push(`FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA = :${paramIndex++}`);
+      condicoes.push(
+        `FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA = :${paramIndex++}`,
+      );
       params.push(filtros.codigoCurso);
     }
 
@@ -728,12 +740,16 @@ export class ExamesDeAcessoService {
     }
 
     if (filtros.codigoGrau) {
-      condicoes.push(`FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA = :${paramIndex++}`);
+      condicoes.push(
+        `FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA = :${paramIndex++}`,
+      );
       params.push(filtros.codigoGrau);
     }
 
     if (filtros.codigoCurso) {
-      condicoes.push(`FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA = :${paramIndex++}`);
+      condicoes.push(
+        `FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA = :${paramIndex++}`,
+      );
       params.push(filtros.codigoCurso);
     }
 
@@ -742,7 +758,10 @@ export class ExamesDeAcessoService {
       params.push(filtros.codigoTurno);
     }
 
-    if (filtros.filtroProva === 'com_prova' && filtros.statusProva !== undefined) {
+    if (
+      filtros.filtroProva === 'com_prova' &&
+      filtros.statusProva !== undefined
+    ) {
       condicoes.push(`FK2_CANDIDATO_PROVAS.STATUS_ = :${paramIndex++}`);
       params.push(filtros.statusProva);
     }
@@ -902,8 +921,6 @@ export class ExamesDeAcessoService {
     });
   }
 
-
-
   async atribuirProva(codigoCandidato: number) {
     try {
       return await this.dataSource.transaction(async (manager) => {
@@ -930,7 +947,6 @@ export class ExamesDeAcessoService {
 
         const candidates = await manager.query(sqlCandidate, [codigoCandidato]);
 
-
         if (candidates.length === 0) {
           throw new BadRequestException(
             'Candidato não encontrado ou já possui prova atribuída.',
@@ -938,7 +954,6 @@ export class ExamesDeAcessoService {
         }
 
         const candidate = candidates[0];
-
 
         const sqlExams = `
         SELECT FK2_PROVAS.ID
@@ -1038,10 +1053,7 @@ export class ExamesDeAcessoService {
 
       // Se já tem status HTTP, reaproveita
       if (error?.status) {
-        throw new HttpException(
-          error.response || error.message,
-          error.status,
-        );
+        throw new HttpException(error.response || error.message, error.status);
       }
 
       throw new HttpException(
@@ -1170,7 +1182,9 @@ export class ExamesDeAcessoService {
         ORDER BY DATA DESC 
         FETCH FIRST 1 ROWS ONLY
       `;
-      const admissaoResult = await manager.query(sqlGetAdmissao, [codigoCandidato]);
+      const admissaoResult = await manager.query(sqlGetAdmissao, [
+        codigoCandidato,
+      ]);
       const codigoAdmissao = admissaoResult[0]?.CODIGO;
 
       return {
@@ -1335,10 +1349,10 @@ export class ExamesDeAcessoService {
     const data = rows.map((row: any) => {
       const listaProvas = row.LISTA_DE_PROVAS
         ? row.LISTA_DE_PROVAS.replace(/^Prova de\\s*/i, '')
-          .split(/<br>/i)[0]
-          .split(',')
-          .map((s: string) => s.trim())
-          .filter((s: string) => s.length > 0)
+            .split(/<br>/i)[0]
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter((s: string) => s.length > 0)
         : [];
 
       return {
@@ -1534,10 +1548,13 @@ export class ExamesDeAcessoService {
     if (filtros.dataInicio && filtros.dataFim) {
       const [dd1, mm1, yyyy1] = filtros.dataInicio.split('/');
       const [dd2, mm2, yyyy2] = filtros.dataFim.split('/');
-      condicoes.push(`HP.DATA_REALIZACAO BETWEEN TO_DATE('${dd1}/${mm1}/${yyyy1}', 'DD/MM/YYYY') AND TO_DATE('${dd2}/${mm2}/${yyyy2}', 'DD/MM/YYYY')`);
+      condicoes.push(
+        `HP.DATA_REALIZACAO BETWEEN TO_DATE('${dd1}/${mm1}/${yyyy1}', 'DD/MM/YYYY') AND TO_DATE('${dd2}/${mm2}/${yyyy2}', 'DD/MM/YYYY')`,
+      );
     }
 
-    const extraWhere = condicoes.length > 0 ? condicoes.map((c) => ` AND ${c}`).join('') : '';
+    const extraWhere =
+      condicoes.length > 0 ? condicoes.map((c) => ` AND ${c}`).join('') : '';
 
     const page = filtros.page ?? 1;
     const limit = filtros.limit ?? 10;
@@ -1602,6 +1619,16 @@ export class ExamesDeAcessoService {
   }
 
   async buscaEstatisticaCandidatos(filtros: FilterEstatisticaCandidatosDto) {
+    const dateCase = `
+    CASE
+        WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{2}-\\d{2}-\\d{4}')
+            THEN TO_DATE(P.DATA_PREESCRINCAO, 'DD-MM-YYYY HH24:MI')
+        WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{4}-\\d{2}-\\d{2}')
+            THEN TO_DATE(P.DATA_PREESCRINCAO, 'YYYY-MM-DD HH24:MI:SS')
+        ELSE NULL
+    END
+  `;
+
     const condicoes: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -1626,7 +1653,22 @@ export class ExamesDeAcessoService {
       params.push(filtros.codigoTurno);
     }
 
-    const extraWhere = condicoes.length > 0 ? condicoes.map((c) => ` AND ${c}`).join('') : '';
+    if (filtros.dataInicio) {
+      condicoes.push(
+        `TRUNC(${dateCase}) >= TO_DATE(:${paramIndex++}, 'YYYY-MM-DD')`,
+      );
+      params.push(filtros.dataInicio);
+    }
+
+    if (filtros.dataFim) {
+      condicoes.push(
+        `TRUNC(${dateCase}) <= TO_DATE(:${paramIndex++}, 'YYYY-MM-DD')`,
+      );
+      params.push(filtros.dataFim);
+    }
+
+    const extraWhere =
+      condicoes.length > 0 ? condicoes.map((c) => ` AND ${c}`).join('') : '';
 
     const page = filtros.page ?? 1;
     const limit = filtros.limit ?? 10;
@@ -1636,42 +1678,32 @@ export class ExamesDeAcessoService {
     const limitIndex = paramIndex++;
     params.push(offset, limit);
 
-    const dateCase = `
-      CASE
-          WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{2}-\\d{2}-\\d{4}')
-              THEN TO_DATE(P.DATA_PREESCRINCAO, 'DD-MM-YYYY HH24:MI')
-          WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{4}-\\d{2}-\\d{2}')
-              THEN TO_DATE(P.DATA_PREESCRINCAO, 'YYYY-MM-DD HH24:MI:SS')
-          ELSE NULL
-      END
-    `;
-
     const sqlInner = `
-    SELECT TO_CHAR(TRUNC(${dateCase}), 'DD/MM/YYYY') AS DATA,
-           SUM(CASE WHEN P.Codigo_Turno = 1 THEN 1 ELSE 0 END) AS qt_manha,
-           SUM(CASE WHEN P.Codigo_Turno = 2 THEN 1 ELSE 0 END) AS qt_tarde,
-           SUM(CASE WHEN P.Codigo_Turno = 3 THEN 1 ELSE 0 END) AS qt_noite,
-           SUM(CASE WHEN P.Codigo_Turno = 5 THEN 1 ELSE 0 END) AS qt_diurno,
-           SUM(CASE WHEN P.Codigo_Turno = 6 THEN 1 ELSE 0 END) AS qt_noturno,
-           COUNT(*) AS TOTAL_DIA
-      FROM FK2_TB_PREINSCRICAO P
-         , FK2_TB_CURSOS C
-         , FK2_USERS U
-         , FK2_TB_FACULDADE F
-     WHERE P.CURSO_CANDIDATURA = C.CODIGO
-       AND P.USER_ID           = U.ID
-       AND C.FACULDADE_ID      = F.CODIGO
-       ${extraWhere}
-     GROUP BY TRUNC(${dateCase})
-    `;
+  SELECT TO_CHAR(TRUNC(${dateCase}), 'DD/MM/YYYY') AS DATA,
+         SUM(CASE WHEN P.Codigo_Turno = 1 THEN 1 ELSE 0 END) AS qt_manha,
+         SUM(CASE WHEN P.Codigo_Turno = 2 THEN 1 ELSE 0 END) AS qt_tarde,
+         SUM(CASE WHEN P.Codigo_Turno = 3 THEN 1 ELSE 0 END) AS qt_noite,
+         SUM(CASE WHEN P.Codigo_Turno = 5 THEN 1 ELSE 0 END) AS qt_diurno,
+         SUM(CASE WHEN P.Codigo_Turno = 6 THEN 1 ELSE 0 END) AS qt_noturno,
+         COUNT(*) AS TOTAL_DIA
+    FROM FK2_TB_PREINSCRICAO P
+       , FK2_TB_CURSOS C
+       , FK2_USERS U
+       , FK2_TB_FACULDADE F
+   WHERE P.CURSO_CANDIDATURA = C.CODIGO
+     AND P.USER_ID           = U.ID
+     AND C.FACULDADE_ID      = F.CODIGO
+     ${extraWhere}
+   GROUP BY TRUNC(${dateCase})
+  `;
 
     const sql = `
-    SELECT *
-      FROM (${sqlInner})
-     ORDER BY 1
-    OFFSET :${offsetIndex} ROWS
-    FETCH NEXT :${limitIndex} ROWS ONLY
-    `;
+  SELECT *
+    FROM (${sqlInner})
+   ORDER BY 1
+  OFFSET :${offsetIndex} ROWS
+  FETCH NEXT :${limitIndex} ROWS ONLY
+  `;
 
     const sqlCount = `SELECT COUNT(*) AS TOTAL FROM (${sqlInner})`;
 
@@ -1690,6 +1722,16 @@ export class ExamesDeAcessoService {
   }
 
   async buscaEstatisticaPorDia(filtros: FilterEstatisticaCandidatosDto) {
+    const dateCase = `
+    CASE
+        WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{2}-\\d{2}-\\d{4}')
+            THEN TO_DATE(P.DATA_PREESCRINCAO, 'DD-MM-YYYY HH24:MI')
+        WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{4}-\\d{2}-\\d{2}')
+            THEN TO_DATE(P.DATA_PREESCRINCAO, 'YYYY-MM-DD HH24:MI:SS')
+        ELSE NULL
+    END
+  `;
+
     const condicoes: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -1709,7 +1751,22 @@ export class ExamesDeAcessoService {
       params.push(filtros.codigoTurno);
     }
 
-    const extraWhere = condicoes.length > 0 ? condicoes.length > 0 ? condicoes.map((c) => ` AND ${c}`).join('') : '' : '';
+    if (filtros.dataInicio) {
+      condicoes.push(
+        `TRUNC(${dateCase}) >= TO_DATE(:${paramIndex++}, 'YYYY-MM-DD')`,
+      );
+      params.push(filtros.dataInicio);
+    }
+
+    if (filtros.dataFim) {
+      condicoes.push(
+        `TRUNC(${dateCase}) <= TO_DATE(:${paramIndex++}, 'YYYY-MM-DD')`,
+      );
+      params.push(filtros.dataFim);
+    }
+
+    const extraWhere =
+      condicoes.length > 0 ? condicoes.map((c) => ` AND ${c}`).join('') : '';
 
     const page = filtros.page ?? 1;
     const limit = filtros.limit ?? 10;
@@ -1719,34 +1776,24 @@ export class ExamesDeAcessoService {
     const limitIndex = paramIndex++;
     params.push(offset, limit);
 
-    const dateCase = `
-      CASE
-          WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{2}-\\d{2}-\\d{4}')
-              THEN TO_DATE(P.DATA_PREESCRINCAO, 'DD-MM-YYYY HH24:MI')
-          WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{4}-\\d{2}-\\d{2}')
-              THEN TO_DATE(P.DATA_PREESCRINCAO, 'YYYY-MM-DD HH24:MI:SS')
-          ELSE NULL
-      END
-    `;
-
     const sqlInner = `
-    SELECT TO_CHAR(TRUNC(${dateCase}), 'DD/MM/YYYY') AS DATA,
-           COUNT(*) AS SUBTOTAL,
-           TRUNC(${dateCase}) AS DATA_TRUNC
-      FROM FK2_TB_PREINSCRICAO P
-         , FK2_USERS U
-     WHERE P.USER_ID           = U.ID
-       ${extraWhere}
-     GROUP BY TRUNC(${dateCase})
-    `;
+  SELECT TO_CHAR(TRUNC(${dateCase}), 'DD/MM/YYYY') AS DATA,
+         COUNT(*) AS SUBTOTAL,
+         TRUNC(${dateCase}) AS DATA_TRUNC
+    FROM FK2_TB_PREINSCRICAO P
+       , FK2_USERS U
+   WHERE P.USER_ID           = U.ID
+     ${extraWhere}
+   GROUP BY TRUNC(${dateCase})
+  `;
 
     const sql = `
-    SELECT DATA, SUBTOTAL
-      FROM (${sqlInner})
-     ORDER BY DATA_TRUNC ASC
-    OFFSET :${offsetIndex} ROWS
-    FETCH NEXT :${limitIndex} ROWS ONLY
-    `;
+  SELECT DATA, SUBTOTAL
+    FROM (${sqlInner})
+   ORDER BY DATA_TRUNC ASC
+  OFFSET :${offsetIndex} ROWS
+  FETCH NEXT :${limitIndex} ROWS ONLY
+  `;
 
     const sqlCount = `SELECT COUNT(*) AS TOTAL, SUM(SUBTOTAL) AS TOTAL_CANDIDATOS FROM (${sqlInner})`;
 
@@ -1823,21 +1870,15 @@ export class ExamesDeAcessoService {
     });
   }
 
-
-
-
   async corrigirTodasAsProvas() {
     return await this.queueProcessFinalResult();
   }
-
 
   async buscaEstatisticaCursos(filtros: FilterEstatisticaCursosDto) {
     const { codigoPolo, codigoAnoLetivo, page = 1, limit = 10 } = filtros;
 
     if (!codigoAnoLetivo) {
-      throw new BadRequestException(
-        'O código do ano letivo é obrigatório',
-      );
+      throw new BadRequestException('O código do ano letivo é obrigatório');
     }
 
     const offset = (page - 1) * limit;
@@ -1995,10 +2036,10 @@ export class ExamesDeAcessoService {
     return data;
   }
 
-
-
-  async queueProcessFinalResult(
-  ): Promise<{ message: string; taskId: string | undefined }> {
+  async queueProcessFinalResult(): Promise<{
+    message: string;
+    taskId: string | undefined;
+  }> {
     const job = await this.resultsFinalExamQueue.add(
       'processResultsFinalExam',
       {},
@@ -2014,5 +2055,4 @@ export class ExamesDeAcessoService {
       taskId: job.id,
     };
   }
-
 }
