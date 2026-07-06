@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 import { CandidateStatus, PaymentStatus, SortBy, SortOrder } from '../enums';
 
 export class FindCandidatesDto {
@@ -73,4 +73,20 @@ export class FindCandidatesDto {
   @IsNumber()
   @Type(() => Number)
   limit?: number;
+}
+
+
+
+export class ApproveCandidateDto {
+  @IsNumber()
+  candidateId: number;
+}
+
+export class RejectCandidateDto {
+  @IsNumber()
+  candidateId: number;
+
+  @IsString()
+  @IsNotEmpty()
+  reason: string;
 }

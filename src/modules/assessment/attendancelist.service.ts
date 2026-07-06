@@ -92,7 +92,7 @@ export class AttendanceListService {
       WHERE
         JSON_VALUE(al.REF_HORARIO, '$.pk') = ${horarioPk}
         AND al.CODIGO_ANO_LECTIVO = ${anoLectivo}
-        AND al.CODIGO_STATUS_GRADE_CURRICULAR <> 4
+        AND al.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 4)
         AND (:nome IS NULL OR fn_remove_acentos(UPPER(pre.nome_completo)) LIKE '%' || fn_remove_acentos(UPPER(:nome)) || '%')
         AND (:codigoMatricula IS NULL or m.codigo = :codigoMatricula)
     )
