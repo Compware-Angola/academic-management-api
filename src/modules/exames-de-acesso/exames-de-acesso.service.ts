@@ -1751,6 +1751,11 @@ export class ExamesDeAcessoService {
       params.push(filtros.codigoTurno);
     }
 
+    if (filtros.codigoFaculdade) {
+      condicoes.push(`F.CODIGO = :${paramIndex++}`);
+      params.push(filtros.codigoFaculdade);
+    }
+
     if (filtros.dataInicio) {
       condicoes.push(
         `TRUNC(${dateCase}) >= TO_DATE(:${paramIndex++}, 'YYYY-MM-DD')`,
@@ -1776,13 +1781,18 @@ export class ExamesDeAcessoService {
     const limitIndex = paramIndex++;
     params.push(offset, limit);
 
+    // 👇 acrescenta os joins de CURSOS e FACULDADE, iguais ao outro método
     const sqlInner = `
   SELECT TO_CHAR(TRUNC(${dateCase}), 'DD/MM/YYYY') AS DATA,
          COUNT(*) AS SUBTOTAL,
          TRUNC(${dateCase}) AS DATA_TRUNC
     FROM FK2_TB_PREINSCRICAO P
        , FK2_USERS U
+       , FK2_TB_CURSOS C
+       , FK2_TB_FACULDADE F
    WHERE P.USER_ID           = U.ID
+     AND P.CURSO_CANDIDATURA = C.CODIGO
+     AND C.FACULDADE_ID      = F.CODIGO
      ${extraWhere}
    GROUP BY TRUNC(${dateCase})
   `;
