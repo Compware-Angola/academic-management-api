@@ -1,4 +1,3 @@
-
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -33,7 +32,16 @@ export class FindGradeCurricularDto {
   @Type(() => Number)
   anoLectivo?: number;
 
-  @ApiPropertyOptional({ example: 'Matemática', description: 'Pesquisar por nome da disciplina' })
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  estado?: number;
+
+  @ApiPropertyOptional({
+    example: 'Matemática',
+    description: 'Pesquisar por nome da disciplina',
+  })
   @IsOptional()
   @IsString()
   search?: string;
