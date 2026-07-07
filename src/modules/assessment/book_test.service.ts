@@ -102,12 +102,134 @@ export class BookTestService {
     return row?.CODIGO_DISCIPLINA;
   }
 
+  private async validarDuplicidadeCalendarioProva(
+    dto: CreateCalendarioProvaDto | UpdateCalendarioProvaDto,
+    codigoCalendarioIgnorado?: number,
+  ): Promise<void> {
+    let contexto: Record<string, any> = {
+      horario: dto.Horario,
+      prazoId: dto.prazoId,
+      dataProva: dto.dataProva,
+      codigoTipoProva: dto.codigoTipoProva,
+      codigoModalidade: dto.codigoModalidade,
+      codigoSala: dto.codigoSala,
+      codigoPeriodo: dto.codigoPeriodo,
+      codigoDisciplina:
+        dto.codigoDisciplina !== undefined
+          ? await this.obterCodigoDisciplinaByGrade(dto.codigoDisciplina)
+          : undefined,
+    };
+
+    if (codigoCalendarioIgnorado !== undefined) {
+      const provaAtual = await this.dataSource.query(
+        `
+          SELECT
+            JSON_VALUE(cp.REF_HORARIO, '$.pk' RETURNING NUMBER NULL ON ERROR) AS HORARIO,
+            JSON_VALUE(cp.REF_PRAZO, '$.pk_prazo' RETURNING NUMBER NULL ON ERROR) AS PRAZO_ID,
+            TO_CHAR(cp.DATA_PROVA, 'YYYY-MM-DD') AS DATA_PROVA,
+            cp.CODIGO_TIPO_PROVA,
+            cp.CODIGO_MODALIDADE,
+            cp.CODIGO_SALA,
+            cp.CODIGO_PERIODO,
+            cp.CODIGO_DISCIPLINA
+          FROM FK2_TB_CALENDARIO_PROVA cp
+          WHERE cp.CODIGO = :codigoCalendarioIgnorado
+        `,
+        { codigoCalendarioIgnorado } as any,
+      );
+
+      const row = provaAtual?.[0];
+      if (!row) {
+        throw new BadRequestException(
+          `Não foi encontrado calendário de prova com código ${codigoCalendarioIgnorado}`,
+        );
+      }
+
+      // Na edição, o DTO pode vir parcial. A validação usa o estado final:
+      // valor novo quando veio no payload, valor atual do banco quando não veio.
+      contexto = {
+        horario: contexto.horario ?? row.HORARIO,
+        prazoId: contexto.prazoId ?? row.PRAZO_ID,
+        dataProva: contexto.dataProva ?? row.DATA_PROVA,
+        codigoTipoProva: contexto.codigoTipoProva ?? row.CODIGO_TIPO_PROVA,
+        codigoModalidade: contexto.codigoModalidade ?? row.CODIGO_MODALIDADE,
+        codigoSala: contexto.codigoSala ?? row.CODIGO_SALA,
+        codigoPeriodo: contexto.codigoPeriodo ?? row.CODIGO_PERIODO,
+        codigoDisciplina: contexto.codigoDisciplina ?? row.CODIGO_DISCIPLINA,
+      };
+    }
+
+    const conditions = [
+      `JSON_VALUE(cp.REF_HORARIO, '$.pk' RETURNING NUMBER NULL ON ERROR) = :horario`,
+      `JSON_VALUE(cp.REF_PRAZO, '$.pk_prazo' RETURNING NUMBER NULL ON ERROR) = :prazoId`,
+      `TRUNC(cp.DATA_PROVA) = TO_DATE(:dataProva, 'YYYY-MM-DD')`,
+      `cp.CODIGO_TIPO_PROVA = :codigoTipoProva`,
+      `cp.CODIGO_MODALIDADE = :codigoModalidade`,
+      `cp.ESTADO = 1`,
+    ];
+
+    const params: Record<string, any> = {
+      horario: contexto.horario,
+      prazoId: contexto.prazoId,
+      dataProva: contexto.dataProva,
+      codigoTipoProva: contexto.codigoTipoProva,
+      codigoModalidade: contexto.codigoModalidade,
+    };
+
+    if (contexto.codigoSala !== undefined && contexto.codigoSala !== null) {
+      conditions.push(`cp.CODIGO_SALA = :codigoSala`);
+      params.codigoSala = contexto.codigoSala;
+    }
+
+    if (
+      contexto.codigoPeriodo !== undefined &&
+      contexto.codigoPeriodo !== null
+    ) {
+      conditions.push(`cp.CODIGO_PERIODO = :codigoPeriodo`);
+      params.codigoPeriodo = contexto.codigoPeriodo;
+    }
+
+    if (
+      contexto.codigoDisciplina !== undefined &&
+      contexto.codigoDisciplina !== null
+    ) {
+      conditions.push(`cp.CODIGO_DISCIPLINA = :codigoDisciplina`);
+      params.codigoDisciplina = contexto.codigoDisciplina;
+    }
+
+    if (codigoCalendarioIgnorado !== undefined) {
+      conditions.push(`cp.CODIGO <> :codigoCalendarioIgnorado`);
+      params.codigoCalendarioIgnorado = codigoCalendarioIgnorado;
+    }
+
+    const result = await this.dataSource.query(
+      `
+        SELECT
+          cp.CODIGO
+        FROM FK2_TB_CALENDARIO_PROVA cp
+        WHERE ${conditions.join('\n          AND ')}
+        FETCH FIRST 1 ROW ONLY
+      `,
+      params as any,
+    );
+
+    if (result?.length) {
+      throw new BadRequestException(
+        'Já existe uma prova marcada para este contexto académico.',
+      );
+    }
+  }
+
   async createCalendarioProva(dto: CreateCalendarioProvaDto) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
+      // Regra de negócio: antes de criar, impede uma nova prova ativa com o
+      // mesmo contexto académico já existente no calendário.
+      await this.validarDuplicidadeCalendarioProva(dto);
+
       // Buscar dados de referência antes da transação (são apenas SELECTs)
       const ref_json_prazo = await this.obterPrazo(dto.prazoId);
       const ref_json_horario = await this.obterHorario(dto.Horario);
@@ -283,6 +405,28 @@ export class BookTestService {
       if (!existente || existente.length === 0) {
         throw new BadRequestException(
           `Não foi encontrado calendário de prova com código ${dto.codigoCalendario}`,
+        );
+      }
+
+      const camposIdentidadeProvaAlterados = [
+        dto.codigoTipoProva,
+        dto.codigoModalidade,
+        dto.codigoSala,
+        dto.codigoPeriodo,
+        dto.dataProva,
+        dto.codigoDisciplina,
+        dto.Horario,
+        dto.prazoId,
+      ].some((campo) => campo !== undefined);
+
+      if (camposIdentidadeProvaAlterados) {
+        // A edição pode vir parcial. Se algum campo que identifica a prova
+        // mudou, validamos o estado final contra outras provas existentes.
+        // Edições que mexem apenas em dados auxiliares, como vigilantes, não
+        // devem ser bloqueadas por duplicidades históricas já gravadas.
+        await this.validarDuplicidadeCalendarioProva(
+          dto,
+          dto.codigoCalendario,
         );
       }
 

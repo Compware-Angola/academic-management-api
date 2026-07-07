@@ -199,10 +199,20 @@ export class MarkingAssessmentService {
             json_value(tcp.ref_utilizador, '$.desc') AS usuarioDesc,
             (
               SELECT JSON_ARRAYAGG(
-                JSON_VALUE(v.REF_VIGILANTE, '$.desc')
+                VIGILANTES_UNICOS.VIGILANTE_NOME
               )
-              FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE v
-              WHERE v.CALENDARIO_PROVA = tcp.Codigo
+              FROM (
+                SELECT
+                  V.CALENDARIO_PROVA,
+                  JSON_VALUE(V.REF_VIGILANTE, '$.pk') AS VIGILANTE_ID,
+                  MAX(JSON_VALUE(V.REF_VIGILANTE, '$.desc')) AS VIGILANTE_NOME
+                FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE V
+                WHERE JSON_VALUE(V.REF_VIGILANTE, '$.pk') IS NOT NULL
+                GROUP BY
+                  V.CALENDARIO_PROVA,
+                  JSON_VALUE(V.REF_VIGILANTE, '$.pk')
+              ) VIGILANTES_UNICOS
+              WHERE VIGILANTES_UNICOS.CALENDARIO_PROVA = tcp.Codigo
             ) AS vigilantes,
             mtta.designacao AS Epoca
         FROM fk2_tb_disciplinas td
