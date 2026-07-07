@@ -74,7 +74,7 @@ export class AttendanceListService {
           ON db.CODIGO = bl.CODIGO_TIPO_DESCONTO
         WHERE bo.codigo_anolectivo = ${anoLectivo}
           AND bo.SEMESTRE = ${semestre}
-          AND (bo.desconto = 0 OR bo.desconto = 100) or (bl.VALOR_DESCONTO = 100 and db.SIGLA = 'DESC_PERC')
+          AND ((bo.desconto = 0 OR bo.desconto = 100) or (bl.VALOR_DESCONTO = 100 and db.SIGLA = 'DESC_PERC'))
           ---AND STATUS_  = 1
         GROUP BY bo.codigo_matricula
       ) b ON b.codigo_matricula = m.codigo
