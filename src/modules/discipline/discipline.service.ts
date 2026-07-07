@@ -354,12 +354,20 @@ export class DisciplineService {
   }
 
   async findGradeCurricular(dto: FindGradeCurricularDto) {
-    const { classe, curso, anoLectivo, search, page = 1, limit = 25 } = dto;
+    const {
+      classe,
+      curso,
+      anoLectivo,
+      estado,
+      search,
+      page = 1,
+      limit = 25,
+    } = dto;
 
     const offset = (page - 1) * limit;
     const conditions: string[] = ['1=1'];
     const params: Record<string, any> = {};
-    conditions.push('gc.STATUS_ = 1');
+    // conditions.push('gc.STATUS_ = 1');
 
     if (classe) {
       conditions.push('gc.CODIGO_CLASSE = :classe');
@@ -374,6 +382,13 @@ export class DisciplineService {
       conditions.push('plc.CODIGO_ANO_LECTIVO = :anoLectivo');
       params.anoLectivo = anoLectivo;
     }
+
+    if (estado === 0 || estado === 1) {
+      conditions.push('dd.STATUS_ = :estado');
+      params.estado = Number(estado);
+    } else {
+      conditions.push('gc.STATUS_ = 1'); // default: só ativas quando não filtrado
+    }
     if (search) {
       conditions.push('UPPER( dd.DESIGNACAO) LIKE UPPER(:search)');
       params.search = `%${search}%`;
@@ -383,7 +398,7 @@ export class DisciplineService {
 
     const sql = `
     SELECT
-      plc.Codigo       AS codigo_plano_curricular,
+      plc.Codigo        AS codigo_plano_curricular,
       gc.Codigo         AS codigo_grade_curricular,
       dd.CODIGO         AS codigo_disciplina,
       dd.DESIGNACAO     AS descricao_disciplina,
@@ -392,7 +407,8 @@ export class DisciplineService {
       cl.DESIGNACAO     AS descricao_classe,
       cl.CODIGO         AS codigo_classe,
       ss.CODIGO         AS codigo_semestre,
-      ss.DESIGNACAO     AS designacao_semestre
+      ss.DESIGNACAO     AS designacao_semestre,
+      dd.STATUS_        AS status
     FROM FK2_TB_PLANO_CURRICULAR_CURSO plc
     INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pcg  on pcg.CODIGO_PLANO_CURRICULAR_CURSO  = plc.CODIGO
     INNER JOIN FK2_TB_GRADE_CURRICULAR gc on gc.Codigo = pcg.codigo_grade_curricular

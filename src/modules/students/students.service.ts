@@ -13,6 +13,7 @@ import {
 } from './dto/find-students.dto';
 import { gerarHashExterno } from '../util/hash.util';
 import { ActivateRegistrationDTO } from './dto/activate-registration.dto';
+import { InactivateRegistrationDTO } from './dto/inactivate-registration.dto';
 import { AcademicHistoryDTO } from './dto/academic-history';
 import { ChangeCourseDTO } from './dto/change-course.dto';
 import { AnoLectivoUtil } from '../util/current-academic-year';
@@ -1631,6 +1632,68 @@ WHERE M."CODIGO" = :codigoMatricula`;
       console.error('Erro ao ativar matrícula:', error);
       throw new BadRequestException(error || 'Erro ao ativar matrícula');
     }
+  }
+
+  async inactivateRegistration(dto: InactivateRegistrationDTO) {
+    const { codigoMatricula, motivo } = dto;
+
+    if (!codigoMatricula) {
+      throw new BadRequestException('Código da matrícula é obrigatório');
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const matriculaResult = await manager.query(
+        `
+      SELECT
+        M.CODIGO,
+        M.ESTADO_MATRICULA
+      FROM FK2_TB_MATRICULAS M
+      WHERE M.CODIGO = :codigoMatricula
+      FOR UPDATE
+      `,
+        { codigoMatricula } as any,
+      );
+
+      if (!matriculaResult?.length) {
+        throw new NotFoundException('Matrícula não encontrada');
+      }
+
+      const matricula = matriculaResult[0];
+      const estadoAtual = String(matricula.ESTADO_MATRICULA || '')
+        .trim()
+        .toLowerCase();
+
+      if (estadoAtual === 'inactivo' || estadoAtual === 'inativo') {
+        throw new BadRequestException('Matrícula já se encontra inativa');
+      }
+
+      if (estadoAtual === 'diplomado' || estadoAtual === 'concluido') {
+        throw new BadRequestException(
+          'Não é possível inativar matrícula de estudante diplomado',
+        );
+      }
+
+      await manager.query(
+        `
+      UPDATE FK2_TB_MATRICULAS
+      SET ESTADO_MATRICULA = 'Inactivo',
+          UPDATED_AT = SYSDATE
+      WHERE CODIGO = :codigoMatricula
+      `,
+        { codigoMatricula } as any,
+      );
+
+      return {
+        success: true,
+        message: 'Matrícula inativada com sucesso',
+        data: {
+          codigoMatricula,
+          estadoAnterior: matricula.ESTADO_MATRICULA,
+          estadoAtual: 'Inactivo',
+          motivo: motivo?.trim() || null,
+        },
+      };
+    });
   }
 
   async academicHistory(dto: AcademicHistoryDTO) {
