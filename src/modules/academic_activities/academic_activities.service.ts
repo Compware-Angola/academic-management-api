@@ -438,17 +438,10 @@ export class AcademicActivitiesService {
         'LOCK TABLE FK2_TB_CALENDARIO_ACTIVIDADE_LECTIVAS IN EXCLUSIVE MODE',
       );
 
-      const [codigoResult] = await manager.query(`
-        SELECT NVL(MAX(CODIGO), 0) + 1 AS CODIGO
-        FROM FK2_TB_CALENDARIO_ACTIVIDADE_LECTIVAS
-      `);
-
-      const codigo = Number(codigoResult?.CODIGO);
-
       await manager.query(
         `
         INSERT INTO FK2_TB_CALENDARIO_ACTIVIDADE_LECTIVAS (
-          CODIGO,
+        
           DESCRICAO,
           DATA_INICIO,
           DATA_TERMINO,
@@ -460,7 +453,7 @@ export class AcademicActivitiesService {
           DATA,
           REF_UTILIZADOR
         ) VALUES (
-          :codigo,
+      
           :designacao,
           :dataInicio,
           :dataFim,
@@ -474,7 +467,7 @@ export class AcademicActivitiesService {
         )
         `,
         {
-          codigo,
+
           designacao,
           dataInicio,
           dataFim,
@@ -487,7 +480,7 @@ export class AcademicActivitiesService {
       );
 
       return {
-        codigo,
+        message: 'Atividade académica cadastrada com sucesso',
       };
     });
   }
