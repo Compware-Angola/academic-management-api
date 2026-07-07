@@ -434,9 +434,6 @@ export class AcademicActivitiesService {
         desc: utilizador.NOME ?? user?.nome ?? user?.username,
       });
 
-      await manager.query(
-        'LOCK TABLE FK2_TB_CALENDARIO_ACTIVIDADE_LECTIVAS IN EXCLUSIVE MODE',
-      );
 
       await manager.query(
         `
