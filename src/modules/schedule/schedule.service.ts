@@ -40,6 +40,8 @@ export class ScheduleService {
 
     // TODO: VERIFICAR SE USER *E ADDMIN
 
+    /*
+
     const terms =
 
       await this.promptToCreateAndEditService.promptToCreateAndEditSchedule(
@@ -65,6 +67,7 @@ export class ScheduleService {
       );
     }
 
+    */
     return await this.createOrUpdateHorario(userId, dto);
   }
 

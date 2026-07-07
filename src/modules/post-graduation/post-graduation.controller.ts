@@ -46,6 +46,13 @@ import { FindAgendaValidationsDto } from './dto/find-agenda-validations.dto';
 import { UpdateAgendaValidationStatusDto } from './dto/update-agenda-validation-status.dto';
 import { PostGraduationAgendaValidationService } from './post-graduation-agenda-validation.service';
 import { FindMissingAgendaValidationsDto } from './dto/find-missing-agenda-validations.dto';
+import { FindPostGraduationVacancyOptionsDto } from './dto/find-vacancy-options.dto';
+import { FindPostGraduationVacanciesDto } from './dto/find-vacancies.dto';
+import { CreatePostGraduationVacancyDto } from './dto/create-vacancy.dto';
+import { UpdatePostGraduationVacancyDto } from './dto/update-vacancy.dto';
+import { PostGraduationVacancyService } from './post-graduation-vacancy.service';
+import { FindPostGraduationFinalResultsDto } from './dto/find-final-results.dto';
+import { PostGraduationFinalResultsService } from './post-graduation-final-results.service';
 
 interface AuthenticatedRequest {
   user: RequestUser;
@@ -64,6 +71,8 @@ export class PostGraduationController {
     private readonly noteLaunchService: PostGraduationNoteLaunchService,
     private readonly agendaLaunchService: PostGraduationAgendaLaunchService,
     private readonly agendaValidationService: PostGraduationAgendaValidationService,
+    private readonly vacancyService: PostGraduationVacancyService,
+    private readonly finalResultsService: PostGraduationFinalResultsService,
     private readonly httpService: HttpService,
   ) { }
 
@@ -71,12 +80,15 @@ export class PostGraduationController {
   @RequiredPermissions(
     PermissionTypeDetails.REGISTRO_PRIMARIO_BD_POS_GRADUACAO.sigla,
     PermissionTypeDetails.CALENDARIO_PROVAS.sigla,
-    PermissionTypeDetails.DEFINIR_UNIDADE_CURRICULAR_COM_ORAL.sigla,
+    PermissionTypeDetails.DEFINIR_FORMULA_UC_POS_GRADUACAO.sigla,
+    PermissionTypeDetails.DEFINIR_UC_ORAL_POS_GRADUACAO.sigla,
     PermissionTypeDetails.MARCAR_PROVA_POS_GRADUACAO.sigla,
-    PermissionTypeDetails.LISTA_PRESENCA.sigla,
-    PermissionTypeDetails.LANCAMENTO_NOTAS_MPGS.sigla,
-    PermissionTypeDetails.LANCAMENTO_PAUTA.sigla,
-    PermissionTypeDetails.VALIDACAO_PAUTA_DOCENTE.sigla,
+    PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla,
+    PermissionTypeDetails.LANCAMENTO_NOTAS_POS_GRADUACAO.sigla,
+    PermissionTypeDetails.LANCAMENTO_PAUTA_POS_GRADUACAO.sigla,
+    PermissionTypeDetails.VALIDACAO_PAUTA_POS_GRADUACAO.sigla,
+    PermissionTypeDetails.DEFINIR_VAGAS_POS_GRADUACAO.sigla,
+    PermissionTypeDetails.RESULTADOS_FINAIS_POS_GRADUACAO.sigla,
   )
   @ApiOperation({
     summary: 'Listar graus de Pos-Graduacao',
@@ -139,9 +151,106 @@ export class PostGraduationController {
     return this.postGraduationService.findExamCalendars(query);
   }
 
+  @Get('vacancies/options')
+  @RequiredPermissions(PermissionTypeDetails.DEFINIR_VAGAS_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Listar cursos e períodos para vagas de Pós-Graduação',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Opções de vagas retornadas com sucesso.',
+  })
+  findVacancyOptions(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindPostGraduationVacancyOptionsDto,
+  ) {
+    return this.vacancyService.findOptions(query.degreeId);
+  }
+
+  @Get('vacancies')
+  @RequiredPermissions(PermissionTypeDetails.DEFINIR_VAGAS_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Listar vagas de Pós-Graduação e respetiva disponibilidade',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Vagas de Pós-Graduação retornadas com sucesso.',
+  })
+  findVacancies(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindPostGraduationVacanciesDto,
+  ) {
+    return this.vacancyService.findAll(query);
+  }
+
+  @Get('access-exam/final-results')
+  @RequiredPermissions(
+    PermissionTypeDetails.RESULTADOS_FINAIS_POS_GRADUACAO.sigla,
+  )
+  @ApiOperation({
+    summary: 'Listar resultados finais do Exame de Acesso da Pós-Graduação',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Resultados finais retornados com sucesso.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Ano lectivo ou grau de Pós-Graduação não encontrado.',
+  })
+  findFinalResults(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindPostGraduationFinalResultsDto,
+  ) {
+    return this.finalResultsService.findAll(query);
+  }
+
+  @Post('vacancies')
+  @RequiredPermissions(PermissionTypeDetails.DEFINIR_VAGAS_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Criar uma vaga de Pós-Graduação',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Vaga de Pós-Graduação criada com sucesso.',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Já existe uma vaga para curso, período e ano lectivo.',
+  })
+  createVacancy(
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    body: CreatePostGraduationVacancyDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.vacancyService.create(body, request.user.sub);
+  }
+
+  @Patch('vacancies/:vacancyId')
+  @RequiredPermissions(PermissionTypeDetails.DEFINIR_VAGAS_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Atualizar o número de vagas de Pós-Graduação',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Número de vagas atualizado com sucesso.',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Novo total inferior às vagas já ocupadas.',
+  })
+  updateVacancy(
+    @Param('vacancyId', ParseIntPipe) vacancyId: number,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    body: UpdatePostGraduationVacancyDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.vacancyService.update(vacancyId, body, request.user.sub);
+  }
+
   @Get('assessments/formulas')
   @RequiredPermissions(
-    PermissionTypeDetails.DEFINIR_FORMULA_UNIDADE_CURRICULAR.sigla,
+    PermissionTypeDetails.DEFINIR_FORMULA_UC_POS_GRADUACAO.sigla,
   )
   @ApiOperation({
     summary: 'Listar formulas das UCs de Pos-Graduacao',
@@ -171,7 +280,7 @@ export class PostGraduationController {
 
   @Put('assessments/formulas/:formulaId')
   @RequiredPermissions(
-    PermissionTypeDetails.DEFINIR_FORMULA_UNIDADE_CURRICULAR.sigla,
+    PermissionTypeDetails.DEFINIR_FORMULA_UC_POS_GRADUACAO.sigla,
   )
   @ApiOperation({
     summary: 'Atualizar formula de uma UC de Pos-Graduacao',
@@ -207,7 +316,7 @@ export class PostGraduationController {
 
   @Get('assessments/oral-curricular-units')
   @RequiredPermissions(
-    PermissionTypeDetails.DEFINIR_UNIDADE_CURRICULAR_COM_ORAL.sigla,
+    PermissionTypeDetails.DEFINIR_UC_ORAL_POS_GRADUACAO.sigla,
   )
   @ApiOperation({
     summary: 'Listar UCs com configuracao de oral da Pos-Graduacao',
@@ -237,7 +346,7 @@ export class PostGraduationController {
 
   @Patch('assessments/oral-curricular-units/:curricularGradeId/status')
   @RequiredPermissions(
-    PermissionTypeDetails.DEFINIR_UNIDADE_CURRICULAR_COM_ORAL.sigla,
+    PermissionTypeDetails.DEFINIR_UC_ORAL_POS_GRADUACAO.sigla,
   )
   @ApiOperation({
     summary: 'Habilitar ou desabilitar oral numa UC de Pos-Graduacao',
@@ -270,7 +379,7 @@ export class PostGraduationController {
   @Get('assessments/exam-markings/options')
   @RequiredPermissions(
     PermissionTypeDetails.MARCAR_PROVA_POS_GRADUACAO.sigla,
-    PermissionTypeDetails.LISTA_PRESENCA.sigla,
+    PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla,
   )
   @ApiOperation({
     summary: 'Listar opcoes de marcacao de provas permitidas ao docente',
@@ -286,7 +395,7 @@ export class PostGraduationController {
   @Get('assessments/exam-markings')
   @RequiredPermissions(
     PermissionTypeDetails.MARCAR_PROVA_POS_GRADUACAO.sigla,
-    PermissionTypeDetails.LISTA_PRESENCA.sigla,
+    PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla,
   )
   @ApiOperation({
     summary: 'Listar provas de Pos-Graduacao marcadas pelo docente',
@@ -321,7 +430,7 @@ export class PostGraduationController {
   }
 
   @Get('assessments/attendance-list')
-  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA.sigla)
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
   @ApiOperation({
     summary: 'Listar estudantes elegiveis para presenca na Pos-Graduacao',
     description:
@@ -343,7 +452,9 @@ export class PostGraduationController {
   }
 
   @Get('assessments/note-launch/options')
-  @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_NOTAS_MPGS.sigla)
+  @RequiredPermissions(
+    PermissionTypeDetails.LANCAMENTO_NOTAS_POS_GRADUACAO.sigla,
+  )
   @ApiOperation({
     summary:
       'Listar opcoes de lancamento de notas da Pos-Graduacao permitidas ao docente',
@@ -361,7 +472,9 @@ export class PostGraduationController {
   }
 
   @Get('assessments/note-launch/students')
-  @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_NOTAS_MPGS.sigla)
+  @RequiredPermissions(
+    PermissionTypeDetails.LANCAMENTO_NOTAS_POS_GRADUACAO.sigla,
+  )
   @ApiOperation({
     summary:
       'Listar estudantes e notas existentes para lancamento na Pos-Graduacao',
@@ -384,7 +497,9 @@ export class PostGraduationController {
   }
 
   @Put('assessments/note-launch')
-  @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_NOTAS_MPGS.sigla)
+  @RequiredPermissions(
+    PermissionTypeDetails.LANCAMENTO_NOTAS_POS_GRADUACAO.sigla,
+  )
   @ApiOperation({
     summary: 'Criar ou atualizar notas da Pós-Graduação',
   })
@@ -409,7 +524,9 @@ export class PostGraduationController {
   }
 
   @Get('assessments/agenda-launch/options')
-  @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_PAUTA.sigla)
+  @RequiredPermissions(
+    PermissionTypeDetails.LANCAMENTO_PAUTA_POS_GRADUACAO.sigla,
+  )
   @ApiOperation({
     summary:
       'Listar opcoes de lancamento de pauta da Pos-Graduacao permitidas ao docente',
@@ -427,7 +544,9 @@ export class PostGraduationController {
   }
 
   @Get('assessments/agenda-launch')
-  @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_PAUTA.sigla)
+  @RequiredPermissions(
+    PermissionTypeDetails.LANCAMENTO_PAUTA_POS_GRADUACAO.sigla,
+  )
   @ApiOperation({
     summary: 'Listar pautas de Pos-Graduacao lancadas pelo docente',
   })
@@ -444,7 +563,9 @@ export class PostGraduationController {
   }
 
   @Post('assessments/agenda-launch')
-  @RequiredPermissions(PermissionTypeDetails.LANCAMENTO_PAUTA.sigla)
+  @RequiredPermissions(
+    PermissionTypeDetails.LANCAMENTO_PAUTA_POS_GRADUACAO.sigla,
+  )
   @ApiOperation({
     summary: 'Registar uma pauta de Pos-Graduacao',
   })
@@ -481,7 +602,9 @@ export class PostGraduationController {
   }
 
   @Get('assessments/agenda-validation/options')
-  @RequiredPermissions(PermissionTypeDetails.VALIDACAO_PAUTA_DOCENTE.sigla)
+  @RequiredPermissions(
+    PermissionTypeDetails.VALIDACAO_PAUTA_POS_GRADUACAO.sigla,
+  )
   @ApiOperation({
     summary:
       'Listar opcoes de validacao de pauta permitidas ao coordenador de Pos-Graduacao',
@@ -499,7 +622,9 @@ export class PostGraduationController {
   }
 
   @Get('assessments/agenda-validation')
-  @RequiredPermissions(PermissionTypeDetails.VALIDACAO_PAUTA_DOCENTE.sigla)
+  @RequiredPermissions(
+    PermissionTypeDetails.VALIDACAO_PAUTA_POS_GRADUACAO.sigla,
+  )
   @ApiOperation({
     summary:
       'Listar pautas de Pos-Graduacao submetidas nos cursos coordenados pelo utilizador',
@@ -517,7 +642,9 @@ export class PostGraduationController {
   }
 
   @Get('assessments/agenda-validation/missing')
-  @RequiredPermissions(PermissionTypeDetails.VALIDACAO_PAUTA_DOCENTE.sigla)
+  @RequiredPermissions(
+    PermissionTypeDetails.VALIDACAO_PAUTA_POS_GRADUACAO.sigla,
+  )
   @ApiOperation({
     summary:
       'Listar UCs de Pos-Graduacao sem pauta nos cursos coordenados pelo utilizador',
@@ -535,7 +662,9 @@ export class PostGraduationController {
   }
 
   @Patch('assessments/agenda-validation/:agendaId/status')
-  @RequiredPermissions(PermissionTypeDetails.VALIDACAO_PAUTA_DOCENTE.sigla)
+  @RequiredPermissions(
+    PermissionTypeDetails.VALIDACAO_PAUTA_POS_GRADUACAO.sigla,
+  )
   @ApiOperation({
     summary: 'Aprovar ou rejeitar uma pauta de Pos-Graduacao',
   })
