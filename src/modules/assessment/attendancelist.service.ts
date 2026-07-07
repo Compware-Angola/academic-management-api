@@ -65,14 +65,18 @@ export class AttendanceListService {
       -- bolseiros sem duplicar
       LEFT JOIN (
         SELECT
-          codigo_matricula,
+          bo.codigo_matricula,
           1 AS is_bolseiro
-        FROM FK2_TB_BOLSEIROS
-        WHERE codigo_anolectivo = ${anoLectivo}
-          AND (desconto = 0 OR desconto = 100)
-          AND SEMESTRE = ${semestre}
+        FROM FK2_TB_BOLSEIROS bo
+        LEFT JOIN FK2_TB_BOLSAS bl
+          ON bl.CODIGO = bo.CODIGO_BOLSA
+        LEFT JOIN FK2_TB_TIPO_DESCONTO_BOLSAS db
+          ON db.CODIGO = bl.CODIGO_TIPO_DESCONTO
+        WHERE bo.codigo_anolectivo = ${anoLectivo}
+          AND (bo.desconto = 0 OR bo.desconto = 100) or (bl.VALOR_DESCONTO = 100 and db.SIGLA = 'DESC_PERC')
+          AND bo.SEMESTRE = ${semestre}
           ---AND STATUS_  = 1
-        GROUP BY codigo_matricula
+        GROUP BY bo.codigo_matricula
       ) b ON b.codigo_matricula = m.codigo
       -- meses pagos
       LEFT JOIN (
