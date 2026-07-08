@@ -356,8 +356,8 @@ export class DocenteGestaoService {
     const params: any = {};
 
     conditions.push(`1=1`);
-    conditions.push(`a.ACTIVE_STATE = 1`);
-    conditions.push(`l.codigo = :anoLectivo`);
+    conditions.push(`af.ACTIVE_STATE = 1`);
+    conditions.push(`an.codigo = :anoLectivo`);
 
     params.anoLectivo = anoLectivo;
 
@@ -394,80 +394,101 @@ export class DocenteGestaoService {
 
     if (tipoAfectacao == 1) {
       sqlCommand = `
-      SELECT DISTINCT
-        json_value(d.CODIGO_UTILIZADOR,'$.desc')  AS docente,
-        d.N_MECANOGRAFICO                   AS mecanografico,
-        d.codigo                            AS codigo_docente
-
-      FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
-
-      LEFT JOIN FK2_MGD_TB_DOCENTE d
-        ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
-
-      INNER JOIN FK2_TB_ANO_LECTIVO l
-        ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
-
-      INNER JOIN FK2_MCAL_TB_SEMESTRE s
-        ON s.PK_SEMESTRE = a.SEMESTRE
-
-      WHERE ${whereClause}
-
-      ORDER BY JSON_VALUE(a.REF_DOCENTE,'$.desc') ASC
-      OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
-      `;
+  SELECT DISTINCT
+    JSON_VALUE(af.ref_ano_lectivo,'$.desc')  AS anoLectivo,
+    JSON_VALUE(af.ref_cadeira,'$.desc')      AS uc,
+    JSON_VALUE(af.ref_docente,'$.desc')      AS docente,
+    d.N_MECANOGRAFICO                        AS mecanografico,
+    d.codigo                                 AS codigo_docente,
+    ca.designacao                            AS categoria,
+    c.designacao                             AS classe,
+    s.designacao                             AS semestre,
+    cu.designacao                            AS curso,
+    af.CREATED_AT                            AS data,
+    ur.nome                                  AS afectadoPor,
+    af.active_state                          AS estado
+  FROM FK2_MGD_TB_DOCENTE_AFECTACAO af
+  INNER JOIN FK2_TB_GRADE_CURRICULAR g
+    ON g.codigo = af.fk_cadeira
+  LEFT JOIN FK2_MGD_TB_DOCENTE d
+    ON d.codigo = af.fk_docente
+  INNER JOIN FK2_TB_CLASSES c
+    ON c.codigo = g.CODIGO_CLASSE
+  INNER JOIN FK2_TB_ANO_LECTIVO an
+    ON an.codigo = af.fk_ano_lectivo
+  INNER JOIN FK2_MCAL_TB_SEMESTRE s
+    ON s.pk_semestre = g.CODIGO_SEMESTRE
+  INNER JOIN FK2_TB_CATEGORIA_DOCENTE ca
+    ON ca.codigo = af.FK_CATEGORIA
+  INNER JOIN FK2_TB_CURSOS cu
+    ON cu.codigo = g.CODIGO_CURSO
+  LEFT JOIN FK2_MCA_TB_UTILIZADOR ur
+    ON ur.pk_utilizador = af.CREATED_BY
+  WHERE ${whereClause}
+  ORDER BY JSON_VALUE(af.ref_docente,'$.desc') ASC
+  OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+  `;
 
       sqlCount = `
-        SELECT COUNT(DISTINCT d.codigo) AS TOTAL
-
-        FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
-
-        LEFT JOIN FK2_MGD_TB_DOCENTE d
-          ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
-
-        INNER JOIN FK2_TB_ANO_LECTIVO l
-          ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
-
-        INNER JOIN FK2_MCAL_TB_SEMESTRE s
-          ON s.PK_SEMESTRE = a.SEMESTRE
-
-        WHERE ${whereClause}
-      `;
+  SELECT COUNT(DISTINCT af.PK_AFECTACAO) AS TOTAL
+  FROM FK2_MGD_TB_DOCENTE_AFECTACAO af
+  INNER JOIN FK2_TB_GRADE_CURRICULAR g
+    ON g.codigo = af.fk_cadeira
+  LEFT JOIN FK2_MGD_TB_DOCENTE d
+    ON d.codigo = af.fk_docente
+  INNER JOIN FK2_TB_CLASSES c
+    ON c.codigo = g.CODIGO_CLASSE
+  INNER JOIN FK2_TB_ANO_LECTIVO an
+    ON an.codigo = af.fk_ano_lectivo
+  INNER JOIN FK2_MCAL_TB_SEMESTRE s
+    ON s.pk_semestre = g.CODIGO_SEMESTRE
+  INNER JOIN FK2_TB_CATEGORIA_DOCENTE ca
+    ON ca.codigo = af.FK_CATEGORIA
+  INNER JOIN FK2_TB_CURSOS cu
+    ON cu.codigo = g.CODIGO_CURSO
+  LEFT JOIN FK2_MCA_TB_UTILIZADOR ur
+    ON ur.pk_utilizador = af.CREATED_BY
+  WHERE ${whereClause}
+  `;
     } else {
       sqlCommand = `
-      select
-          json_value(d.CODIGO_UTILIZADOR,'$.desc') as docente,
-          d.N_MECANOGRAFICO                        as mecanografico,
-          d.codigo                            as codigo_docente
-      from FK2_MGD_TB_DOCENTE d
-      where 1=1
-      and d.codigo not in (
-                    select  d.codigo
-                    from FK2_MGD_TB_DOCENTE_AFECTACAO a
-                    LEFT JOIN FK2_MGD_TB_DOCENTE     d on d.codigo        = json_value(a.REF_DOCENTE,'$.pk')
-                    inner join FK2_TB_ANO_LECTIVO     l on l.codigo        = json_value(a.REF_ANO_LECTIVO,'$.pk')
-                    inner join FK2_MCAL_TB_SEMESTRE   s on s.PK_SEMESTRE   = a.SEMESTRE
-                    where ${whereClause}
-      )
-      ORDER BY json_value(d.CODIGO_UTILIZADOR,'$.desc') ASC
-      OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
-      `;
+  SELECT
+      d.codigo                                 AS codigo_docente,
+      JSON_VALUE(d.CODIGO_UTILIZADOR,'$.desc')  AS docente,
+      d.N_MECANOGRAFICO                         AS mecanografico
+  FROM FK2_MGD_TB_DOCENTE d
+  WHERE NOT EXISTS (
+      SELECT 1
+      FROM FK2_MGD_TB_DOCENTE_AFECTACAO af
+      INNER JOIN FK2_TB_GRADE_CURRICULAR g
+        ON g.codigo = af.fk_cadeira
+      INNER JOIN FK2_TB_ANO_LECTIVO an
+        ON an.codigo = af.fk_ano_lectivo
+      INNER JOIN FK2_MCAL_TB_SEMESTRE s
+        ON s.pk_semestre = g.CODIGO_SEMESTRE
+      WHERE af.fk_docente = d.codigo
+        AND ${whereClause}
+  )
+  ORDER BY JSON_VALUE(d.CODIGO_UTILIZADOR,'$.desc') ASC
+  OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+  `;
 
       sqlCount = `
-        SELECT COUNT(*) AS TOTAL
-        FROM FK2_MGD_TB_DOCENTE d
-        WHERE 1=1
-        AND d.codigo NOT IN (
-              SELECT d.codigo
-              FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
-              LEFT JOIN FK2_MGD_TB_DOCENTE d
-                  ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
-              INNER JOIN FK2_TB_ANO_LECTIVO l
-                  ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
-              INNER JOIN FK2_MCAL_TB_SEMESTRE s
-                  ON s.PK_SEMESTRE = a.SEMESTRE
-              WHERE ${whereClause}
-        )
-     `;
+  SELECT COUNT(*) AS TOTAL
+  FROM FK2_MGD_TB_DOCENTE d
+  WHERE NOT EXISTS (
+      SELECT 1
+      FROM FK2_MGD_TB_DOCENTE_AFECTACAO af
+      INNER JOIN FK2_TB_GRADE_CURRICULAR g
+        ON g.codigo = af.fk_cadeira
+      INNER JOIN FK2_TB_ANO_LECTIVO an
+        ON an.codigo = af.fk_ano_lectivo
+      INNER JOIN FK2_MCAL_TB_SEMESTRE s
+        ON s.pk_semestre = g.CODIGO_SEMESTRE
+      WHERE af.fk_docente = d.codigo
+        AND ${whereClause}
+  )
+  `;
     }
     const sqlParams = {
       ...params,

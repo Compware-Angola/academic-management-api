@@ -65,30 +65,48 @@ export class DocenteService {
       // ---------- 2. Inserir Pessoa ----------
       const pessoaResult = await queryRunner.manager.query(
         `
-        INSERT INTO FK2_TB_PESSOA (
-          NOME_COMPLETO, NUM_DOC_IDENTIFICACAO, EMAIL, TELEFONE1, TELEFONE2,
-          DATA_DE_NASCIMENTO, FK_TIPO_DOCUMENTO_IDENTIFICACAO, FK_GENERO,
-          FK_ESTADO_CIVIL, FK_NACIONALIDADE, ACTIVE_STATE, CREATED_AT, UPDATED_AT
-        ) VALUES (
-          :nomeCompleto, :numDocIdentificacao, :email, :telefone1, :telefone2,
-          :dataDeNascimento, :tipoDocumentoId, :sexoId, :estadoCivilId, :nacionalidadeId,
-          1, SYSDATE, SYSDATE
-        )
-        RETURNING PK_PESSOA INTO :outId
-        `,
+  INSERT INTO FK2_TB_PESSOA (
+    NOME_COMPLETO, NOME_DO_PAI, NOME_DA_MAE, DATA_DE_NASCIMENTO,
+    NUM_DOC_IDENTIFICACAO, FK_TIPO_DOCUMENTO_IDENTIFICACAO,
+    DATA_DE_EMISSAO_DOCUMENTO, DATA_DE_EXPIRACAO_DOCUMENTO,
+    FK_GENERO, FK_NACIONALIDADE, ENDERECO, FK_NATURALIDADE,
+    FK_ESTADO_CIVIL, TELEFONE1, TELEFONE2, EMAIL,
+    CREATED_BY, LAST_UPDATED_BY, ACTIVE_STATE, CREATED_AT, UPDATED_AT
+  ) VALUES (
+    :nomeCompleto, :nomePai, :nomeMae, :dataDeNascimento,
+    :numDocIdentificacao, :tipoDocumentoId,
+    :dataDeEmissaoDocumento, :dataDeExpiracaoDocumento,
+    :sexoId, :nacionalidadeId, :endereco, :naturalidadeId,
+    :estadoCivilId, :telefone1, :telefone2, :email,
+    :createdBy, :lastUpdatedBy, 1, SYSDATE, SYSDATE
+  )
+  RETURNING PK_PESSOA INTO :outId
+  `,
         {
           nomeCompleto: dto.pessoa.nomeCompleto,
-          numDocIdentificacao: dto.pessoa.numDocIdentificacao,
-          email: dto.pessoa.email,
-          telefone1: dto.pessoa.telefone1 || null,
-          telefone2: dto.pessoa.telefone2 || null,
+          nomePai: dto.pessoa.nomePai,
+          nomeMae: dto.pessoa.nomeMae,
           dataDeNascimento: dto.pessoa.dataDeNascimento
             ? new Date(dto.pessoa.dataDeNascimento)
             : null,
+          numDocIdentificacao: dto.pessoa.numDocIdentificacao,
           tipoDocumentoId: dto.pessoa.tipoDocumentoId || null,
+          dataDeEmissaoDocumento: dto.pessoa.dataDeEmissaoDocumento
+            ? new Date(dto.pessoa.dataDeEmissaoDocumento)
+            : null,
+          dataDeExpiracaoDocumento: dto.pessoa.dataDeExpiracaoDocumento
+            ? new Date(dto.pessoa.dataDeExpiracaoDocumento)
+            : null,
           sexoId: dto.pessoa.sexoId || null,
-          estadoCivilId: dto.pessoa.estadoCivilId || null,
           nacionalidadeId: dto.pessoa.nacionalidadeId || null,
+          endereco: dto.pessoa.endereco || null,
+          naturalidadeId: dto.pessoa.naturalidadeId || null,
+          estadoCivilId: dto.pessoa.estadoCivilId || null,
+          telefone1: dto.pessoa.telefone1 || null,
+          telefone2: dto.pessoa.telefone2 || null,
+          email: dto.pessoa.email,
+          createdBy: userId, // vem do req.user.id (JWT), não do DTO
+          lastUpdatedBy: userId,
           outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
         } as any,
       );
@@ -188,12 +206,12 @@ export class DocenteService {
       const docenteResult = await queryRunner.manager.query(
         `
         INSERT INTO FK2_MGD_TB_DOCENTE (
-          APRECIACAO, CODIGO_UTILIZADOR, FK_ESCALAO, TB_CATEGORIA_DOCENTE,
+          APRECIACAO, CODIGO_UTILIZADOR, FK_ESCALAO, TB_CATEGORIA_DOCENTE, N_MECANOGRAFICO,
           FACULDADE, VALOR_HORA, FK_CANDIDATURA, TOTAL_ANO_EXPERIENCIA,
           DATAINICIODOCENCIA, PROPOSTA_DE_CONTRATACAO, COD_CONTRATO,
           CREATED_AT, UPDATED_AT
         ) VALUES (
-          :apreciacao, :codigoUtilizador, :fkEscalao, :tbCategoriaDocente,
+          :apreciacao, :codigoUtilizador, :fkEscalao, :tbCategoriaDocente, :mecanografico,
           :faculdade, :valorHora, :fkCandidatura, :totalAnoExperiencia,
           :dataInicioDocencia, :propostaDeContratacao, :codContrato,
           SYSDATE, SYSDATE
@@ -208,6 +226,7 @@ export class DocenteService {
           }),
           fkEscalao: dto.docente.fkEscalao || null,
           tbCategoriaDocente: dto.docente.tbCategoriaDocente || null,
+          mecanografico: dto.docente.mecanografico || null,
           faculdade: dto.docente.faculdade || null,
           valorHora: dto.docente.valorHora || null,
           fkCandidatura: candidaturaId,

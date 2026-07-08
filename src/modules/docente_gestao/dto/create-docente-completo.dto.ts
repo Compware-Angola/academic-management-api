@@ -8,6 +8,7 @@ import {
   IsNotEmpty,
   ValidateNested,
   MaxLength,
+  Matches,
 } from 'class-validator';
 
 export class CriarPessoaParaDocenteDto {
@@ -19,11 +20,58 @@ export class CriarPessoaParaDocenteDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
+  nomePai: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  nomeMae: string;
+
+  @IsOptional()
+  @IsDateString()
+  dataDeNascimento?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  @Matches(/^\d{9}[A-Za-z]{2}\d{3}$/, {
+    message:
+      'numDocIdentificacao deve seguir o padrão do BI angolano: 9 dígitos, 2 letras, 3 dígitos (ex: 123456789LA042)',
+  })
   numDocIdentificacao: string;
 
-  @IsEmail()
-  @MaxLength(50)
-  email: string;
+  @IsOptional()
+  @IsNumber()
+  tipoDocumentoId?: number;
+
+  @IsOptional()
+  @IsDateString()
+  dataDeEmissaoDocumento?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dataDeExpiracaoDocumento?: string;
+
+  @IsOptional()
+  @IsNumber()
+  sexoId?: number;
+
+  @IsOptional()
+  @IsNumber()
+  nacionalidadeId?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  endereco?: string;
+
+  @IsOptional()
+  @IsNumber()
+  naturalidadeId?: number;
+
+  @IsOptional()
+  @IsNumber()
+  estadoCivilId?: number;
 
   @IsOptional()
   @IsString()
@@ -35,25 +83,9 @@ export class CriarPessoaParaDocenteDto {
   @MaxLength(50)
   telefone2?: string;
 
-  @IsOptional()
-  @IsDateString()
-  dataDeNascimento?: string;
-
-  @IsOptional()
-  @IsNumber()
-  tipoDocumentoId?: number;
-
-  @IsOptional()
-  @IsNumber()
-  sexoId?: number;
-
-  @IsOptional()
-  @IsNumber()
-  estadoCivilId?: number;
-
-  @IsOptional()
-  @IsNumber()
-  nacionalidadeId?: number;
+  @IsEmail()
+  @MaxLength(50)
+  email: string;
 }
 
 export class CriarCandidaturaParaDocenteDto {
@@ -108,6 +140,10 @@ export class CriarDocenteDto {
   @IsOptional()
   @IsNumber()
   faculdade?: number;
+
+  @IsOptional()
+  @IsString()
+  mecanografico?: string;
 
   @IsOptional()
   @IsNumber()
