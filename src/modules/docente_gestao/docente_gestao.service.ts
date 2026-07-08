@@ -4,7 +4,6 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateDocenteGestaoDto } from './dto/create-docente_gestao.dto';
 import { UpdateDocenteDto } from './dto/update-docente.dto';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
@@ -575,6 +574,7 @@ export class DocenteGestaoService {
       throw error;
     }
   }
+
   // UPDATE DOCENTE
   async updateDocente(codigo: number, dto: UpdateDocenteDto) {
     const fields: string[] = [];
