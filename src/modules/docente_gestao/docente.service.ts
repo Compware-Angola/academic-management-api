@@ -105,8 +105,8 @@ export class DocenteService {
           telefone1: dto.pessoa.telefone1 || null,
           telefone2: dto.pessoa.telefone2 || null,
           email: dto.pessoa.email,
-          createdBy: userId, // vem do req.user.id (JWT), não do DTO
-          lastUpdatedBy: userId,
+          createdBy: usuarioLogadoId, // vem do req.user.id (JWT), não do DTO
+          lastUpdatedBy: usuarioLogadoId,
           outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
         } as any,
       );
