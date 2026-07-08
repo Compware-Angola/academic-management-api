@@ -43,12 +43,6 @@ import { PermissionTypeDetails } from '../../common/enums/permission.type';
 //@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 export class DocenteGestaoController {
   constructor(private readonly service: DocenteGestaoService) {}
-
-  // @Post('/create-docente')
-  // async createDocente(@Body() dto: CreateDocenteDto) {
-  //   return this.service.createDocente(dto);
-  // }
-
   @Get('/parametros')
   @ApiOperation({
     summary: 'Listar parametros',
