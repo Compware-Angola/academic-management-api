@@ -1,7 +1,7 @@
 import {
-    ConflictException,
-    Injectable,
-    NotFoundException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -12,26 +12,25 @@ import { QueryPreRegistrationDto } from './dto/queryPreRegistrationDto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { AnoLectivoUtil } from '../util/current-academic-year';
 
-
 @Injectable()
 export class PreRegistrationService {
-    constructor(
-        @InjectDataSource()
-        private readonly dataSource: DataSource,
-        private readonly anoLectivoUtil: AnoLectivoUtil
-    ) { }
+  constructor(
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
+    private readonly anoLectivoUtil: AnoLectivoUtil,
+  ) {}
 
-    // ─────────────────────────────────────────────
-    //  CREATE
-    // ─────────────────────────────────────────────
-    async create(dto: CreatePreRegistrationDto, userId: number) {
-        await this.assertUniqueBI(dto.bilheteIdentidade);
-        await this.assertUniqueEmail(dto.email);
+  // ─────────────────────────────────────────────
+  //  CREATE
+  // ─────────────────────────────────────────────
+  async create(dto: CreatePreRegistrationDto, userId: number) {
+    await this.assertUniqueBI(dto.bilheteIdentidade);
+    await this.assertUniqueEmail(dto.email);
 
-        const anoLectivo = await this.anoLectivoUtil.getAnoAtualId() ?? null;
+    const anoLectivo = (await this.anoLectivoUtil.getAnoAtualId()) ?? null;
 
-        const result = await this.dataSource.query(
-            `
+    const result = await this.dataSource.query(
+      `
         INSERT INTO FK2_TB_PREINSCRICAO (
             CURSO_CANDIDATURA,
             MODALIDADE_FREQUENCIA,
@@ -62,6 +61,7 @@ export class PreRegistrationService {
             CODIGO_TURNO,
             ANOLECTIVO,
             CODIGO_NACIONALIDADE,
+            INQUERITO,
             CREATED_AT,
             UPDATED_AT
         ) VALUES (
@@ -94,72 +94,79 @@ export class PreRegistrationService {
             :codigoTurno,
             :anoLectivo,
             :codigoNacionalidade,
+            :inquerito,
             SYSDATE,
             SYSDATE
         )
         RETURNING CODIGO INTO :outId
         `,
-            {
-                cursoCandidatura: dto.cursoCandidatura,
-                modalidadeFrequencia: dto.modalidadeFrequencia ?? null,
-                nomeCompleto: dto.nomeCompleto,
-                bilheteIdentidade: dto.bilheteIdentidade,
-                dataEmissaoBI: dto.dataEmissaoBI ?? null,
-                dataValidadeBI: dto.dataValidadeBI ?? null,
-                sexo: dto.sexo,
-                dataNascimento: dto.dataNascimento,
-                estadoCivil: dto.estadoCivil ?? null,
-                contactosTelefonicos: dto.contactosTelefonicos,
-                contactoDeEmergencia: dto.contactoDeEmergencia ?? null,
-                moradaCompleta: dto.moradaCompleta,
-                email: dto.email,
-                instituicaoFormacaoAcesso: dto.instituicaoFormacaoAcesso ?? null,
-                instituicaoFormacao: dto.instituicaoFormacao ?? null,
-                dataConclusao: dto.dataConclusao ?? null,
-                mediaFinal: dto.mediaFinal ?? null,
-                pai: dto.pai ?? null,
-                mae: dto.mae ?? null,
-                necessidadeEspecialId: dto.necessidadeEspecialId ?? null,
-                poloId: dto.poloId ?? null,
-                cursoOpcional1Id: dto.cursoOpcional1Id ?? null,
-                cursoOpcional2Id: dto.cursoOpcional2Id ?? null,
-                userId: userId ?? null,
-                codigoTipoCandidatura: dto.codigoTipoCandidatura ?? null,
-                codigoTurno: dto.codigoTurno ?? null,
-                anoLectivo: anoLectivo ?? null,
-                codigoNacionalidade: dto.codigoNacionalidade ?? null,
-                outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-            } as any,
-        );
+      {
+        cursoCandidatura: dto.cursoCandidatura,
+        modalidadeFrequencia: dto.modalidadeFrequencia ?? null,
+        nomeCompleto: dto.nomeCompleto,
+        bilheteIdentidade: dto.bilheteIdentidade,
+        dataEmissaoBI: dto.dataEmissaoBI ?? null,
+        dataValidadeBI: dto.dataValidadeBI ?? null,
+        sexo: dto.sexo,
+        dataNascimento: dto.dataNascimento,
+        estadoCivil: dto.estadoCivil ?? null,
+        contactosTelefonicos: dto.contactosTelefonicos,
+        contactoDeEmergencia: dto.contactoDeEmergencia ?? null,
+        moradaCompleta: dto.moradaCompleta,
+        email: dto.email,
+        instituicaoFormacaoAcesso: dto.instituicaoFormacaoAcesso ?? null,
+        instituicaoFormacao: dto.instituicaoFormacao ?? null,
+        dataConclusao: dto.dataConclusao ?? null,
+        mediaFinal: dto.mediaFinal ?? null,
+        pai: dto.pai ?? null,
+        mae: dto.mae ?? null,
+        necessidadeEspecialId: dto.necessidadeEspecialId ?? null,
+        poloId: dto.poloId ?? null,
+        cursoOpcional1Id: dto.cursoOpcional1Id ?? null,
+        cursoOpcional2Id: dto.cursoOpcional2Id ?? null,
+        userId: userId ?? null,
+        codigoTipoCandidatura: dto.codigoTipoCandidatura ?? null,
+        codigoTurno: dto.codigoTurno ?? null,
+        anoLectivo: anoLectivo ?? null,
+        codigoNacionalidade: dto.codigoNacionalidade ?? null,
+        inquerito: dto.inquerito ?? null,
+        outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+      } as any,
+    );
 
-        const codigo = result.outId[0];
+    const codigo = result.outId[0];
 
-        if (dto.documentos && dto.documentos.length > 0 && codigo) {
-            await Promise.all(
-                dto.documentos.map(async (doc) => {
-                    await this.createDocumentPreRegistration(codigo, doc.typeDocumentId, doc.fileName);
-                }),
-            );
-        }
-
-        return {
+    if (dto.documentos && dto.documentos.length > 0 && codigo) {
+      await Promise.all(
+        dto.documentos.map(async (doc) => {
+          await this.createDocumentPreRegistration(
             codigo,
-            message: 'Pré-registro criado com sucesso.',
-            estado: 1,
-        };
+            doc.typeDocumentId,
+            doc.fileName,
+          );
+        }),
+      );
     }
 
-    // ─────────────────────────────────────────────
-    //  UPDATE
-    // ─────────────────────────────────────────────
-    async update(codigo: number, dto: UpdatePreRegistrationDto) {
-        await this.assertExists(codigo);
+    return {
+      codigo,
+      message: 'Pré-registro criado com sucesso.',
+      estado: 1,
+    };
+  }
 
-        if (dto.bilheteIdentidade) await this.assertUniqueBI(dto.bilheteIdentidade, codigo);
-        if (dto.email) await this.assertUniqueEmail(dto.email, codigo);
+  // ─────────────────────────────────────────────
+  //  UPDATE
+  // ─────────────────────────────────────────────
+  async update(codigo: number, dto: UpdatePreRegistrationDto) {
+    await this.assertExists(codigo);
 
-        await this.dataSource.query(
-            `
+    if (dto.bilheteIdentidade)
+      await this.assertUniqueBI(dto.bilheteIdentidade, codigo);
+    if (dto.email) await this.assertUniqueEmail(dto.email, codigo);
+
+    await this.dataSource.query(
+      `
       UPDATE FK2_TB_PREINSCRICAO
          SET NATURAZA_INSCRICAO             = NVL(:naturazaInscricao,         NATURAZA_INSCRICAO),
              CURSO_CANDIDATURA              = NVL(:cursoCandidatura,          CURSO_CANDIDATURA),
@@ -216,67 +223,81 @@ export class PreRegistrationService {
              UPDATED_AT                     = SYSDATE
        WHERE CODIGO = :codigo
       `,
-            {
-                naturazaInscricao: dto.naturazaInscricao ?? null,
-                cursoCandidatura: dto.cursoCandidatura ?? null,
-                modalidadeFrequencia: dto.modalidadeFrequencia ?? null,
-                nomeCompleto: dto.nomeCompleto ?? null,
-                bilheteIdentidade: dto.bilheteIdentidade ?? null,
-                dataEmissaoBI: dto.dataEmissaoBI ?? null,
-                dataValidadeBI: dto.dataValidadeBI ?? null,
-                localEmissaoBI: dto.localEmissaoBI ?? null,
-                nif: dto.numeroIdentificacaoFiscal ?? null,
-                sexo: dto.sexo ?? null,
-                dataNascimento: dto.dataNascimento ?? null,
-                estadoCivil: dto.estadoCivil ?? null,
-                contactosTelefonicos: dto.contactosTelefonicos ?? null,
-                contactoDeEmergencia: dto.contactoDeEmergencia ?? null,
-                moradaCompleta: dto.moradaCompleta ?? null,
-                email: dto.email ?? null,
-                nomePessoa: dto.nomePessoaContactoTelefone ?? null,
-                instFormacao: dto.instituicaoFormacaoAcesso ?? null,
-                dataConclusao: dto.dataConclusao ?? null,
-                mediaFinal: dto.mediaFinal ?? null,
-                numeroOrdem: dto.numeroOrdemMedicos ?? null,
-                instFuncao: dto.instituicaoExerceFuncao ?? null,
-                dataInicioTrab: dto.dataInicioTrabalho ?? null,
-                provinciaTrabalho: dto.provinciaTrabalho ?? null,
-                pai: dto.pai ?? null,
-                mae: dto.mae ?? null,
-                naturalidade: dto.naturalidade ?? null,
-                codigoNacionalidade: dto.codigoNacionalidade ?? null,
-                ocupacaoPai: dto.ocupacaoPai ?? null,
-                ocupacaoMae: dto.ocupacaoMae ?? null,
-                ocupacaoConjuge: dto.ocupacaoConjuge ?? null,
-                profissaoPai: dto.profissaoPai ?? null,
-                profissaoMae: dto.profissaoMae ?? null,
-                profissaoConjuge: dto.profissaoConjuge ?? null,
-                grauAcPai: dto.grauAcademicoPai ?? null,
-                grauAcMae: dto.grauAcademicoMae ?? null,
-                grauAcConjuge: dto.grauAcademicoConjuge ?? null,
-                anoLectivo: dto.anoLectivo ?? null,
-                provinciaOrigem: dto.provinciaOrigem ?? null,
-                deslocado: dto.deslocadoPermanente != null ? (dto.deslocadoPermanente ? 1 : 0) : null,
-                necessidadeId: dto.necessidadeEspecialId ?? null,
-                canal: dto.canal ?? null,
-                codigoTipoCand: dto.codigoTipoCandidatura ?? null,
-                codigoFormaIng: dto.codigoFormaIngresso ?? null,
-                codigoUsuario: dto.codigoUsuario ?? null,
-                estado: dto.estado ?? null,
-                poloId: dto.poloId ?? null,
-                curso1Id: dto.cursoOpcional1Id ?? null,
-                curso2Id: dto.cursoOpcional2Id ?? null,
-                permitirInscricao: dto.permitirInscricao != null ? (dto.permitirInscricao ? 1 : 0) : null,
-                dataPreesc: dto.dataPreescricao ?? null,
-                codigo,
-            } as any,
-        );
+      {
+        naturazaInscricao: dto.naturazaInscricao ?? null,
+        cursoCandidatura: dto.cursoCandidatura ?? null,
+        modalidadeFrequencia: dto.modalidadeFrequencia ?? null,
+        nomeCompleto: dto.nomeCompleto ?? null,
+        bilheteIdentidade: dto.bilheteIdentidade ?? null,
+        dataEmissaoBI: dto.dataEmissaoBI ?? null,
+        dataValidadeBI: dto.dataValidadeBI ?? null,
+        localEmissaoBI: dto.localEmissaoBI ?? null,
+        nif: dto.numeroIdentificacaoFiscal ?? null,
+        sexo: dto.sexo ?? null,
+        dataNascimento: dto.dataNascimento ?? null,
+        estadoCivil: dto.estadoCivil ?? null,
+        contactosTelefonicos: dto.contactosTelefonicos ?? null,
+        contactoDeEmergencia: dto.contactoDeEmergencia ?? null,
+        moradaCompleta: dto.moradaCompleta ?? null,
+        email: dto.email ?? null,
+        nomePessoa: dto.nomePessoaContactoTelefone ?? null,
+        instFormacao: dto.instituicaoFormacaoAcesso ?? null,
+        dataConclusao: dto.dataConclusao ?? null,
+        mediaFinal: dto.mediaFinal ?? null,
+        numeroOrdem: dto.numeroOrdemMedicos ?? null,
+        instFuncao: dto.instituicaoExerceFuncao ?? null,
+        dataInicioTrab: dto.dataInicioTrabalho ?? null,
+        provinciaTrabalho: dto.provinciaTrabalho ?? null,
+        pai: dto.pai ?? null,
+        mae: dto.mae ?? null,
+        naturalidade: dto.naturalidade ?? null,
+        codigoNacionalidade: dto.codigoNacionalidade ?? null,
+        ocupacaoPai: dto.ocupacaoPai ?? null,
+        ocupacaoMae: dto.ocupacaoMae ?? null,
+        ocupacaoConjuge: dto.ocupacaoConjuge ?? null,
+        profissaoPai: dto.profissaoPai ?? null,
+        profissaoMae: dto.profissaoMae ?? null,
+        profissaoConjuge: dto.profissaoConjuge ?? null,
+        grauAcPai: dto.grauAcademicoPai ?? null,
+        grauAcMae: dto.grauAcademicoMae ?? null,
+        grauAcConjuge: dto.grauAcademicoConjuge ?? null,
+        anoLectivo: dto.anoLectivo ?? null,
+        provinciaOrigem: dto.provinciaOrigem ?? null,
+        deslocado:
+          dto.deslocadoPermanente != null
+            ? dto.deslocadoPermanente
+              ? 1
+              : 0
+            : null,
+        necessidadeId: dto.necessidadeEspecialId ?? null,
+        canal: dto.canal ?? null,
+        codigoTipoCand: dto.codigoTipoCandidatura ?? null,
+        codigoFormaIng: dto.codigoFormaIngresso ?? null,
+        codigoUsuario: dto.codigoUsuario ?? null,
+        estado: dto.estado ?? null,
+        poloId: dto.poloId ?? null,
+        curso1Id: dto.cursoOpcional1Id ?? null,
+        curso2Id: dto.cursoOpcional2Id ?? null,
+        permitirInscricao:
+          dto.permitirInscricao != null
+            ? dto.permitirInscricao
+              ? 1
+              : 0
+            : null,
+        dataPreesc: dto.dataPreescricao ?? null,
+        codigo,
+      } as any,
+    );
 
-        return this.findOne(codigo);
-    }
-    async createDocumentPreRegistration(codigoPreinscricao: number, typeDocumentId: number, fileName: string) {
-        const result = await this.dataSource.query(
-            `
+    return this.findOne(codigo);
+  }
+  async createDocumentPreRegistration(
+    codigoPreinscricao: number,
+    typeDocumentId: number,
+    fileName: string,
+  ) {
+    const result = await this.dataSource.query(
+      `
         INSERT INTO FK2_DOCUMENTOS_ADMISSAO (
             CANDIDATO_ID,
             TIPO_DOCUMENTO_ID,
@@ -292,53 +313,60 @@ export class PreRegistrationService {
         )
         RETURNING ID INTO :outId
         `,
-            {
-                codigoPreinscricao,
-                typeDocumentId,
-                fileName,
-                outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-            } as any,
-        );
+      {
+        codigoPreinscricao,
+        typeDocumentId,
+        fileName,
+        outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+      } as any,
+    );
 
-        return result.outId[0];
-    }
-    // ─────────────────────────────────────────────
-    //  FIND ALL
-    // ─────────────────────────────────────────────
-    async findAll(query: QueryPreRegistrationDto) {
-        const { page = 1, limit = 10, search, estado, anoLectivo, cursoCandidatura } = query;
-        const offset = (page - 1) * limit;
+    return result.outId[0];
+  }
+  // ─────────────────────────────────────────────
+  //  FIND ALL
+  // ─────────────────────────────────────────────
+  async findAll(query: QueryPreRegistrationDto) {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      estado,
+      anoLectivo,
+      cursoCandidatura,
+    } = query;
+    const offset = (page - 1) * limit;
 
-        const conditions: string[] = ['1=1'];
-        const params: Record<string, any> = {};
+    const conditions: string[] = ['1=1'];
+    const params: Record<string, any> = {};
 
-        if (search) {
-            conditions.push(`(
+    if (search) {
+      conditions.push(`(
         UPPER(NOME_COMPLETO)       LIKE UPPER(:search) OR
         UPPER(BILHETE_IDENTIDADE)  LIKE UPPER(:search) OR
         UPPER(EMAIL)               LIKE UPPER(:search) OR
         UPPER(CONTACTOS_TELEFONICOS) LIKE UPPER(:search)
       )`);
-            params['search'] = `%${search}%`;
-        }
-        if (estado) {
-            conditions.push(`ESTADO = :estado`);
-            params['estado'] = estado;
-        }
-        if (anoLectivo) {
-            conditions.push(`ANOLECTIVO = :anoLectivo`);
-            params['anoLectivo'] = anoLectivo;
-        }
-        if (cursoCandidatura) {
-            conditions.push(`UPPER(CURSO_CANDIDATURA) LIKE UPPER(:cursoCandidatura)`);
-            params['cursoCandidatura'] = `%${cursoCandidatura}%`;
-        }
+      params['search'] = `%${search}%`;
+    }
+    if (estado) {
+      conditions.push(`ESTADO = :estado`);
+      params['estado'] = estado;
+    }
+    if (anoLectivo) {
+      conditions.push(`ANOLECTIVO = :anoLectivo`);
+      params['anoLectivo'] = anoLectivo;
+    }
+    if (cursoCandidatura) {
+      conditions.push(`UPPER(CURSO_CANDIDATURA) LIKE UPPER(:cursoCandidatura)`);
+      params['cursoCandidatura'] = `%${cursoCandidatura}%`;
+    }
 
-        const where = conditions.join(' AND ');
+    const where = conditions.join(' AND ');
 
-        const [rows, countResult] = await Promise.all([
-            this.dataSource.query(
-                `
+    const [rows, countResult] = await Promise.all([
+      this.dataSource.query(
+        `
         SELECT * FROM (
           SELECT p.*, ROWNUM rn FROM (
             SELECT
@@ -354,35 +382,35 @@ export class PreRegistrationService {
           ) p WHERE ROWNUM <= :maxRow
         ) WHERE rn > :offset
         `,
-                { ...params, maxRow: offset + limit, offset } as any,
-            ),
-            this.dataSource.query(
-                `SELECT COUNT(*) AS TOTAL FROM FK2_TB_PREINSCRICAO WHERE ${where}`,
-                params as any,
-            ),
-        ]);
+        { ...params, maxRow: offset + limit, offset } as any,
+      ),
+      this.dataSource.query(
+        `SELECT COUNT(*) AS TOTAL FROM FK2_TB_PREINSCRICAO WHERE ${where}`,
+        params as any,
+      ),
+    ]);
 
-        const total = Number(countResult[0]?.TOTAL ?? 0);
+    const total = Number(countResult[0]?.TOTAL ?? 0);
 
-        return {
-            data: toLowerCaseKeys(rows),
-            meta: {
-                total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit),
-            },
-        };
-    }
-    //
-    //
-    //
+    return {
+      data: toLowerCaseKeys(rows),
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+  //
+  //
+  //
 
-    //  FICHA DE INSCRIÇÃO COMPLETA
-    // ─────────────────────────────────────────────
-    async getFichaInscricao(userId: number) {
-        const rows = await this.dataSource.query(
-            `
+  //  FICHA DE INSCRIÇÃO COMPLETA
+  // ─────────────────────────────────────────────
+  async getFichaInscricao(userId: number) {
+    const rows = await this.dataSource.query(
+      `
       SELECT
         us.id                               AS user_id,
         us.name                             AS nome_completo_user,
@@ -509,163 +537,164 @@ export class PreRegistrationService {
         LEFT  JOIN fk2_necessidade_especiais ne   ON ne.ID                  = p.NECESSIDADE_ESPECIAL_ID
       WHERE us.ID = :userId
       `,
-            { userId } as any,
-        );
+      { userId } as any,
+    );
 
-        if (!rows.length)
-            throw new NotFoundException(
-                `Nenhuma ficha de inscrição encontrada para o utilizador ${userId}`,
-            );
+    if (!rows.length)
+      throw new NotFoundException(
+        `Nenhuma ficha de inscrição encontrada para o utilizador ${userId}`,
+      );
 
-        // Devolve a ficha com cursos e turnos organizados em arrays para facilitar o front-end
-        const row = rows[0];
+    // Devolve a ficha com cursos e turnos organizados em arrays para facilitar o front-end
+    const row = rows[0];
 
-        return {
-            // ── Utilizador ────────────────────────────────────
-            utilizador: {
-                user_id: row.USER_ID,
-                nome: row.NOME_COMPLETO_USER,
-                email: row.EMAIL_USER,
-                telefone: row.TELEFONE,
-                numero_documento: row.NUMERO_DOCUMENTO,
-                foto: row.FOTO,
-                data_actualizacao: row.DATA_ACTUALIZACAO,
-            },
+    return {
+      // ── Utilizador ────────────────────────────────────
+      utilizador: {
+        user_id: row.USER_ID,
+        nome: row.NOME_COMPLETO_USER,
+        email: row.EMAIL_USER,
+        telefone: row.TELEFONE,
+        numero_documento: row.NUMERO_DOCUMENTO,
+        foto: row.FOTO,
+        data_actualizacao: row.DATA_ACTUALIZACAO,
+      },
 
-            // ── Dados pessoais ────────────────────────────────
-            dados_pessoais: {
-                nome_completo: row.NOME_COMPLETO,
-                sexo: row.SEXO,
-                data_nascimento: row.DATA_NASCIMENTO,
-                estado_civil: row.ESTADO_CIVIL,
-                naturalidade: row.NATURALIDADE,
-                provincia_origem: row.PROVINCIA_ORIGEM,
-                codigo_nacionalidade: row.CODIGO_NACIONALIDADE,
-                contactos_telefonicos: row.CONTACTOS_TELEFONICOS,
-                contacto_de_emergencia: row.CONTACTO_DE_EMERGENCIA,
-                nome_pessoa_contacto: row.NOME_PESSOA_CONTACTO_TELEFONE,
-                morada_completa: row.MORADA_COMPLETA,
-                email: row.EMAIL_PREINSCRICAO,
-                deslocado_permanente: row.DESLOCADO_PERMANENTE === 1,
-                necessidade_especial_id: row.NECESSIDADE_ESPECIAL_ID,
-                necessidade_especial: row.NECESSIDADE_ESPECIAL,
-            },
+      // ── Dados pessoais ────────────────────────────────
+      dados_pessoais: {
+        nome_completo: row.NOME_COMPLETO,
+        sexo: row.SEXO,
+        data_nascimento: row.DATA_NASCIMENTO,
+        estado_civil: row.ESTADO_CIVIL,
+        naturalidade: row.NATURALIDADE,
+        provincia_origem: row.PROVINCIA_ORIGEM,
+        codigo_nacionalidade: row.CODIGO_NACIONALIDADE,
+        contactos_telefonicos: row.CONTACTOS_TELEFONICOS,
+        contacto_de_emergencia: row.CONTACTO_DE_EMERGENCIA,
+        nome_pessoa_contacto: row.NOME_PESSOA_CONTACTO_TELEFONE,
+        morada_completa: row.MORADA_COMPLETA,
+        email: row.EMAIL_PREINSCRICAO,
+        deslocado_permanente: row.DESLOCADO_PERMANENTE === 1,
+        necessidade_especial_id: row.NECESSIDADE_ESPECIAL_ID,
+        necessidade_especial: row.NECESSIDADE_ESPECIAL,
+      },
 
-            // ── Documento ─────────────────────────────────────
-            documento: {
-                tipo_identificacao: row.TIPO_IDENTIFICACAO,
-                bilhete_identidade: row.BILHETE_IDENTIDADE,
-                numero_documento: row.NUMERO_DOCUMENTO,
-                nif: row.NUMERO_IDENTIFICACAO_FISCAL,
-                local_emissao_bi: row.LOCAL_EMISSAO_BI,
-                data_emissao_bi: row.DATA_EMISSAO_BI,
-                data_validade_bi: row.DATA_VALIDADE_BI,
-            },
+      // ── Documento ─────────────────────────────────────
+      documento: {
+        tipo_identificacao: row.TIPO_IDENTIFICACAO,
+        bilhete_identidade: row.BILHETE_IDENTIDADE,
+        numero_documento: row.NUMERO_DOCUMENTO,
+        nif: row.NUMERO_IDENTIFICACAO_FISCAL,
+        local_emissao_bi: row.LOCAL_EMISSAO_BI,
+        data_emissao_bi: row.DATA_EMISSAO_BI,
+        data_validade_bi: row.DATA_VALIDADE_BI,
+      },
 
-            // ── Formação anterior ─────────────────────────────
-            formacao_anterior: {
-                instituicao_formacao: row.INSTITUICAO_FORMACAO,
-                instituicao_formacao_acesso: row.INSTITUICAO_FORMACAO_ACESSO,
-                data_conclusao: row.DATA_CONCLUSAO,
-                media_final: row.MEDIA_FINAL,
-                numero_ordem_medicos: row.NUMERO_ORDEM_MEDICOS,
-                curso_ensino_medio: row.CURSO_ENSINO_MEDIO,
-                codigo_habilitacao_anterior: row.CODIGO_HABILITACAO_ANTERIOR,
-                codigo_tipo_estabelecimento_secundario: row.CODIGO_TIPO_ESTABELECIMENTO_SECUNDARIO,
-                codigo_pais_habilitacao_anterior: row.CODIGO_PAIS_HABILITACAO_ANTERIOR,
-            },
+      // ── Formação anterior ─────────────────────────────
+      formacao_anterior: {
+        instituicao_formacao: row.INSTITUICAO_FORMACAO,
+        instituicao_formacao_acesso: row.INSTITUICAO_FORMACAO_ACESSO,
+        data_conclusao: row.DATA_CONCLUSAO,
+        media_final: row.MEDIA_FINAL,
+        numero_ordem_medicos: row.NUMERO_ORDEM_MEDICOS,
+        curso_ensino_medio: row.CURSO_ENSINO_MEDIO,
+        codigo_habilitacao_anterior: row.CODIGO_HABILITACAO_ANTERIOR,
+        codigo_tipo_estabelecimento_secundario:
+          row.CODIGO_TIPO_ESTABELECIMENTO_SECUNDARIO,
+        codigo_pais_habilitacao_anterior: row.CODIGO_PAIS_HABILITACAO_ANTERIOR,
+      },
 
-            // ── Dados profissionais ───────────────────────────
-            dados_profissionais: {
-                instituicao_exerce_funcao: row.INSTITUICAO_EXERCE_FUNCAO,
-                data_inicio_trabalho: row.DATA_INICIO_TRABALHO,
-                provincia_trabalho: row.PROVINCIA_TRABALHO,
-            },
+      // ── Dados profissionais ───────────────────────────
+      dados_profissionais: {
+        instituicao_exerce_funcao: row.INSTITUICAO_EXERCE_FUNCAO,
+        data_inicio_trabalho: row.DATA_INICIO_TRABALHO,
+        provincia_trabalho: row.PROVINCIA_TRABALHO,
+      },
 
-            // ── Família ───────────────────────────────────────
-            familia: {
-                pai: row.PAI,
-                mae: row.MAE,
-                ocupacao_pai: row.OCUPACAO_PAI,
-                ocupacao_mae: row.OCUPACAO_MAE,
-                ocupacao_conjuge: row.OCUPACAO_CONJUGE,
-                profissao_pai: row.PROFISSAO_PAI,
-                profissao_mae: row.PROFISSAO_MAE,
-                profissao_conjuge: row.PROFISSAO_CONJUGE,
-                grau_academico_pai: row.GRAU_ACADEMICO_PAI,
-                grau_academico_mae: row.GRAU_ACADEMICO_MAE,
-                grau_academico_conjuge: row.GRAU_ACADEMICO_CONJUGE,
-            },
+      // ── Família ───────────────────────────────────────
+      familia: {
+        pai: row.PAI,
+        mae: row.MAE,
+        ocupacao_pai: row.OCUPACAO_PAI,
+        ocupacao_mae: row.OCUPACAO_MAE,
+        ocupacao_conjuge: row.OCUPACAO_CONJUGE,
+        profissao_pai: row.PROFISSAO_PAI,
+        profissao_mae: row.PROFISSAO_MAE,
+        profissao_conjuge: row.PROFISSAO_CONJUGE,
+        grau_academico_pai: row.GRAU_ACADEMICO_PAI,
+        grau_academico_mae: row.GRAU_ACADEMICO_MAE,
+        grau_academico_conjuge: row.GRAU_ACADEMICO_CONJUGE,
+      },
 
-            // ── Candidatura ───────────────────────────────────
-            candidatura: {
-                codigo_preinscricao: row.CODIGO_PREINSCRICAO,
-                data_candidatura: row.DATA_CANDIDATURA,
-                data_ultima_atualizacao: row.DATA_ULTIMA_ATUALIZACAO,
-                estado: row.ESTADO,
-                estado_candidato: row.ESTADO_PREISCRICAO_CANDIDATO,
-                permitir_inscricao: row.PERMITIR_INSCRICAO === 1,
-                canal: row.CANAL,
-                codigo_tipo_candidatura: row.CODIGO_TIPO_CANDIDATURA,
-                codigo_forma_ingresso: row.CODIGO_FORMA_INGRESSO,
-                ano_lectivo: row.ANO_LECTIVO,
-                ano_lectivo_codigo: row.ANO_LECTIVO_CODIGO,
-                polo_id: row.POLO_ID,
-                polo: row.POLO,
-            },
+      // ── Candidatura ───────────────────────────────────
+      candidatura: {
+        codigo_preinscricao: row.CODIGO_PREINSCRICAO,
+        data_candidatura: row.DATA_CANDIDATURA,
+        data_ultima_atualizacao: row.DATA_ULTIMA_ATUALIZACAO,
+        estado: row.ESTADO,
+        estado_candidato: row.ESTADO_PREISCRICAO_CANDIDATO,
+        permitir_inscricao: row.PERMITIR_INSCRICAO === 1,
+        canal: row.CANAL,
+        codigo_tipo_candidatura: row.CODIGO_TIPO_CANDIDATURA,
+        codigo_forma_ingresso: row.CODIGO_FORMA_INGRESSO,
+        ano_lectivo: row.ANO_LECTIVO,
+        ano_lectivo_codigo: row.ANO_LECTIVO_CODIGO,
+        polo_id: row.POLO_ID,
+        polo: row.POLO,
+      },
 
-            // ── Opções de curso ───────────────────────────────
-            opcoes_curso: [
-                {
-                    opcao: 1,
-                    codigo: row.CURSO_OPCAO1_CODIGO,
-                    designacao: row.CURSO_OPCAO1_DESIGNACAO,
-                    duracao: row.CURSO_OPCAO1_DURACAO,
-                    turno_codigo: row.TURNO_OPCAO1_CODIGO,
-                    turno: row.TURNO_OPCAO1_DESIGNACAO,
-                },
-                {
-                    opcao: 2,
-                    codigo: row.CURSO_OPCAO2_CODIGO,
-                    designacao: row.CURSO_OPCAO2_DESIGNACAO,
-                    turno_codigo: row.TURNO_OPCAO2_CODIGO,
-                    turno: row.TURNO_OPCAO2_DESIGNACAO,
-                },
-                {
-                    opcao: 3,
-                    codigo: row.CURSO_OPCAO3_CODIGO,
-                    designacao: row.CURSO_OPCAO3_DESIGNACAO,
-                },
-            ].filter((o) => o.codigo != null),
+      // ── Opções de curso ───────────────────────────────
+      opcoes_curso: [
+        {
+          opcao: 1,
+          codigo: row.CURSO_OPCAO1_CODIGO,
+          designacao: row.CURSO_OPCAO1_DESIGNACAO,
+          duracao: row.CURSO_OPCAO1_DURACAO,
+          turno_codigo: row.TURNO_OPCAO1_CODIGO,
+          turno: row.TURNO_OPCAO1_DESIGNACAO,
+        },
+        {
+          opcao: 2,
+          codigo: row.CURSO_OPCAO2_CODIGO,
+          designacao: row.CURSO_OPCAO2_DESIGNACAO,
+          turno_codigo: row.TURNO_OPCAO2_CODIGO,
+          turno: row.TURNO_OPCAO2_DESIGNACAO,
+        },
+        {
+          opcao: 3,
+          codigo: row.CURSO_OPCAO3_CODIGO,
+          designacao: row.CURSO_OPCAO3_DESIGNACAO,
+        },
+      ].filter((o) => o.codigo != null),
 
-            // ── Financeiro ────────────────────────────────────
-            financeiro: {
-                saldo: row.SALDO,
-                saldo_anterior: row.SALDO_ANTERIOR,
-                saldo_reset: row.SALDO_RESET,
-                saldo_reset_anterior: row.SALDO_RESET_ANTER,
-                desconto: row.DESCONTO,
-                obs_saldo: row.OBS_SALDO,
-                obs_desconto: row.OBS_DESCONTO,
-                isencao_multa: row.ISENCAO_MULTA,
-            },
+      // ── Financeiro ────────────────────────────────────
+      financeiro: {
+        saldo: row.SALDO,
+        saldo_anterior: row.SALDO_ANTERIOR,
+        saldo_reset: row.SALDO_RESET,
+        saldo_reset_anterior: row.SALDO_RESET_ANTER,
+        desconto: row.DESCONTO,
+        obs_saldo: row.OBS_SALDO,
+        obs_desconto: row.OBS_DESCONTO,
+        isencao_multa: row.ISENCAO_MULTA,
+      },
 
-            // ── Email / validação ─────────────────────────────
-            validacao: {
-                codigo_validacao_email: row.CODIGO_VALIDACAO_EMAIL,
-                estado_atualizacao_email: row.ESTADO_ATUALIZACAO_EMAIL,
-            },
+      // ── Email / validação ─────────────────────────────
+      validacao: {
+        codigo_validacao_email: row.CODIGO_VALIDACAO_EMAIL,
+        estado_atualizacao_email: row.ESTADO_ATUALIZACAO_EMAIL,
+      },
 
-            created_at: row.CREATED_AT,
-            updated_at: row.UPDATED_AT,
-        };
-    }
+      created_at: row.CREATED_AT,
+      updated_at: row.UPDATED_AT,
+    };
+  }
 
-    // INFORMAÇÕES GERAIS DO CANDIDATO
+  // INFORMAÇÕES GERAIS DO CANDIDATO
 
-    async getCandidaturaUserData(userId: number): Promise<any> {
-        const result = await this.dataSource.query(
-            `
+  async getCandidaturaUserData(userId: number): Promise<any> {
+    const result = await this.dataSource.query(
+      `
     SELECT
       us.id                         AS user_id,
       
@@ -749,80 +778,82 @@ END AS estado_aluno
     WHERE us.id = :userId
   
     `,
-            { userId } as any,
-        );
+      { userId } as any,
+    );
 
-        if (!result || result.length === 0) {
-            throw new NotFoundException('Utilizador não encontrado');
-        }
-        const data = result.map((row: any) => {
-            const listaProvas = row.LISTA_DE_PROVAS
-                ? row.LISTA_DE_PROVAS.replace(/^Prova de\s*/i, '')
-                    .split(/<br>/i)[0]
-                    .split(',')
-                    .map((s: string) => s.trim())
-                    .filter((s: string) => s.length > 0)
-                : [];
-            console.log({ row, listaProvas })
-            return {
-                ...row,
-                lista_de_provas: listaProvas,
-            };
-        });
-
-        const invoice = await this.getInvoce(
-            result[0]?.codigo_preinscricao || result[0]?.CODIGO_PREINSCRICAO,
-        );
-
-        const payments = invoice
-            ? { has_invoice: true, is_payed: Number(invoice.estado) === 1 }
-            : { has_invoice: false };
-
-        return toLowerCaseKeys({ ...data[0], payments });
+    if (!result || result.length === 0) {
+      throw new NotFoundException('Utilizador não encontrado');
     }
+    const data = result.map((row: any) => {
+      const listaProvas = row.LISTA_DE_PROVAS
+        ? row.LISTA_DE_PROVAS.replace(/^Prova de\s*/i, '')
+            .split(/<br>/i)[0]
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter((s: string) => s.length > 0)
+        : [];
+      console.log({ row, listaProvas });
+      return {
+        ...row,
+        lista_de_provas: listaProvas,
+      };
+    });
 
-    private async getInvoce(codigo: number) {
-        const rows = await this.dataSource.query(
-            `SELECT * FROM FK2_FACTURA WHERE CODIGO_PREINSCRICAO = :codigo`,
-            { codigo } as any,
-        );
+    const invoice = await this.getInvoce(
+      result[0]?.codigo_preinscricao || result[0]?.CODIGO_PREINSCRICAO,
+    );
 
-        return toLowerCaseKeys(rows[0]);
-    }
-    // ─────────────────────────────────────────────
-    //  FIND ONE
-    // ─────────────────────────────────────────────
-    async findOne(codigo: number) {
-        const rows = await this.dataSource.query(
-            `SELECT * FROM FK2_TB_PREINSCRICAO WHERE CODIGO = :codigo`,
-            { codigo } as any,
-        );
-        if (!rows.length)
-            throw new NotFoundException(`Pré-inscrição com código ${codigo} não encontrada`);
-        return toLowerCaseKeys(rows[0]);
-    }
+    const payments = invoice
+      ? { has_invoice: true, is_payed: Number(invoice.estado) === 1 }
+      : { has_invoice: false };
 
-    // ─────────────────────────────────────────────
-    //  FIND BY BI
-    // ─────────────────────────────────────────────
-    async findByBI(bi: string) {
-        const rows = await this.dataSource.query(
-            `SELECT * FROM FK2_TB_PREINSCRICAO WHERE BILHETE_IDENTIDADE = :bi`,
-            { bi } as any,
-        );
-        if (!rows.length)
-            throw new NotFoundException(`Pré-inscrição com BI ${bi} não encontrada`);
-        return rows[0];
-    }
+    return toLowerCaseKeys({ ...data[0], payments });
+  }
 
-    // ─────────────────────────────────────────────
-    //  MUDAR ESTADO
-    // ─────────────────────────────────────────────
-    async changeEstado(codigo: number, estado: string, obs?: string) {
-        await this.assertExists(codigo);
+  private async getInvoce(codigo: number) {
+    const rows = await this.dataSource.query(
+      `SELECT * FROM FK2_FACTURA WHERE CODIGO_PREINSCRICAO = :codigo`,
+      { codigo } as any,
+    );
 
-        await this.dataSource.query(
-            `
+    return toLowerCaseKeys(rows[0]);
+  }
+  // ─────────────────────────────────────────────
+  //  FIND ONE
+  // ─────────────────────────────────────────────
+  async findOne(codigo: number) {
+    const rows = await this.dataSource.query(
+      `SELECT * FROM FK2_TB_PREINSCRICAO WHERE CODIGO = :codigo`,
+      { codigo } as any,
+    );
+    if (!rows.length)
+      throw new NotFoundException(
+        `Pré-inscrição com código ${codigo} não encontrada`,
+      );
+    return toLowerCaseKeys(rows[0]);
+  }
+
+  // ─────────────────────────────────────────────
+  //  FIND BY BI
+  // ─────────────────────────────────────────────
+  async findByBI(bi: string) {
+    const rows = await this.dataSource.query(
+      `SELECT * FROM FK2_TB_PREINSCRICAO WHERE BILHETE_IDENTIDADE = :bi`,
+      { bi } as any,
+    );
+    if (!rows.length)
+      throw new NotFoundException(`Pré-inscrição com BI ${bi} não encontrada`);
+    return rows[0];
+  }
+
+  // ─────────────────────────────────────────────
+  //  MUDAR ESTADO
+  // ─────────────────────────────────────────────
+  async changeEstado(codigo: number, estado: string, obs?: string) {
+    await this.assertExists(codigo);
+
+    await this.dataSource.query(
+      `
       UPDATE FK2_TB_PREINSCRICAO
          SET ESTADO                        = :estado,
              ESTADO_PREISCRICAO_CANDIDATO  = :estado,
@@ -830,71 +861,77 @@ END AS estado_aluno
              UPDATED_AT                    = SYSDATE
        WHERE CODIGO = :codigo
       `,
-            { estado, codigo } as any,
-        );
+      { estado, codigo } as any,
+    );
 
-        return this.findOne(codigo);
-    }
+    return this.findOne(codigo);
+  }
 
-    // ─────────────────────────────────────────────
-    //  PERMITIR / BLOQUEAR INSCRIÇÃO
-    // ─────────────────────────────────────────────
-    async togglePermitirInscricao(codigo: number, permitir: boolean) {
-        await this.assertExists(codigo);
+  // ─────────────────────────────────────────────
+  //  PERMITIR / BLOQUEAR INSCRIÇÃO
+  // ─────────────────────────────────────────────
+  async togglePermitirInscricao(codigo: number, permitir: boolean) {
+    await this.assertExists(codigo);
 
-        await this.dataSource.query(
-            `
+    await this.dataSource.query(
+      `
       UPDATE FK2_TB_PREINSCRICAO
          SET PERMITIR_INSCRICAO = :val, UPDATED_AT = SYSDATE
        WHERE CODIGO = :codigo
       `,
-            { val: permitir ? 1 : 0, codigo } as any,
-        );
+      { val: permitir ? 1 : 0, codigo } as any,
+    );
 
-        return this.findOne(codigo);
-    }
+    return this.findOne(codigo);
+  }
 
-    // ─────────────────────────────────────────────
-    //  DELETE (hard delete — ajusta se precisares de soft)
-    // ─────────────────────────────────────────────
-    async remove(codigo: number) {
-        await this.assertExists(codigo);
+  // ─────────────────────────────────────────────
+  //  DELETE (hard delete — ajusta se precisares de soft)
+  // ─────────────────────────────────────────────
+  async remove(codigo: number) {
+    await this.assertExists(codigo);
 
-        await this.dataSource.query(
-            `DELETE FROM FK2_TB_PREINSCRICAO WHERE CODIGO = :codigo`,
-            { codigo } as any,
-        );
+    await this.dataSource.query(
+      `DELETE FROM FK2_TB_PREINSCRICAO WHERE CODIGO = :codigo`,
+      { codigo } as any,
+    );
 
-        return { message: `Pré-inscrição ${codigo} removida com sucesso` };
-    }
+    return { message: `Pré-inscrição ${codigo} removida com sucesso` };
+  }
 
-    // ─────────────────────────────────────────────
-    //  HELPERS PRIVADOS
-    // ─────────────────────────────────────────────
-    private async assertExists(codigo: number) {
-        const rows = await this.dataSource.query(
-            `SELECT CODIGO FROM FK2_TB_PREINSCRICAO WHERE CODIGO = :codigo`,
-            { codigo } as any,
-        );
-        if (!rows.length)
-            throw new NotFoundException(`Pré-inscrição com código ${codigo} não encontrada`);
-    }
+  // ─────────────────────────────────────────────
+  //  HELPERS PRIVADOS
+  // ─────────────────────────────────────────────
+  private async assertExists(codigo: number) {
+    const rows = await this.dataSource.query(
+      `SELECT CODIGO FROM FK2_TB_PREINSCRICAO WHERE CODIGO = :codigo`,
+      { codigo } as any,
+    );
+    if (!rows.length)
+      throw new NotFoundException(
+        `Pré-inscrição com código ${codigo} não encontrada`,
+      );
+  }
 
-    private async assertUniqueBI(bi: string, excludeCodigo?: number) {
-        const rows = await this.dataSource.query(
-            `SELECT CODIGO FROM FK2_TB_PREINSCRICAO WHERE BILHETE_IDENTIDADE = :bi ${excludeCodigo ? 'AND CODIGO != :excludeCodigo' : ''}`,
-            excludeCodigo ? { bi, excludeCodigo } : { bi } as any,
-        );
-        if (rows.length)
-            throw new ConflictException('Já existe uma pré-inscrição com este Bilhete de Identidade');
-    }
+  private async assertUniqueBI(bi: string, excludeCodigo?: number) {
+    const rows = await this.dataSource.query(
+      `SELECT CODIGO FROM FK2_TB_PREINSCRICAO WHERE BILHETE_IDENTIDADE = :bi ${excludeCodigo ? 'AND CODIGO != :excludeCodigo' : ''}`,
+      excludeCodigo ? { bi, excludeCodigo } : ({ bi } as any),
+    );
+    if (rows.length)
+      throw new ConflictException(
+        'Já existe uma pré-inscrição com este Bilhete de Identidade',
+      );
+  }
 
-    private async assertUniqueEmail(email: string, excludeCodigo?: number) {
-        const rows = await this.dataSource.query(
-            `SELECT CODIGO FROM FK2_TB_PREINSCRICAO WHERE UPPER(EMAIL) = UPPER(:email) ${excludeCodigo ? 'AND CODIGO != :excludeCodigo' : ''}`,
-            excludeCodigo ? { email, excludeCodigo } : { email } as any,
-        );
-        if (rows.length)
-            throw new ConflictException('Já existe uma pré-inscrição com este e-mail');
-    }
+  private async assertUniqueEmail(email: string, excludeCodigo?: number) {
+    const rows = await this.dataSource.query(
+      `SELECT CODIGO FROM FK2_TB_PREINSCRICAO WHERE UPPER(EMAIL) = UPPER(:email) ${excludeCodigo ? 'AND CODIGO != :excludeCodigo' : ''}`,
+      excludeCodigo ? { email, excludeCodigo } : ({ email } as any),
+    );
+    if (rows.length)
+      throw new ConflictException(
+        'Já existe uma pré-inscrição com este e-mail',
+      );
+  }
 }
