@@ -36,80 +36,109 @@ export class AttendanceListService {
     const realLimit = limit + 1;
 
     const sql = `
-   SELECT *
-    FROM (
+ SELECT *
+  FROM (
+    SELECT
+      m.codigo AS numero_matricula,
+      pre.nome_completo as nome,
+      cc.designacao     as curso,
+      pp.designacao     as periodo,
+      cl.designacao     as classe,
+      al.CODIGO_STATUS_GRADE_CURRICULAR,
+      CASE
+        WHEN b.codigo_matricula IS NOT NULL THEN 1
+        ELSE 0
+      END AS is_bolseiro,
+      COALESCE(p.mes_pago, 0) AS mes_pago,
+      prova.DATA_PROVA,
+      prova.HORA_PROVA,
+      prova.HORA_TERMINO,
+      prova.DURACAOPROVA   AS DURACAO_PROVA,
+      prova.TIPO_PROVA,
+      prova.TIPO_AVALIACAO,
+      prova.TIPO_AVALIACAO_SIGLA
+    FROM fk2_tb_grade_curricular_aluno al
+    INNER JOIN fk2_tb_matriculas m
+      ON m.codigo = al.codigo_matricula
+    INNER JOIN fk2_tb_admissao ad
+      ON ad.codigo = m.codigo_aluno
+    INNER JOIN fk2_tb_preinscricao pre
+      ON pre.codigo = ad.pre_incricao
+    INNER JOIN fk2_tb_cursos cc on cc.codigo = m.codigo_curso
+    INNER JOIN FK2_TB_GRADE_CURRICULAR gg on gg.codigo = al.CODIGO_GRADE_CURRICULAR
+    INNER JOIN FK2_TB_CLASSES          cl on cl.codigo = gg.CODIGO_CLASSE
+    LEFT  JOIN FK2_MGH_TB_HORARIO hr on hr.PK_HORARIO = JSON_VALUE(al.REF_HORARIO, '$.pk')
+    LEFT  JOIN FK2_TB_PERIODOS pp on pp.codigo = hr.FK_PERIODO
+    -- calendário de prova vinculado ao horário do aluno
+    LEFT JOIN (
       SELECT
-        m.codigo AS numero_matricula,
-        pre.nome_completo as nome,
-        cc.designacao     as curso,
-        pp.designacao     as periodo,
-        cl.designacao     as classe,
-        al.CODIGO_STATUS_GRADE_CURRICULAR,
-        CASE
-          WHEN b.codigo_matricula IS NOT NULL THEN 1
-          ELSE 0
-        END AS is_bolseiro,
-        COALESCE(p.mes_pago, 0) AS mes_pago
-      FROM fk2_tb_grade_curricular_aluno al
-      INNER JOIN fk2_tb_matriculas m
-        ON m.codigo = al.codigo_matricula
-      INNER JOIN fk2_tb_admissao ad
-        ON ad.codigo = m.codigo_aluno
-      INNER JOIN fk2_tb_preinscricao pre
-        ON pre.codigo = ad.pre_incricao
-      INNER JOIN fk2_tb_cursos cc on cc.codigo = m.codigo_curso
-      INNER JOIN FK2_TB_GRADE_CURRICULAR gg on gg.codigo = al.CODIGO_GRADE_CURRICULAR
-      INNER JOIN FK2_TB_CLASSES          cl on cl.codigo = gg.CODIGO_CLASSE
-      LEFT  JOIN FK2_MGH_TB_HORARIO hr on hr.PK_HORARIO = JSON_VALUE(al.REF_HORARIO, '$.pk')
-      LEFT  JOIN FK2_TB_PERIODOS pp on pp.codigo = hr.FK_PERIODO
-      -- bolseiros sem duplicar
-      LEFT JOIN (
-        SELECT
-          bo.codigo_matricula,
-          1 AS is_bolseiro
-        FROM FK2_TB_BOLSEIROS bo
-        LEFT JOIN FK2_TB_BOLSAS bl
-          ON bl.CODIGO = bo.CODIGO_BOLSA
-        LEFT JOIN FK2_TB_TIPO_DESCONTO_BOLSAS db
-          ON db.CODIGO = bl.CODIGO_TIPO_DESCONTO
-        WHERE bo.codigo_anolectivo = ${anoLectivo}
-          AND bo.SEMESTRE = ${semestre}
-          AND ((bo.desconto = 0 OR bo.desconto = 100) or (bl.VALOR_DESCONTO = 100 and db.SIGLA = 'DESC_PERC'))
-          ---AND STATUS_  = 1
-        GROUP BY bo.codigo_matricula
-      ) b ON b.codigo_matricula = m.codigo
-      -- meses pagos
-      LEFT JOIN (
-        SELECT
-          f.codigomatricula,
-          COUNT(mt.id) AS mes_pago
-        FROM fk2_factura f
-        JOIN fk2_factura_items fi
-          ON fi.codigofactura = f.codigo
-        JOIN fk2_mes_temp mt
-          ON mt.id = fi.mes_temp_id
-        WHERE mt.ano_lectivo = ${anoLectivo}
-          AND mt.prestacao <= ${prestacao}
-          AND f.estado = 1
-        GROUP BY f.codigomatricula
-      ) p ON p.codigomatricula = m.codigo
-      WHERE
-        JSON_VALUE(al.REF_HORARIO, '$.pk') = ${horarioPk}
-        AND al.CODIGO_ANO_LECTIVO = ${anoLectivo}
-        AND al.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 4)
-        AND (:nome IS NULL OR fn_remove_acentos(UPPER(pre.nome_completo)) LIKE '%' || fn_remove_acentos(UPPER(:nome)) || '%')
-        AND (:codigoMatricula IS NULL or m.codigo = :codigoMatricula)
-    )
+        cp.DATA_PROVA,
+        cp.HORA_PROVA,
+        cp.HORA_TERMINO,
+        cp.DURACAOPROVA,
+        tp.DESIGNACAO AS TIPO_PROVA,
+        ta.DESIGNACAO AS TIPO_AVALIACAO,
+        ta.SIGLA      AS TIPO_AVALIACAO_SIGLA,
+        JSON_VALUE(cp.REF_HORARIO, '$.pk' RETURNING NUMBER) AS HORARIO_PK,
+        ROW_NUMBER() OVER (
+          PARTITION BY JSON_VALUE(cp.REF_HORARIO, '$.pk' RETURNING NUMBER)
+          ORDER BY cp.DATA_PROVA DESC, cp.CODIGO DESC
+        ) AS RN
+      FROM FK2_TB_CALENDARIO_PROVA cp
+      LEFT JOIN FK2_TB_TIPO_PROVA tp
+        ON tp.CODIGO = cp.CODIGO_TIPO_PROVA
+      LEFT JOIN FK2_MCAL_TB_PRAZO prz
+        ON prz.PK_PRAZO = JSON_VALUE(cp."REF_PRAZO", '$.pk_prazo' RETURNING NUMBER)
+      LEFT JOIN FK2_MCAL_TB_TIPO_AVALIACAO ta
+        ON ta.PK_TIPO_AVALIACAO = prz.FK_TIPO_AVALIACAO
+      WHERE cp.ESTADO = 1
+    ) prova ON prova.HORARIO_PK = hr.PK_HORARIO AND prova.RN = 1
+    -- bolseiros sem duplicar
+    LEFT JOIN (
+      SELECT
+        bo.codigo_matricula,
+        1 AS is_bolseiro
+      FROM FK2_TB_BOLSEIROS bo
+      LEFT JOIN FK2_TB_BOLSAS bl
+        ON bl.CODIGO = bo.CODIGO_BOLSA
+      LEFT JOIN FK2_TB_TIPO_DESCONTO_BOLSAS db
+        ON db.CODIGO = bl.CODIGO_TIPO_DESCONTO
+      WHERE bo.codigo_anolectivo = ${anoLectivo}
+        AND bo.SEMESTRE = ${semestre}
+        AND ((bo.desconto = 0 OR bo.desconto = 100) or (bl.VALOR_DESCONTO = 100 and db.SIGLA = 'DESC_PERC'))
+      GROUP BY bo.codigo_matricula
+    ) b ON b.codigo_matricula = m.codigo
+    -- meses pagos
+    LEFT JOIN (
+      SELECT
+        f.codigomatricula,
+        COUNT(mt.id) AS mes_pago
+      FROM fk2_factura f
+      JOIN fk2_factura_items fi
+        ON fi.codigofactura = f.codigo
+      JOIN fk2_mes_temp mt
+        ON mt.id = fi.mes_temp_id
+      WHERE mt.ano_lectivo = ${anoLectivo}
+        AND mt.prestacao <= ${prestacao}
+        AND f.estado = 1
+      GROUP BY f.codigomatricula
+    ) p ON p.codigomatricula = m.codigo
     WHERE
-      ${
-        situacao_financeira == 2
-          ? `is_bolseiro = 0 AND mes_pago < ${prestacao}`
-          : `(is_bolseiro = 1 OR mes_pago >= ${prestacao})`
-      }
-
-    ORDER BY nome ASC
-    OFFSET ${offset} ROWS FETCH NEXT ${realLimit} ROWS ONLY
-  `;
+      JSON_VALUE(al.REF_HORARIO, '$.pk') = ${horarioPk}
+      AND al.CODIGO_ANO_LECTIVO = ${anoLectivo}
+      AND al.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 4)
+      AND (:nome IS NULL OR fn_remove_acentos(UPPER(pre.nome_completo)) LIKE '%' || fn_remove_acentos(UPPER(:nome)) || '%')
+      AND (:codigoMatricula IS NULL or m.codigo = :codigoMatricula)
+  )
+  WHERE
+    ${
+      situacao_financeira == 2
+        ? `is_bolseiro = 0 AND mes_pago < ${prestacao}`
+        : `(is_bolseiro = 1 OR mes_pago >= ${prestacao})`
+    }
+  ORDER BY nome ASC
+  OFFSET ${offset} ROWS FETCH NEXT ${realLimit} ROWS ONLY
+`;
 
     const rows = await this.dataSource.query(sql, {
       nome: nome ?? null,
