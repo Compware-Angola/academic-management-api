@@ -35,13 +35,14 @@ import { FilterDocenteContratoDto } from './dto/filter-docente-contrato.dto';
 import { DefinirRegenteDto } from './dto/definir-regente.dto';
 import { RequiredPermissions } from '../../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../../common/enums/permission.type';
+// import { CreateDocenteDto } from './dto/create-docente_gestao.dto';
 
 @ApiTags('docente-gestao')
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('docente-gestao')
 //@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 export class DocenteGestaoController {
-  constructor(private readonly service: DocenteGestaoService) { }
+  constructor(private readonly service: DocenteGestaoService) {}
   @Get('/parametros')
   @ApiOperation({
     summary: 'Listar parametros',
