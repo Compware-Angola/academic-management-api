@@ -422,7 +422,7 @@ export class PreRegistrationService {
 
         p.CODIGO                            AS codigo_preinscricao,
         p.NOME_COMPLETO,
-        p.SEXO,
+        p.SEXO                              AS sexo,
         p.ESTADO_CIVIL,
         p.CONTACTO_DE_EMERGENCIA,
         p.TIPO_IDENTIFICACAO,
@@ -471,8 +471,8 @@ export class PreRegistrationService {
         p.GRAU_ACADEMICO_CONJUGE,
 
         -- Candidatura / controlo
-        p.DATA_PREESCRINCAO                 AS data_candidatura,
-        p.DATA_ULTIMA_ACTUALIZACAO          AS data_ultima_atualizacao,
+        p.CREATED_AT                 AS data_candidatura,
+        p.UPDATED_AT          AS data_ultima_atualizacao,
         p.ESTADO,
         p.ESTADO_PREISCRICAO_CANDIDATO,
         p.PERMITIR_INSCRICAO,
@@ -489,8 +489,8 @@ export class PreRegistrationService {
         p.ISENCAO_MULTA,
         p.CODIGO_VALIDACAO_EMAIL,
         p.ESTADO_ATUALIZACAO_EMAIL,
-        p.CREATED_AT,
-        p.UPDATED_AT,
+        -- p.CREATED_AT,
+        -- p.UPDATED_AT,
 
         -- Opção 1 (curso principal)
         p.CURSO_CANDIDATURA                 AS curso_opcao1_codigo,
