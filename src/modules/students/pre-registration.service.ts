@@ -46,6 +46,7 @@ export class PreRegistrationService {
             MORADA_COMPLETA,
             EMAIL,
             INSTITUICAO_FORMACAO_ACESSO,
+            CURSO_ENSINO_MEDIO,
             INSTITUICAO_FORMACAO,
             DATA_CONCLUSAO,
             MEDIA_FINAL,
@@ -79,6 +80,7 @@ export class PreRegistrationService {
             :moradaCompleta,
             :email,
             :instituicaoFormacaoAcesso,
+            :cursoFormacao,
             :instituicaoFormacao,
             TO_DATE(:dataConclusao, 'YYYY-MM-DD'),
             :mediaFinal,
@@ -115,6 +117,7 @@ export class PreRegistrationService {
         moradaCompleta: dto.moradaCompleta,
         email: dto.email,
         instituicaoFormacaoAcesso: dto.instituicaoFormacaoAcesso ?? null,
+        cursoFormacao: dto.cursoFormacao ?? null,
         instituicaoFormacao: dto.instituicaoFormacao ?? null,
         dataConclusao: dto.dataConclusao ?? null,
         mediaFinal: dto.mediaFinal ?? null,
@@ -440,6 +443,7 @@ export class PreRegistrationService {
         p.DATA_VALIDADE_BI,
         p.NOME_PESSOA_CONTACTO_TELEFONE,
         p.DESLOCADO_PERMANENTE,
+        p.CURSO_ENSINO_MEDIO                        AS curso_ensino_medio,
 
         -- Formação anterior
         p.INSTITUICAO_FORMACAO,
@@ -473,8 +477,8 @@ export class PreRegistrationService {
         -- Candidatura / controlo
         p.CREATED_AT                 AS data_candidatura,
         p.UPDATED_AT          AS data_ultima_atualizacao,
-        p.ESTADO,
-        p.ESTADO_PREISCRICAO_CANDIDATO,
+        -- p.ESTADO,
+        p.ESTADO_PREISCRICAO_CANDIDATO AS estado,
         p.PERMITIR_INSCRICAO,
         p.CANAL,
         p.CODIGO_TIPO_CANDIDATURA,
