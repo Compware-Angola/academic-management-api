@@ -30,15 +30,15 @@ export class DisciplineService {
   }: FindDisciplinaAlunoDTO) {
     const offset = (page - 1) * limit;
     const filtroEliminados =
-  ignorarEliminados === 1
-    ? `AND al.codigo_status_grade_curricular != 5`
-    : '';
+      ignorarEliminados === 1
+        ? `AND al.codigo_status_grade_curricular != 5`
+        : '';
     const baseWhere = `
   al.codigo_matricula = ${matriculaId}
   AND g.status_ = 1
   AND al.estado != 3
   AND (mat.CODIGO_CURSO = g.CODIGO_CURSO or g.CODIGO_CURSO in (select CODIGO_CURSO from FK2_TB_CURSO_ESPECIALIDADE WHERE CODIGO_CURSO_ESPECIALIDADE = mat.CODIGO_CURSO))
-  AND cfr.codigo_ano_lectivo = ${anoLectivo}
+  AND al.codigo_ano_lectivo = ${anoLectivo}
   ${filtroEliminados}
   ${semestre ? `AND s.codigo = ${semestre}` : ''}
   ${classes ? `AND g.codigo_classe = ${classes}` : ''}
@@ -76,10 +76,10 @@ export class DisciplineService {
               ON s.codigo = g.codigo_semestre
       INNER JOIN FK2_TB_DURACAO dur
               ON dur.codigo = d.duracao
-      INNER JOIN FK2_TB_CONFIRMACOES cfr
+      LEFT JOIN FK2_TB_CONFIRMACOES cfr
               ON cfr.codigo = al.codigo_confirmacao
       INNER JOIN FK2_TB_ANO_LECTIVO ano
-              ON ano.codigo = cfr.codigo_ano_lectivo
+              ON ano.codigo = al.codigo_ano_lectivo
       LEFT JOIN FK2_MGH_TB_HORARIO hr
               ON hr.pk_horario = json_value(al.ref_horario, '$.pk')
       LEFT JOIN FK2_MGH_TB_AULA au
@@ -106,7 +106,7 @@ export class DisciplineService {
                 ON d.codigo = g.codigo_disciplina
         INNER JOIN FK2_TB_SEMESTRES s
                 ON s.codigo = g.codigo_semestre
-        INNER JOIN FK2_TB_CONFIRMACOES cfr
+        LEFT JOIN FK2_TB_CONFIRMACOES cfr
                 ON cfr.codigo = al.codigo_confirmacao
       WHERE ${baseWhere}
     )
@@ -354,12 +354,20 @@ export class DisciplineService {
   }
 
   async findGradeCurricular(dto: FindGradeCurricularDto) {
-    const { classe, curso, anoLectivo, search, page = 1, limit = 25 } = dto;
+    const {
+      classe,
+      curso,
+      anoLectivo,
+      estado,
+      search,
+      page = 1,
+      limit = 25,
+    } = dto;
 
     const offset = (page - 1) * limit;
     const conditions: string[] = ['1=1'];
     const params: Record<string, any> = {};
-    conditions.push('gc.STATUS_ = 1');
+    // conditions.push('gc.STATUS_ = 1');
 
     if (classe) {
       conditions.push('gc.CODIGO_CLASSE = :classe');
@@ -374,6 +382,13 @@ export class DisciplineService {
       conditions.push('plc.CODIGO_ANO_LECTIVO = :anoLectivo');
       params.anoLectivo = anoLectivo;
     }
+
+    if (estado === 0 || estado === 1) {
+      conditions.push('dd.STATUS_ = :estado');
+      params.estado = Number(estado);
+    } else {
+      conditions.push('gc.STATUS_ = 1'); // default: só ativas quando não filtrado
+    }
     if (search) {
       conditions.push('UPPER( dd.DESIGNACAO) LIKE UPPER(:search)');
       params.search = `%${search}%`;
@@ -383,7 +398,7 @@ export class DisciplineService {
 
     const sql = `
     SELECT
-      plc.Codigo       AS codigo_plano_curricular,
+      plc.Codigo        AS codigo_plano_curricular,
       gc.Codigo         AS codigo_grade_curricular,
       dd.CODIGO         AS codigo_disciplina,
       dd.DESIGNACAO     AS descricao_disciplina,
@@ -392,7 +407,8 @@ export class DisciplineService {
       cl.DESIGNACAO     AS descricao_classe,
       cl.CODIGO         AS codigo_classe,
       ss.CODIGO         AS codigo_semestre,
-      ss.DESIGNACAO     AS designacao_semestre
+      ss.DESIGNACAO     AS designacao_semestre,
+      dd.STATUS_        AS status
     FROM FK2_TB_PLANO_CURRICULAR_CURSO plc
     INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pcg  on pcg.CODIGO_PLANO_CURRICULAR_CURSO  = plc.CODIGO
     INNER JOIN FK2_TB_GRADE_CURRICULAR gc on gc.Codigo = pcg.codigo_grade_curricular

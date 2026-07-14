@@ -4,7 +4,7 @@ import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { ViewMonthsDto } from './dto/view-months.dto';
 import { DataSource, QueryRunner } from 'typeorm';
 import { GenerateMesTempDTO } from './dto/generate-mes-temp.dto';
-import { MESTEMP, mesTempConfig } from '../util/generator-mes-temp';
+import { MESTEMP, mesTempConfig, mesTempConfigDoutoramento, mesTempConfigMestrado } from '../util/generator-mes-temp';
 import { formatDisplay } from '../util/formate-date';
 import { CreateMesTempDTO, MesItemDTO } from './dto/create-mes-temp.dto';
 import { AnoLectivoUtil } from '../util/current-academic-year';
@@ -717,39 +717,17 @@ export class AcademicCalendarService {
     return toLowerCaseKeys(row);
   }
 
-  async generateMesTemp({ anoFinal, anoInicial }: GenerateMesTempDTO) {
-    const result: MESTEMP[] = [];
-
-    mesTempConfig.forEach((mesTemp) => {
-      const isPastYear = mesTemp.ordem_mes >= 10 && mesTemp.ordem_mes <= 12;
-      const anoCorrente = isPastYear ? anoInicial : anoFinal;
-
-      const dataLimite = new Date(mesTemp.data_limite);
-      dataLimite.setFullYear(anoCorrente);
-
-      const dataFinal = new Date(mesTemp.data_final);
-      dataFinal.setFullYear(anoCorrente);
-
-      const dataInicial = new Date(mesTemp.data_inicial);
-      dataInicial.setFullYear(anoCorrente);
-
-      result.push({
-        designacao: mesTemp.designacao + anoCorrente,
-        isencao: mesTemp.isencao,
-        ordem_mes: mesTemp.ordem_mes,
-        ano_lectivo: mesTemp.ano_lectivo,
-        prestacao: mesTemp.prestacao,
-        activo: mesTemp.activo,
-        activo_posgraduacao: mesTemp.activo_posgraduacao,
-        data_limite: formatDisplay(dataLimite),
-        data_inicial: formatDisplay(dataInicial),
-        data_final: formatDisplay(dataFinal),
-        data_final_desconto: mesTemp.data_final_desconto,
-        semestre: mesTemp.semestre,
-        semestre_posgraduacao: mesTemp.semestre_posgraduacao,
-      });
-    });
-    return result;
+  async generateMesTemp({ anoFinal, anoInicial, tipo_candidatura = 1 }: GenerateMesTempDTO) {
+    switch (tipo_candidatura) {
+      case 1:
+        return this.generateMesTempLinceciatura({ anoFinal, anoInicial });
+      case 2:
+        return this.generateMesMestrado({ anoFinal, anoInicial });
+      case 3:
+        return this.generateMesDotoramento({ anoFinal, anoInicial });
+      default:
+        throw new BadRequestException('Tipo de candidatura inválido');
+    }
   }
 
   async configuracaoGeral() {
@@ -931,5 +909,111 @@ export class AcademicCalendarService {
         ]
       )
     }
+  }
+
+  private generateMesTempLinceciatura({ anoFinal, anoInicial }: { anoFinal: number, anoInicial: number }) {
+    const result: MESTEMP[] = [];
+    mesTempConfig.forEach((mesTemp) => {
+      const isPastYear = mesTemp.ordem_mes >= 10 && mesTemp.ordem_mes <= 12;
+      const anoCorrente = isPastYear ? anoInicial : anoFinal;
+
+      const dataLimite = mesTemp.data_limite ? new Date(mesTemp.data_limite) : null;
+      dataLimite?.setFullYear(anoCorrente);
+
+      const dataFinal = mesTemp.data_final ? new Date(mesTemp.data_final) : null;
+      dataFinal?.setFullYear(anoCorrente);
+
+      const dataInicial = mesTemp.data_inicial ? new Date(mesTemp.data_inicial) : null;
+      dataInicial?.setFullYear(anoCorrente);
+
+      result.push({
+        designacao: mesTemp.designacao + anoCorrente,
+        isencao: mesTemp.isencao,
+        ordem_mes: mesTemp.ordem_mes,
+        ano_lectivo: mesTemp.ano_lectivo,
+        prestacao: mesTemp.prestacao,
+        activo: mesTemp.activo,
+        activo_posgraduacao: mesTemp.activo_posgraduacao,
+        data_limite: dataLimite ? formatDisplay(dataLimite) : null,
+        data_inicial: dataInicial ? formatDisplay(dataInicial) : null,
+        data_final: dataFinal ? formatDisplay(dataFinal) : null,
+        data_final_desconto: mesTemp.data_final_desconto,
+        semestre: mesTemp.semestre,
+        semestre_posgraduacao: mesTemp.semestre_posgraduacao,
+      });
+    });
+    return result;
+  }
+
+
+  private generateMesMestrado({ anoFinal, anoInicial }: { anoFinal: number, anoInicial: number }) {
+    const result: MESTEMP[] = [];
+
+
+    mesTempConfigMestrado.forEach((mesTemp) => {
+      const isPastYear = mesTemp.ordem_mes >= 10 && mesTemp.ordem_mes <= 12;
+      const anoCorrente = isPastYear ? anoInicial : anoFinal;
+
+      const dataLimite = mesTemp.data_limite ? new Date(mesTemp.data_limite) : null;
+      dataLimite?.setFullYear(anoCorrente);
+
+      const dataFinal = mesTemp.data_final ? new Date(mesTemp.data_final) : null;
+      dataFinal?.setFullYear(anoCorrente);
+
+      const dataInicial = mesTemp.data_inicial ? new Date(mesTemp.data_inicial) : null;
+      dataInicial?.setFullYear(anoCorrente);
+
+      result.push({
+        designacao: mesTemp.designacao,
+        isencao: mesTemp.isencao,
+        ordem_mes: mesTemp.ordem_mes,
+        ano_lectivo: mesTemp.ano_lectivo,
+        prestacao: mesTemp.prestacao,
+        activo: mesTemp.activo,
+        activo_posgraduacao: mesTemp.activo_posgraduacao,
+        data_limite: null,
+        data_inicial: null,
+        data_final: null,
+        data_final_desconto: mesTemp.data_final_desconto,
+        semestre: mesTemp.semestre,
+        semestre_posgraduacao: mesTemp.semestre_posgraduacao,
+      });
+    });
+    return result;
+  }
+  private generateMesDotoramento({ anoFinal, anoInicial }: { anoFinal: number, anoInicial: number }) {
+    const result: MESTEMP[] = [];
+
+
+    mesTempConfigDoutoramento.forEach((mesTemp) => {
+      const isPastYear = mesTemp.ordem_mes >= 10 && mesTemp.ordem_mes <= 12;
+      const anoCorrente = isPastYear ? anoInicial : anoFinal;
+
+      const dataLimite = mesTemp.data_limite ? new Date(mesTemp.data_limite) : null;
+      dataLimite?.setFullYear(anoCorrente);
+
+      const dataFinal = mesTemp.data_final ? new Date(mesTemp.data_final) : null;
+      dataFinal?.setFullYear(anoCorrente);
+
+      const dataInicial = mesTemp.data_inicial ? new Date(mesTemp.data_inicial) : null;
+      dataInicial?.setFullYear(anoCorrente);
+
+      result.push({
+        designacao: mesTemp.designacao,
+        isencao: mesTemp.isencao,
+        ordem_mes: mesTemp.ordem_mes,
+        ano_lectivo: mesTemp.ano_lectivo,
+        prestacao: mesTemp.prestacao,
+        activo: mesTemp.activo,
+        activo_posgraduacao: mesTemp.activo_posgraduacao,
+        data_limite: null,
+        data_inicial: null,
+        data_final: null,
+        data_final_desconto: mesTemp.data_final_desconto,
+        semestre: mesTemp.semestre,
+        semestre_posgraduacao: mesTemp.semestre_posgraduacao,
+      });
+    });
+    return result;
   }
 }

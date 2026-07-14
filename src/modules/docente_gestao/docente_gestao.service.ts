@@ -4,7 +4,6 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateDocenteGestaoDto } from './dto/create-docente_gestao.dto';
 import { UpdateDocenteDto } from './dto/update-docente.dto';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
@@ -334,7 +333,7 @@ export class DocenteGestaoService {
         codigo,
         status,
       } as any);
-    } catch (error:any) {
+    } catch (error: any) {
       throw new BadRequestException(error.message);
     }
   }
@@ -357,8 +356,8 @@ export class DocenteGestaoService {
     const params: any = {};
 
     conditions.push(`1=1`);
-    conditions.push(`a.ACTIVE_STATE = 1`);
-    conditions.push(`l.codigo = :anoLectivo`);
+    conditions.push(`af.ACTIVE_STATE = 1`);
+    conditions.push(`an.codigo = :anoLectivo`);
 
     params.anoLectivo = anoLectivo;
 
@@ -395,80 +394,101 @@ export class DocenteGestaoService {
 
     if (tipoAfectacao == 1) {
       sqlCommand = `
-      SELECT DISTINCT
-        json_value(d.CODIGO_UTILIZADOR,'$.desc')  AS docente,
-        d.N_MECANOGRAFICO                   AS mecanografico,
-        d.codigo                            AS codigo_docente
-
-      FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
-
-      LEFT JOIN FK2_MGD_TB_DOCENTE d
-        ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
-
-      INNER JOIN FK2_TB_ANO_LECTIVO l
-        ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
-
-      INNER JOIN FK2_MCAL_TB_SEMESTRE s
-        ON s.PK_SEMESTRE = a.SEMESTRE
-
-      WHERE ${whereClause}
-
-      ORDER BY JSON_VALUE(a.REF_DOCENTE,'$.desc') ASC
-      OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
-      `;
+  SELECT DISTINCT
+    JSON_VALUE(af.ref_ano_lectivo,'$.desc')  AS anoLectivo,
+    JSON_VALUE(af.ref_cadeira,'$.desc')      AS uc,
+    JSON_VALUE(af.ref_docente,'$.desc')      AS docente,
+    d.N_MECANOGRAFICO                        AS mecanografico,
+    d.codigo                                 AS codigo_docente,
+    ca.designacao                            AS categoria,
+    c.designacao                             AS classe,
+    s.designacao                             AS semestre,
+    cu.designacao                            AS curso,
+    af.CREATED_AT                            AS data,
+    ur.nome                                  AS afectadoPor,
+    af.active_state                          AS estado
+  FROM FK2_MGD_TB_DOCENTE_AFECTACAO af
+  INNER JOIN FK2_TB_GRADE_CURRICULAR g
+    ON g.codigo = af.fk_cadeira
+  LEFT JOIN FK2_MGD_TB_DOCENTE d
+    ON d.codigo = af.fk_docente
+  INNER JOIN FK2_TB_CLASSES c
+    ON c.codigo = g.CODIGO_CLASSE
+  INNER JOIN FK2_TB_ANO_LECTIVO an
+    ON an.codigo = af.fk_ano_lectivo
+  INNER JOIN FK2_MCAL_TB_SEMESTRE s
+    ON s.pk_semestre = g.CODIGO_SEMESTRE
+  INNER JOIN FK2_TB_CATEGORIA_DOCENTE ca
+    ON ca.codigo = af.FK_CATEGORIA
+  INNER JOIN FK2_TB_CURSOS cu
+    ON cu.codigo = g.CODIGO_CURSO
+  LEFT JOIN FK2_MCA_TB_UTILIZADOR ur
+    ON ur.pk_utilizador = af.CREATED_BY
+  WHERE ${whereClause}
+  ORDER BY JSON_VALUE(af.ref_docente,'$.desc') ASC
+  OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+  `;
 
       sqlCount = `
-        SELECT COUNT(DISTINCT d.codigo) AS TOTAL
-
-        FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
-
-        LEFT JOIN FK2_MGD_TB_DOCENTE d
-          ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
-
-        INNER JOIN FK2_TB_ANO_LECTIVO l
-          ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
-
-        INNER JOIN FK2_MCAL_TB_SEMESTRE s
-          ON s.PK_SEMESTRE = a.SEMESTRE
-
-        WHERE ${whereClause}
-      `;
+  SELECT COUNT(DISTINCT af.PK_AFECTACAO) AS TOTAL
+  FROM FK2_MGD_TB_DOCENTE_AFECTACAO af
+  INNER JOIN FK2_TB_GRADE_CURRICULAR g
+    ON g.codigo = af.fk_cadeira
+  LEFT JOIN FK2_MGD_TB_DOCENTE d
+    ON d.codigo = af.fk_docente
+  INNER JOIN FK2_TB_CLASSES c
+    ON c.codigo = g.CODIGO_CLASSE
+  INNER JOIN FK2_TB_ANO_LECTIVO an
+    ON an.codigo = af.fk_ano_lectivo
+  INNER JOIN FK2_MCAL_TB_SEMESTRE s
+    ON s.pk_semestre = g.CODIGO_SEMESTRE
+  INNER JOIN FK2_TB_CATEGORIA_DOCENTE ca
+    ON ca.codigo = af.FK_CATEGORIA
+  INNER JOIN FK2_TB_CURSOS cu
+    ON cu.codigo = g.CODIGO_CURSO
+  LEFT JOIN FK2_MCA_TB_UTILIZADOR ur
+    ON ur.pk_utilizador = af.CREATED_BY
+  WHERE ${whereClause}
+  `;
     } else {
       sqlCommand = `
-      select
-          json_value(d.CODIGO_UTILIZADOR,'$.desc') as docente,
-          d.N_MECANOGRAFICO                        as mecanografico,
-          d.codigo                            as codigo_docente
-      from FK2_MGD_TB_DOCENTE d
-      where 1=1
-      and d.codigo not in (
-                    select  d.codigo
-                    from FK2_MGD_TB_DOCENTE_AFECTACAO a
-                    LEFT JOIN FK2_MGD_TB_DOCENTE     d on d.codigo        = json_value(a.REF_DOCENTE,'$.pk')
-                    inner join FK2_TB_ANO_LECTIVO     l on l.codigo        = json_value(a.REF_ANO_LECTIVO,'$.pk')
-                    inner join FK2_MCAL_TB_SEMESTRE   s on s.PK_SEMESTRE   = a.SEMESTRE
-                    where ${whereClause}
-      )
-      ORDER BY json_value(d.CODIGO_UTILIZADOR,'$.desc') ASC
-      OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
-      `;
+  SELECT
+      d.codigo                                 AS codigo_docente,
+      JSON_VALUE(d.CODIGO_UTILIZADOR,'$.desc')  AS docente,
+      d.N_MECANOGRAFICO                         AS mecanografico
+  FROM FK2_MGD_TB_DOCENTE d
+  WHERE NOT EXISTS (
+      SELECT 1
+      FROM FK2_MGD_TB_DOCENTE_AFECTACAO af
+      INNER JOIN FK2_TB_GRADE_CURRICULAR g
+        ON g.codigo = af.fk_cadeira
+      INNER JOIN FK2_TB_ANO_LECTIVO an
+        ON an.codigo = af.fk_ano_lectivo
+      INNER JOIN FK2_MCAL_TB_SEMESTRE s
+        ON s.pk_semestre = g.CODIGO_SEMESTRE
+      WHERE af.fk_docente = d.codigo
+        AND ${whereClause}
+  )
+  ORDER BY JSON_VALUE(d.CODIGO_UTILIZADOR,'$.desc') ASC
+  OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+  `;
 
       sqlCount = `
-        SELECT COUNT(*) AS TOTAL
-        FROM FK2_MGD_TB_DOCENTE d
-        WHERE 1=1
-        AND d.codigo NOT IN (
-              SELECT d.codigo
-              FROM FK2_MGD_TB_DOCENTE_AFECTACAO a
-              LEFT JOIN FK2_MGD_TB_DOCENTE d
-                  ON d.codigo = JSON_VALUE(a.REF_DOCENTE,'$.pk')
-              INNER JOIN FK2_TB_ANO_LECTIVO l
-                  ON l.codigo = JSON_VALUE(a.REF_ANO_LECTIVO,'$.pk')
-              INNER JOIN FK2_MCAL_TB_SEMESTRE s
-                  ON s.PK_SEMESTRE = a.SEMESTRE
-              WHERE ${whereClause}
-        )
-     `;
+  SELECT COUNT(*) AS TOTAL
+  FROM FK2_MGD_TB_DOCENTE d
+  WHERE NOT EXISTS (
+      SELECT 1
+      FROM FK2_MGD_TB_DOCENTE_AFECTACAO af
+      INNER JOIN FK2_TB_GRADE_CURRICULAR g
+        ON g.codigo = af.fk_cadeira
+      INNER JOIN FK2_TB_ANO_LECTIVO an
+        ON an.codigo = af.fk_ano_lectivo
+      INNER JOIN FK2_MCAL_TB_SEMESTRE s
+        ON s.pk_semestre = g.CODIGO_SEMESTRE
+      WHERE af.fk_docente = d.codigo
+        AND ${whereClause}
+  )
+  `;
     }
     const sqlParams = {
       ...params,
@@ -575,6 +595,7 @@ export class DocenteGestaoService {
       throw error;
     }
   }
+
   // UPDATE DOCENTE
   async updateDocente(codigo: number, dto: UpdateDocenteDto) {
     const fields: string[] = [];
@@ -700,7 +721,7 @@ export class DocenteGestaoService {
         utilizadorSincronizado: { pk: UTIL_CODIGO, desc },
         camposAtualizados: fields.length - 1,
       };
-    } catch (error:any) {
+    } catch (error: any) {
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -759,57 +780,56 @@ export class DocenteGestaoService {
     return toLowerCaseKeys(result[0]);
   }
 
-  
-async listDocentes(filter: FilterDocenteDto) {
-  const { page = 1, limit = 25, area, search } = filter;
-  const offset = (page - 1) * limit;
+  async listDocentes(filter: FilterDocenteDto) {
+    const { page = 1, limit = 25, area, search } = filter;
+    const offset = (page - 1) * limit;
 
-  const params: Record<string, any> = {
-    offset,
-    limit_plus_offset: offset + limit,
-  };
+    const params: Record<string, any> = {
+      offset,
+      limit_plus_offset: offset + limit,
+    };
 
-  const countParams: Record<string, any> = {};
+    const countParams: Record<string, any> = {};
 
-  let whereClause = `
-    WHERE c.FK_ESTADO_CANDIDATURA = 6
+    let whereClause = `
+    WHERE (c.FK_ESTADO_CANDIDATURA = 6 or c.FK_ESTADO_CANDIDATURA is null)
   `;
 
-  // áreas válidas do legado
-  const validAreas = [1, 2, 3];
+    // áreas válidas do legado
+    const validAreas = [1, 2, 3];
 
-  // mapeamento observado
-  const areaToFaculdadeMap: Record<number, number[]> = {
-    1: [11, 9, 10], // Educação, Teologia e Ciências Humanas
-    2: [9],         // Direito
-    3: [10, 9],     // Administração, Contabilidade e Economia
-  };
+    // mapeamento observado
+    const areaToFaculdadeMap: Record<number, number[]> = {
+      1: [11, 9, 10], // Educação, Teologia e Ciências Humanas
+      2: [9], // Direito
+      3: [10, 9], // Administração, Contabilidade e Economia
+    };
 
-  if (area !== undefined && area !== null && Number(area) !== 0) {
-    const areaId = Number(area);
+    if (area !== undefined && area !== null && Number(area) !== 0) {
+      const areaId = Number(area);
 
-    if (!validAreas.includes(areaId)) {
-      whereClause += ` AND 1 = 0`;
-    } else {
-      const faculdades = areaToFaculdadeMap[areaId] || [];
+      if (!validAreas.includes(areaId)) {
+        whereClause += ` AND 1 = 0`;
+      } else {
+        const faculdades = areaToFaculdadeMap[areaId] || [];
 
-      params.area = areaId;
-      countParams.area = areaId;
+        params.area = areaId;
+        countParams.area = areaId;
 
-      const faculdadeConditions = faculdades
-        .map((faculdadeId, index) => {
-          const key = `faculdade_${index}`;
-          params[key] = faculdadeId;
-          countParams[key] = faculdadeId;
-          return `c.FACULDADE = :${key}`;
-        })
-        .join(' OR ');
+        const faculdadeConditions = faculdades
+          .map((faculdadeId, index) => {
+            const key = `faculdade_${index}`;
+            params[key] = faculdadeId;
+            countParams[key] = faculdadeId;
+            return `c.FACULDADE = :${key}`;
+          })
+          .join(' OR ');
 
-      // pega o nome da área para fallback textual
-      params.area_nome = areaId;
-      countParams.area_nome = areaId;
+        // pega o nome da área para fallback textual
+        params.area_nome = areaId;
+        countParams.area_nome = areaId;
 
-      whereClause += `
+        whereClause += `
         AND (
           (${faculdadeConditions})
 
@@ -846,13 +866,13 @@ async listDocentes(filter: FilterDocenteDto) {
           )
         )
       `;
+      }
     }
-  }
 
-  if (search && search.trim()) {
-    const term = `%${search.trim().toUpperCase()}%`;
+    if (search && search.trim()) {
+      const term = `%${search.trim().toUpperCase()}%`;
 
-    whereClause += `
+      whereClause += `
       AND (
         UPPER(NVL(tp.NOME_COMPLETO, '-')) LIKE :search
         OR UPPER(NVL(tp.EMAIL, '-')) LIKE :search
@@ -863,16 +883,18 @@ async listDocentes(filter: FilterDocenteDto) {
       )
     `;
 
-    params.search = term;
-    countParams.search = term;
-  }
+      params.search = term;
+      countParams.search = term;
+    }
 
-  const countSql = `
+    const countSql = `
     SELECT COUNT(*) AS TOTAL
     FROM (
       SELECT DISTINCT d.CODIGO
       FROM FK2_MGD_TB_DOCENTE d
-      INNER JOIN FK2_MGD_TB_CANDIDATURA c
+      INNER JOIN FK2_MCA_TB_UTILIZADOR ut
+          ON ut.PK_UTILIZADOR = json_value (d.CODIGO_UTILIZADOR, '$.pk')
+      LEFT JOIN FK2_MGD_TB_CANDIDATURA c
         ON c.CODIGO = d.FK_CANDIDATURA
       LEFT JOIN FK2_TB_ESCALAO_DOCENTE esc
         ON esc.CODIGO = d.FK_ESCALAO
@@ -881,19 +903,19 @@ async listDocentes(filter: FilterDocenteDto) {
       LEFT JOIN UMA_TB_GRAU_ACADEMICO grau
         ON grau."Codigo" = c.GRAU_ACADEMICO
       LEFT JOIN FK2_TB_PESSOA tp
-        ON tp.PK_PESSOA = JSON_VALUE(c.FK_PESSOA, '$.pk_pessoa')
+        ON tp.PK_PESSOA = JSON_VALUE(ut.REF_PESSOA, '$.pk')
       ${whereClause}
     )
   `;
 
-  const countResult = await this.dataSource.query(
-    countSql,
-    countParams as any,
-  );
+    const countResult = await this.dataSource.query(
+      countSql,
+      countParams as any,
+    );
 
-  const total = Number(countResult[0]?.TOTAL ?? 0);
+    const total = Number(countResult[0]?.TOTAL ?? 0);
 
-  const dataSql = `
+    const dataSql = `
     SELECT *
     FROM (
       SELECT
@@ -920,7 +942,9 @@ async listDocentes(filter: FilterDocenteDto) {
           cat.CODIGO AS categoriaid,
           grau."Designacao" AS grau_academico
         FROM FK2_MGD_TB_DOCENTE d
-        INNER JOIN FK2_MGD_TB_CANDIDATURA c
+        INNER JOIN FK2_MCA_TB_UTILIZADOR ut
+          ON ut.PK_UTILIZADOR = json_value (d.CODIGO_UTILIZADOR, '$.pk')
+        LEFT JOIN FK2_MGD_TB_CANDIDATURA c
           ON c.CODIGO = d.FK_CANDIDATURA
         LEFT JOIN FK2_TB_ESCALAO_DOCENTE esc
           ON esc.CODIGO = d.FK_ESCALAO
@@ -929,7 +953,7 @@ async listDocentes(filter: FilterDocenteDto) {
         LEFT JOIN UMA_TB_GRAU_ACADEMICO grau
           ON grau."Codigo" = c.GRAU_ACADEMICO
         LEFT JOIN FK2_TB_PESSOA tp
-          ON tp.PK_PESSOA = JSON_VALUE(c.FK_PESSOA, '$.pk_pessoa')
+          ON tp.PK_PESSOA = JSON_VALUE(ut.REF_PESSOA, '$.pk')
         ${whereClause}
       ) base
     ) t
@@ -937,22 +961,21 @@ async listDocentes(filter: FilterDocenteDto) {
     ORDER BY t.rn
   `;
 
-  const result = await this.dataSource.query(dataSql, params as any);
+    const result = await this.dataSource.query(dataSql, params as any);
 
-  const data = result.map((row: any) => {
-    const { RN, rn, ...item } = row;
-    return item;
-  });
+    const data = result.map((row: any) => {
+      const { RN, rn, ...item } = row;
+      return item;
+    });
 
-  return {
-    data: await toLowerCaseKeys(data),
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
-  };
-}
-
+    return {
+      data: await toLowerCaseKeys(data),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
 
   async listDocentesRegentes(filter: FilterDocenteRegenteDto) {
     const {

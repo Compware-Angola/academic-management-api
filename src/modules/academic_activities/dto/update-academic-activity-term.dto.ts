@@ -67,4 +67,14 @@ export class UpdateAcademicActivityTermDto {
   @IsString()
   @IsNotEmpty()
   tipo_candidatura: string;
+
+  @ApiProperty({
+    description:
+      'Código do utilizador enviado pelo frontend durante compatibilidade com o fluxo antigo',
+    example: 2435,
+    required: false,
+  })
+  @IsInt()
+  @IsOptional()
+  codigo_utilizador?: number;
 }

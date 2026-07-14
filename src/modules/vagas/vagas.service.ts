@@ -8,6 +8,7 @@ import { FilterVagasDto } from './dto/filter-vagas.dto';
 import { CreateVagaDto } from './dto/create-vaga.dto';
 import { UpdateVagaDto } from './dto/update-vaga.dto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
+import { buildCountQueryListVagas, buildDataQueryListVagas, buildWhereClauseListVagas } from './query-builder\'/list-vaga.query-builder';
 
 @Injectable()
 export class VagasService {
@@ -27,96 +28,40 @@ export class VagasService {
   }
 
   async findAll(filtros: FilterVagasDto) {
-    const { cursoId, periodoId, anoLetivoId, page = 1, limit = 10, tipoCandidaturaId = 1 } = filtros;
+    const {
+      page = 1,
+      limit = 10,
+      tipoCandidaturaId = 1,
+    } = filtros;
 
     const offset = (page - 1) * limit;
 
-    const mainTable = this.getTableName(tipoCandidaturaId);
+    const tableName = this.getTableName(tipoCandidaturaId);
 
-    let query = `
-      SELECT V.ID,
-             V.CURSO_ID,
-             C.DESIGNACAO CURSO,
-             V.CURSOSOPCIONAIS,
-             V.PERIODO_ID,
-             P.DESIGNACAO PERIODO,
-             V.ANO_LECTIVO_ID,
-             A.DESIGNACAO ANO_LECTIVO,
-             V.NUM_VAGAS,
-             V.NUM_VAGAS - (SELECT COUNT(DISTINCT tbc.Codigo_Matricula)
-                           FROM fk2_tb_confirmacoes tbc
-                           JOIN fk2_tb_matriculas tbm ON tbc.Codigo_Matricula = tbm.Codigo
-                           JOIN fk2_tb_admissao ta ON tbm.Codigo_Aluno = ta.codigo
-                           JOIN fk2_tb_preinscricao tpri ON ta.pre_incricao = tpri.Codigo
-                           WHERE tpri.Curso_Candidatura = v.curso_id
-                             AND tpri.Codigo_Turno = v.periodo_id
-                             AND tpri.anoLectivo = v.ano_lectivo_id
-                          ) AS VAGAS_DISPONIVEIS,
-             V.CREATED_AT,
-             V.UPDATED_AT
-      FROM ${mainTable} V,
-           FK2_TB_CURSOS C,
-           FK2_TB_PERIODOS P,
-           FK2_TB_ANO_LECTIVO A
-      WHERE 1=1
-        AND V.CURSO_ID = C.CODIGO
-        AND V.PERIODO_ID = P.CODIGO
-        AND V.ANO_LECTIVO_ID = A.CODIGO
-    `;
+    const { clauses, params } = buildWhereClauseListVagas(filtros);
 
-    const parameters: any[] = [];
-    let paramIndex = 1;
+    const whereClause =
+      clauses.length > 0 ? clauses.join(' AND ') : '1=1';
 
-    if (cursoId) {
-      query += ` AND V.CURSO_ID = :${paramIndex}`;
-      parameters.push(cursoId);
-      paramIndex++;
-    }
+    const [rows, countResult] = await Promise.all([
+      this.dataSource.query(
+        buildDataQueryListVagas(tableName, whereClause),
+        {
+          ...params,
+          offset,
+          limit,
+        } as any,
+      ),
+      this.dataSource.query(
+        buildCountQueryListVagas(tableName, whereClause),
+        params as any,
+      ),
+    ]);
 
-    if (periodoId) {
-      query += ` AND V.PERIODO_ID = :${paramIndex}`;
-      parameters.push(periodoId);
-      paramIndex++;
-    }
-
-    if (anoLetivoId) {
-      query += ` AND V.ANO_LECTIVO_ID = :${paramIndex}`;
-      parameters.push(anoLetivoId);
-      paramIndex++;
-    }
-
-
-    query += ` ORDER BY V.CREATED_AT DESC`;
-
-    const countQuery = `
-      SELECT COUNT(*) AS TOTAL
-      FROM ${mainTable} V,
-           FK2_TB_CURSOS C,
-           FK2_TB_PERIODOS P,
-           FK2_TB_ANO_LECTIVO A
-      WHERE 1=1
-        AND V.CURSO_ID = C.CODIGO
-        AND V.PERIODO_ID = P.CODIGO
-        AND V.ANO_LECTIVO_ID = A.CODIGO
-        
-      ${cursoId ? ` AND V.CURSO_ID = :1` : ''}
-      ${periodoId ? ` AND V.PERIODO_ID = :${cursoId ? 2 : 1}` : ''}
-      ${anoLetivoId ? ` AND V.ANO_LECTIVO_ID = :${cursoId && periodoId ? 3 : cursoId || periodoId ? 2 : 1}` : ''}
-    `;
-
-    const countResult = await this.dataSource.query(
-      countQuery,
-      parameters.slice(0, paramIndex - 1),
-    );
-    const total = parseInt(countResult[0]?.TOTAL || '0', 10);
-
-    query += ` OFFSET :${paramIndex} ROWS FETCH NEXT :${paramIndex + 1} ROWS ONLY`;
-    parameters.push(offset, limit);
-
-    const result = await this.dataSource.query(query, parameters);
+    const total = Number(countResult[0]?.TOTAL ?? 0);
 
     return {
-      data: toLowerCaseKeys(result),
+      data: toLowerCaseKeys(rows),
       pagination: {
         page,
         limit,
@@ -162,7 +107,7 @@ export class VagasService {
     }
 
     const tipoCandidaturaExists = await this.dataSource.query(
-      `SELECT CODIGO FROM  WHERE CODIGO = :1`,
+      `SELECT ID FROM FK2_TB_TIPO_CANDIDATURA WHERE ID = :1`,
       [tipoCandidaturaId],
     );
 

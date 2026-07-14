@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsOptional } from 'class-validator';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class FilterEstatisticaCandidatosDto {
@@ -26,6 +26,18 @@ export class FilterEstatisticaCandidatosDto {
   @IsNumber()
   @Type(() => Number)
   codigoTurno?: number;
+
+  @ApiPropertyOptional({ example: '01/01/2023' })
+  @IsOptional()
+  @IsString()
+  @Type(() => String)
+  dataInicio?: string;
+
+  @ApiPropertyOptional({ example: '01/01/2023' })
+  @IsOptional()
+  @IsString()
+  @Type(() => String)
+  dataFim?: string;
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()

@@ -80,21 +80,24 @@ export class MesItemDTO {
   activo_posgraduacao: number;
 
   @ApiProperty({ example: '2025-09-15' })
+  @IsOptional()
   @IsDateString()
   data_limite: string;
 
   @ApiProperty({ example: '2025-09-01' })
+  @IsOptional()
   @IsDateString()
   data_inicial: string;
 
   @ApiProperty({ example: '2025-09-30' })
+  @IsOptional()
   @IsDateString()
   data_final: string;
 
   @ApiProperty({ example: null, required: false })
   @IsOptional()
   @IsDateString()
-  data_final_desconto?: string | null;
+  data_final_desconto?: string;
 
   @ApiProperty({ example: 2 })
   @IsInt()

@@ -1,6 +1,6 @@
 // src/horarios/dto/listar-horarios.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsInt,
   IsOptional,
@@ -47,6 +47,9 @@ export class ListScheduleDto {
     example: 15,
   })
   @IsOptional()
+  @Transform(({ value }) =>
+    ['0', 0, 'all'].includes(value) ? undefined : value,
+  )
   @IsInt()
   @Type(() => Number)
   curso?: number;
@@ -81,13 +84,16 @@ export class ListScheduleDto {
   estado?: number;
 
   @ApiPropertyOptional({
-    description: 'Filtrar por afetação de docente: 1 = com docente, 2 = sem docente',
+    description:
+      'Filtrar por afetação de docente: 1 = com docente, 2 = sem docente',
     example: 1,
     enum: [1, 2],
   })
   @IsOptional()
   @IsInt()
-  @IsIn([1, 2], { message: 'afetacaoDocente deve ser 1 (com docente) ou 2 (sem docente)' })
+  @IsIn([1, 2], {
+    message: 'afetacaoDocente deve ser 1 (com docente) ou 2 (sem docente)',
+  })
   @Type(() => Number)
   afetacaoDocente?: number;
 

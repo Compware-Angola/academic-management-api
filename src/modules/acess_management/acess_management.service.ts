@@ -186,31 +186,30 @@ export class AcessosService {
       ordem: ordem || null,
       createdBy: userId,
       lastUpdatedBy: userId,
-      activeDate:  activeDate ? new Date(activeDate) : null,
+      activeDate: activeDate ? new Date(activeDate) : null,
       activeState: activeState ? 1 : 0,
 
-      pkAcesso:       { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-      designacaoOut:  { dir: oracledb.BIND_OUT, type: oracledb.STRING },
-      descricaoOut:   { dir: oracledb.BIND_OUT, type: oracledb.STRING },
-      siglaOut:       { dir: oracledb.BIND_OUT, type: oracledb.STRING },
-      iconeOut:       { dir: oracledb.BIND_OUT, type: oracledb.STRING },
+      pkAcesso: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+      designacaoOut: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
+      descricaoOut: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
+      siglaOut: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
+      iconeOut: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
 
-      fkModuloOut:    { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-      fkSubmenuOut:   { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-      fkPaginaOut:    { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-      fkTipoAcessoOut:{ dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+      fkModuloOut: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+      fkSubmenuOut: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+      fkPaginaOut: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+      fkTipoAcessoOut: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
 
-      obsOut:         { dir: oracledb.BIND_OUT, type: oracledb.STRING },
-      ordemOut:       { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+      obsOut: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
+      ordemOut: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
 
-      createdByOut:   { dir: oracledb.BIND_OUT, type: oracledb.STRING },
-      lastUpdatedByOut:{ dir: oracledb.BIND_OUT, type: oracledb.STRING },
+      createdByOut: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
+      lastUpdatedByOut: { dir: oracledb.BIND_OUT, type: oracledb.STRING },
 
-      createdAtOut:   { dir: oracledb.BIND_OUT, type: oracledb.DATE },
-      updatedAtOut:   { dir: oracledb.BIND_OUT, type: oracledb.DATE },
-      activeDateOut:  { dir: oracledb.BIND_OUT, type: oracledb.DATE },
+      createdAtOut: { dir: oracledb.BIND_OUT, type: oracledb.DATE },
+      updatedAtOut: { dir: oracledb.BIND_OUT, type: oracledb.DATE },
+      activeDateOut: { dir: oracledb.BIND_OUT, type: oracledb.DATE },
       activeStateOut: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-
     };
 
     try {
@@ -242,22 +241,19 @@ export class AcessosService {
       whereClause += ' AND A.ACTIVE_STATE = 1';
     }
 
-    
     if (filter.apenasAtivos === 'false') {
       whereClause += ' AND A.ACTIVE_STATE = 0';
     }
-        
-      if (filter.sigla) {
+
+    if (filter.sigla) {
       whereClause += ` AND A.SIGLA LIKE :${params.length + 1}`;
       params.push(`%${filter.sigla}%`);
     }
 
-if (filter.designacao) {
- 
-  
-  whereClause += ` AND A.DESIGNACAO LIKE :${params.length + 1}`;
-  params.push(`%${filter.designacao}%`);
-}
+    if (filter.designacao) {
+      whereClause += ` AND A.DESIGNACAO LIKE :${params.length + 1}`;
+      params.push(`%${filter.designacao}%`);
+    }
 
     if (filter.utilizadorId) {
       whereClause += `
@@ -407,28 +403,28 @@ if (filter.designacao) {
     return result[0].PK_GRUPO_ACESSO;
   }
 
- async adicionarAcesso(
-  utilizadorId: number,
-  acessoId: number,
-  usuarioLogadoId: number,
-): Promise<{ message: string }> {
-  // 1. Iniciamos a transação pelo dataSource
-  return this.dataSource.transaction(async (manager) => {
-   let grupoUnitarioId: number | null = null;
+  async adicionarAcesso(
+    utilizadorId: number,
+    acessoId: number,
+    usuarioLogadoId: number,
+  ): Promise<{ message: string }> {
+    // 1. Iniciamos a transação pelo dataSource
+    return this.dataSource.transaction(async (manager) => {
+      let grupoUnitarioId: number | null = null;
 
-    try {
-      // 2. Verifica se o acesso existe
-      const [acessoExiste] = await manager.query(
-        `SELECT 1 FROM FK2_MCA_TB_ACESSO WHERE PK_ACESSO = :acessoId AND ACTIVE_STATE = 1`,
-        [acessoId],
-      );
-      if (!acessoExiste) {
-        throw new NotFoundException('Acesso não encontrado ou inativo');
-      }
+      try {
+        // 2. Verifica se o acesso existe
+        const [acessoExiste] = await manager.query(
+          `SELECT 1 FROM FK2_MCA_TB_ACESSO WHERE PK_ACESSO = :acessoId AND ACTIVE_STATE = 1`,
+          [acessoId],
+        );
+        if (!acessoExiste) {
+          throw new NotFoundException('Acesso não encontrado ou inativo');
+        }
 
-      // 3. Busca o grupo unitário do utilizador
-      const [grupoUnitario] = await manager.query(
-        `
+        // 3. Busca o grupo unitário do utilizador
+        const [grupoUnitario] = await manager.query(
+          `
         SELECT G.PK_GRUPO
         FROM FK2_MCA_TB_GRUPO G
         INNER JOIN FK2_MCA_TB_GRUPO_UTILIZADOR GU ON G.PK_GRUPO  = GU.FK_GRUPO
@@ -436,88 +432,95 @@ if (filter.designacao) {
           AND G.FK_TIPO_DE_GRUPO = 2
           AND G.ACTIVE_STATE = 1
         `,
-        [utilizadorId],
-      );
+          [utilizadorId],
+        );
 
-      // 4. Se o grupo não existir, cria um novo
-      if (!grupoUnitario) {
-        // Importante: Certifique-se que o getUsername não abra outra conexão externa se possível
-        const username = await this.getUsername(utilizadorId);
-        
-        const result = await manager.query(
-          `
+        // 4. Se o grupo não existir, cria um novo
+        if (!grupoUnitario) {
+          // Importante: Certifique-se que o getUsername não abra outra conexão externa se possível
+          const username = await this.getUsername(utilizadorId);
+
+          const result = await manager.query(
+            `
           INSERT INTO FK2_MCA_TB_GRUPO (
             DESIGNACAO, SIGLA, DESCRICAO, FK_TIPO_DE_GRUPO, ORDEM, ACTIVE_STATE, CREATED_AT, UPDATED_AT
           ) VALUES (
             :username, :username, 'Grupo unitário', 2, 1, 1, SYSDATE, SYSDATE
           ) RETURNING PK_GRUPO INTO :outId
           `,
-          {
-            username,
-            outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-          } as any,
-        );
+            {
+              username,
+              outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+            } as any,
+          );
 
-        if (!result?.outId || result.outId[0] === undefined) {
-          throw new Error(`Erro ao criar grupo unitário para o utilizador ${username}`);
-        }
-        
-        grupoUnitarioId = result.outId[0];
+          if (!result?.outId || result.outId[0] === undefined) {
+            throw new Error(
+              `Erro ao criar grupo unitário para o utilizador ${username}`,
+            );
+          }
 
-        // 5. Associar utilizador ao grupo criado
-        await manager.query(`
+          grupoUnitarioId = result.outId[0];
+
+          // 5. Associar utilizador ao grupo criado
+          await manager.query(
+            `
           INSERT INTO FK2_MCA_TB_GRUPO_UTILIZADOR (
             FK_GRUPO, FK_UTILIZADOR, ORDEM, ACTIVE_STATE, CREATED_AT, UPDATED_AT
           ) VALUES (
             :grupoId, :utilizadorId, 1, 1, SYSDATE, SYSDATE
           )
-        `, [grupoUnitarioId, utilizadorId]);
-      }
+        `,
+            [grupoUnitarioId, utilizadorId],
+          );
+        }
 
-      // Define qual ID de grupo usar (o existente ou o que acabou de ser criado)
-      const grupoId = grupoUnitario ? grupoUnitario.PK_GRUPO : grupoUnitarioId;
+        // Define qual ID de grupo usar (o existente ou o que acabou de ser criado)
+        const grupoId = grupoUnitario
+          ? grupoUnitario.PK_GRUPO
+          : grupoUnitarioId;
 
-      // 6. Verifica se já existe entrada removida para reativar
-      const [removido] = await manager.query(
-        `
+        // 6. Verifica se já existe entrada removida para reativar
+        const [removido] = await manager.query(
+          `
         SELECT FK_GRUPO, FK_ACESSO, PK_GRUPO_ACESSO_REMOVIDO
         FROM FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
         WHERE FK_GRUPO = :grupoId
           AND FK_ACESSO = :acessoId
           AND ACTIVE_STATE = 1
         `,
-        { grupoId, acessoId } as any,
-      );
+          { grupoId, acessoId } as any,
+        );
 
-      if (removido) {
-        // Reativa na tabela de removidos (SET ACTIVE_STATE = 0)
-        await manager.query(
-          `
+        if (removido) {
+          // Reativa na tabela de removidos (SET ACTIVE_STATE = 0)
+          await manager.query(
+            `
           UPDATE FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
           SET ACTIVE_STATE = 0,
               UPDATED_AT = SYSDATE,
               LAST_UPDATED_BY = :usuarioLogadoId
           WHERE PK_GRUPO_ACESSO_REMOVIDO = :pk
           `,
-          {
-            usuarioLogadoId,
-            pk: removido.PK_GRUPO_ACESSO_REMOVIDO,
-          } as any,
-        );
-      } else {
-        // 7. Verifica se já existe na tabela principal
-        const [jaExiste] = await manager.query(
-          `
+            {
+              usuarioLogadoId,
+              pk: removido.PK_GRUPO_ACESSO_REMOVIDO,
+            } as any,
+          );
+        } else {
+          // 7. Verifica se já existe na tabela principal
+          const [jaExiste] = await manager.query(
+            `
           SELECT 1 FROM FK2_MCA_TB_GRUPO_ACESSO
           WHERE FK_GRUPO = :grupoId AND FK_ACESSO = :acessoId AND ACTIVE_STATE = 1
           `,
-          { grupoId, acessoId } as any,
-        );
+            { grupoId, acessoId } as any,
+          );
 
-        if (!jaExiste) {
-          // 8. MERGE Final
-          await manager.query(
-            `
+          if (!jaExiste) {
+            // 8. MERGE Final
+            await manager.query(
+              `
             MERGE INTO FK2_MCA_TB_GRUPO_ACESSO t
             USING (SELECT :grupoId AS FK_GRUPO, :acessoId AS FK_ACESSO FROM dual) s
             ON (t.FK_GRUPO = s.FK_GRUPO AND t.FK_ACESSO = s.FK_ACESSO)
@@ -527,170 +530,158 @@ if (filter.designacao) {
               INSERT (FK_GRUPO, FK_ACESSO, ACTIVE_STATE, CREATED_AT, UPDATED_AT, CREATED_BY, LAST_UPDATED_BY)
               VALUES (:grupoId, :acessoId, 1, SYSDATE, SYSDATE, :usuarioLogadoId, :usuarioLogadoId)
             `,
-            { grupoId, acessoId, usuarioLogadoId } as any,
-          );
+              { grupoId, acessoId, usuarioLogadoId } as any,
+            );
+          }
         }
+
+        return { message: 'Acesso adicionado/reativado com sucesso' };
+      } catch (error) {
+        // Rollback automático pelo TypeORM
+        this.logger.error('Erro ao adicionar acesso', error);
+        throw error instanceof NotFoundException
+          ? error
+          : new InternalServerErrorException('Falha ao adicionar acesso');
       }
+    });
+  }
 
-      return { message: 'Acesso adicionado/reativado com sucesso' };
-
-    } catch (error) {
-      // Rollback automático pelo TypeORM
-      this.logger.error('Erro ao adicionar acesso', error);
-      throw error instanceof NotFoundException
-        ? error
-        : new InternalServerErrorException('Falha ao adicionar acesso');
-    }
-  });
-}
-
-async removerAcesso(
-  utilizadorId: number,
-  acessoId: number,
-  usuarioLogadoId: number,
-): Promise<{ message: string }> {
-  // 1. Iniciamos a transação diretamente pelo dataSource
-  return this.dataSource.transaction(async (manager) => {
-    try {
-     
-      const queryGrupo = `
+  async removerAcesso(
+    utilizadorId: number,
+    acessoId: number,
+    usuarioLogadoId: number,
+  ): Promise<{ message: string }> {
+    // 1. Iniciamos a transação diretamente pelo dataSource
+    return this.dataSource.transaction(async (manager) => {
+      try {
+        const queryGrupo = `
         SELECT PK_GRUPO
         FROM FK2_MCA_TB_GRUPO
         WHERE FK_TIPO_DE_GRUPO = 2
           AND SIGLA = (SELECT USERNAME FROM FK2_MCA_TB_UTILIZADOR WHERE PK_UTILIZADOR = :utilizadorId)
       `;
-      
-      const grupos = await manager.query(queryGrupo, [utilizadorId]);
-      const grupoUnitario = grupos[0];
 
-      if (!grupoUnitario) {
-        throw new NotFoundException('Grupo unitário não encontrado');
-      }
+        const grupos = await manager.query(queryGrupo, [utilizadorId]);
+        const grupoUnitario = grupos[0];
 
-      const grupoId = grupoUnitario.PK_GRUPO;
+        if (!grupoUnitario) {
+          throw new NotFoundException('Grupo unitário não encontrado');
+        }
 
-     
-      const queryJaRemovido = `
+        const grupoId = grupoUnitario.PK_GRUPO;
+
+        const queryJaRemovido = `
         SELECT PK_GRUPO_ACESSO_REMOVIDO
         FROM FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
         WHERE FK_GRUPO = :grupoId AND FK_ACESSO = :acessoId
       `;
-      
-      const resultadosRemovidos = await manager.query(queryJaRemovido, [grupoId, acessoId]);
-      const jaRemovido = resultadosRemovidos[0];
 
-     
-      if (jaRemovido) {
-        await manager.query(
-          `
+        const resultadosRemovidos = await manager.query(queryJaRemovido, [
+          grupoId,
+          acessoId,
+        ]);
+        const jaRemovido = resultadosRemovidos[0];
+
+        if (jaRemovido) {
+          await manager.query(
+            `
           UPDATE FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
           SET ACTIVE_STATE = 1,
               UPDATED_AT = SYSDATE,
               LAST_UPDATED_BY = :usuarioLogadoId
           WHERE PK_GRUPO_ACESSO_REMOVIDO = :pk
           `,
-          [usuarioLogadoId, jaRemovido.PK_GRUPO_ACESSO_REMOVIDO],
-        );
-      } else {
-        await manager.query(
-          `
+            [usuarioLogadoId, jaRemovido.PK_GRUPO_ACESSO_REMOVIDO],
+          );
+        } else {
+          await manager.query(
+            `
           INSERT INTO FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO (
             FK_GRUPO, FK_ACESSO, ACTIVE_STATE, CREATED_AT, UPDATED_AT, CREATED_BY, LAST_UPDATED_BY
           ) VALUES (:grupoId, :acessoId, 1, SYSDATE, SYSDATE, :usuarioLogadoId, :usuarioLogadoId)
           `,
-          [grupoId, acessoId, usuarioLogadoId, usuarioLogadoId],
+            [grupoId, acessoId, usuarioLogadoId, usuarioLogadoId],
+          );
+        }
+
+        return { message: 'Acesso removido/revogado com sucesso' };
+      } catch (error) {
+        this.logger.error('Erro ao remover acesso', error);
+        throw error;
+      }
+    });
+  }
+  async adicionarGrupoAcesso(
+    grupoId: number,
+    acessoId: number,
+    usuarioLogadoId: number,
+  ): Promise<{ message: string }> {
+    return this.dataSource.transaction(async (manager) => {
+      try {
+        const [acessoExiste] = await manager.query(
+          `SELECT 1 FROM FK2_MCA_TB_ACESSO WHERE PK_ACESSO = :acessoId AND ACTIVE_STATE = 1`,
+          [acessoId],
         );
-      }
 
-      return { message: 'Acesso removido/revogado com sucesso' };
+        if (!acessoExiste) {
+          throw new NotFoundException('Acesso não encontrado ou inativo');
+        }
 
-    } catch (error) {
-      
-      this.logger.error('Erro ao remover acesso', error);
-      throw error;
-    }
-  });
-}
-async adicionarGrupoAcesso(
-  grupoId: number,
-  acessoId: number,
-  usuarioLogadoId: number,
-): Promise<{ message: string }> {
- 
-  return this.dataSource.transaction(async (manager) => {
-    try {
-     
-      const [acessoExiste] = await manager.query(
-        `SELECT 1 FROM FK2_MCA_TB_ACESSO WHERE PK_ACESSO = :acessoId AND ACTIVE_STATE = 1`,
-        [acessoId],
-      );
-      
-      if (!acessoExiste) {
-        throw new NotFoundException('Acesso não encontrado ou inativo');
-      }
-
-    
-      const [grupo] = await manager.query(
-        `
+        const [grupo] = await manager.query(
+          `
         SELECT G.PK_GRUPO
         FROM FK2_MCA_TB_GRUPO G
         WHERE PK_GRUPO = :grupoId
           AND G.ACTIVE_STATE = 1
         `,
-        [grupoId],
-      );
+          [grupoId],
+        );
 
-  
-   
+        if (!grupo) {
+          throw new Error(`Erro ao adicionar acesso, grupo não encontrado`);
+        }
 
-      if (!grupo) {
-        throw new Error(`Erro ao adicionar acesso, grupo não encontrado`);
-      }
-
-    
-      const [removido] = await manager.query(
-        `
+        const [removido] = await manager.query(
+          `
         SELECT FK_GRUPO, FK_ACESSO
         FROM FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
         WHERE FK_GRUPO = :grupoId
           AND FK_ACESSO = :acessoId
           AND ACTIVE_STATE = 1
         `,
-        { grupoId, acessoId } as any,
-      );
+          { grupoId, acessoId } as any,
+        );
 
-      if (removido) {
-      
-        await manager.query(
-          `
+        if (removido) {
+          await manager.query(
+            `
           UPDATE FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
           SET ACTIVE_STATE = 0,
               UPDATED_AT = SYSDATE,
               LAST_UPDATED_BY = :usuarioLogadoId
           WHERE FK_GRUPO = :grupoId and  FK_ACESSO = :acessoId
           `,
-          {
-            usuarioLogadoId,
-            grupoId: removido.FK_GRUPO,
-            acessoId: removido.FK_ACESSO,
-          } as any,
-        );
-      } else {
-      
-        const [jaExiste] = await manager.query(
-          `
+            {
+              usuarioLogadoId,
+              grupoId: removido.FK_GRUPO,
+              acessoId: removido.FK_ACESSO,
+            } as any,
+          );
+        } else {
+          const [jaExiste] = await manager.query(
+            `
           SELECT 1
           FROM FK2_MCA_TB_GRUPO_ACESSO
           WHERE FK_GRUPO = :grupoId
             AND FK_ACESSO = :acessoId
             AND ACTIVE_STATE = 1
           `,
-          { grupoId, acessoId } as any,
-        );
+            { grupoId, acessoId } as any,
+          );
 
-        if (!jaExiste) {
-          await manager.query(
-            `
+          if (!jaExiste) {
+            await manager.query(
+              `
             MERGE INTO FK2_MCA_TB_GRUPO_ACESSO t
             USING (
               SELECT :grupoId AS FK_GRUPO, :acessoId AS FK_ACESSO FROM dual
@@ -725,121 +716,108 @@ async adicionarGrupoAcesso(
                 :usuarioLogadoId
               )
             `,
-            {  grupoId, acessoId, usuarioLogadoId } as any,
-          );
+              { grupoId, acessoId, usuarioLogadoId } as any,
+            );
+          }
         }
-      }
-  
-   
-      return { message: 'Acesso adicionado/reativado com sucesso' };
 
-    } catch (error) {
-     
-      this.logger.error('Erro ao adicionar acesso', error);
-      throw error instanceof NotFoundException
-        ? error
-        : new InternalServerErrorException('Falha ao adicionar acesso');
-    }
-  });
-}
-async removerGrupoAcesso(
-  grupoId: number,
-  acessoId: number,
-  usuarioLogadoId: number,
-): Promise<{ message: string }> {
-  
-  return this.dataSource.transaction(async (manager) => {
-    try {
-     
-      const [acessoExiste] = await manager.query(
-        `SELECT 1 FROM FK2_MCA_TB_ACESSO WHERE PK_ACESSO = :acessoId AND ACTIVE_STATE = 1`,
-        [acessoId],
-      );
-      
-      if (!acessoExiste) {
-        throw new NotFoundException('Acesso não encontrado ou inativo');
+        return { message: 'Acesso adicionado/reativado com sucesso' };
+      } catch (error) {
+        this.logger.error('Erro ao adicionar acesso', error);
+        throw error instanceof NotFoundException
+          ? error
+          : new InternalServerErrorException('Falha ao adicionar acesso');
       }
+    });
+  }
+  async removerGrupoAcesso(
+    grupoId: number,
+    acessoId: number,
+    usuarioLogadoId: number,
+  ): Promise<{ message: string }> {
+    return this.dataSource.transaction(async (manager) => {
+      try {
+        const [acessoExiste] = await manager.query(
+          `SELECT 1 FROM FK2_MCA_TB_ACESSO WHERE PK_ACESSO = :acessoId AND ACTIVE_STATE = 1`,
+          [acessoId],
+        );
 
-     
-      const [grupo] = await manager.query(
-        `
+        if (!acessoExiste) {
+          throw new NotFoundException('Acesso não encontrado ou inativo');
+        }
+
+        const [grupo] = await manager.query(
+          `
         SELECT G.PK_GRUPO
         FROM FK2_MCA_TB_GRUPO G
         WHERE PK_GRUPO = :grupoId
           AND G.ACTIVE_STATE = 1
         `,
-        [grupoId],
-      );
+          [grupoId],
+        );
 
-      if (!grupo) {
-        throw new Error(`Erro ao remover acesso, grupo não encontrado`);
-      }
+        if (!grupo) {
+          throw new Error(`Erro ao remover acesso, grupo não encontrado`);
+        }
 
-     
-      const [jaRemovido] = await manager.query(
-        `
+        const [jaRemovido] = await manager.query(
+          `
         SELECT PK_GRUPO_ACESSO_REMOVIDO
         FROM FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
         WHERE FK_GRUPO = :grupoId AND FK_ACESSO = :acessoId
         `,
-        [grupoId, acessoId],
-      );
+          [grupoId, acessoId],
+        );
 
-     
-      if (jaRemovido) {
-        await manager.query(
-          `
+        if (jaRemovido) {
+          await manager.query(
+            `
           UPDATE FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO
           SET ACTIVE_STATE = 1,
               UPDATED_AT = SYSDATE,
               LAST_UPDATED_BY = :usuarioLogadoId
           WHERE PK_GRUPO_ACESSO_REMOVIDO = :pkRemovido
           `,
-          { 
-            usuarioLogadoId, 
-            pkRemovido: jaRemovido.PK_GRUPO_ACESSO_REMOVIDO 
-          } as any,
-        );
-      } else {
-        await manager.query(
-          `
+            {
+              usuarioLogadoId,
+              pkRemovido: jaRemovido.PK_GRUPO_ACESSO_REMOVIDO,
+            } as any,
+          );
+        } else {
+          await manager.query(
+            `
           INSERT INTO FK2_MCA_TB_GRUPO_ACESSO_REMOVIDO (
             FK_GRUPO, FK_ACESSO, ACTIVE_STATE, CREATED_AT, UPDATED_AT, CREATED_BY, LAST_UPDATED_BY
           ) VALUES (:grupoId, :acessoId, 1, SYSDATE, SYSDATE, :usuarioLogadoId, :usuarioLogadoId)
           `,
-          [grupoId, acessoId, usuarioLogadoId, usuarioLogadoId],
-        );
-      }
+            [grupoId, acessoId, usuarioLogadoId, usuarioLogadoId],
+          );
+        }
 
-      
-      return { message: 'Acesso removido/revogado com sucesso' };
-    } catch (error) {
-     
-      this.logger.error('Erro ao remover acesso', error);
-      throw error;
-    }
-  });
-}
-async atualizarEstadoAcesso(
-  acessoId: number,
-  userId: number,
-) {
-  try {
-    const result = await this.dataSource.query(
-      `
+        return { message: 'Acesso removido/revogado com sucesso' };
+      } catch (error) {
+        this.logger.error('Erro ao remover acesso', error);
+        throw error;
+      }
+    });
+  }
+  async atualizarEstadoAcesso(acessoId: number, userId: number) {
+    try {
+      const result = await this.dataSource.query(
+        `
       SELECT ACTIVE_STATE
       FROM FK2_MCA_TB_ACESSO
       WHERE PK_ACESSO = :1
       `,
-      [acessoId],
-    );
+        [acessoId],
+      );
 
-    if (!result.length) {
-      throw new NotFoundException('Acesso não encontrado');
-    }
+      if (!result.length) {
+        throw new NotFoundException('Acesso não encontrado');
+      }
 
-    await this.dataSource.query(
-      `
+      await this.dataSource.query(
+        `
       UPDATE FK2_MCA_TB_ACESSO
       SET ACTIVE_STATE = CASE
         WHEN ACTIVE_STATE = 1 THEN 0
@@ -847,17 +825,77 @@ async atualizarEstadoAcesso(
       END
       WHERE PK_ACESSO = :1
       `,
-      [acessoId],
-    );
+        [acessoId],
+      );
 
-    return { success: true };
-  } catch (error) {
-    this.logger.error('Erro ao atualizar estado do acesso', error);
-    throw new InternalServerErrorException(
-      'Falha ao atualizar estado do acesso',
-    );
+      return { success: true };
+    } catch (error) {
+      this.logger.error('Erro ao atualizar estado do acesso', error);
+      throw new InternalServerErrorException(
+        'Falha ao atualizar estado do acesso',
+      );
+    }
   }
-}
 
+  async addAccessRestriction(
+    codigoAcesso: number,
+    codigoUtilizador: number,
+  ): Promise<{ message: string }> {
+    const existing = await this.dataSource.query(
+      `SELECT CODIGO_ACESSO, CODIGO_UTILIZADOR, STATUS FROM FK2_RESTRICOES_ACESSOS WHERE CODIGO_ACESSO = :1 AND CODIGO_UTILIZADOR = :2`,
+      [codigoAcesso, codigoUtilizador],
+    );
 
+    if (existing && existing.length > 0) {
+      await this.dataSource.query(
+        `UPDATE FK2_RESTRICOES_ACESSOS SET STATUS = 1 WHERE CODIGO_ACESSO = :1 AND CODIGO_UTILIZADOR = :2`,
+        [codigoAcesso, codigoUtilizador],
+      );
+      return { message: 'Restrição atualizada para ativa.' };
+    }
+
+    await this.dataSource.query(
+      `INSERT INTO FK2_RESTRICOES_ACESSOS (CODIGO_ACESSO, CODIGO_UTILIZADOR, STATUS) VALUES (:1, :2, 1)`,
+      [codigoAcesso, codigoUtilizador],
+    );
+
+    return { message: 'Restrição de acesso criada com sucesso.' };
+  }
+  async removeAccessRestriction(
+    codigoAcesso: number,
+    codigoUtilizador: number,
+  ): Promise<{ message: string }> {
+    await this.dataSource.query(
+      `UPDATE FK2_RESTRICOES_ACESSOS SET STATUS = 0 WHERE CODIGO_ACESSO = :1 AND CODIGO_UTILIZADOR = :2`,
+      [codigoAcesso, codigoUtilizador],
+    );
+
+    return { message: 'Restrição de acesso removida (inativada).' };
+  }
+
+  async getRestrictionsByUser(codigoUtilizador: number): Promise<any[]> {
+    const result = await this.dataSource.query(
+      `
+        SELECT CODIGO_ACESSO
+             , A.DESIGNACAO
+             , A.SIGLA
+             , STATUS
+        FROM FK2_RESTRICOES_ACESSOS
+           , FK2_MCA_TB_ACESSO A
+        WHERE CODIGO_ACESSO     = A.PK_ACESSO
+          AND CODIGO_UTILIZADOR = :1
+      `,
+      [codigoUtilizador],
+    );
+
+    return toLowerCaseKeys(result);
+  }
+  async getRestrictionsByAccess(codigoAcesso: number): Promise<any[]> {
+    const result = await this.dataSource.query(
+      `SELECT CODIGO_ACESSO, CODIGO_UTILIZADOR, STATUS FROM FK2_RESTRICOES_ACESSOS WHERE CODIGO_ACESSO = :1`,
+      [codigoAcesso],
+    );
+
+    return toLowerCaseKeys(result);
+  }
 }

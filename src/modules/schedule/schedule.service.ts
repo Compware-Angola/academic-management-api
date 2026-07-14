@@ -37,7 +37,13 @@ export class ScheduleService {
     private readonly promptToCreateAndEditService: promptToCreateAndEditService,
   ) { }
   async create(userId: number, dto: CreateScheduleDto) {
+
+    // TODO: VERIFICAR SE USER *E ADDMIN
+
+    /*
+
     const terms =
+
       await this.promptToCreateAndEditService.promptToCreateAndEditSchedule(
         dto.anoLectivo,
       );
@@ -61,6 +67,7 @@ export class ScheduleService {
       );
     }
 
+    */
     return await this.createOrUpdateHorario(userId, dto);
   }
 
