@@ -132,6 +132,11 @@ export class CreatePreRegistrationDto {
   @IsString()
   instituicaoFormacao?: string;
 
+  @ApiPropertyOptional({ example: 'Curso Formacao' })
+  @IsOptional()
+  @IsString()
+  cursoFormacao?: string;
+
   @ApiPropertyOptional({ example: '2022-07-15' })
   @IsOptional()
   @IsDateString()
