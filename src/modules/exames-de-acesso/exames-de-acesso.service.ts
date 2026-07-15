@@ -93,6 +93,8 @@ export class ExamesDeAcessoService {
            , FK2_TB_PREINSCRICAO.NOME_COMPLETO                 NOME
            , FK2_TB_PREINSCRICAO.CONTACTOS_TELEFONICOS         CONTATO
            , FK2_TB_PREINSCRICAO.CONTACTO_DE_EMERGENCIA        CONTATO_EMERGENCIA
+           , FK2_TB_PREINSCRICAO.TENTOU_UNIVERSIDADE_PUBLICA   TENTOU_UNIVERSIDADE_PUBLICA 
+           , FK2_TB_PREINSCRICAO.DOC_UNIVERSIDADE_VALIDO       DOC_UNIVERSIDADE_VALIDO
            , FK2_TB_PREINSCRICAO.EMAIL
            , FK2_TB_PREINSCRICAO.MORADA_COMPLETA
            , FK2_TB_PREINSCRICAO.DATA_PREESCRINCAO
@@ -2064,5 +2066,29 @@ export class ExamesDeAcessoService {
       message: 'Processamento iniciado: Calculo da NotaFinal Dos Candidatos',
       taskId: job.id,
     };
+  }
+
+  async validarDocumentoUniversidadePublica(codigoCandidato: number) {
+    const [candidato] = await this.dataSource.query(
+      `SELECT DOC_UNIVERSIDADE_VALIDO FROM FK2_TB_PREINSCRICAO WHERE CODIGO = :1`,
+      [codigoCandidato],
+    );
+
+    if (!candidato) {
+      throw new NotFoundException('Candidato não encontrado');
+    }
+
+    if (candidato.DOC_UNIVERSIDADE_VALIDO === 1) {
+      throw new BadRequestException('Documento já foi validado');
+    }
+
+    await this.dataSource.query(
+      `UPDATE FK2_TB_PREINSCRICAO
+        SET DOC_UNIVERSIDADE_VALIDO = 1
+      WHERE CODIGO = :1`,
+      [codigoCandidato],
+    );
+
+    return { success: true, message: 'Documento validado com sucesso' };
   }
 }
