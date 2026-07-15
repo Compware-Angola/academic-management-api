@@ -72,6 +72,16 @@ export class ScheduleService {
   }
 
   async update(userId: number, horarioIdParam: number, dto: UpdateScheduleDto) {
+    const terms =
+      await this.promptToCreateAndEditService.promptToCreateAndEditSchedule(
+        dto.anoLectivo,
+      );
+    console.log(terms);
+
+
+
+    // TODO: VERIFICAR SE USER *E ADDMIN
+    /*
     let dataInicioLoophole: any;
     let dataFimLoophole: any;
 
@@ -123,6 +133,7 @@ export class ScheduleService {
         'O prazo de Edição de Horário já terminou .',
       );
     }
+    */
     return await this.createOrUpdateHorario(userId, dto, horarioIdParam);
   }
 
