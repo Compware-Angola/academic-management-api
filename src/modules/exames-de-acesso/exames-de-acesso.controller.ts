@@ -303,7 +303,7 @@ export class ExamesDeAcessoController {
     AccessLogHelper.logAccess(this.httpService, {
       descricao: `Documento de universidade pública do candidato ${codigoCandidato} validado por ${user?.username || 'unknown user'}`,
       fkAcesso: 6,
-      fkFuncionalidade: 91,
+      fkFuncionalidade: 15,
       fkUtilizadorResponsavel: user.sub,
       fkOperacaoLog: 7,
       ip: ip,
