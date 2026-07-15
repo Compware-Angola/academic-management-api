@@ -35,11 +35,14 @@ export class AcademicActivitiesController {
     private readonly academicActivitiesService: AcademicActivitiesService,
     private readonly promptToCreateAndEditService: promptToCreateAndEditService,
     private readonly httpService: HttpService,
-  ) { }
+  ) {}
 
   @Post('calendar-activities')
   @ApiOperation({ summary: 'Criar atividade lectiva no calendário académico' })
-  @ApiResponse({ status: 201, description: 'Atividade lectiva criada com sucesso' })
+  @ApiResponse({
+    status: 201,
+    description: 'Atividade lectiva criada com sucesso',
+  })
   @ApiResponse({ status: 400, description: 'Erro de validação' })
   async createCalendarActivity(
     @Body(ValidationPipe) dto: CreateCalendarActivityDto,
@@ -49,8 +52,13 @@ export class AcademicActivitiesController {
   }
 
   @Get('calendar-activities')
-  @ApiOperation({ summary: 'Listar atividades lectivas do calendário académico' })
-  @ApiResponse({ status: 200, description: 'Atividades lectivas listadas com sucesso' })
+  @ApiOperation({
+    summary: 'Listar atividades lectivas do calendário académico',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Atividades lectivas listadas com sucesso',
+  })
   async findCalendarActivities(
     @Query(new ValidationPipe({ transform: true }))
     query: FindCalendarActivitiesDto,
@@ -60,7 +68,10 @@ export class AcademicActivitiesController {
 
   @Put('calendar-activities/:codigo')
   @ApiOperation({ summary: 'Editar atividade lectiva do calendário académico' })
-  @ApiResponse({ status: 200, description: 'Atividade lectiva editada com sucesso' })
+  @ApiResponse({
+    status: 200,
+    description: 'Atividade lectiva editada com sucesso',
+  })
   @ApiResponse({ status: 400, description: 'Erro de validação' })
   async updateCalendarActivity(
     @Param('codigo', ParseIntPipe) codigo: number,
@@ -75,15 +86,23 @@ export class AcademicActivitiesController {
   }
 
   @Delete('calendar-activities/:codigo')
-  @ApiOperation({ summary: 'Eliminar atividade lectiva do calendário académico' })
-  @ApiResponse({ status: 200, description: 'Atividade lectiva eliminada com sucesso' })
+  @ApiOperation({
+    summary: 'Eliminar atividade lectiva do calendário académico',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Atividade lectiva eliminada com sucesso',
+  })
   async deleteCalendarActivity(@Param('codigo', ParseIntPipe) codigo: number) {
     return this.academicActivitiesService.deleteCalendarActivity(codigo);
   }
 
   @Get('terms')
   @ApiOperation({ summary: 'Listar prazos académicos' })
-  @ApiResponse({ status: 200, description: 'Prazos académicos listados com sucesso' })
+  @ApiResponse({
+    status: 200,
+    description: 'Prazos académicos listados com sucesso',
+  })
   async findAcademicActivityTerms(
     @Query(new ValidationPipe({ transform: true }))
     query: FindAcademicActivityTermsDto,
@@ -113,22 +132,30 @@ export class AcademicActivitiesController {
 
   @Put('terms/:pkPrazo')
   @ApiOperation({ summary: 'Editar prazo académico' })
-  @ApiResponse({ status: 200, description: 'Prazo académico editado com sucesso' })
+  @ApiResponse({
+    status: 200,
+    description: 'Prazo académico editado com sucesso',
+  })
   @ApiResponse({ status: 400, description: 'Erro de validação' })
   async updateAcademicActivityTerm(
     @Param('pkPrazo', ParseIntPipe) pkPrazo: number,
     @Body(new ValidationPipe({ transform: true }))
     dto: UpdateAcademicActivityTermDto,
+    @Req() req: any,
   ) {
     return this.academicActivitiesService.updateAcademicActivityTerm(
       pkPrazo,
       dto,
+      req.user.sub, // <-- id numérico do utilizador autenticado
     );
   }
 
   @Delete('terms/:pkPrazo')
   @ApiOperation({ summary: 'Eliminar prazo académico' })
-  @ApiResponse({ status: 200, description: 'Prazo académico eliminado com sucesso' })
+  @ApiResponse({
+    status: 200,
+    description: 'Prazo académico eliminado com sucesso',
+  })
   async deleteAcademicActivityTerm(
     @Param('pkPrazo', ParseIntPipe) pkPrazo: number,
   ) {

@@ -19,7 +19,7 @@ import { UpdateAcademicActivityTermDto } from './dto/update-academic-activity-te
 
 @Injectable()
 export class AcademicActivitiesService {
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly dataSource: DataSource) {}
 
   private getCodigoUtilizador(
     user: DecodedUserPayload,
@@ -27,11 +27,11 @@ export class AcademicActivitiesService {
   ): number {
     return Number(
       user?.sub ??
-      user?.userId ??
-      user?.PK_UTILIZADOR ??
-      user?.pk_utilizador ??
-      user?.id ??
-      codigoUtilizadorBody,
+        user?.userId ??
+        user?.PK_UTILIZADOR ??
+        user?.pk_utilizador ??
+        user?.id ??
+        codigoUtilizadorBody,
     );
   }
 
@@ -202,23 +202,28 @@ export class AcademicActivitiesService {
     const prazos = await this.dataSource.query(
       `
       SELECT
-        pz.PK_PRAZO AS prazo_id,
-        pz.OBSERVACAO AS observacao,
-        pz.FK_TIPO_AVALIACAO AS tipo_avaliacao_id,
-        pz.DATA_INICIO AS data_inicio,
-        pz.DATA_FIM AS data_fim,
-        tv.DESIGNACAO AS tipo_avaliacao,
-        ut.NOME AS criado_por_nome
-      FROM FK2_MCAL_TB_PRAZO pz
-      LEFT JOIN FK2_MCAL_TB_TIPO_AVALIACAO tv
-        ON pz.FK_TIPO_AVALIACAO = tv.PK_TIPO_AVALIACAO
-      LEFT JOIN FK2_MCA_TB_UTILIZADOR ut
-        ON ut.PK_UTILIZADOR = pz.FK_CREATED_BY
-      WHERE pz.FK_ANO_LECTIVO = :anolectivo
-        AND pz.FK_TIPO_PRAZO = :tpprazo
-        AND pz.TIPO_CANDIDATURA = :tpcandidatura
-        AND NVL(pz.ACTIVE_STATE, 1) = 1
-      ORDER BY pz.CREATED_AT DESC
+    pz.PK_PRAZO AS prazo_id,
+    pz.OBSERVACAO AS observacao,
+    pz.FK_TIPO_AVALIACAO AS tipo_avaliacao_id,
+    pz.DATA_INICIO AS data_inicio,
+    pz.DATA_FIM AS data_fim,
+    tv.DESIGNACAO AS tipo_avaliacao,
+    ut.NOME AS criado_por_nome,
+    ua.NOME AS atualizado_por_nome,
+    pz.UPDATED_BY AS atualizado_por_id,
+    pz.FK_SEMESTRE AS fk_semestre
+  FROM FK2_MCAL_TB_PRAZO pz
+  LEFT JOIN FK2_MCAL_TB_TIPO_AVALIACAO tv
+    ON pz.FK_TIPO_AVALIACAO = tv.PK_TIPO_AVALIACAO
+  LEFT JOIN FK2_MCA_TB_UTILIZADOR ut
+    ON ut.PK_UTILIZADOR = pz.FK_CREATED_BY
+  LEFT JOIN FK2_MCA_TB_UTILIZADOR ua
+    ON ua.PK_UTILIZADOR = pz.UPDATED_BY
+  WHERE pz.FK_ANO_LECTIVO = :anolectivo
+    AND pz.FK_TIPO_PRAZO = :tpprazo
+    AND pz.TIPO_CANDIDATURA = :tpcandidatura
+    AND NVL(pz.ACTIVE_STATE, 1) = 1
+  ORDER BY pz.CREATED_AT DESC
       `,
       { anolectivo, tpprazo, tpcandidatura } as any,
     );
@@ -231,7 +236,12 @@ export class AcademicActivitiesService {
   async updateAcademicActivityTerm(
     pkPrazo: number,
     body: UpdateAcademicActivityTermDto,
+    updatedBy: number, // id do utilizador autenticado, vindo do controller
   ) {
+    if (typeof updatedBy !== 'number') {
+      throw new BadRequestException('Utilizador autenticado inválido');
+    }
+
     const {
       observacao,
       fk_semestre,
@@ -255,12 +265,12 @@ export class AcademicActivitiesService {
 
     const [prazo] = await this.dataSource.query(
       `
-      SELECT PK_PRAZO
-      FROM FK2_MCAL_TB_PRAZO
-      WHERE PK_PRAZO = :pkPrazo
-        AND NVL(ACTIVE_STATE, 1) = 1
-      FETCH FIRST 1 ROWS ONLY
-      `,
+    SELECT PK_PRAZO
+    FROM FK2_MCAL_TB_PRAZO
+    WHERE PK_PRAZO = :pkPrazo
+      AND NVL(ACTIVE_STATE, 1) = 1
+    FETCH FIRST 1 ROWS ONLY
+    `,
       { pkPrazo } as any,
     );
 
@@ -270,18 +280,19 @@ export class AcademicActivitiesService {
 
     await this.dataSource.query(
       `
-      UPDATE FK2_MCAL_TB_PRAZO
-      SET OBSERVACAO = :observacao,
-          FK_SEMESTRE = :fkSemestre,
-          DATA_INICIO = :dataInicio,
-          DATA_FIM = :dataFim,
-          FK_TIPO_AVALIACAO = :fkTipoAvaliacao,
-          FK_TIPO_PRAZO = :fkTipoPrazo,
-          TIPO_CANDIDATURA = :tipoCandidatura,
-          UPDATED_AT = SYSDATE
-      WHERE PK_PRAZO = :pkPrazo
-        AND NVL(ACTIVE_STATE, 1) = 1
-      `,
+    UPDATE FK2_MCAL_TB_PRAZO
+    SET OBSERVACAO = :observacao,
+        FK_SEMESTRE = :fkSemestre,
+        DATA_INICIO = :dataInicio,
+        DATA_FIM = :dataFim,
+        FK_TIPO_AVALIACAO = :fkTipoAvaliacao,
+        FK_TIPO_PRAZO = :fkTipoPrazo,
+        TIPO_CANDIDATURA = :tipoCandidatura,
+        UPDATED_BY = :updatedBy,
+        UPDATED_AT = SYSDATE
+    WHERE PK_PRAZO = :pkPrazo
+      AND NVL(ACTIVE_STATE, 1) = 1
+    `,
       {
         pkPrazo,
         observacao: observacao ?? null,
@@ -291,6 +302,7 @@ export class AcademicActivitiesService {
         fkTipoAvaliacao: fk_tipo_avaliacao ?? null,
         fkTipoPrazo: fk_tipo_prazo,
         tipoCandidatura: tipo_candidatura,
+        updatedBy,
       } as any,
     );
 
@@ -349,10 +361,7 @@ export class AcademicActivitiesService {
       data_fim,
     } = body;
 
-    const codigoUtilizador = this.getCodigoUtilizador(
-      user,
-      codigo_utilizador,
-    );
+    const codigoUtilizador = this.getCodigoUtilizador(user, codigo_utilizador);
 
     if (!codigoUtilizador) {
       throw new UnauthorizedException('Utilizador autenticado não encontrado');
@@ -434,7 +443,6 @@ export class AcademicActivitiesService {
         desc: utilizador.NOME ?? user?.nome ?? user?.username,
       });
 
-
       await manager.query(
         `
         INSERT INTO FK2_TB_CALENDARIO_ACTIVIDADE_LECTIVAS (
@@ -464,7 +472,6 @@ export class AcademicActivitiesService {
         )
         `,
         {
-
           designacao,
           dataInicio,
           dataFim,
@@ -497,10 +504,7 @@ export class AcademicActivitiesService {
       data_fim,
     } = body;
 
-    const codigoUtilizador = this.getCodigoUtilizador(
-      user,
-      codigo_utilizador,
-    );
+    const codigoUtilizador = this.getCodigoUtilizador(user, codigo_utilizador);
 
     if (!codigoUtilizador) {
       throw new UnauthorizedException('Utilizador autenticado não encontrado');
@@ -692,8 +696,6 @@ export class AcademicActivitiesService {
       throw new BadRequestException('Campo "fk_ano_lectivo" é obrigatório');
     }
 
-
-
     /* =========================
      * Criar ref_ano_lectivo (JSON)
      * ========================= */
@@ -768,7 +770,6 @@ export class AcademicActivitiesService {
       )
       `,
         {
-
           fkTipoAvaliacao: fk_tipo_avaliacao,
           fkSemestre: fk_semestre,
           fkTipoPrazo: fk_tipo_prazo,
@@ -786,7 +787,6 @@ export class AcademicActivitiesService {
       return {
         success: true,
         message: 'Prazo criado com sucesso',
-
       };
     } catch (error) {
       throw new BadRequestException('Erro ao inserir prazo: ' + error.message);
