@@ -44,7 +44,6 @@ import { PrazosModule } from './modules/prazos/prazos.module';
 import { ScriptModule } from './modules/script/script.module';
 import { PostGraduationModule } from './modules/post-graduation/post-graduation.module';
 
-
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -141,6 +140,7 @@ import { PostGraduationModule } from './modules/post-graduation/post-graduation.
     PrazosModule,
     ScriptModule,
     PostGraduationModule,
+
   ],
   controllers: [AppController],
   providers: [AppService, HistoryNoteReleaseService,
