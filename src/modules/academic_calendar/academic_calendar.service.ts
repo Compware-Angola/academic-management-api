@@ -232,51 +232,136 @@ export class AcademicCalendarService {
       },
     }
   }
-  async updateAcademicYearState(anolectivo: number, estado: number) {
+  async updateAcademicYearState(
+    anolectivo: number,
+    estado: number,
+  ) {
+
     if (![0, 1].includes(estado)) {
-      throw new BadRequestException('O estado deve ser 0 ou 1');
+      throw new BadRequestException(
+        'O estado deve ser 0 ou 1'
+      );
     }
 
-    const queryRunner = this.dataSource.createQueryRunner();
+
+    const queryRunner =
+      this.dataSource.createQueryRunner();
+
 
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
+
     try {
-      const academicYear = await queryRunner.query(
-        `
-          SELECT CODIGO
-          FROM FK2_TB_ANO_LECTIVO
-          WHERE CODIGO = :1
-        `,
-        [anolectivo],
-      );
+
+
+      const academicYear =
+        await queryRunner.query(
+          `
+                SELECT
+                    CODIGO,
+                    CODIGO_TIPO_CANDIDATURA
+                FROM FK2_TB_ANO_LECTIVO
+                WHERE CODIGO = :1
+                FOR UPDATE
+                `,
+          [anolectivo],
+        );
+
 
       if (!academicYear.length) {
-        throw new BadRequestException('Ano lectivo não encontrado');
+        throw new BadRequestException(
+          'Ano lectivo não encontrado'
+        );
       }
 
-      const estadoDescricao = estado === 1 ? 'Activo' : 'Desactivo';
 
+
+      const {
+        CODIGO_TIPO_CANDIDATURA
+      } = academicYear[0];
+
+
+
+      const estadoDescricao =
+        estado === 1
+          ? 'Activo'
+          : 'Desactivo';
+
+
+
+      /**
+       * Ativando um ano:
+       * primeiro desativa todos
+       * os outros do mesmo tipo
+       */
+      if (estado === 1) {
+
+        await queryRunner.query(
+          `
+                UPDATE FK2_TB_ANO_LECTIVO
+
+                SET
+                    ESTADO = 'Desactivo',
+                    STATUS_ = 0
+
+                WHERE
+                    CODIGO_TIPO_CANDIDATURA = :1
+
+                AND
+                    CODIGO <> :2
+                `,
+          [
+            CODIGO_TIPO_CANDIDATURA,
+            anolectivo,
+          ],
+        );
+
+      }
+
+
+
+      /**
+       * Atualiza o ano escolhido
+       */
       await queryRunner.query(
         `
-          UPDATE FK2_TB_ANO_LECTIVO
-          SET ESTADO = :1
-          WHERE CODIGO = :2
-        `,
-        [estadoDescricao, anolectivo],
+            UPDATE FK2_TB_ANO_LECTIVO
+
+            SET
+                ESTADO = :1,
+                STATUS_ = :2
+
+            WHERE CODIGO = :3
+            `,
+        [
+          estadoDescricao,
+          estado,
+          anolectivo,
+        ],
       );
+
+
 
       await queryRunner.commitTransaction();
 
+
+
       return {
-        msgresposta: 'Ano lectivo atualizado com sucesso',
+        msgresposta:
+          'Ano lectivo atualizado com sucesso',
       };
+
+
     } catch (error) {
+
       await queryRunner.rollbackTransaction();
       throw error;
+
     } finally {
+
       await queryRunner.release();
+
     }
   }
 
