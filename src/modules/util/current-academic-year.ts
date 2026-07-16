@@ -107,8 +107,12 @@ export class AnoLectivoUtil {
   /**
    * Retorna os dois semestres configurados do ano letivo atual
    */
-  async getSemestresConfigurados(tipo_cand: number = 1): Promise<{
-    anoId: number;
+  async getSemestresConfigurados(tipo_cand: number = 1, ano_lectivo?: number): Promise<{
+    anoLetivo: {
+      id: number;
+      designacao: string;
+      tipoCandidatura: number | null;
+    } | null;
     primeiroSemestre: {
       dataInicio: Date;
       dataFim: Date;
@@ -123,13 +127,15 @@ export class AnoLectivoUtil {
     const anoId = await this.getAnoAtualId(tipo_cand);
 
     const ano = await this.anoLectivoRepo.findOne({
-      where: { codigo: anoId },
+      where: { codigo: ano_lectivo || anoId },
       select: [
         'codigo',
         'dataInicioPrimeiroSemestre',
         'dataFimPrimeiroSemestre',
         'dataInicioSegundoSemestre',
         'dataFimSegundoSemestre',
+        'codigoTipoCandidatura',
+        'designacao'
       ],
     });
 
@@ -155,8 +161,16 @@ export class AnoLectivoUtil {
         }
         : null;
 
+    const anoLetivo = ano.codigo
+      ? {
+        id: ano.codigo,
+        designacao: ano.designacao ?? '',
+        tipoCandidatura: ano.codigoTipoCandidatura ?? null,
+      }
+      : null;
+
     return {
-      anoId,
+      anoLetivo,
       primeiroSemestre,
       segundoSemestre,
     };

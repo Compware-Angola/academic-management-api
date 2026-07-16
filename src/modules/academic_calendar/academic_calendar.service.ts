@@ -822,7 +822,8 @@ export class AcademicCalendarService {
     return {
       anoLectivo: {
         id: semestreAtual.anoId,
-        designacao: semestreAtual.descricao,
+        designacao: semestresConfigurados.anoLetivo?.designacao,
+
       },
       semestreAtual: {
         semestre: semestreAtual.semestre,
