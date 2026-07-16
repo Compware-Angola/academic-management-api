@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { FilterCandidatoDto } from './dto/filter-candidato.dto';
 import { ExamesDeAcessoService } from './exames-de-acesso.service';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
@@ -20,14 +31,13 @@ import { AccessLogHelper } from '../../common/helpers/access-log.helper';
 import { ApiKeyGuard } from '../../common/guard/api-key.guard';
 import { FilterEstatisticaCursosDto } from './dto/filter-estatistica-cursos.dto';
 
-
 @Controller('exames-de-acesso')
 @ApiTags('Exames de acesso')
 export class ExamesDeAcessoController {
   constructor(
     private readonly examesAcessoService: ExamesDeAcessoService,
     private httpService: HttpService,
-  ) { }
+  ) {}
 
   @Get('candidato')
   @ApiOperation({ summary: 'Lista todos os candidatos' })
@@ -186,6 +196,7 @@ export class ExamesDeAcessoController {
     });
     return result;
   }
+
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Post('lancar-nota-arquitectura-e-urbanismo/:codigoCandidato')
   @ApiOperation({
@@ -269,5 +280,35 @@ export class ExamesDeAcessoController {
   })
   async buscaEstatisticaCursos(@Query() filtros: FilterEstatisticaCursosDto) {
     return await this.examesAcessoService.buscaEstatisticaCursos(filtros);
+  }
+
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+  @Post('validar-documento-publico/:codigoCandidato')
+  @ApiOperation({
+    summary: 'Valida o documento de universidade pública do candidato',
+  })
+  @ApiResponse({ status: 200, description: 'Documento validado com sucesso' })
+  async validarDocumentoUniversidadePublica(
+    @Param('codigoCandidato', ParseIntPipe) codigoCandidato: number,
+    @Req() req: any,
+  ) {
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const user = req.user;
+
+    const result =
+      await this.examesAcessoService.validarDocumentoUniversidadePublica(
+        codigoCandidato,
+      );
+
+    AccessLogHelper.logAccess(this.httpService, {
+      descricao: `Documento de universidade pública do candidato ${codigoCandidato} validado por ${user?.username || 'unknown user'}`,
+      fkAcesso: 6,
+      fkFuncionalidade: 15,
+      fkUtilizadorResponsavel: user.sub,
+      fkOperacaoLog: 7,
+      ip: ip,
+    });
+
+    return result;
   }
 }

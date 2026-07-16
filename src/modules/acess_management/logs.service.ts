@@ -9,55 +9,54 @@ import { CreateLogsDTO } from './dto/create-logs.dto';
 export class LogsService {
   constructor(private readonly dataSource: DataSource) {}
 
-async findAllByUtilizadorAndDatas(
-  dto: FilterLogsAcessoDto,
-): Promise<{
-  data: LogAcessoResponseDto[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}> {
-  const {
-    utilizadorId,
-    dataInicio,   // pode ser undefined ou string vazia
-    dataFim,      // pode ser undefined ou string vazia
-    page = 1,
-    limit = 25,
-    search,
-  } = dto;
+  async findAllByUtilizadorAndDatas(dto: FilterLogsAcessoDto): Promise<{
+    data: LogAcessoResponseDto[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const {
+      utilizadorId,
+      dataInicio, // pode ser undefined ou string vazia
+      dataFim, // pode ser undefined ou string vazia
+      page = 1,
+      limit = 25,
+      search,
+    } = dto;
 
-  // Validação apenas se as datas forem fornecidas
-  if (dataInicio && dataFim) {
-    if (new Date(dataFim) < new Date(dataInicio)) {
-      throw new BadRequestException(
-        'A data fim não pode ser anterior à data início.',
-      );
+    // Validação apenas se as datas forem fornecidas
+    if (dataInicio && dataFim) {
+      if (new Date(dataFim) < new Date(dataInicio)) {
+        throw new BadRequestException(
+          'A data fim não pode ser anterior à data início.',
+        );
+      }
     }
-  }
 
-  const inicio = dataInicio ? `${dataInicio} 00:00:00` : null;
-  const fim = dataFim ? `${dataFim} 23:59:59` : null;
+    const inicio = dataInicio ? `${dataInicio} 00:00:00` : null;
+    const fim = dataFim ? `${dataFim} 23:59:59` : null;
 
-  const offset = (page - 1) * limit;
-  const startRow = offset + 1;
-  const endRow = offset + limit;
+    const offset = (page - 1) * limit;
+    const startRow = offset + 1;
+    const endRow = offset + limit;
 
-  const utilizadorParam = utilizadorId === 404 || !utilizadorId ? null : utilizadorId;
+    const utilizadorParam =
+      utilizadorId === 404 || !utilizadorId ? null : utilizadorId;
 
-  const params: any = {
-    utilizadorId: utilizadorParam,
-    startRow,
-    endRow,
-  };
+    const params: any = {
+      utilizadorId: utilizadorParam,
+      startRow,
+      endRow,
+    };
 
-  // Só adiciona params de data se foram fornecidos
-  if (inicio && fim) {
-    params.dataInicio = inicio;
-    params.dataFim = fim;
-  }
+    // Só adiciona params de data se foram fornecidos
+    if (inicio && fim) {
+      params.dataInicio = inicio;
+      params.dataFim = fim;
+    }
 
-  let sql = `
+    let sql = `
     SELECT *
     FROM (
       SELECT
@@ -90,21 +89,21 @@ async findAllByUtilizadorAndDatas(
           AND (:utilizadorId IS NULL OR lga.FK_UTILIZADOR_RESPONSAVEL = :utilizadorId)
   `;
 
-  // Filtro de data apenas se os parâmetros existirem
-  if (inicio && fim) {
-    sql += `
+    // Filtro de data apenas se os parâmetros existirem
+    if (inicio && fim) {
+      sql += `
           AND lga.CREATED_AT BETWEEN 
               TO_DATE(:dataInicio, 'YYYY-MM-DD HH24:MI:SS')
           AND TO_DATE(:dataFim, 'YYYY-MM-DD HH24:MI:SS')
     `;
-  }
+    }
 
-  // Filtro de pesquisa (opcional)
-  if (search && search.trim()) {
-    const searchParam = `%${search.trim().toUpperCase()}%`;
-    params.search = searchParam;
+    // Filtro de pesquisa (opcional)
+    if (search && search.trim()) {
+      const searchParam = `%${search.trim().toUpperCase()}%`;
+      params.search = searchParam;
 
-    sql += `
+      sql += `
           AND (
             UPPER(lga.DESCRICAO) LIKE :search
             OR UPPER(lga.IP) LIKE :search
@@ -113,34 +112,34 @@ async findAllByUtilizadorAndDatas(
             OR UPPER(f.DESIGNACAO) LIKE :search
           )
     `;
-  }
+    }
 
-  sql += `
+    sql += `
         ) dados
       ) paginado
       WHERE paginado.rn BETWEEN :startRow AND :endRow
   `;
 
-  const result = await this.dataSource.query(sql, params);
+    const result = await this.dataSource.query(sql, params);
 
-  const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
+    const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
 
-  const data = result.map((row: any) => {
-    const { RN, TOTAL_REGISTROS, ...rest } = row;
-    return new LogAcessoResponseDto(rest);
-  });
+    const data = result.map((row: any) => {
+      const { RN, TOTAL_REGISTROS, ...rest } = row;
+      return new LogAcessoResponseDto(rest);
+    });
 
-  return {
-    data,
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit),
-  };
-}
-async create(dto: CreateLogsDTO) {
-  await this.dataSource.query(
-    `
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+  async create(dto: CreateLogsDTO) {
+    await this.dataSource.query(
+      `
     INSERT INTO FK2_TB_LOG_ACESSOS_FUNCIONALIDADE 
     (
       DESCRICAO,
@@ -165,23 +164,19 @@ async create(dto: CreateLogsDTO) {
       :ip
     )
     `,
-    {
-      descricao: dto.descricao,
-      fkAcesso: dto.fkAcesso,
-      fkFuncionalidade: dto.fkFuncionalidade,
-      fkUtilizadorResponsavel: dto.fkUtilizadorResponsavel,
-      fkGrupoAfetado: dto.fkGrupoAfetado || null,     
-      fkOperacaoLog: dto.fkOperacaoLog,
-      ip: dto.ip,
-   
-    } as any
-  );
-  return {
-    success:true,
-    message:' Created !'
+      {
+        descricao: dto.descricao,
+        fkAcesso: dto.fkAcesso,
+        fkFuncionalidade: dto.fkFuncionalidade,
+        fkUtilizadorResponsavel: dto.fkUtilizadorResponsavel,
+        fkGrupoAfetado: dto.fkGrupoAfetado || null,
+        fkOperacaoLog: dto.fkOperacaoLog,
+        ip: dto.ip,
+      } as any,
+    );
+    return {
+      success: true,
+      message: ' Created !',
+    };
   }
-}
-
-
-
 }

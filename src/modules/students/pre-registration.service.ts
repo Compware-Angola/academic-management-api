@@ -33,6 +33,7 @@ export class PreRegistrationService {
       `
         INSERT INTO FK2_TB_PREINSCRICAO (
             CURSO_CANDIDATURA,
+            TENTOU_UNIVERSIDADE_PUBLICA,
             MODALIDADE_FREQUENCIA,
             NOME_COMPLETO,
             BILHETE_IDENTIDADE,
@@ -67,6 +68,7 @@ export class PreRegistrationService {
             UPDATED_AT
         ) VALUES (
             :cursoCandidatura,
+            :tentou_universidade_publica,
             :modalidadeFrequencia,
             :nomeCompleto,
             :bilheteIdentidade,
@@ -104,6 +106,7 @@ export class PreRegistrationService {
         `,
       {
         cursoCandidatura: dto.cursoCandidatura,
+        tentou_universidade_publica: dto.tentou_universidade_publica,
         modalidadeFrequencia: dto.modalidadeFrequencia ?? null,
         nomeCompleto: dto.nomeCompleto,
         bilheteIdentidade: dto.bilheteIdentidade,

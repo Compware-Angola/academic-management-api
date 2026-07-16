@@ -35,6 +35,11 @@ export class CreatePreRegistrationDto {
   @IsNumber()
   modalidadeFrequencia?: number;
 
+  @ApiPropertyOptional({ example: 2 })
+  @IsOptional()
+  @IsNumber()
+  tentou_universidade_publica?: number;
+
   // === Dados Pessoais ===
   @ApiProperty({ example: 'Maria Antónia dos Santos' })
   @IsNotEmpty()
