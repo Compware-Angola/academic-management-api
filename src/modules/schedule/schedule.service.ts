@@ -631,7 +631,7 @@ export class ScheduleService {
     // 2. Busca todas as aulas do horário
     const aulasResult = await this.dataSource.query(
       `
- SELECT
+SELECT
       a."PK_AULA"                    AS id,
       a."REF_AULA"                   AS refAula,
       a."REF_SALA"                   AS refSala,
@@ -644,8 +644,8 @@ export class ScheduleService {
       a."ORDEM"                      AS ordem,
       sala."DESIGNACAO"              AS sala,
       sala."CODIGO"                  AS salaid,
-    TO_CHAR(a."HORA_INICIO",  'HH24:MI') AS horaInicio,
-   TO_CHAR(a."HORA_TERMINO", 'HH24:MI') AS horaTermino,
+      TO_CHAR(a."HORA_INICIO",  'HH24:MI') AS horaInicio,
+      TO_CHAR(a."HORA_TERMINO", 'HH24:MI') AS horaTermino,
 
       a."REF_DOCENTE"                AS refDocente,
       a."REF_TURMAS_PARTICIPANTES"   AS turmasParticipantes,
@@ -655,15 +655,29 @@ export class ScheduleService {
       TO_CHAR(a."CREATED_AT", 'DD/MM/YYYY HH24:MI')    AS criadoEm,
       TO_CHAR(a."UPDATED_AT", 'DD/MM/YYYY HH24:MI')    AS atualizadoEm,
       a."ACTIVE_STATE"               AS ativo,
-      NVL(docente."NOME", 'Sem docente') AS docenteNome,
+      NVL(util."NOME", 'Sem docente') AS docenteNome,
       JSON_VALUE(a."REF_DOCENTE", '$.pkDocente' RETURNING NUMBER) AS docenteId
+
     FROM "FK2_MGH_TB_AULA" a
-    LEFT JOIN "FK2_MCA_TB_UTILIZADOR" docente
-      ON JSON_VALUE(a."REF_DOCENTE", '$.pkDocente' RETURNING NUMBER) = docente."PK_UTILIZADOR"
-      	LEFT 	JOIN "FK2_MGH_TB_TIPO_AULA" tau ON a.FK_TIPO_AULA = tau."PK_TIPO_AULA"
-      	    	LEFT 	JOIN "FK2_MGH_TB_MODALIDADE" mdl ON a.FK_MODALIDADE  = mdl."PK_MODALIDADE"
-      	    	LEFT  JOIN  "FK2_MGH_TB_DIA_DA_SEMANA" dsm ON a.FK_DIA_DA_SEMANA  = dsm."PK_DIA_DA_SEMANA"
-      	    	LEFT JOIN "FK2_TB_SALAS" sala  ON JSON_VALUE(a."REF_SALA", '$.pk' RETURNING NUMBER) = sala."CODIGO"
+
+    LEFT JOIN "FK2_MGD_TB_DOCENTE" docente
+      ON JSON_VALUE(a."REF_DOCENTE", '$.pkDocente' RETURNING NUMBER) = docente."CODIGO"
+
+    LEFT JOIN "FK2_MCA_TB_UTILIZADOR" util
+      ON JSON_VALUE(docente."CODIGO_UTILIZADOR", '$.pk' RETURNING NUMBER) = util."PK_UTILIZADOR"
+
+    LEFT JOIN "FK2_MGH_TB_TIPO_AULA" tau
+      ON a."FK_TIPO_AULA" = tau."PK_TIPO_AULA"
+
+    LEFT JOIN "FK2_MGH_TB_MODALIDADE" mdl
+      ON a."FK_MODALIDADE" = mdl."PK_MODALIDADE"
+
+    LEFT JOIN "FK2_MGH_TB_DIA_DA_SEMANA" dsm
+      ON a."FK_DIA_DA_SEMANA" = dsm."PK_DIA_DA_SEMANA"
+
+    LEFT JOIN "FK2_TB_SALAS" sala
+      ON JSON_VALUE(a."REF_SALA", '$.pk' RETURNING NUMBER) = sala."CODIGO"
+
     WHERE a."FK_HORARIO" = :horarioId
     ORDER BY a."FK_DIA_DA_SEMANA", a."ORDEM"
   `,
