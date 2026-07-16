@@ -25,6 +25,7 @@ import {
 } from './dto/create-academic_calendar.dto';
 import { ConfigureAcademicCalendarDto } from './dto/configure-academic-calendar.dto';
 import { FetchVacanciesFromActiveAcademicYearDto } from './dto/vagas.dto';
+import { FindAcademicYearsDTO } from './dto/find-academic-years.dto';
 @Controller('academic-calendar')
 export class AcademicCalendarController {
   constructor(
@@ -255,5 +256,29 @@ export class AcademicCalendarController {
   @ApiResponse({ status: 500, description: 'Erro interno' })
   async configuracaoGeral() {
     return this.academicCalendarService.configuracaoGeral();
+  }
+  @Get('anolectivos')
+  @ApiOperation({ summary: 'Lista anos lecivos por tipo de candidatura' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de anos lectivos retornadas com sucesso',
+  })
+  findAllAcademicYears(@Query() filters: FindAcademicYearsDTO) {
+    return this.academicCalendarService.findAllAcademicYears(filters);
+  }
+
+  @Get('usable-anolectivo/:tipoCandidatura')
+  @ApiOperation({
+    summary: 'Lista anolectivo usado para fazer candidaturas no portal',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      ' anolectivo usado para fazer candidaturas no portal retornada com sucesso',
+  })
+  async findUsableAcademicYear(
+    @Param('tipoCandidatura', ParseIntPipe) tipoCandidatura: number,
+  ) {
+    return this.academicCalendarService.findUsableAcademicYear(tipoCandidatura);
   }
 }
