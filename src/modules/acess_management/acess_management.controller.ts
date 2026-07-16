@@ -61,7 +61,7 @@ export class AcessManagementController {
     private readonly logsService: LogsService,
     private readonly acessosService: AcessosService,
     private httpService: HttpService,
-  ) { }
+  ) {}
 
   @Post('create-person-user')
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -301,6 +301,7 @@ export class AcessManagementController {
   ) {
     return this.logsService.findAllByUtilizadorAndDatas(dto);
   }
+
   @Post('create-logs')
   @ApiOperation({
     summary: 'Criar Logs ',

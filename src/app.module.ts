@@ -43,6 +43,7 @@ import { VagasModule } from './modules/vagas/vagas.module';
 import { PrazosModule } from './modules/prazos/prazos.module';
 import { ScriptModule } from './modules/script/script.module';
 import { PostGraduationModule } from './modules/post-graduation/post-graduation.module';
+import { StatisModule } from './modules/stats/stats.module';
 
 @Module({
   imports: [
@@ -140,6 +141,9 @@ import { PostGraduationModule } from './modules/post-graduation/post-graduation.
     PrazosModule,
     ScriptModule,
     PostGraduationModule,
+
+
+    StatisModule
 
   ],
   controllers: [AppController],
