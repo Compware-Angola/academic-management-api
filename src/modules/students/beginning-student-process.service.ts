@@ -83,7 +83,7 @@ export class BeginningStudentProcessService {
                 faculdade: dto.faculdade ?? null,
                 estado: dto.estado ?? 1,
                 foto: null,
-                anoLectivoId: anoCorrente,
+                anoLectivoId: dto.ano_lectivo_id ? dto.ano_lectivo_id : anoCorrente,
                 password: hashedPassword,
                 outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
             } as any,
