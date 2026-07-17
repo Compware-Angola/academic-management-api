@@ -53,6 +53,15 @@ import { UpdatePostGraduationVacancyDto } from './dto/update-vacancy.dto';
 import { PostGraduationVacancyService } from './post-graduation-vacancy.service';
 import { FindPostGraduationFinalResultsDto } from './dto/find-final-results.dto';
 import { PostGraduationFinalResultsService } from './post-graduation-final-results.service';
+import { PostGraduationAttendanceService } from './post-graduation-attendance.service';
+import { FindPostGraduationAttendanceScheduleDto } from './dto/find-attendance-schedule.dto';
+import { FindPostGraduationAttendanceTestDto } from './dto/find-attendance-test.dto';
+import { FindPostGraduationAttendanceControlDto } from './dto/find-attendance-control.dto';
+import { MarkPostGraduationAttendanceDto } from './dto/mark-attendance.dto';
+import { FindPostGraduationAttendanceTeachersDto } from './dto/find-attendance-teachers.dto';
+import { FindPostGraduationTeacherAttendanceCalendarDto } from './dto/find-teacher-attendance-calendar.dto';
+import { FindPostGraduationTeacherClassCalendarDto } from './dto/find-teacher-class-calendar.dto';
+import { FindPostGraduationTeacherAttendanceStatisticsDto } from './dto/find-teacher-attendance-statistics.dto';
 
 interface AuthenticatedRequest {
   user: RequestUser;
@@ -73,6 +82,7 @@ export class PostGraduationController {
     private readonly agendaValidationService: PostGraduationAgendaValidationService,
     private readonly vacancyService: PostGraduationVacancyService,
     private readonly finalResultsService: PostGraduationFinalResultsService,
+    private readonly attendanceService: PostGraduationAttendanceService,
     private readonly httpService: HttpService,
   ) { }
 
@@ -449,6 +459,137 @@ export class PostGraduationController {
     query: FindAttendanceListDto,
   ) {
     return this.attendanceListService.findAll(query);
+  }
+
+  @Get('attendance/teachers')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Listar docentes com atividade academica na Pos-Graduacao',
+  })
+  findPostGraduationAttendanceTeachers(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindPostGraduationAttendanceTeachersDto,
+  ) {
+    return this.attendanceService.findTeachers(query);
+  }
+
+  @Get('attendance/filtro')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Listar aulas para marcacao de assiduidade da Pos-Graduacao',
+  })
+  findPostGraduationClassAttendance(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindPostGraduationAttendanceScheduleDto,
+  ) {
+    return this.attendanceService.findClassSchedules(query);
+  }
+
+  @Get('attendance/campo')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary:
+      'Listar aulas de campo para marcacao de assiduidade da Pos-Graduacao',
+  })
+  findPostGraduationFieldClassAttendance(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindPostGraduationAttendanceScheduleDto,
+  ) {
+    return this.attendanceService.findFieldClassSchedules(query);
+  }
+
+  @Patch('attendance/marcar-aula')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Marcar assiduidade de aula da Pos-Graduacao',
+  })
+  markPostGraduationClassAttendance(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: MarkPostGraduationAttendanceDto,
+  ) {
+    return this.attendanceService.markClassAttendance(query);
+  }
+
+  @Get('attendance/prova')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Listar provas para marcacao de presenca da Pos-Graduacao',
+  })
+  findPostGraduationTestAttendance(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindPostGraduationAttendanceTestDto,
+  ) {
+    return this.attendanceService.findTestSchedules(query);
+  }
+
+  @Patch('attendance/marcar-prova')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Marcar presenca em prova da Pos-Graduacao',
+  })
+  markPostGraduationTestAttendance(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: MarkPostGraduationAttendanceDto,
+  ) {
+    return this.attendanceService.markTestAttendance(query);
+  }
+
+  @Get('attendance/status-agendamento')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Listar estados de agendamento para assiduidade da Pos-Graduacao',
+  })
+  findPostGraduationAttendanceStatus() {
+    return this.attendanceService.getStatus();
+  }
+
+  @Get('attendance/controle')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Consultar controle de assiduidade da Pos-Graduacao',
+  })
+  findPostGraduationAttendanceControl(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindPostGraduationAttendanceControlDto,
+  ) {
+    return this.attendanceService.findControl(query);
+  }
+
+  @Get('attendance/controle-geral-docente')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary:
+      'Consultar calendario geral de assiduidade por docente da Pos-Graduacao',
+  })
+  findPostGraduationTeacherGeneralCalendar(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindPostGraduationTeacherAttendanceCalendarDto,
+  ) {
+    return this.attendanceService.findTeacherGeneralCalendar(query);
+  }
+
+  @Get('attendance/calendario-docente')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Consultar calendario de aulas do docente na Pos-Graduacao',
+  })
+  findPostGraduationTeacherClassCalendar(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindPostGraduationTeacherClassCalendarDto,
+  ) {
+    return this.attendanceService.findTeacherClassCalendar(query);
+  }
+
+  @Get('attendance/estatistica-assiduidade-docente')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Consultar estatistica de assiduidade por docente da Pos-Graduacao',
+  })
+  findPostGraduationTeacherAttendanceStatistics(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindPostGraduationTeacherAttendanceStatisticsDto,
+  ) {
+    return this.attendanceService.findTeacherAttendanceStatistics(query);
   }
 
   @Get('assessments/note-launch/options')
