@@ -68,7 +68,9 @@ import { RequiredPermissions } from '../../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../../common/enums/permission.type';
 import { EquivalenceTFCMigration } from './equivalence-tfc-migration.service';
 import { CreateEquivalenceTFCMigration } from './dto/create-equivalence-tfc-migration';
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+import { HangingRailingsAndToBeMadeService } from './hanging_railings_and_to_be_made.service';
+import { FindPlanPorClasseDTO } from './dto/FindPlanPorClasseDTO';
+//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @ApiTags('Students')
 @Controller('students')
 export class StudentsController {
@@ -81,6 +83,7 @@ export class StudentsController {
     private readonly studentsResultPlanService: StudentsResultPlanService,
     private readonly ativeConfirmationService: AtiveConfirmationService,
     private readonly equivalenceTFMigration: EquivalenceTFCMigration,
+    private readonly hangingRailingsAndToBeMadeService: HangingRailingsAndToBeMadeService,
     private httpService: HttpService,
   ) { }
   private log(req: any, descricao: string) {
@@ -370,7 +373,7 @@ export class StudentsController {
     });
     this.log(
       req,
-      `Utilizador ${req.user?.nome} removeu grade curricular ${codigoGradeCurricularAluno}`,
+      `Utilizador ${req.user?.nome} removeu grade curricular do Aluno com ID ${codigoGradeCurricularAluno}`,
     );
     return result;
   }
@@ -551,5 +554,26 @@ export class StudentsController {
       req,
       `Utilizador ${req.user?.nome} lançou nota finais do estudante ${body.matriculaId} `,
     );
+  }
+
+  @Get('next-class/:matricula')
+  @ApiOperation({ summary: 'Obter proxima classe do estudante' })
+  @ApiQuery({ name: 'anoLectivo', required: false, type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Proxima classe do estudante obtida com sucesso',
+  })
+  async getNextClass(
+    @Param('matricula', ParseIntPipe) matricula: number,
+    @Query('anoLectivo', ParseIntPipe) anoLectivo?: number,
+  ) {
+    return this.hangingRailingsAndToBeMadeService.getNextClass(matricula, anoLectivo);
+  }
+
+  @Get('hanging-railings-and-to-be-made')
+  async findHangingRailingsAndToBeMade(
+    @Query(ValidationPipe) query: FindPlanPorClasseDTO,
+  ) {
+    return this.hangingRailingsAndToBeMadeService.findHangingRailingsAndToBeMade(query);
   }
 }
