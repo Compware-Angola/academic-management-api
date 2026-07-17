@@ -420,25 +420,29 @@ export class StudentNoteService {
         pauta.obs.push(descricao);
         console.log(descricao);
 
-        // 2ª Frequência (só se passou na 1ª, ou nunca teve nota na 1ª)
+        // 2ª Frequência (só se passou na 1ª)
         if (resultado === EstadoAvaliacaoEnum.FREQUENCIA_2) {
           if (!temNota(nota2f)) {
             resultado = EstadoAvaliacaoEnum.EXAME;
             descricao = 'Não possui nota na 2ª Frequência!';
+            // } else if (nota2f!.NOTA! < nota_min_segunda_freq) {
+            //   media = this.round(
+            //     nota1f!.NOTA! * (peso_primeira_freq / 100) +
+            //       nota2f!.NOTA! * (peso_segunda_freq / 100),
+            //   );
+            //   resultado = EstadoAvaliacaoEnum.RECURSO;
+            //   descricao =
+            //     'A nota da 2ª Frequência é inferior a nota minína definida. (Consultar a fórmula)!';
           } else {
-            // Se não tem nota na 1ª, a 2ª Frequência conta sozinha (peso 100%)
-            const mediaFreq = temNota(nota1f)
-              ? this.round(
-                  nota1f!.NOTA! * (peso_primeira_freq / 100) +
-                    nota2f!.NOTA! * (peso_segunda_freq / 100),
-                )
-              : this.round(nota2f!.NOTA!);
+            const mediaFreq = this.round(
+              (nota1f?.NOTA ?? 0) * (peso_primeira_freq / 100) +
+                (nota2f?.NOTA ?? 0) * (peso_segunda_freq / 100),
+            );
 
             if (hasPratica) {
-              media = temNota(nota1f)
-                ? this.round((nota1f!.NOTA! + nota2f!.NOTA!) / 2)
-                : this.round(nota2f!.NOTA!);
-
+              media = this.round(
+                ((nota1f?.NOTA ?? 0) + (nota2f?.NOTA ?? 0)) / 2,
+              );
               if (media >= 9.5) {
                 resultado = EstadoAvaliacaoEnum.AGUARDA_PRATICA;
                 descricao = `Media (${media}) suficiente para aprovação. Aguardar nota da Prática!`;
@@ -767,6 +771,7 @@ export class StudentNoteService {
       throw error;
     }
   }
+
   private notasPosterioresA1fForamLancadas(
     nota2f: any,
     notaEx: any,
