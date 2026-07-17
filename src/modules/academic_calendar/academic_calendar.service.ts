@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { ViewMonthsDto } from './dto/view-months.dto';
@@ -26,6 +30,10 @@ import {
   VagasItemDto,
 } from './dto/vagas.dto';
 import { FindAcademicYearsDTO } from './dto/find-academic-years.dto';
+import {
+  EstadoAnoLectivoType,
+  VALID_PHASE_TRANSITIONS,
+} from 'src/common/enums/faso_anolectivo.type';
 type InsertVagasCursoType = {
   codigoUtilizador: number;
   codigoAnoLectivo: number;
@@ -773,7 +781,12 @@ export class AcademicCalendarService {
     const sqlAnoLectivo = `
       SELECT
         DATAINICIOPRIMEIROSEMESTRE,
-        DATAINICIOSEGUNDOSEMESTRE
+        DATAINICIOSEGUNDOSEMESTRE,
+        DESIGNACAO,
+        STATUS_,
+        FASE_ANOLECTIVO,
+        CODIGO_TIPO_CANDIDATURA,
+        CODIGO
       FROM FK2_TB_ANO_LECTIVO WHERE CODIGO = :anoLectivoId
     `;
     const result = await this.dataSource.query(sqlAnoLectivo, {
@@ -1132,7 +1145,7 @@ export class AcademicCalendarService {
     return result;
   }
   public async findAllAcademicYears(filters: FindAcademicYearsDTO) {
-    const { tipoCandidatura, page = 1, limit = 10 } = filters;
+    const { tipoCandidatura, codigoAnoLectivo, page = 1, limit = 10 } = filters;
 
     const offset = (page - 1) * limit;
 
@@ -1157,6 +1170,7 @@ export class AcademicCalendarService {
     INNER JOIN fk2_tb_tipo_candidatura cand
       ON cand.id = al.codigo_tipo_candidatura
     WHERE al.codigo_tipo_candidatura = :tipoCandidatura
+           AND (:codigoAnoLectivo IS NULL OR al.codigo = :codigoAnoLectivo)
     ORDER BY al.ordem DESC
     OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
   `;
@@ -1165,10 +1179,12 @@ export class AcademicCalendarService {
     SELECT COUNT(*) AS TOTAL
     FROM fk2_tb_ano_lectivo al
     WHERE al.codigo_tipo_candidatura = :tipoCandidatura
+           AND (:codigoAnoLectivo IS NULL OR al.codigo = :codigoAnoLectivo)
   `;
 
     const params = {
       tipoCandidatura,
+      codigoAnoLectivo: codigoAnoLectivo ?? null,
     };
 
     const [result, countResult] = await Promise.all([
@@ -1238,5 +1254,86 @@ export class AcademicCalendarService {
     return {
       data: toLowerCaseKeys(result?.[0]),
     };
+  }
+  public async changeAcademicYearPhase(
+    academicYearCode: number,
+    targetPhase: EstadoAnoLectivoType,
+  ) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const academicYear = await this.obterAnoLectivo(academicYearCode);
+
+      if (!academicYear) {
+        throw new NotFoundException('Ano lectivo não encontrado.');
+      }
+      const today = new Date();
+      const firstSemesterStart = new Date(
+        academicYear.datainicioprimeirosemestre,
+      );
+
+      if (
+        firstSemesterStart <= today &&
+        [
+          EstadoAnoLectivoType.CONFIGURAVEL,
+          EstadoAnoLectivoType.USAVEL,
+        ].includes(targetPhase)
+      ) {
+        throw new BadRequestException(
+          'Não é permitido alterar o ano lectivo para CONFIGURÁVEL ou USÁVEL após o início do primeiro semestre.',
+        );
+      }
+
+      const currentPhase = academicYear.fase_anolectivo as EstadoAnoLectivoType;
+      const allowedTargets = VALID_PHASE_TRANSITIONS[currentPhase] ?? [];
+
+      if (!allowedTargets.includes(targetPhase)) {
+        throw new BadRequestException(
+          `Transição inválida: não é possível mudar de "${currentPhase}" para "${targetPhase}".`,
+        );
+      }
+
+      if (targetPhase === EstadoAnoLectivoType.USAVEL) {
+        await queryRunner.query(
+          `
+          update fk2_tb_ano_lectivo
+          set fase_anolectivo = '${EstadoAnoLectivoType.CONFIGURAVEL}',
+              status_ = 0,
+              estado = 'Desactivo'
+          where fase_anolectivo = '${EstadoAnoLectivoType.USAVEL}
+                and codigo_tipo_candidatura = :tipoCandidatura'
+    `,
+          {
+            tipoCandidatura: academicYear.codigo_tipo_candidatura,
+          } as any,
+        );
+      }
+
+      await queryRunner.query(
+        `
+      update fk2_tb_ano_lectivo
+      set fase_anolectivo = :faseAnoLectiva,
+          status_ = 0,
+          estado = 'Desactivo'
+      where codigo = :codigoAnoLectivo
+    `,
+        {
+          faseAnoLectiva: targetPhase,
+          codigoAnoLectivo: academicYearCode,
+        } as any,
+      );
+
+      await queryRunner.commitTransaction();
+      return {
+        message: 'Mudança de estado feito com sucesso',
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }
