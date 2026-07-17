@@ -70,6 +70,7 @@ import { EquivalenceTFCMigration } from './equivalence-tfc-migration.service';
 import { CreateEquivalenceTFCMigration } from './dto/create-equivalence-tfc-migration';
 import { HangingRailingsAndToBeMadeService } from './hanging_railings_and_to_be_made.service';
 import { FindPlanPorClasseDTO } from './dto/FindPlanPorClasseDTO';
+import { NextClassDTO } from './dto/next-class';
 //@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @ApiTags('Students')
 @Controller('students')
@@ -565,9 +566,9 @@ export class StudentsController {
   })
   async getNextClass(
     @Param('matricula', ParseIntPipe) matricula: number,
-    @Query('anoLectivo', ParseIntPipe) anoLectivo?: number,
+    @Query(ValidationPipe) query: NextClassDTO,
   ) {
-    return this.hangingRailingsAndToBeMadeService.getNextClass(matricula, anoLectivo);
+    return this.hangingRailingsAndToBeMadeService.getNextClass(matricula, query.anoLectivo);
   }
 
   @Get('hanging-railings-and-to-be-made')
