@@ -370,7 +370,7 @@ export class StudentsController {
     });
     this.log(
       req,
-      `Utilizador ${req.user?.nome} removeu grade curricular ${codigoGradeCurricularAluno}`,
+      `Utilizador ${req.user?.nome} removeu grade curricular do Aluno com ID ${codigoGradeCurricularAluno}`,
     );
     return result;
   }
