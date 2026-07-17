@@ -68,7 +68,9 @@ import { RequiredPermissions } from '../../common/pipes/permissions.decorator';
 import { PermissionTypeDetails } from '../../common/enums/permission.type';
 import { EquivalenceTFCMigration } from './equivalence-tfc-migration.service';
 import { CreateEquivalenceTFCMigration } from './dto/create-equivalence-tfc-migration';
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+import { HangingRailingsAndToBeMadeService } from './hanging_railings_and_to_be_made.service';
+import { FindPlanPorClasseDTO } from './dto/FindPlanPorClasseDTO';
+//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @ApiTags('Students')
 @Controller('students')
 export class StudentsController {
@@ -81,6 +83,7 @@ export class StudentsController {
     private readonly studentsResultPlanService: StudentsResultPlanService,
     private readonly ativeConfirmationService: AtiveConfirmationService,
     private readonly equivalenceTFMigration: EquivalenceTFCMigration,
+    private readonly hangingRailingsAndToBeMadeService: HangingRailingsAndToBeMadeService,
     private httpService: HttpService,
   ) { }
   private log(req: any, descricao: string) {
@@ -551,5 +554,12 @@ export class StudentsController {
       req,
       `Utilizador ${req.user?.nome} lançou nota finais do estudante ${body.matriculaId} `,
     );
+  }
+
+  @Get('hanging-railings-and-to-be-made')
+  async findHangingRailingsAndToBeMade(
+    @Query(ValidationPipe) query: FindPlanPorClasseDTO,
+  ) {
+    return this.hangingRailingsAndToBeMadeService.findHangingRailingsAndToBeMade(query);
   }
 }

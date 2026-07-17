@@ -102,7 +102,7 @@ export class AtiveConfirmationService {
         const codigoConfirmacao = result.outId[0];
         return { message: `Matricula ${matricula} confirmada com sucesso`, codigoConfirmacao };
     }
-    private async getNextClass(matricula: number, anoLectivo?: number) {
+    public async getNextClass(matricula: number, anoLectivo?: number) {
         const anoLectivoFilter = anoLectivo
             ? `AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo`
             : `AND ftgca.CODIGO_ANO_LECTIVO = (
