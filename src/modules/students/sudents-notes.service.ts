@@ -435,8 +435,8 @@ export class StudentNoteService {
             //     'A nota da 2ª Frequência é inferior a nota minína definida. (Consultar a fórmula)!';
           } else {
             const mediaFreq = this.round(
-              nota1f!.NOTA! * (peso_primeira_freq / 100) +
-                nota2f!.NOTA! * (peso_segunda_freq / 100),
+              (nota1f?.NOTA ?? 0) * (peso_primeira_freq / 100) +
+                (nota2f?.NOTA ?? 0) * (peso_segunda_freq / 100),
             );
 
             if (hasPratica) {
