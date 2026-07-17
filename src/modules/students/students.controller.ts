@@ -556,6 +556,20 @@ export class StudentsController {
     );
   }
 
+  @Get('next-class/:matricula')
+  @ApiOperation({ summary: 'Obter proxima classe do estudante' })
+  @ApiQuery({ name: 'anoLectivo', required: false, type: Number })
+  @ApiResponse({
+    status: 200,
+    description: 'Proxima classe do estudante obtida com sucesso',
+  })
+  async getNextClass(
+    @Param('matricula', ParseIntPipe) matricula: number,
+    @Query('anoLectivo', ParseIntPipe) anoLectivo?: number,
+  ) {
+    return this.hangingRailingsAndToBeMadeService.getNextClass(matricula, anoLectivo);
+  }
+
   @Get('hanging-railings-and-to-be-made')
   async findHangingRailingsAndToBeMade(
     @Query(ValidationPipe) query: FindPlanPorClasseDTO,

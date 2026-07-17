@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FindPlanPorClasseDTO } from './dto/FindPlanPorClasseDTO';
@@ -34,6 +34,84 @@ export interface FindMatriculaDetails {
 @Injectable()
 export class HangingRailingsAndToBeMadeService {
     constructor(private readonly dataSource: DataSource) { }
+
+    async getNextClass(matricula: number, anoLectivo?: number) {
+        const anoLectivoFilter = anoLectivo
+            ? `AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo`
+            : `AND ftgca.CODIGO_ANO_LECTIVO = (
+                SELECT MAX(CODIGO_ANO_LECTIVO)
+                FROM FK2_TB_GRADE_CURRICULAR_ALUNO
+                WHERE CODIGO_MATRICULA = m.CODIGO
+                  AND CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+              )`;
+
+        const sql = `
+            SELECT
+                cl.CODIGO    AS CLASSE_CODIGO,
+                c.DURACAO    AS DURACAO,
+                CASE WHEN ce.CODIGO_CURSO_ESPECIALIDADE IS NOT NULL THEN 1 ELSE 0 END AS IS_ESPECIALIDADE
+            FROM FK2_TB_MATRICULAS m
+            INNER JOIN FK2_TB_CURSOS c
+                ON c.CODIGO = m.CODIGO_CURSO
+            LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO ftgca
+                ON ftgca.CODIGO_MATRICULA = m.CODIGO
+            LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc
+                ON ftgc.CODIGO = ftgca.CODIGO_GRADE_CURRICULAR
+            LEFT JOIN FK2_TB_CLASSES cl
+                ON cl.CODIGO = ftgc.CODIGO_CLASSE
+            LEFT JOIN FK2_TB_CURSO_ESPECIALIDADE ce
+                ON ce.CODIGO_CURSO_ESPECIALIDADE = c.CODIGO
+            WHERE m.CODIGO = :matricula
+              AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+              ${anoLectivoFilter}
+            GROUP BY cl.CODIGO, c.DURACAO, ce.CODIGO_CURSO_ESPECIALIDADE
+            ORDER BY COUNT(ftgca.CODIGO) DESC
+            FETCH FIRST 1 ROWS ONLY
+        `;
+
+        const queryParams: any = { matricula };
+        if (anoLectivo) queryParams.anoLectivo = anoLectivo;
+
+        const result = await this.dataSource.query(sql, queryParams as any);
+        console.log('result', result);
+
+
+        if (!result || result.length === 0) {
+            throw new BadRequestException(`Matrícula ${matricula} não encontrada`);
+        }
+
+        const classeAtual = result[0].CLASSE_CODIGO;
+        const duracao = result[0].DURACAO;
+        const isEspecialidade = result[0].IS_ESPECIALIDADE === 1;
+
+        if (classeAtual === null || classeAtual === undefined) {
+            return 1;
+        }
+
+        if (isEspecialidade) {
+            const sql = `
+                SELECT 
+                    CLASSE
+                FROM FK2_TB_CONFIRMACOES
+                WHERE CODIGO_MATRICULA = :matricula
+                ORDER BY CLASSE DESC
+                FETCH FIRST 1 ROW ONLY
+            `;
+            const result = await this.dataSource.query(sql, { matricula } as any);
+            return result[0].CLASSE;
+        }
+
+        if (classeAtual > duracao) {
+            throw new BadRequestException(
+                `Matrícula ${matricula} já atingiu a classe máxima (${duracao})`
+            );
+        }
+        if (classeAtual === duracao) {
+            return classeAtual;
+        }
+
+        return classeAtual + 1;
+    }
 
     /**
      * Retorna:
