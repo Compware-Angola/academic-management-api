@@ -3,6 +3,7 @@ export enum EstadoAnoLectivoType {
   CONFIGURAVEL = 'CONFIGURAVEL', // pode criar horários, NÃO pode matricular
   USAVEL = 'USAVEL', // pode criar horários E matricular estudantes
   ENCERRADO = 'ENCERRADO', // fechado, só leitura
+  ACTIVO = 'ACTIVO',
 }
 
 export type AcademicYearPhaseTransitions = Record<
@@ -17,5 +18,6 @@ export const VALID_PHASE_TRANSITIONS: AcademicYearPhaseTransitions = {
     EstadoAnoLectivoType.RASCUNHO,
   ],
   [EstadoAnoLectivoType.USAVEL]: [EstadoAnoLectivoType.CONFIGURAVEL],
+  [EstadoAnoLectivoType.ACTIVO]: [EstadoAnoLectivoType.USAVEL],
   [EstadoAnoLectivoType.ENCERRADO]: [],
 };

@@ -1171,7 +1171,7 @@ export class AcademicCalendarService {
       ON cand.id = al.codigo_tipo_candidatura
     WHERE al.codigo_tipo_candidatura = :tipoCandidatura
            AND (:codigoAnoLectivo IS NULL OR al.codigo = :codigoAnoLectivo)
-    ORDER BY al.ordem DESC
+    ORDER BY al.codigo DESC
     OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
   `;
 
@@ -1289,6 +1289,19 @@ export class AcademicCalendarService {
       const currentPhase = academicYear.fase_anolectivo as EstadoAnoLectivoType;
       const allowedTargets = VALID_PHASE_TRANSITIONS[currentPhase] ?? [];
 
+      if (targetPhase === EstadoAnoLectivoType.ACTIVO) {
+        const activationStartDate = new Date(firstSemesterStart);
+        activationStartDate.setDate(activationStartDate.getDate() - 10);
+
+        const activationEndDate = new Date(firstSemesterStart);
+        activationEndDate.setDate(activationEndDate.getDate() + 10);
+
+        if (today < activationStartDate || today > activationEndDate) {
+          throw new BadRequestException(
+            `O ano lectivo só pode ser activado entre ${activationStartDate.toISOString().split('T')[0]} e ${activationEndDate.toISOString().split('T')[0]}.`,
+          );
+        }
+      }
       if (!allowedTargets.includes(targetPhase)) {
         throw new BadRequestException(
           `Transição inválida: não é possível mudar de "${currentPhase}" para "${targetPhase}".`,
@@ -1298,14 +1311,33 @@ export class AcademicCalendarService {
       if (targetPhase === EstadoAnoLectivoType.USAVEL) {
         await queryRunner.query(
           `
-          update fk2_tb_ano_lectivo
-          set fase_anolectivo = '${EstadoAnoLectivoType.CONFIGURAVEL}',
-              status_ = 0,
-              estado = 'Desactivo'
-          where fase_anolectivo = '${EstadoAnoLectivoType.USAVEL}
-                and codigo_tipo_candidatura = :tipoCandidatura'
+    UPDATE fk2_tb_ano_lectivo
+    SET fase_anolectivo = :configuravel,
+        status_ = 0,
+        estado = 'Desactivo'
+    WHERE fase_anolectivo = :usavel
+      AND codigo_tipo_candidatura = :tipoCandidatura
     `,
           {
+            configuravel: EstadoAnoLectivoType.CONFIGURAVEL,
+            usavel: EstadoAnoLectivoType.USAVEL,
+            tipoCandidatura: academicYear.codigo_tipo_candidatura,
+          } as any,
+        );
+      }
+      if (targetPhase === EstadoAnoLectivoType.ACTIVO) {
+        await queryRunner.query(
+          `
+    UPDATE fk2_tb_ano_lectivo
+    SET fase_anolectivo = :encerrado,
+        status_ = 0,
+        estado = 'Desactivo'
+    WHERE fase_anolectivo = :activo
+      AND codigo_tipo_candidatura = :tipoCandidatura
+    `,
+          {
+            encerrado: EstadoAnoLectivoType.ENCERRADO,
+            activo: EstadoAnoLectivoType.USAVEL,
             tipoCandidatura: academicYear.codigo_tipo_candidatura,
           } as any,
         );
@@ -1315,12 +1347,15 @@ export class AcademicCalendarService {
         `
       update fk2_tb_ano_lectivo
       set fase_anolectivo = :faseAnoLectiva,
-          status_ = 0,
-          estado = 'Desactivo'
+          status_ = :status,
+          estado = :estadoExtenso
       where codigo = :codigoAnoLectivo
     `,
         {
+          status: targetPhase == EstadoAnoLectivoType.ACTIVO ? 1 : 0,
           faseAnoLectiva: targetPhase,
+          estadoExtenso:
+            targetPhase == EstadoAnoLectivoType.ACTIVO ? 'Activo' : 'Desactivo',
           codigoAnoLectivo: academicYearCode,
         } as any,
       );

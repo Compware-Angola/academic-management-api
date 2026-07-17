@@ -17,7 +17,7 @@ export class FindAcademicYearsDTO {
     description: 'Código do ano Lectivo',
     example: 1,
   })
-  @Optional()
+  @IsOptional()
   @IsInt()
   @IsPositive()
   @Type(() => Number)
