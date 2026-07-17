@@ -18,7 +18,7 @@ export class PreRegistrationService {
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly anoLectivoUtil: AnoLectivoUtil,
-  ) {}
+  ) { }
 
   // ─────────────────────────────────────────────
   //  CREATE
@@ -133,7 +133,7 @@ export class PreRegistrationService {
         userId: userId ?? null,
         codigoTipoCandidatura: dto.codigoTipoCandidatura ?? null,
         codigoTurno: dto.codigoTurno ?? null,
-        anoLectivo: anoLectivo ?? null,
+        anoLectivo: dto.anoLectivoId ? dto.anoLectivoId : anoLectivo,
         codigoNacionalidade: dto.codigoNacionalidade ?? null,
         inquerito: dto.inquerito ?? null,
         outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
@@ -794,10 +794,10 @@ END AS estado_aluno
     const data = result.map((row: any) => {
       const listaProvas = row.LISTA_DE_PROVAS
         ? row.LISTA_DE_PROVAS.replace(/^Prova de\s*/i, '')
-            .split(/<br>/i)[0]
-            .split(',')
-            .map((s: string) => s.trim())
-            .filter((s: string) => s.length > 0)
+          .split(/<br>/i)[0]
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0)
         : [];
       console.log({ row, listaProvas });
       return {
