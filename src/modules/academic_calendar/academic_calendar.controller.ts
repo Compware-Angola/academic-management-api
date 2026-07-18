@@ -25,6 +25,9 @@ import {
 } from './dto/create-academic_calendar.dto';
 import { ConfigureAcademicCalendarDto } from './dto/configure-academic-calendar.dto';
 import { FetchVacanciesFromActiveAcademicYearDto } from './dto/vagas.dto';
+import { FindAcademicYearsDTO } from './dto/find-academic-years.dto';
+import { EstadoAnoLectivoType } from 'src/common/enums/faso_anolectivo.type';
+import { ChangeAcademicYearPhaseDto } from './dto/change-academic-year-phase.dto';
 @Controller('academic-calendar')
 export class AcademicCalendarController {
   constructor(
@@ -255,5 +258,49 @@ export class AcademicCalendarController {
   @ApiResponse({ status: 500, description: 'Erro interno' })
   async configuracaoGeral() {
     return this.academicCalendarService.configuracaoGeral();
+  }
+  @Get('anolectivos')
+  @ApiOperation({ summary: 'Lista anos lecivos por tipo de candidatura' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de anos lectivos retornadas com sucesso',
+  })
+  findAllAcademicYears(@Query() filters: FindAcademicYearsDTO) {
+    return this.academicCalendarService.findAllAcademicYears(filters);
+  }
+
+  @Get('usable-anolectivo/:tipoCandidatura')
+  @ApiOperation({
+    summary: 'Lista anolectivo usado para fazer candidaturas no portal',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      ' anolectivo usado para fazer candidaturas no portal retornada com sucesso',
+  })
+  async findUsableAcademicYear(
+    @Param('tipoCandidatura', ParseIntPipe) tipoCandidatura: number,
+  ) {
+    return this.academicCalendarService.findUsableAcademicYear(tipoCandidatura);
+  }
+  @Put('academic-year/:anolectivo/fase')
+  @ApiOperation({
+    summary:
+      'Altera a fase de um ano lectivo (rascunho, configurável, usável, encerrado)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Fase do ano lectivo atualizada com sucesso',
+  })
+  @ApiResponse({ status: 400, description: 'Transição de fase inválida' })
+  @ApiResponse({ status: 404, description: 'Ano lectivo não encontrado' })
+  async changeAcademicYearPhase(
+    @Param('anolectivo', ParseIntPipe) anolectivo: number,
+    @Body() body: ChangeAcademicYearPhaseDto,
+  ) {
+    return this.academicCalendarService.changeAcademicYearPhase(
+      anolectivo,
+      body.faseLectiva,
+    );
   }
 }

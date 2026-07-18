@@ -75,6 +75,10 @@ import { StatisModule } from './modules/stats/stats.module';
       useFactory: (config: ConfigService) => {
         const isSSL = config.get<string>('DB_SSL') === 'true';
 
+        // ✅ Garantir timezone antes da criação da pool Oracle
+        process.env.TZ = config.get<string>('TZ') || 'Africa/Luanda';
+        process.env.ORA_SDTZ = config.get<string>('ORA_SDTZ') || 'Africa/Luanda';
+
         return {
           type: 'oracle' as const,
           host: config.get<string>('DB_HOST'),
@@ -82,25 +86,15 @@ import { StatisModule } from './modules/stats/stats.module';
           username: config.get<string>('DB_USERNAME'),
           password: config.get<string>('DB_PASSWORD'),
           sid: config.get<string>('DB_SID'),
+          timezone: config.get<string>('TZ') || 'Africa/Luanda',
+
 
           entities: [__dirname + '/**/*.entity{.ts,.js}'],
           synchronize: false,
           logging: ['query', 'error'],
 
-          // ==================== CONFIGURAÇÃO DO POOL ====================
-          poolSize: 20,                 // ← Número máximo de conexões (ajusta conforme teu servidor)
-
           extra: {
-            poolMin: 5,                 // mínimo de conexões abertas
-            poolMax: 30,                // máximo de conexões (importante!)
-            poolIncrement: 5,
-            queueTimeout: 120000,       // 120 segundos (aumentado)
-            queueMax: 100,              // máximo de requisições em espera
-            poolTimeout: 60,            // segundos que uma conexão idle pode ficar no pool
-            poolPingInterval: 60,       // verifica conexões inválidas
-            connectTimeout: 15000,      // timeout para criar nova conexão
-            // callTimeout: 30000,      // timeout para cada query (descomenta se quiseres)
-
+            disableInsertDefaultValues: true,
             ...(isSSL ? { ssl: { rejectUnauthorized: true } } : {}),
           },
         };
