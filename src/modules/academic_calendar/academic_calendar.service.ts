@@ -1,25 +1,63 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { ViewMonthsDto } from './dto/view-months.dto';
 import { DataSource, QueryRunner } from 'typeorm';
 import { GenerateMesTempDTO } from './dto/generate-mes-temp.dto';
-import { MESTEMP, mesTempConfig, mesTempConfigDoutoramento, mesTempConfigMestrado } from '../util/generator-mes-temp';
+import {
+  MESTEMP,
+  mesTempConfig,
+  mesTempConfigDoutoramento,
+  mesTempConfigMestrado,
+} from '../util/generator-mes-temp';
 import { formatDisplay } from '../util/formate-date';
 import { CreateMesTempDTO, MesItemDTO } from './dto/create-mes-temp.dto';
 import { AnoLectivoUtil } from '../util/current-academic-year';
-import { CreateAcademicCalendarDto, FetchAcademicCalendarDto } from './dto/create-academic_calendar.dto';
-import { AcademicCalendarDto, ConfigureAcademicCalendarDto } from './dto/configure-academic-calendar.dto';
-import { FetchVacanciesFromActiveAcademicYearDto, VagasItemDto } from './dto/vagas.dto';
-type InsertVagasCursoType = { codigoUtilizador: number, codigoAnoLectivo: number, vagas: VagasItemDto[] }
-type CreateAcademicYearUtilType = { periodo: AcademicCalendarDto, codigoUtilizador: number }
+import {
+  CreateAcademicCalendarDto,
+  FetchAcademicCalendarDto,
+} from './dto/create-academic_calendar.dto';
+import {
+  AcademicCalendarDto,
+  ConfigureAcademicCalendarDto,
+} from './dto/configure-academic-calendar.dto';
+import {
+  FetchVacanciesFromActiveAcademicYearDto,
+  VagasItemDto,
+} from './dto/vagas.dto';
+import { FindAcademicYearsDTO } from './dto/find-academic-years.dto';
+import {
+  EstadoAnoLectivoType,
+  VALID_PHASE_TRANSITIONS,
+} from 'src/common/enums/faso_anolectivo.type';
+type InsertVagasCursoType = {
+  codigoUtilizador: number;
+  codigoAnoLectivo: number;
+  vagas: VagasItemDto[];
+};
+type CreateAcademicYearUtilType = {
+  periodo: AcademicCalendarDto;
+  codigoUtilizador: number;
+};
 @Injectable()
 export class AcademicCalendarService {
-  constructor(private readonly dataSource: DataSource, private readonly anoLectivoUtil: AnoLectivoUtil) { }
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly anoLectivoUtil: AnoLectivoUtil,
+  ) {}
 
-  async findAcademicYearsWithConfiguredSemesters(params: FetchAcademicCalendarDto) {
-    const where = params.tipo_candidatura ? 'AND CODIGO_TIPO_CANDIDATURA = :tipo_candidatura' : 'AND CODIGO_TIPO_CANDIDATURA=1';
-    const result = await this.dataSource.query(`
+  async findAcademicYearsWithConfiguredSemesters(
+    params: FetchAcademicCalendarDto,
+  ) {
+    const where = params.tipo_candidatura
+      ? 'AND CODIGO_TIPO_CANDIDATURA = :tipo_candidatura'
+      : 'AND CODIGO_TIPO_CANDIDATURA=1';
+    const result = await this.dataSource.query(
+      `
       SELECT
         CODIGO AS codigo,
         DESIGNACAO AS designacao,
@@ -31,7 +69,9 @@ export class AcademicCalendarService {
         AND DATAFIMSEGUNDOSEMESTRE IS NOT NULL
         ${where}
       ORDER BY CODIGO DESC
-    `, params.tipo_candidatura ? [params.tipo_candidatura] : []);
+    `,
+      params.tipo_candidatura ? [params.tipo_candidatura] : [],
+    );
 
     return {
       anolectivos: toLowerCaseKeys(result),
@@ -97,7 +137,7 @@ export class AcademicCalendarService {
       data_fim_primeiro_semestre: dataFimPrimeiroSemestre,
       data_inicio_segundo_semestre: dataInicioSegundoSemestre,
       data_fim_segundo_semestre: dataFimSegundoSemestre,
-      codigo_tipo_candidatura: codigoTipoCandidatura
+      codigo_tipo_candidatura: codigoTipoCandidatura,
     } = body;
 
     if (
@@ -213,12 +253,12 @@ export class AcademicCalendarService {
         ESTADO
      FROM FK2_TB_ANO_LECTIVO
      WHERE ESTADO = 'Rascunho'
-     FETCH FIRST 1 ROW ONLY`
+     FETCH FIRST 1 ROW ONLY`,
     );
     if (!result) {
       return {
-        ano_lectivo: null
-      }
+        ano_lectivo: null,
+      };
     }
     return {
       ano_lectivo: {
@@ -230,34 +270,21 @@ export class AcademicCalendarService {
         dataFimSegundoSemestre: result.DATA_FIM_SEGUNDO_SEMESTRE,
         estado: result.ESTADO,
       },
-    }
+    };
   }
-  async updateAcademicYearState(
-    anolectivo: number,
-    estado: number,
-  ) {
-
+  async updateAcademicYearState(anolectivo: number, estado: number) {
     if (![0, 1].includes(estado)) {
-      throw new BadRequestException(
-        'O estado deve ser 0 ou 1'
-      );
+      throw new BadRequestException('O estado deve ser 0 ou 1');
     }
 
-
-    const queryRunner =
-      this.dataSource.createQueryRunner();
-
+    const queryRunner = this.dataSource.createQueryRunner();
 
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
-
     try {
-
-
-      const academicYear =
-        await queryRunner.query(
-          `
+      const academicYear = await queryRunner.query(
+        `
                 SELECT
                     CODIGO,
                     CODIGO_TIPO_CANDIDATURA
@@ -265,30 +292,16 @@ export class AcademicCalendarService {
                 WHERE CODIGO = :1
                 FOR UPDATE
                 `,
-          [anolectivo],
-        );
-
+        [anolectivo],
+      );
 
       if (!academicYear.length) {
-        throw new BadRequestException(
-          'Ano lectivo não encontrado'
-        );
+        throw new BadRequestException('Ano lectivo não encontrado');
       }
 
+      const { CODIGO_TIPO_CANDIDATURA } = academicYear[0];
 
-
-      const {
-        CODIGO_TIPO_CANDIDATURA
-      } = academicYear[0];
-
-
-
-      const estadoDescricao =
-        estado === 1
-          ? 'Activo'
-          : 'Desactivo';
-
-
+      const estadoDescricao = estado === 1 ? 'Activo' : 'Desactivo';
 
       /**
        * Ativando um ano:
@@ -296,7 +309,6 @@ export class AcademicCalendarService {
        * os outros do mesmo tipo
        */
       if (estado === 1) {
-
         await queryRunner.query(
           `
                 UPDATE FK2_TB_ANO_LECTIVO
@@ -311,15 +323,9 @@ export class AcademicCalendarService {
                 AND
                     CODIGO <> :2
                 `,
-          [
-            CODIGO_TIPO_CANDIDATURA,
-            anolectivo,
-          ],
+          [CODIGO_TIPO_CANDIDATURA, anolectivo],
         );
-
       }
-
-
 
       /**
        * Atualiza o ano escolhido
@@ -334,34 +340,19 @@ export class AcademicCalendarService {
 
             WHERE CODIGO = :3
             `,
-        [
-          estadoDescricao,
-          estado,
-          anolectivo,
-        ],
+        [estadoDescricao, estado, anolectivo],
       );
-
-
 
       await queryRunner.commitTransaction();
 
-
-
       return {
-        msgresposta:
-          'Ano lectivo atualizado com sucesso',
+        msgresposta: 'Ano lectivo atualizado com sucesso',
       };
-
-
     } catch (error) {
-
       await queryRunner.rollbackTransaction();
       throw error;
-
     } finally {
-
       await queryRunner.release();
-
     }
   }
 
@@ -369,7 +360,10 @@ export class AcademicCalendarService {
     anolectivo: number,
     tpcandidatura: number,
   ) {
-    const mainTable = tpcandidatura === 1 ? 'FK2_VAGAS_CURSOS' : 'FK2_VAGAS_CURSOS_POS_GRADUACAO';
+    const mainTable =
+      tpcandidatura === 1
+        ? 'FK2_VAGAS_CURSOS'
+        : 'FK2_VAGAS_CURSOS_POS_GRADUACAO';
     const result = await this.dataSource.query(
       `
         SELECT
@@ -425,7 +419,6 @@ export class AcademicCalendarService {
       let lastCode = 0;
 
       for (const vaga of vagas) {
-
         const {
           codigo_periodo: codigoPeriodo,
           codigo_curso: codigoCurso,
@@ -761,7 +754,7 @@ export class AcademicCalendarService {
 
   async createMesTemp(param: CreateMesTempDTO) {
     const queryRunner = this.dataSource.createQueryRunner();
-    ``
+    ``;
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
@@ -788,7 +781,12 @@ export class AcademicCalendarService {
     const sqlAnoLectivo = `
       SELECT
         DATAINICIOPRIMEIROSEMESTRE,
-        DATAINICIOSEGUNDOSEMESTRE
+        DATAINICIOSEGUNDOSEMESTRE,
+        DESIGNACAO,
+        STATUS_,
+        FASE_ANOLECTIVO,
+        CODIGO_TIPO_CANDIDATURA,
+        CODIGO
       FROM FK2_TB_ANO_LECTIVO WHERE CODIGO = :anoLectivoId
     `;
     const result = await this.dataSource.query(sqlAnoLectivo, {
@@ -802,7 +800,11 @@ export class AcademicCalendarService {
     return toLowerCaseKeys(row);
   }
 
-  async generateMesTemp({ anoFinal, anoInicial, tipo_candidatura = 1 }: GenerateMesTempDTO) {
+  async generateMesTemp({
+    anoFinal,
+    anoInicial,
+    tipo_candidatura = 1,
+  }: GenerateMesTempDTO) {
     switch (tipo_candidatura) {
       case 1:
         return this.generateMesTempLinceciatura({ anoFinal, anoInicial });
@@ -817,13 +819,13 @@ export class AcademicCalendarService {
 
   async configuracaoGeral() {
     const semestreAtual = await this.anoLectivoUtil.getSemestreAtual();
-    const semestresConfigurados = await this.anoLectivoUtil.getSemestresConfigurados();
+    const semestresConfigurados =
+      await this.anoLectivoUtil.getSemestresConfigurados();
 
     return {
       anoLectivo: {
         id: semestreAtual.anoId,
         designacao: semestresConfigurados.anoLetivo?.designacao,
-
       },
       semestreAtual: {
         semestre: semestreAtual.semestre,
@@ -837,7 +839,10 @@ export class AcademicCalendarService {
     };
   }
 
-  async configureAcademicCalendar(body: ConfigureAcademicCalendarDto, codigoUtilizador: number) {
+  async configureAcademicCalendar(
+    body: ConfigureAcademicCalendarDto,
+    codigoUtilizador: number,
+  ) {
     const { periodo, meses } = body;
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -846,13 +851,15 @@ export class AcademicCalendarService {
     await queryRunner.startTransaction();
 
     try {
-
-      await this.createAcademicYearUtil(queryRunner, { periodo, codigoUtilizador })
+      await this.createAcademicYearUtil(queryRunner, {
+        periodo,
+        codigoUtilizador,
+      });
       const codigoAnoLectivo = await queryRunner.query(
         `SELECT CODIGO
           FROM FK2_TB_ANO_LECTIVO
           WHERE DESIGNACAO = :1
-          AND ESTADO = 'Rascunho' 
+          AND ESTADO = 'Rascunho'
         `,
         [periodo.designacao],
       );
@@ -861,7 +868,7 @@ export class AcademicCalendarService {
         await this.insertMesTemp(queryRunner, {
           ...mes,
           ano_lectivo: codigoAnoLectivo[0].CODIGO,
-        })
+        });
       }
       await queryRunner.query(
         `UPDATE FK2_TB_ANO_LECTIVO
@@ -871,23 +878,24 @@ export class AcademicCalendarService {
         [codigoAnoLectivo[0].CODIGO],
       );
       await queryRunner.commitTransaction();
-      return { message: "Ano lectivo configurado com sucesso" };
-    }
-
-    catch (error) {
+      return { message: 'Ano lectivo configurado com sucesso' };
+    } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;
     } finally {
       await queryRunner.release();
     }
   }
-  private async createAcademicYearUtil(queryRunner: QueryRunner, { periodo, codigoUtilizador }: CreateAcademicYearUtilType) {
+  private async createAcademicYearUtil(
+    queryRunner: QueryRunner,
+    { periodo, codigoUtilizador }: CreateAcademicYearUtilType,
+  ) {
     const existingPandingDraft = await queryRunner.query(
       `SELECT CODIGO
           FROM FK2_TB_ANO_LECTIVO
-          WHERE ESTADO = 'Rascunho' AND CODIGO_TIPO_CANDIDATURA =:1 
+          WHERE ESTADO = 'Rascunho' AND CODIGO_TIPO_CANDIDATURA =:1
         `,
-      [periodo.codigo_tipo_candidatura]
+      [periodo.codigo_tipo_candidatura],
     );
 
     if (existingPandingDraft.length > 0) {
@@ -908,7 +916,7 @@ export class AcademicCalendarService {
     await queryRunner.query(
       `
        INSERT INTO FK2_TB_ANO_LECTIVO (
-           
+
             DESIGNACAO,
             DATAINICIOPRIMEIROSEMESTRE,
             DATAFIMPRIMEIROSEMESTRE,
@@ -921,7 +929,7 @@ export class AcademicCalendarService {
             EPOCA_EXAME_ACESSO,
             CODIGO_TIPO_CANDIDATURA
           ) VALUES (
-            
+
             :1,
             TO_DATE(:2, 'YYYY-MM-DD'),
             TO_DATE(:3, 'YYYY-MM-DD'),
@@ -936,7 +944,6 @@ export class AcademicCalendarService {
           )
        `,
       [
-
         periodo.designacao,
         periodo.data_inicio_primeiro_semestre,
         periodo.data_fim_primeiro_semestre,
@@ -946,10 +953,11 @@ export class AcademicCalendarService {
         periodo.codigo_tipo_candidatura,
       ],
     );
-
-
   }
-  private async insertVagasCurso(queryRunner: QueryRunner, { codigoUtilizador, codigoAnoLectivo, vagas }: InsertVagasCursoType) {
+  private async insertVagasCurso(
+    queryRunner: QueryRunner,
+    { codigoUtilizador, codigoAnoLectivo, vagas }: InsertVagasCursoType,
+  ) {
     let vagasCursosLastCode = 0;
     for (const vaga of vagas) {
       const codigoPolo = vaga.polo_id ?? 4;
@@ -959,7 +967,8 @@ export class AcademicCalendarService {
         `);
 
       vagasCursosLastCode = Number(nextCodeResult[0]?.CODIGO);
-      await queryRunner.query(`
+      await queryRunner.query(
+        `
             INSERT INTO FK2_VAGAS_CURSOS (
               ID,
               CURSO_ID,
@@ -992,24 +1001,36 @@ export class AcademicCalendarService {
           codigoUtilizador,
           vaga.codigo_periodo,
           codigoAnoLectivo,
-        ]
-      )
+        ],
+      );
     }
   }
 
-  private generateMesTempLinceciatura({ anoFinal, anoInicial }: { anoFinal: number, anoInicial: number }) {
+  private generateMesTempLinceciatura({
+    anoFinal,
+    anoInicial,
+  }: {
+    anoFinal: number;
+    anoInicial: number;
+  }) {
     const result: MESTEMP[] = [];
     mesTempConfig.forEach((mesTemp) => {
       const isPastYear = mesTemp.ordem_mes >= 10 && mesTemp.ordem_mes <= 12;
       const anoCorrente = isPastYear ? anoInicial : anoFinal;
 
-      const dataLimite = mesTemp.data_limite ? new Date(mesTemp.data_limite) : null;
+      const dataLimite = mesTemp.data_limite
+        ? new Date(mesTemp.data_limite)
+        : null;
       dataLimite?.setFullYear(anoCorrente);
 
-      const dataFinal = mesTemp.data_final ? new Date(mesTemp.data_final) : null;
+      const dataFinal = mesTemp.data_final
+        ? new Date(mesTemp.data_final)
+        : null;
       dataFinal?.setFullYear(anoCorrente);
 
-      const dataInicial = mesTemp.data_inicial ? new Date(mesTemp.data_inicial) : null;
+      const dataInicial = mesTemp.data_inicial
+        ? new Date(mesTemp.data_inicial)
+        : null;
       dataInicial?.setFullYear(anoCorrente);
 
       result.push({
@@ -1031,22 +1052,32 @@ export class AcademicCalendarService {
     return result;
   }
 
-
-  private generateMesMestrado({ anoFinal, anoInicial }: { anoFinal: number, anoInicial: number }) {
+  private generateMesMestrado({
+    anoFinal,
+    anoInicial,
+  }: {
+    anoFinal: number;
+    anoInicial: number;
+  }) {
     const result: MESTEMP[] = [];
-
 
     mesTempConfigMestrado.forEach((mesTemp) => {
       const isPastYear = mesTemp.ordem_mes >= 10 && mesTemp.ordem_mes <= 12;
       const anoCorrente = isPastYear ? anoInicial : anoFinal;
 
-      const dataLimite = mesTemp.data_limite ? new Date(mesTemp.data_limite) : null;
+      const dataLimite = mesTemp.data_limite
+        ? new Date(mesTemp.data_limite)
+        : null;
       dataLimite?.setFullYear(anoCorrente);
 
-      const dataFinal = mesTemp.data_final ? new Date(mesTemp.data_final) : null;
+      const dataFinal = mesTemp.data_final
+        ? new Date(mesTemp.data_final)
+        : null;
       dataFinal?.setFullYear(anoCorrente);
 
-      const dataInicial = mesTemp.data_inicial ? new Date(mesTemp.data_inicial) : null;
+      const dataInicial = mesTemp.data_inicial
+        ? new Date(mesTemp.data_inicial)
+        : null;
       dataInicial?.setFullYear(anoCorrente);
 
       result.push({
@@ -1067,21 +1098,32 @@ export class AcademicCalendarService {
     });
     return result;
   }
-  private generateMesDotoramento({ anoFinal, anoInicial }: { anoFinal: number, anoInicial: number }) {
+  private generateMesDotoramento({
+    anoFinal,
+    anoInicial,
+  }: {
+    anoFinal: number;
+    anoInicial: number;
+  }) {
     const result: MESTEMP[] = [];
-
 
     mesTempConfigDoutoramento.forEach((mesTemp) => {
       const isPastYear = mesTemp.ordem_mes >= 10 && mesTemp.ordem_mes <= 12;
       const anoCorrente = isPastYear ? anoInicial : anoFinal;
 
-      const dataLimite = mesTemp.data_limite ? new Date(mesTemp.data_limite) : null;
+      const dataLimite = mesTemp.data_limite
+        ? new Date(mesTemp.data_limite)
+        : null;
       dataLimite?.setFullYear(anoCorrente);
 
-      const dataFinal = mesTemp.data_final ? new Date(mesTemp.data_final) : null;
+      const dataFinal = mesTemp.data_final
+        ? new Date(mesTemp.data_final)
+        : null;
       dataFinal?.setFullYear(anoCorrente);
 
-      const dataInicial = mesTemp.data_inicial ? new Date(mesTemp.data_inicial) : null;
+      const dataInicial = mesTemp.data_inicial
+        ? new Date(mesTemp.data_inicial)
+        : null;
       dataInicial?.setFullYear(anoCorrente);
 
       result.push({
@@ -1101,5 +1143,232 @@ export class AcademicCalendarService {
       });
     });
     return result;
+  }
+  public async findAllAcademicYears(filters: FindAcademicYearsDTO) {
+    const { tipoCandidatura, codigoAnoLectivo, page = 1, limit = 10 } = filters;
+
+    const offset = (page - 1) * limit;
+
+    const sql = `
+    SELECT
+      al.designacao,
+      al.datainicioprimeirosemestre,
+      al.datafimprimeirosemestre,
+      al.datainiciosegundosemestre,
+      al.datafimsegundosemestre,
+      al.estado,
+      al.data_ultima_atualizacao,
+      al.utilizador,
+      al.status_,
+      al.ordem,
+      al.epoca_exame_acesso,
+      al.codigo,
+      al.codigo_tipo_candidatura,
+      al.fase_anolectivo,
+      cand.designacao AS tipo_candidatura
+    FROM fk2_tb_ano_lectivo al
+    INNER JOIN fk2_tb_tipo_candidatura cand
+      ON cand.id = al.codigo_tipo_candidatura
+    WHERE al.codigo_tipo_candidatura = :tipoCandidatura
+           AND (:codigoAnoLectivo IS NULL OR al.codigo = :codigoAnoLectivo)
+    ORDER BY al.codigo DESC
+    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+  `;
+
+    const sqlCount = `
+    SELECT COUNT(*) AS TOTAL
+    FROM fk2_tb_ano_lectivo al
+    WHERE al.codigo_tipo_candidatura = :tipoCandidatura
+           AND (:codigoAnoLectivo IS NULL OR al.codigo = :codigoAnoLectivo)
+  `;
+
+    const params = {
+      tipoCandidatura,
+      codigoAnoLectivo: codigoAnoLectivo ?? null,
+    };
+
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, {
+        ...params,
+        offset,
+        limit,
+      } as any),
+      this.dataSource.query(sqlCount, params as any),
+    ]);
+
+    const total = Number(countResult[0].TOTAL);
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: toLowerCaseKeys(result),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
+  public async findUsableAcademicYear(tipoCandidatura: number) {
+    const sql = `
+    SELECT
+      al.designacao,
+      al.datainicioprimeirosemestre,
+      al.datafimprimeirosemestre,
+      al.datainiciosegundosemestre,
+      al.datafimsegundosemestre,
+      al.estado,
+      al.data_ultima_atualizacao,
+      al.utilizador,
+      al.status_,
+      al.ordem,
+      al.epoca_exame_acesso,
+      al.codigo,
+      al.codigo_tipo_candidatura,
+      al.fase_anolectivo,
+      cand.designacao AS tipo_candidatura
+    FROM fk2_tb_ano_lectivo al
+    INNER JOIN fk2_tb_tipo_candidatura cand
+      ON cand.id = al.codigo_tipo_candidatura
+    WHERE al.codigo_tipo_candidatura = :tipoCandidatura
+      AND (
+        al.fase_anolectivo = 'USAVEL'
+        OR al.status_ = 1
+      )
+    ORDER BY
+      CASE
+        WHEN al.fase_anolectivo = 'USAVEL' THEN 1
+        WHEN al.status_ = 1 THEN 2
+      END,
+      al.ordem DESC
+    FETCH FIRST 1 ROW ONLY
+  `;
+
+    const result = await this.dataSource.query(sql, {
+      tipoCandidatura,
+    } as any);
+
+    if (!result || result.length == 0) {
+      return {
+        data: null,
+      };
+    }
+    return {
+      data: toLowerCaseKeys(result?.[0]),
+    };
+  }
+  public async changeAcademicYearPhase(
+    academicYearCode: number,
+    targetPhase: EstadoAnoLectivoType,
+  ) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const academicYear = await this.obterAnoLectivo(academicYearCode);
+
+      if (!academicYear) {
+        throw new NotFoundException('Ano lectivo não encontrado.');
+      }
+      const today = new Date();
+      const firstSemesterStart = new Date(
+        academicYear.datainicioprimeirosemestre,
+      );
+
+      if (
+        firstSemesterStart <= today &&
+        [
+          EstadoAnoLectivoType.CONFIGURAVEL,
+          EstadoAnoLectivoType.USAVEL,
+        ].includes(targetPhase)
+      ) {
+        throw new BadRequestException(
+          'Não é permitido alterar o ano lectivo para CONFIGURÁVEL ou USÁVEL após o início do primeiro semestre.',
+        );
+      }
+
+      const currentPhase = academicYear.fase_anolectivo as EstadoAnoLectivoType;
+      const allowedTargets = VALID_PHASE_TRANSITIONS[currentPhase] ?? [];
+
+      if (targetPhase === EstadoAnoLectivoType.ACTIVO) {
+        const activationStartDate = new Date(firstSemesterStart);
+        activationStartDate.setDate(activationStartDate.getDate() - 10);
+
+        const activationEndDate = new Date(firstSemesterStart);
+        activationEndDate.setDate(activationEndDate.getDate() + 10);
+
+        if (today < activationStartDate || today > activationEndDate) {
+          throw new BadRequestException(
+            `O ano lectivo só pode ser activado entre ${activationStartDate.toISOString().split('T')[0]} e ${activationEndDate.toISOString().split('T')[0]}.`,
+          );
+        }
+      }
+      if (!allowedTargets.includes(targetPhase)) {
+        throw new BadRequestException(
+          `Transição inválida: não é possível mudar de "${currentPhase}" para "${targetPhase}".`,
+        );
+      }
+
+      if (targetPhase === EstadoAnoLectivoType.USAVEL) {
+        await queryRunner.query(
+          `
+    UPDATE fk2_tb_ano_lectivo
+    SET fase_anolectivo = :configuravel,
+        status_ = 0,
+        estado = 'Desactivo'
+    WHERE fase_anolectivo = :usavel
+      AND codigo_tipo_candidatura = :tipoCandidatura
+    `,
+          {
+            configuravel: EstadoAnoLectivoType.CONFIGURAVEL,
+            usavel: EstadoAnoLectivoType.USAVEL,
+            tipoCandidatura: academicYear.codigo_tipo_candidatura,
+          } as any,
+        );
+      }
+      if (targetPhase === EstadoAnoLectivoType.ACTIVO) {
+        await queryRunner.query(
+          `
+    UPDATE fk2_tb_ano_lectivo
+    SET fase_anolectivo = :encerrado,
+        status_ = 0,
+        estado = 'Desactivo'
+    WHERE fase_anolectivo = :activo
+      AND codigo_tipo_candidatura = :tipoCandidatura
+    `,
+          {
+            encerrado: EstadoAnoLectivoType.ENCERRADO,
+            activo: EstadoAnoLectivoType.USAVEL,
+            tipoCandidatura: academicYear.codigo_tipo_candidatura,
+          } as any,
+        );
+      }
+
+      await queryRunner.query(
+        `
+      update fk2_tb_ano_lectivo
+      set fase_anolectivo = :faseAnoLectiva,
+          status_ = :status,
+          estado = :estadoExtenso
+      where codigo = :codigoAnoLectivo
+    `,
+        {
+          status: targetPhase == EstadoAnoLectivoType.ACTIVO ? 1 : 0,
+          faseAnoLectiva: targetPhase,
+          estadoExtenso:
+            targetPhase == EstadoAnoLectivoType.ACTIVO ? 'Activo' : 'Desactivo',
+          codigoAnoLectivo: academicYearCode,
+        } as any,
+      );
+
+      await queryRunner.commitTransaction();
+      return {
+        message: 'Mudança de estado feito com sucesso',
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }

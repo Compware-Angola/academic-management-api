@@ -24,6 +24,7 @@ import { ChangeShiftService } from './change-shift.service';
 import { EquivalenceTFCMigration } from './equivalence-tfc-migration.service';
 import { StudentSituationService } from './student-situation.service';
 import { StudentSituationController } from './student-stituation.controller';
+import { HangingRailingsAndToBeMadeService } from './hanging_railings_and_to_be_made.service';
 
 
 @Module({
@@ -55,6 +56,7 @@ import { StudentSituationController } from './student-stituation.controller';
     BeginningStudentProcessService,
     StudentsProvasService,
     PrazosService,
+    HangingRailingsAndToBeMadeService,
     AtiveConfirmationService,
     ChangeShiftService,
     EquivalenceTFCMigration,
