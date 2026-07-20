@@ -53,6 +53,11 @@ import { UpdatePostGraduationVacancyDto } from './dto/update-vacancy.dto';
 import { PostGraduationVacancyService } from './post-graduation-vacancy.service';
 import { FindPostGraduationFinalResultsDto } from './dto/find-final-results.dto';
 import { PostGraduationFinalResultsService } from './post-graduation-final-results.service';
+import { PostGraduationSummaryService } from './post-graduation-summary.service';
+import { FindPostGraduationSummaryScheduledClassesDto } from './dto/find-summary-scheduled-classes.dto';
+import { FindPostGraduationSummariesDto } from './dto/find-summaries.dto';
+import { CreateSumarioDto } from '../sumario/dto/create-sumario.dto';
+import { UpdateSumarioDto } from '../sumario/dto/update-sumario.dto';
 
 interface AuthenticatedRequest {
   user: RequestUser;
@@ -73,6 +78,7 @@ export class PostGraduationController {
     private readonly agendaValidationService: PostGraduationAgendaValidationService,
     private readonly vacancyService: PostGraduationVacancyService,
     private readonly finalResultsService: PostGraduationFinalResultsService,
+    private readonly summaryService: PostGraduationSummaryService,
     private readonly httpService: HttpService,
   ) { }
 
@@ -702,5 +708,78 @@ export class PostGraduationController {
     });
 
     return result;
+  }
+
+  @Get('summaries/scheduled-classes')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Listar aulas agendadas para sumarios da Pos-Graduacao',
+  })
+  findSummaryScheduledClasses(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindPostGraduationSummaryScheduledClassesDto,
+  ) {
+    return this.summaryService.findScheduledClasses(query);
+  }
+
+  @Get('summaries/general-control')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Listar controle geral de sumarios e assiduidade da Pos-Graduacao',
+  })
+  findSummaryGeneralControl(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindPostGraduationSummaryScheduledClassesDto,
+  ) {
+    return this.summaryService.findGeneralControl(query);
+  }
+
+  @Get('summaries')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Listar sumarios lancados da Pos-Graduacao',
+  })
+  findSummaries(
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: FindPostGraduationSummariesDto,
+  ) {
+    return this.summaryService.findAll(query);
+  }
+
+  @Post('summaries')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Criar sumario de Pos-Graduacao',
+  })
+  createSummary(
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    body: CreateSumarioDto,
+  ) {
+    return this.summaryService.create(body);
+  }
+
+  @Put('summaries/:summaryId')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Atualizar sumario de Pos-Graduacao',
+  })
+  updateSummary(
+    @Param('summaryId', ParseIntPipe) summaryId: number,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    body: UpdateSumarioDto,
+  ) {
+    return this.summaryService.update(body, summaryId);
+  }
+
+  @Patch('summaries/:summaryId/validate/:statusId')
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
+  @ApiOperation({
+    summary: 'Validar sumario de Pos-Graduacao',
+  })
+  validateSummary(
+    @Param('summaryId', ParseIntPipe) summaryId: number,
+    @Param('statusId', ParseIntPipe) statusId: number,
+  ) {
+    return this.summaryService.validate(statusId, summaryId);
   }
 }
