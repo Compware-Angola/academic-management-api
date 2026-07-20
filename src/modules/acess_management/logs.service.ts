@@ -7,7 +7,7 @@ import { CreateLogsDTO } from './dto/create-logs.dto';
 
 @Injectable()
 export class LogsService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   async findAllByUtilizadorAndDatas(dto: FilterLogsAcessoDto): Promise<{
     data: LogAcessoResponseDto[];
@@ -138,45 +138,54 @@ export class LogsService {
     };
   }
   async create(dto: CreateLogsDTO) {
-    await this.dataSource.query(
-      `
-    INSERT INTO FK2_TB_LOG_ACESSOS_FUNCIONALIDADE 
-    (
-      DESCRICAO,
-      FK_ACESSO,
-      FK_FUNCIONALIDADE,
-      FK_UTILIZADOR_RESPONSAVEL,
-      FK_GRUPO_AFETADO,
-      FK_OPERACAO_LOG,
-      CREATED_AT,
-      IP
-      -- PK_LOG_ACESSO normalmente é gerada automaticamente (IDENTITY ou SEQUENCE)
-    )
-    VALUES 
-    (
-      :descricao,
-      :fkAcesso,
-      :fkFuncionalidade,
-      :fkUtilizadorResponsavel,
-      :fkGrupoAfetado,
-      :fkOperacaoLog,
-      SYSDATE,           -- ou :createdAt se vier do DTO
-      :ip
-    )
-    `,
-      {
-        descricao: dto.descricao,
-        fkAcesso: dto.fkAcesso,
-        fkFuncionalidade: dto.fkFuncionalidade,
-        fkUtilizadorResponsavel: dto.fkUtilizadorResponsavel,
-        fkGrupoAfetado: dto.fkGrupoAfetado || null,
-        fkOperacaoLog: dto.fkOperacaoLog,
-        ip: dto.ip,
-      } as any,
-    );
+    const descricoes = Array.isArray(dto.descricao)
+      ? dto.descricao
+      : [dto.descricao];
+
+    console.log(descricoes);
+
+
+    for (const descricao of descricoes) {
+      await this.dataSource.query(
+        `
+      INSERT INTO FK2_TB_LOG_ACESSOS_FUNCIONALIDADE
+      (
+        DESCRICAO,
+        FK_ACESSO,
+        FK_FUNCIONALIDADE,
+        FK_UTILIZADOR_RESPONSAVEL,
+        FK_GRUPO_AFETADO,
+        FK_OPERACAO_LOG,
+        CREATED_AT,
+        IP
+      )
+      VALUES
+      (
+        :descricao,
+        :fkAcesso,
+        :fkFuncionalidade,
+        :fkUtilizadorResponsavel,
+        :fkGrupoAfetado,
+        :fkOperacaoLog,
+        SYSDATE,
+        :ip
+      )
+      `,
+        {
+          descricao: `${descricao}`,
+          fkAcesso: dto.fkAcesso,
+          fkFuncionalidade: dto.fkFuncionalidade,
+          fkUtilizadorResponsavel: dto.fkUtilizadorResponsavel,
+          fkGrupoAfetado: dto.fkGrupoAfetado ?? null,
+          fkOperacaoLog: dto.fkOperacaoLog,
+          ip: dto.ip,
+        } as any,
+      );
+    }
+
     return {
       success: true,
-      message: ' Created !',
+      message: 'Logs criados com sucesso!',
     };
   }
 }

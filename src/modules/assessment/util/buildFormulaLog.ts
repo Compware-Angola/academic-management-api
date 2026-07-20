@@ -39,7 +39,6 @@ export function buildFormulaLog(
 
   const nome = user?.nome ?? "Utilizador desconhecido";
 
-  return `Utilizador ${nome} definiu a fórmula da UC ${body.codigo}${
-    blocoMin || blocoPeso ? " — " : ""
-  }${blocoMin}${separador}${blocoPeso}`;
+  return [`Utilizador ${nome} definiu a fórmula da UC ${body.codigo}${blocoMin || blocoPeso ? " — " : ""
+    }${blocoMin}${separador}${blocoPeso}`];
 }
