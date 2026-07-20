@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import { lastValueFrom } from 'rxjs';
 
 interface AccessLogPayload {
-  descricao: string;
+  descricao: string[] | string;
   fkAcesso?: number;
   fkFuncionalidade?: number;
   fkUtilizadorResponsavel?: number;

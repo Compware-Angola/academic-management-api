@@ -1,17 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsArray, IsNumber, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
 
 export class CreateLogsDTO {
   @ApiProperty({
-    description: 'Descrição detalhada da ação realizada (ex: "Acesso ao módulo de finanças")',
-    example: 'Utilizador acedeu ao relatório mensal de vendas',
-    maxLength: 500,
+    description: 'Descrição detalhada da ação realizada',
     required: false,
   })
+  @ValidateIf((obj) => !Array.isArray(obj.descricao))
   @IsString()
-  @MaxLength(500)
-  @IsOptional()
-  descricao?: string;
+  @ValidateIf((obj) => Array.isArray(obj.descricao))
+  @IsArray()
+  @IsString({ each: true })
+  descricao: string | string[];
 
   @ApiProperty({
     description: 'ID do acesso/registo relacionado (chave estrangeira)',
@@ -63,7 +63,7 @@ export class CreateLogsDTO {
     type: String,
   })
   @IsString()
-  @MaxLength(45) 
+  @MaxLength(45)
   ip: string;
 
 }

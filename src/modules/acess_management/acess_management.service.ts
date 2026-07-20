@@ -17,7 +17,7 @@ import oracledb from 'oracledb';
 export class AcessosService {
   private readonly logger = new Logger(AcessosService.name);
 
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
   async listarAcessosDropDown(
     filter: FilterAcessoDto,
   ): Promise<AcessoResponseDto[]> {
@@ -392,16 +392,7 @@ export class AcessosService {
 
     return result[0].USERNAME as string;
   }
-  async getPkGrupoAcesso(): Promise<number> {
-    const result = await this.dataSource.query(
-      `SELECT MAX (PK_GRUPO_ACESSO) + 1 AS PK_GRUPO_ACESSO FROM FK2_MCA_TB_GRUPO_ACESSO`,
-    );
-    console.log(result, 'mensageiro');
-    if (!result || result.length === 0) {
-      throw new Error(`Erro ao gerar chave`);
-    }
-    return result[0].PK_GRUPO_ACESSO;
-  }
+
 
   async adicionarAcesso(
     utilizadorId: number,
