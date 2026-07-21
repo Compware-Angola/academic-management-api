@@ -16,6 +16,7 @@ import { CreateCalendarActivityDto } from './dto/create-calendar-activity.dto';
 import { FindCalendarActivitiesDto } from './dto/find-calendar-activities.dto';
 import { FindAcademicActivityTermsDto } from './dto/find-academic-activity-terms.dto';
 import { UpdateAcademicActivityTermDto } from './dto/update-academic-activity-term.dto';
+import { EstadoAnoLectivoType } from 'src/common/enums/faso_anolectivo.type';
 
 @Injectable()
 export class AcademicActivitiesService {
@@ -384,7 +385,7 @@ export class AcademicActivitiesService {
         SELECT CODIGO
         FROM FK2_TB_ANO_LECTIVO
         WHERE CODIGO = :codigoAnoLectivo
-          AND STATUS_ = 1
+          AND FASE_ANOLECTIVO in ('${EstadoAnoLectivoType.ACTIVO}', '${EstadoAnoLectivoType.CONFIGURAVEL}', '${EstadoAnoLectivoType.USAVEL}')
         FETCH FIRST 1 ROWS ONLY
         `,
         { codigoAnoLectivo: codigo_ano_lectivo } as any,
@@ -446,7 +447,7 @@ export class AcademicActivitiesService {
       await manager.query(
         `
         INSERT INTO FK2_TB_CALENDARIO_ACTIVIDADE_LECTIVAS (
-        
+
           DESCRICAO,
           DATA_INICIO,
           DATA_TERMINO,
@@ -458,7 +459,7 @@ export class AcademicActivitiesService {
           DATA,
           REF_UTILIZADOR
         ) VALUES (
-      
+
           :designacao,
           :dataInicio,
           :dataFim,
@@ -738,7 +739,7 @@ export class AcademicActivitiesService {
       await this.dataSource.query(
         `
       INSERT INTO FK2_MCAL_TB_PRAZO (
-       
+
         fk_tipo_avaliacao,
         fk_semestre,
         fk_tipo_prazo,
@@ -753,7 +754,7 @@ export class AcademicActivitiesService {
         fk_ano_lectivo,
         fk_created_by
       ) VALUES (
-       
+
         :fkTipoAvaliacao,
         :fkSemestre,
         :fkTipoPrazo,
