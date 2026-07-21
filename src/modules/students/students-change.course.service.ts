@@ -91,7 +91,7 @@ export class StudentsChangeCourse {
   constructor(
     private readonly dataSource: DataSource,
     private readonly anoLectivoUtil: AnoLectivoUtil,
-  ) { }
+  ) {}
   private queryRunner: QueryRunner;
 
   private async getNomeUser(userId: number): Promise<string> {
@@ -868,7 +868,7 @@ export class StudentsChangeCourse {
             t.codigo_grade == n.codigo ||
             t.codigo_disciplina == n.codigo_disciplina ||
             t.disciplina.toUpperCase().trim() ==
-            n.disciplina.toUpperCase().trim(),
+              n.disciplina.toUpperCase().trim(),
         ),
     );
     const nomeUtilizador = await this.getNomeUser(userId);
