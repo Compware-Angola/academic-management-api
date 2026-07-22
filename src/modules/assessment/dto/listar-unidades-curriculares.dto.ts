@@ -1,6 +1,6 @@
 // src/formulas-uc/dto/listar-unidades-curriculares.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsInt,
   IsNotEmpty,
@@ -43,6 +43,7 @@ export class ListarUnidadesCurricularesDto {
   semestre: number;
 
   @ApiPropertyOptional({ description: 'tipo de Candidatura', example: 1 })
+  @Type(() => Number)
   @IsOptional()
   @IsNumber()
   @IsInt()
