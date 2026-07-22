@@ -49,6 +49,15 @@ export class ListScheduleUCDto {
   curso: number;
 
   @ApiPropertyOptional({
+    description: 'Filtrar por tipo de avaliação',
+    example: 15,
+  })
+  @IsInt()
+  @IsOptional()
+  @Type(() => Number)
+  tipo_avaliacao?: number;
+
+  @ApiPropertyOptional({
     description: 'Filtrar por código do docente',
     example: 15,
   })
@@ -56,8 +65,6 @@ export class ListScheduleUCDto {
   @IsOptional()
   @Type(() => Number)
   docente?: number;
-
-
 
   @ApiPropertyOptional({
     description: 'Filtrar por código da unidade curricular (grade curricular)',
