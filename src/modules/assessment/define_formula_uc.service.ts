@@ -18,20 +18,21 @@ export class DefineFormulaUcService {
       params;
 
     const planoSql = `
-      SELECT CODIGO
-      FROM FK2_TB_PLANO_CURRICULAR_CURSO pc
-      INNER JOIN FK2_TB_CURSOS tc ON tc.CODIGO = pc.CODIGO_CURSO
-      WHERE (pc.CODIGO_CURSO = ${cursoId} OR ${cursoId} = 0)
-        AND (pc.CODIGO_ANO_LECTIVO = ${anoLectivoId} OR ${anoLectivoId} = 0)
-        AND (tc.TIPO_CANDIDATURA = :tipoCandidatura OR :tipoCandidatura is null)
-      ORDER BY CODIGO DESC
-      FETCH FIRST 1 ROW ONLY
-    `;
+  SELECT pc.CODIGO
+  FROM FK2_TB_PLANO_CURRICULAR_CURSO pc
+  INNER JOIN FK2_TB_CURSOS tc ON tc.CODIGO = pc.CODIGO_CURSO
+  WHERE (pc.CODIGO_CURSO = :cursoId OR :cursoId = 0)
+    AND (pc.CODIGO_ANO_LECTIVO = :anoLectivoId OR :anoLectivoId = 0)
+    AND (:tipoCandidatura IS NULL OR tc.TIPO_CANDIDATURA = :tipoCandidatura)
+  ORDER BY pc.CODIGO DESC
+  FETCH FIRST 1 ROW ONLY
+`;
 
     const planos = await this.dataSource.query(planoSql, {
+      cursoId,
+      anoLectivoId,
       tipoCandidatura: tipoCandidatura ?? null,
     } as any);
-
     if (!planos || planos.length === 0) {
       throw new NotFoundException(
         `Plano não encontrado (curso: ${cursoId}, ano: ${anoLectivoId})`,
