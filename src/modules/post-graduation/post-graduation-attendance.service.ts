@@ -24,10 +24,24 @@ import { FindPostGraduationTeacherAttendanceStatisticsDto } from './dto/find-tea
 
 type QueryParams = Record<string, number | string | Date | undefined>;
 
+/**
+ * Centraliza os fluxos de assiduidade da Pos-Graduacao.
+ *
+ * A separacao por Pos-Graduacao nao nasce do docente em si, porque um docente
+ * pode atuar em mais de um grau. A separacao e feita pelo caminho academico:
+ * aula/prova -> horario -> grade curricular -> curso -> tipo de candidatura.
+ */
 @Injectable()
 export class PostGraduationAttendanceService {
   constructor(private readonly dataSource: DataSource) {}
 
+  /**
+   * Lista docentes que possuem atividade real no contexto de Pos-Graduacao.
+   *
+   * A regra evita classificar o docente como "de Pos" de forma fixa. O docente
+   * entra na lista quando aparece em aulas ou como vigilante de provas ligadas a
+   * cursos de Mestrado/Doutoramento.
+   */
   async findTeachers(filters: FindPostGraduationAttendanceTeachersDto) {
     const { degreeId = 0, anoLectivo = 0, semestre = 0, search } = filters;
     const params: QueryParams = {};
@@ -99,6 +113,7 @@ export class PostGraduationAttendanceService {
       LEFT JOIN FK2_TB_GRAU_ACADEMICO GA
         ON GA.CODIGO = CCC.GRAU_ACADEMICO
       WHERE TD.CODIGO IN (
+        -- Docentes que aparecem em aulas cujo horario pertence a cursos de Pos.
         SELECT DISTINCT
           JSON_VALUE(
             A.REF_DOCENTE,
@@ -117,6 +132,7 @@ export class PostGraduationAttendanceService {
 
         UNION
 
+        -- Docentes que aparecem como vigilantes em provas de horarios da Pos.
         SELECT DISTINCT
           TD2.CODIGO AS CODIGO_DOCENTE
         FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE V
@@ -151,14 +167,27 @@ export class PostGraduationAttendanceService {
     return toLowerCaseKeys(rows);
   }
 
+  /**
+   * Lista aulas normais disponiveis para marcacao de assiduidade.
+   */
   findClassSchedules(filters: FindPostGraduationAttendanceScheduleDto) {
     return this.findSchedules(filters);
   }
 
+  /**
+   * Lista aulas de campo usando a mesma regra base, mas restringindo pelo tipo
+   * de aula identificado pela sigla "adc".
+   */
   findFieldClassSchedules(filters: FindPostGraduationAttendanceScheduleDto) {
     return this.findSchedules(filters, 'adc');
   }
 
+  /**
+   * Atualiza o estado de assiduidade de uma aula.
+   *
+   * O EXISTS garante que o agendamento pertence realmente a um contexto activo
+   * de Pos-Graduacao antes de permitir a alteracao.
+   */
   async markClassAttendance(
     dto: MarkPostGraduationAttendanceDto,
   ): Promise<{ message: string }> {
@@ -170,6 +199,7 @@ export class PostGraduationAttendanceService {
         AA.UPDATED_AT = SYSDATE
       WHERE AA.PK_AGENDAMENTO_AULA = :codigoAgendamento
         AND EXISTS (
+          -- Protecao de escopo: so altera aulas ligadas a cursos de Pos.
           SELECT 1
           FROM FK2_MGH_TB_AULA A
           INNER JOIN FK2_MGH_TB_HORARIO H
@@ -203,6 +233,10 @@ export class PostGraduationAttendanceService {
     return { message: 'Estado do agendamento atualizado com sucesso.' };
   }
 
+  /**
+   * Lista provas em que docentes atuam como vigilantes no contexto de
+   * Pos-Graduacao. Este fluxo alimenta a marcacao de presenca em provas.
+   */
   async findTestSchedules(filters: FindPostGraduationAttendanceTestDto) {
     const {
       docente = 0,
@@ -228,6 +262,8 @@ export class PostGraduationAttendanceService {
     ];
 
     if (docente !== 0) {
+      // A tabela de vigilantes guarda o utilizador no JSON; por isso convertemos
+      // primeiro o codigo do docente para o codigo do utilizador associado.
       const [teacher] = await this.dataSource.query(
         `
         SELECT JSON_VALUE(CODIGO_UTILIZADOR, '$.pk' RETURNING NUMBER NULL ON ERROR) AS UTILIZADOR
@@ -283,6 +319,8 @@ export class PostGraduationAttendanceService {
     }
 
     const fromClause = `
+      -- Cadeia da prova ate ao curso:
+      -- vigilante -> calendario de prova -> horario -> grade -> curso.
       FROM FK2_TB_CALENDARIO_PROVA_VIGILANTE V
       LEFT JOIN FK2_MSA_TB_ESTADO_AGENDAMENTO AP
         ON AP.PK_ESTADO_AGENDAMENTO = V.ESTADO_AGENDAMENTO
@@ -345,6 +383,12 @@ export class PostGraduationAttendanceService {
     };
   }
 
+  /**
+   * Atualiza o estado de presenca do vigilante numa prova de Pos-Graduacao.
+   *
+   * A validacao por EXISTS impede que uma chamada desta rota altere prova fora
+   * do escopo de Mestrado/Doutoramento.
+   */
   async markTestAttendance(
     dto: MarkPostGraduationAttendanceDto,
   ): Promise<{ message: string }> {
@@ -354,6 +398,7 @@ export class PostGraduationAttendanceService {
       SET V.ESTADO_AGENDAMENTO = :novoEstado
       WHERE V.CODIGO = :codigoAgendamento
         AND EXISTS (
+          -- Confirma que a prova pertence a horario/grade/curso de Pos.
           SELECT 1
           FROM FK2_TB_CALENDARIO_PROVA CP
           INNER JOIN FK2_MGH_TB_HORARIO H
@@ -383,6 +428,11 @@ export class PostGraduationAttendanceService {
     return { message: 'Estado do agendamento de prova atualizado com sucesso.' };
   }
 
+  /**
+   * Devolve os estados usados pelo fluxo de assiduidade.
+   *
+   * Exemplo de uso funcional: pendente, falta e presenca marcada.
+   */
   async getStatus() {
     const status = await this.dataSource.query(`
       SELECT
@@ -395,6 +445,12 @@ export class PostGraduationAttendanceService {
     return toLowerCaseKeys(status);
   }
 
+  /**
+   * Consulta a tela de controle de assiduidade da Pos-Graduacao.
+   *
+   * Este metodo mostra aulas agendadas, estado da marcacao e um resumo agregado
+   * para o periodo filtrado.
+   */
   async findControl(filters: FindPostGraduationAttendanceControlDto) {
     const {
       docente = 0,
@@ -470,6 +526,8 @@ export class PostGraduationAttendanceService {
     }
 
     const fromClause = `
+      -- Cadeia principal do controle:
+      -- agendamento -> aula -> horario -> grade -> curso.
       FROM FK2_MSA_TB_AGENDAMENTO_AULA AA
       INNER JOIN FK2_MGH_TB_AULA AL
         ON TO_NUMBER(AA.FK_AULA) = AL.PK_AULA
@@ -509,6 +567,7 @@ export class PostGraduationAttendanceService {
       ),
       this.dataSource.query(
         `
+        -- Conta todos os agendamentos encontrados com os mesmos filtros.
         SELECT COUNT(*) AS TOTAL
         ${fromClause}
         ${whereClause}
@@ -517,6 +576,7 @@ export class PostGraduationAttendanceService {
       ),
       this.dataSource.query(
         `
+        -- Resume os estados para alimentar os totais da tela de controle.
         SELECT
           SUM(CASE WHEN AA.FK_ESTADO_AGENDAMENTO = 1 THEN 1 ELSE 0 END) AS MARCACOES_PENDENTES,
           SUM(CASE WHEN AA.FK_ESTADO_AGENDAMENTO = 2 THEN 1 ELSE 0 END) AS FALTAS_MARCADAS,
@@ -548,6 +608,12 @@ export class PostGraduationAttendanceService {
     };
   }
 
+  /**
+   * Monta o calendario geral de assiduidade de um docente.
+   *
+   * O mesmo endpoint suporta visao mensal, semanal e diaria. A diferenca entre
+   * as visoes e o intervalo calculado a partir da data de referencia.
+   */
   async findTeacherGeneralCalendar(
     filters: FindPostGraduationTeacherAttendanceCalendarDto,
   ) {
@@ -565,6 +631,7 @@ export class PostGraduationAttendanceService {
       );
     }
 
+    // Define o intervalo real consultado no banco conforme a visao selecionada.
     let inicio: Date;
     let fim: Date;
 
@@ -612,6 +679,7 @@ export class PostGraduationAttendanceService {
     }
 
     const fromClause = `
+      -- Calendario do docente baseado em agendamentos de aulas de Pos.
       FROM FK2_MSA_TB_AGENDAMENTO_AULA AA
       INNER JOIN FK2_MGH_TB_AULA AL
         ON TO_NUMBER(AA.FK_AULA) = AL.PK_AULA
@@ -627,6 +695,7 @@ export class PostGraduationAttendanceService {
     if (modo === 'MES') {
       const rows = await this.dataSource.query(
         `
+        -- Na visao mensal agrupamos por dia para pintar o calendario.
         SELECT
           TO_CHAR(TRUNC(AA.DATA_AULA), 'YYYY-MM-DD') AS DIA,
           COUNT(*) AS TOTAL_AULAS,
@@ -648,6 +717,7 @@ export class PostGraduationAttendanceService {
         let statusDoDia: 'FALTA' | 'PENDENTE' | 'PRESENCA' | 'SEM_DADOS' =
           'SEM_DADOS';
 
+        // Prioridade visual do dia: falta > pendente > presenca.
         if (faltas > 0) statusDoDia = 'FALTA';
         else if (pendentes > 0) statusDoDia = 'PENDENTE';
         else if (presencas > 0) statusDoDia = 'PRESENCA';
@@ -667,6 +737,7 @@ export class PostGraduationAttendanceService {
 
     const rows = await this.dataSource.query(
       `
+      -- Nas visoes semanal/diaria devolvemos cada aula individualmente.
       SELECT
         AA.PK_AGENDAMENTO_AULA AS CODIGO,
         TO_CHAR(TRUNC(AA.DATA_AULA), 'YYYY-MM-DD') AS DIA,
@@ -691,6 +762,12 @@ export class PostGraduationAttendanceService {
     };
   }
 
+  /**
+   * Lista os eventos de aula de um docente em formato adequado para calendario.
+   *
+   * Alem dos dados academicos, o metodo monta inicio, fim e cor do evento para
+   * a interface conseguir desenhar o calendario sem recalcular a regra.
+   */
   async findTeacherClassCalendar(
     filters: FindPostGraduationTeacherClassCalendarDto,
   ) {
@@ -723,6 +800,7 @@ export class PostGraduationAttendanceService {
 
     const rows = await this.dataSource.query(
       `
+      -- Cada linha representa uma aula agendada do docente no intervalo pedido.
       SELECT
         AA.PK_AGENDAMENTO_AULA AS CODIGO,
         TO_CHAR(AA.DATA_AULA, 'YYYY-MM-DD') AS DATA_AULA,
@@ -758,8 +836,10 @@ export class PostGraduationAttendanceService {
 
     const data = toLowerCaseKeys(rows).map((item: any) => ({
       ...item,
+      // Campos usados pelo calendario no frontend.
       start: `${item.data_aula}T${item.hora_inicio}:00`,
       end: `${item.data_aula}T${item.hora_fim}:00`,
+      // Cores por estado: pendente, falta, presenca ou fallback.
       cor:
         Number(item.estado) === 1
           ? '#ffca38'
@@ -783,6 +863,12 @@ export class PostGraduationAttendanceService {
     };
   }
 
+  /**
+   * Gera estatisticas de assiduidade por docente.
+   *
+   * A consulta consolida aulas previstas, presencas, faltas e totais por
+   * modalidade, sempre limitada ao contexto de Pos-Graduacao.
+   */
   async findTeacherAttendanceStatistics(
     filters: FindPostGraduationTeacherAttendanceStatisticsDto,
   ) {
@@ -866,17 +952,22 @@ export class PostGraduationAttendanceService {
       conditions.push('S.FK_ESTADO_SUMARIO = 4');
     }
 
+    // Alguns relatórios exigem presenca confirmada por sumario; outros aceitam
+    // apenas o estado da assiduidade. A flag escolhe essa regra sem duplicar SQL.
     const presencaCondition = exigirPresencasConfirmadas
       ? `EST.PK_ESTADO_AGENDAMENTO = 3
         AND S.PK_TB_SUMARIO IS NOT NULL
         AND S.FK_ESTADO_SUMARIO = 2`
       : 'EST.PK_ESTADO_AGENDAMENTO = 3';
 
+    // Quando a instituicao decide nao cobrar faltas, o total salarial passa a
+    // considerar apenas presencas conforme a regra definida acima.
     const totalSalarialCondition = naoCobrarFaltas
       ? presencaCondition
       : 'EST.PK_ESTADO_AGENDAMENTO IN (2, 3)';
 
     const fromClause = `
+      -- Base estatistica: agendamento -> aula -> docente -> horario -> grade -> curso.
       FROM FK2_MSA_TB_AGENDAMENTO_AULA AA
       INNER JOIN FK2_MGH_TB_AULA AL
         ON JSON_VALUE(AA.REF_AULA, '$.pkAula' RETURNING NUMBER NULL ON ERROR) = AL.PK_AULA
@@ -919,6 +1010,7 @@ export class PostGraduationAttendanceService {
           ED.DESIGNACAO AS ESCALAO,
           CD.DESIGNACAO AS CATEGORIA,
           COUNT(DISTINCT AA.PK_AGENDAMENTO_AULA) AS TOTAL_AULAS_PREVISTAS,
+          -- Recortes por semana, mes e totais usados pelos indicadores da tela.
           COUNT(DISTINCT CASE
             WHEN TRUNC(AA.DATA_AULA, 'IW') = TRUNC(SYSDATE, 'IW')
             THEN AA.PK_AGENDAMENTO_AULA END) AS AULAS_SEMANAIS,
@@ -931,6 +1023,7 @@ export class PostGraduationAttendanceService {
           COUNT(DISTINCT AA.PK_AGENDAMENTO_AULA) AS TS,
           COUNT(DISTINCT AA.PK_AGENDAMENTO_AULA) AS TA,
           ROUND(
+            -- Total de horas efetivas soma a duracao apenas quando houve presenca.
             SUM(CASE
               WHEN ${presencaCondition}
               THEN (CAST(AL.HORA_TERMINO AS DATE) - CAST(AL.HORA_INICIO AS DATE)) * 24
@@ -938,6 +1031,7 @@ export class PostGraduationAttendanceService {
             ), 0
           ) AS TOTAL_HORAS_EFETIVAS,
           COUNT(DISTINCT CASE
+            -- Total salarial pode incluir faltas ou apenas presencas, conforme filtro.
             WHEN ${totalSalarialCondition}
             THEN AA.PK_AGENDAMENTO_AULA END) AS TOTAL_HORAS_SALARIAL,
           COUNT(DISTINCT CASE
@@ -1014,6 +1108,12 @@ export class PostGraduationAttendanceService {
     };
   }
 
+  /**
+   * Metodo base para listagens de aulas da marcacao de assiduidade.
+   *
+   * E reutilizado por aulas normais e aulas de campo para manter os mesmos
+   * filtros academicos e mudar apenas o tipo de aula quando necessario.
+   */
   private async findSchedules(
     filters: FindPostGraduationAttendanceScheduleDto,
     classTypeAcronym?: string,
@@ -1088,6 +1188,8 @@ export class PostGraduationAttendanceService {
     }
 
     const fromClause = `
+      -- Fonte das aulas marcaveis:
+      -- agendamento -> aula -> horario -> grade -> curso de Pos.
       FROM FK2_MSA_TB_AGENDAMENTO_AULA AA
       INNER JOIN FK2_MGH_TB_AULA AL
         ON JSON_VALUE(AA.REF_AULA, '$.pkAula' RETURNING NUMBER NULL ON ERROR) = AL.PK_AULA
@@ -1133,6 +1235,7 @@ export class PostGraduationAttendanceService {
       ),
       this.dataSource.query(
         `
+        -- Total baseado no codigo do agendamento para evitar contagem duplicada.
         SELECT COUNT(DISTINCT AA.PK_AGENDAMENTO_AULA) AS TOTAL
         ${fromClause}
         ${whereClause}

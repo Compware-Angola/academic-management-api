@@ -461,6 +461,13 @@ export class PostGraduationController {
     return this.attendanceListService.findAll(query);
   }
 
+  /*
+   * Endpoints de assiduidade da Pos-Graduacao.
+   *
+   * Todos preservam a separacao por contexto academico: a rota so considera
+   * aulas/provas que chegam a cursos de Mestrado ou Doutoramento pelo caminho
+   * horario -> grade curricular -> curso -> tipo de candidatura.
+   */
   @Get('attendance/teachers')
   @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA_POS_GRADUACAO.sigla)
   @ApiOperation({
