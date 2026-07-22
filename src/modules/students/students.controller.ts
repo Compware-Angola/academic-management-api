@@ -71,7 +71,7 @@ import { CreateEquivalenceTFCMigration } from './dto/create-equivalence-tfc-migr
 import { HangingRailingsAndToBeMadeService } from './hanging_railings_and_to_be_made.service';
 import { FindPlanPorClasseDTO } from './dto/FindPlanPorClasseDTO';
 import { NextClassDTO } from './dto/next-class';
-//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @ApiTags('Students')
 @Controller('students')
 export class StudentsController {
@@ -544,7 +544,7 @@ export class StudentsController {
       `Utilizador ${req.user?.nome} eliminou a grade curricular do aluno ${codigoGradeAluno} `,
     );
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Post('equivalence-migration-tfc')
   async launchNotes(
     @Body(ValidationPipe) body: CreateEquivalenceTFCMigration,
