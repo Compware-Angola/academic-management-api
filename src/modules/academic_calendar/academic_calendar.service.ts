@@ -1144,10 +1144,9 @@ export class AcademicCalendarService {
     });
     return result;
   }
-  public async findAllAcademicYears(filters: FindAcademicYearsDTO) {
-    const { tipoCandidatura, codigoAnoLectivo, page = 1, limit = 10 } = filters;
 
-    const offset = (page - 1) * limit;
+  public async findAllAcademicYears(filters: FindAcademicYearsDTO) {
+    const { tipoCandidatura, codigoAnoLectivo } = filters;
 
     const sql = `
     SELECT
@@ -1169,42 +1168,17 @@ export class AcademicCalendarService {
     FROM fk2_tb_ano_lectivo al
     INNER JOIN fk2_tb_tipo_candidatura cand
       ON cand.id = al.codigo_tipo_candidatura
-    WHERE al.codigo_tipo_candidatura = :tipoCandidatura
-           AND (:codigoAnoLectivo IS NULL OR al.codigo = :codigoAnoLectivo)
+    WHERE (:tipoCandidatura IS NULL OR al.codigo_tipo_candidatura = :tipoCandidatura)
+      AND (:codigoAnoLectivo IS NULL OR al.codigo = :codigoAnoLectivo)
     ORDER BY al.codigo DESC
-    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
   `;
 
-    const sqlCount = `
-    SELECT COUNT(*) AS TOTAL
-    FROM fk2_tb_ano_lectivo al
-    WHERE al.codigo_tipo_candidatura = :tipoCandidatura
-           AND (:codigoAnoLectivo IS NULL OR al.codigo = :codigoAnoLectivo)
-  `;
-
-    const params = {
-      tipoCandidatura,
+    const result = await this.dataSource.query(sql, {
+      tipoCandidatura: tipoCandidatura ?? null,
       codigoAnoLectivo: codigoAnoLectivo ?? null,
-    };
-
-    const [result, countResult] = await Promise.all([
-      this.dataSource.query(sql, {
-        ...params,
-        offset,
-        limit,
-      } as any),
-      this.dataSource.query(sqlCount, params as any),
-    ]);
-
-    const total = Number(countResult[0].TOTAL);
-    const totalPages = Math.ceil(total / limit);
-
+    } as any);
     return {
       data: toLowerCaseKeys(result),
-      total,
-      page,
-      limit,
-      totalPages,
     };
   }
   public async findUsableAcademicYear(tipoCandidatura: number) {
