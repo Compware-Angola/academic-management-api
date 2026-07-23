@@ -130,7 +130,11 @@ export class AcademicActivitiesService {
     };
   }
 
-  async findMarcacaoProvaPrazo({ anoLectivo, semestre }: FindMarcacaoPrazoDTO) {
+  async findMarcacaoProvaPrazo({
+    anoLectivo,
+    semestre,
+    tipoCandidatura,
+  }: FindMarcacaoPrazoDTO) {
     const sqlMarcacaoPrazo = `
       select
           pz.PK_PRAZO   as prazoId,
@@ -142,10 +146,12 @@ export class AcademicActivitiesService {
       and pz.FK_TIPO_PRAZO= 4
       and pz.FK_ANO_LECTIVO = :anoLectivo
       and pz.FK_SEMESTRE = :semestre
+      and (pz.TIPO_CANDIDATURA = :tipoCandidatura or :tipoCandidatura is null)
     `;
     const params = {
       anoLectivo,
       semestre,
+      tipoCandidatura: tipoCandidatura ?? null,
     };
     const [result] = await Promise.all([
       this.dataSource.query(sqlMarcacaoPrazo, params as any),

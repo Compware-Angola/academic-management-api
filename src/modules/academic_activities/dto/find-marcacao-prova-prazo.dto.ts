@@ -23,6 +23,16 @@ export class FindMarcacaoPrazoDTO {
   anoLectivo: number;
 
   @ApiPropertyOptional({
+    description: 'Tipo de Candidatura',
+    example: 1,
+  })
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  @Type(() => Number)
+  tipoCandidatura?: number;
+
+  @ApiPropertyOptional({
     description: 'Filtrar por semestre (1 ou 2)',
     example: 1,
     enum: [1, 2],
