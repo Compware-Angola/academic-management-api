@@ -77,6 +77,7 @@ export class StudentsService {
       fac.DESIGNACAO         AS faculdade,
       tpc.DESIGNACAO         AS grau,
       tpc.SIGLA              AS sigla_grau,
+      tpc.ID                 AS tipo_canditatura_codigo,
       pr.DESIGNACAO          AS regime,
       p.MORADA_COMPLETA      AS morada,
       p.SALDO                AS saldo_atual,
