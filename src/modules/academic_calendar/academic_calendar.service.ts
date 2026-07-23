@@ -48,7 +48,7 @@ export class AcademicCalendarService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly anoLectivoUtil: AnoLectivoUtil,
-  ) {}
+  ) { }
 
   async findAcademicYearsWithConfiguredSemesters(
     params: FetchAcademicCalendarDto,
@@ -82,7 +82,8 @@ export class AcademicCalendarService {
     const baseQuery = `
       SELECT
         ID AS codigo,
-        DESIGNACAO AS designacao
+        DESIGNACAO AS designacao,
+        SIGLA AS sigla
       FROM FK2_TB_TIPO_CANDIDATURA
       WHERE STATUS_ = 1
     `;

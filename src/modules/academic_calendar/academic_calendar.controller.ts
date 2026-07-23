@@ -32,7 +32,7 @@ import { ChangeAcademicYearPhaseDto } from './dto/change-academic-year-phase.dto
 export class AcademicCalendarController {
   constructor(
     private readonly academicCalendarService: AcademicCalendarService,
-  ) {}
+  ) { }
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Post()
   @ApiOperation({ summary: 'Cria um ano lectivo com os periodos semestrais' })
@@ -86,7 +86,6 @@ export class AcademicCalendarController {
     status: 200,
     description: 'Tipos de candidatura retornados com sucesso',
   })
-  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   async findActiveApplicationTypes(
     @Query('posgraduacao') posgraduacao?: string,
   ) {
