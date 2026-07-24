@@ -21,6 +21,9 @@ import { AnoLectivoConfirmadosService } from './services/anolectivo-confirmados.
 import { SituationService } from './services/situation.service';
 import { SearchClientDto } from './dto/search.client.dto';
 import { SearchClientService } from './services/search-client.service';
+import { DocentesService } from 'src/modules/docentes/docentes.service';
+import { DocenteDropDownService } from './services/docente.service';
+import { FindDocentesDTO } from 'src/modules/academic_activities/dto/find-docente.dto';
 
 @ApiTags('DROPDOWN-FILTERS')
 @Controller('dropdown-filters')
@@ -37,6 +40,7 @@ export class DropdownFiltersController {
     private readonly anoLectivoConfirmadosService: AnoLectivoConfirmadosService,
     private readonly situationService: SituationService,
     private readonly searchClientService: SearchClientService,
+    private readonly docenteDropDownService: DocenteDropDownService,
   ) {}
 
   @Get('escalao')
@@ -94,5 +98,9 @@ export class DropdownFiltersController {
   @Get('search-client')
   async searchClient(@Query() query: SearchClientDto) {
     return this.searchClientService.find(query);
+  }
+  @Get('docentes')
+  async findDocentes(@Query() query: FindDocentesDTO) {
+    return this.docenteDropDownService.findDocentes(query);
   }
 }
