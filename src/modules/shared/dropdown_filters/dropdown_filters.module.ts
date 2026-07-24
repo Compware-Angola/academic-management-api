@@ -12,6 +12,7 @@ import { NecessidadeEspecialService } from './services/necessidade-especial.serv
 import { AnoLectivoConfirmadosService } from './services/anolectivo-confirmados.service';
 import { SituationService } from './services/situation.service';
 import { SearchClientService } from './services/search-client.service';
+import { GrauAcademicoService } from './services/grau-academico.service';
 import { DocenteDropDownService } from './services/docente.service';
 
 @Module({
@@ -28,6 +29,7 @@ import { DocenteDropDownService } from './services/docente.service';
     AnoLectivoConfirmadosService,
     SituationService,
     SearchClientService,
+    GrauAcademicoService,
     DocenteDropDownService,
   ],
 })
