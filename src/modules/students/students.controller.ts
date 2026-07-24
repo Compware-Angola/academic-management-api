@@ -16,7 +16,13 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { StudentsService } from './students.service';
-import { ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { FilterMapaAnualFinalistasDto } from './dto/filter-mapa-anual-finalista.dto';
 import { FilterRegistoPrimarioExamesAcessoDto } from './dto/filter-registo-primario-exames-acesso.dto';
@@ -30,11 +36,9 @@ import {
 } from './dto/find-students.dto';
 import { ActivateRegistrationDTO } from './dto/activate-registration.dto';
 
-
 import { PermissionsGuard } from '../../common/secret/permissions.guard';
 import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
 import { InactivateRegistrationDTO } from './dto/inactivate-registration.dto';
-
 
 import { AcademicHistoryDTO } from './dto/academic-history';
 import { ChangeCourseDTO } from './dto/change-course.dto';
@@ -86,7 +90,7 @@ export class StudentsController {
     private readonly equivalenceTFMigration: EquivalenceTFCMigration,
     private readonly hangingRailingsAndToBeMadeService: HangingRailingsAndToBeMadeService,
     private httpService: HttpService,
-  ) { }
+  ) {}
   private log(req: any, descricao: string) {
     const user = req.user;
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
@@ -472,6 +476,7 @@ export class StudentsController {
     return this.studentsService.obterNotasCertificado(query);
   }
 
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Put('mudar-curso')
   async updateCurso(
     @Body(ValidationPipe) body: ChangeCourseDTO,
@@ -568,13 +573,18 @@ export class StudentsController {
     @Param('matricula', ParseIntPipe) matricula: number,
     @Query(ValidationPipe) query: NextClassDTO,
   ) {
-    return this.hangingRailingsAndToBeMadeService.getNextClass(matricula, query.anoLectivo);
+    return this.hangingRailingsAndToBeMadeService.getNextClass(
+      matricula,
+      query.anoLectivo,
+    );
   }
 
   @Get('hanging-railings-and-to-be-made')
   async findHangingRailingsAndToBeMade(
     @Query(ValidationPipe) query: FindPlanPorClasseDTO,
   ) {
-    return this.hangingRailingsAndToBeMadeService.findHangingRailingsAndToBeMade(query);
+    return this.hangingRailingsAndToBeMadeService.findHangingRailingsAndToBeMade(
+      query,
+    );
   }
 }

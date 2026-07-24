@@ -132,15 +132,26 @@ export class AssessmentController {
       dto,
       user,
     );
+    const descricoes = dto.items.map((item) => {
+      return [
+        `Lançamento de nota`,
+        `Aluno (Grade Curricular Aluno): ${item.gradeCurricularAluno}`,
+        `Nota: ${item.nota ?? '-'}`,
+        `Tipo de Avaliação: ${item.tipoAvaliacao}`,
+        `Tipo de Prova: ${item.tipoDeProva}`,
+        `Época: ${item.epoca}`,
+        item.observacao ? `Observação: ${item.observacao}` : null,
+      ]
+        .filter(Boolean)
+        .join(' | ');
+    });
+    console.log(descricoes);
 
     await AccessLogHelper.logAccess(this.httpService, {
-      descricao: `Lançamento em massa de ${dto.items.length} nota(s)
-            | Tipo Avaliação: ${dto.items[0]?.tipoAvaliacao || '—'}
-            | Época: ${dto.items[0]?.epoca || '—'}
-            | Total de alunos: ${dto.items.length}`,
+      descricao: descricoes,
       fkAcesso: 7,
       fkUtilizadorResponsavel: req.user.sub,
-      ip: ip,
+      ip,
     });
     return result;
   }
@@ -213,6 +224,17 @@ export class AssessmentController {
   @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA.sigla)
   async getAttendanceList(@Query(ValidationPipe) dto: getAttendanceListDto) {
     return this.attendanceService.getAttendanceList(dto);
+  }
+
+  @Get('export-presence-attendance')
+  @ApiOperation({ summary: 'Exportar lista de presenças/faltas em PDF' })
+  @ApiResponse({ status: 200, description: 'Arquivo gerado com sucesso.' })
+  @ApiResponse({ status: 400, description: 'Parâmetros inválidos.' })
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA.sigla)
+  async exportAttendanceList(
+    @Query(ValidationPipe) dto: Omit<getAttendanceListDto, 'page' | 'limit'>,
+  ) {
+    return this.attendanceService.exportAttendanceList(dto);
   }
 
   // Endpoint exclusivo da branch develop – mantido

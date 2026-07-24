@@ -61,7 +61,7 @@ export class AcessManagementController {
     private readonly logsService: LogsService,
     private readonly acessosService: AcessosService,
     private httpService: HttpService,
-  ) {}
+  ) { }
 
   @Post('create-person-user')
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -82,7 +82,7 @@ export class AcessManagementController {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
 
     AccessLogHelper.logAccess(this.httpService, {
-      descricao: `Utilizador ${usuarioLogado?.nome} Criou O Utilizador ${userDateResponse.username}`,
+      descricao: [`Utilizador ${usuarioLogado?.nome} Criou O Utilizador ${userDateResponse.username}`],
       fkAcesso: 155,
       fkFuncionalidade: 232,
       fkUtilizadorResponsavel: usuarioLogado.sub,
@@ -117,7 +117,7 @@ export class AcessManagementController {
     const info = await this.usersService.switchStateUser(id, currentUser.sub);
 
     AccessLogHelper.logAccess(this.httpService, {
-      descricao: `Utilizador ${currentUser?.username} alterou o estado do utilizador ${id}`,
+      descricao: [`Utilizador ${currentUser?.username} alterou o estado do utilizador ${id}`],
       fkAcesso: 155,
       fkFuncionalidade: 232,
       fkUtilizadorResponsavel: currentUser.sub,
@@ -147,7 +147,7 @@ export class AcessManagementController {
       usuarioLogado.sub,
     );
     await AccessLogHelper.logAccess(this.httpService, {
-      descricao: `Utilizador ${usuarioLogado?.nome} Criou novo acesso ao sistema ${createAcessoDto.sigla}`,
+      descricao: [`Utilizador ${usuarioLogado?.nome} Criou novo acesso ao sistema ${createAcessoDto.sigla}`],
       fkAcesso: 155,
       fkFuncionalidade: 232,
       fkUtilizadorResponsavel: usuarioLogado.sub,
@@ -186,7 +186,7 @@ export class AcessManagementController {
     );
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     AccessLogHelper.logAccess(this.httpService, {
-      descricao: `Utilizador ${usuarioLogado?.nome} Atualizou a senha do Utilizador ${dto.utilizadorId}`,
+      descricao: [`Utilizador ${usuarioLogado?.nome} Atualizou a senha do Utilizador ${dto.utilizadorId}`],
       fkAcesso: 155,
       fkFuncionalidade: 232,
       fkUtilizadorResponsavel: usuarioLogado.sub,
@@ -434,7 +434,7 @@ export class AcessManagementController {
     );
 
     await AccessLogHelper.logAccess(this.httpService, {
-      descricao: `Utilizador ${user?.nome} Adicionou Acesso ${acessoId} ao Utilizador ${utilizadorId}`,
+      descricao: [`Utilizador ${user?.nome} Adicionou Acesso ${acessoId} ao Utilizador ${utilizadorId}`],
       fkAcesso: 6,
       fkFuncionalidade: 91,
       fkUtilizadorResponsavel: user.sub,
@@ -480,7 +480,7 @@ export class AcessManagementController {
     );
 
     await AccessLogHelper.logAccess(this.httpService, {
-      descricao: `Utilizador ${user?.nome} Adicionou Acesso ${acessoId} ao Grupo ${grupoId}`,
+      descricao: [`Utilizador ${user?.nome} Adicionou Acesso ${acessoId} ao Grupo ${grupoId}`],
       fkAcesso: 6,
       fkFuncionalidade: 91,
       fkUtilizadorResponsavel: user.sub,
@@ -525,7 +525,7 @@ export class AcessManagementController {
     );
 
     await AccessLogHelper.logAccess(this.httpService, {
-      descricao: `Utilizador ${user?.nome} Removeu Acesso ${acessoId} do Utilizador ${utilizadorId}`,
+      descricao: [`Utilizador ${user?.nome} Removeu Acesso ${acessoId} do Utilizador ${utilizadorId}`],
       fkAcesso: 6,
 
       fkUtilizadorResponsavel: user.sub,
@@ -567,7 +567,7 @@ export class AcessManagementController {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
 
     await AccessLogHelper.logAccess(this.httpService, {
-      descricao: `Utilizador ${user?.nome} Removeu Acesso ${acessoId} do Grupo ${grupoId}`,
+      descricao: [`Utilizador ${user?.nome} Removeu Acesso ${acessoId} do Grupo ${grupoId}`],
       fkAcesso: 6,
 
       fkUtilizadorResponsavel: user.sub,

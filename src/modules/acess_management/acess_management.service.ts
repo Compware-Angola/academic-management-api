@@ -17,7 +17,7 @@ import oracledb from 'oracledb';
 export class AcessosService {
   private readonly logger = new Logger(AcessosService.name);
 
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
   async listarAcessosDropDown(
     filter: FilterAcessoDto,
   ): Promise<AcessoResponseDto[]> {
@@ -246,12 +246,12 @@ export class AcessosService {
     }
 
     if (filter.sigla) {
-      whereClause += ` AND A.SIGLA LIKE :${params.length + 1}`;
+      whereClause += ` AND UPPER(A.SIGLA) LIKE UPPER(:${params.length + 1})`;
       params.push(`%${filter.sigla}%`);
     }
 
     if (filter.designacao) {
-      whereClause += ` AND A.DESIGNACAO LIKE :${params.length + 1}`;
+      whereClause += ` AND FN_REMOVE_ACENTOS(UPPER(A.DESIGNACAO)) LIKE FN_REMOVE_ACENTOS(UPPER(:${params.length + 1}))`;
       params.push(`%${filter.designacao}%`);
     }
 
@@ -392,16 +392,7 @@ export class AcessosService {
 
     return result[0].USERNAME as string;
   }
-  async getPkGrupoAcesso(): Promise<number> {
-    const result = await this.dataSource.query(
-      `SELECT MAX (PK_GRUPO_ACESSO) + 1 AS PK_GRUPO_ACESSO FROM FK2_MCA_TB_GRUPO_ACESSO`,
-    );
-    console.log(result, 'mensageiro');
-    if (!result || result.length === 0) {
-      throw new Error(`Erro ao gerar chave`);
-    }
-    return result[0].PK_GRUPO_ACESSO;
-  }
+
 
   async adicionarAcesso(
     utilizadorId: number,

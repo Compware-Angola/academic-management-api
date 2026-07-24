@@ -1293,12 +1293,13 @@ export class AcademicCalendarService {
         const activationStartDate = new Date(firstSemesterStart);
         activationStartDate.setDate(activationStartDate.getDate() - 10);
 
-        const activationEndDate = new Date(firstSemesterStart);
-        activationEndDate.setDate(activationEndDate.getDate() + 10);
+        // const activationEndDate = new Date(firstSemesterStart);
+        // activationEndDate.setDate(activationEndDate.getDate() + 10);
 
-        if (today < activationStartDate || today > activationEndDate) {
+        if (today < activationStartDate) {
           throw new BadRequestException(
-            `O ano lectivo só pode ser activado entre ${activationStartDate.toISOString().split('T')[0]} e ${activationEndDate.toISOString().split('T')[0]}.`,
+            `Este Ano Lectivo só pode ser activado a partir de
+10 dias antes do início do 1.º semestre.`,
           );
         }
       }
