@@ -781,7 +781,7 @@ export class DocenteGestaoService {
   }
 
   async listDocentes(filter: FilterDocenteDto) {
-    const { page = 1, limit = 25, area, search } = filter;
+    const { page = 1, limit = 25, area, search, grauAcademico } = filter;
     const offset = (page - 1) * limit;
 
     const params: Record<string, any> = {
@@ -867,6 +867,11 @@ export class DocenteGestaoService {
         )
       `;
       }
+    }
+    if (grauAcademico && grauAcademico !== 0) {
+      whereClause += ` AND c.GRAU_ACADEMICO = :grauAcademico`;
+      params.grauAcademico = grauAcademico;
+      countParams.grauAcademico = grauAcademico;
     }
 
     if (search && search.trim()) {
