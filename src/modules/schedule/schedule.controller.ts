@@ -57,7 +57,7 @@ export class ScheduleController {
     private readonly moveStudentsCorrectionService: MoveStudentsCorrectionService,
     private readonly studentWithoutScheduleService: StudentWithoutScheduleService,
     private readonly classTimesScheduleService: ClassTimesScheduleService,
-  ) { }
+  ) {}
 
   // ================ PERMISSÃO DE EDIÇÃO ================
   @Post('permission')
@@ -122,7 +122,10 @@ export class ScheduleController {
     @Body() body: UpdateScheduleParamDto,
     @Req() req: any,
   ) {
-    return this.classTimesScheduleService.updateScheduleParam(body, req.user.sub);
+    return this.classTimesScheduleService.updateScheduleParam(
+      body,
+      req.user.sub,
+    );
   }
 
   @Get('with-permission')
@@ -160,6 +163,12 @@ export class ScheduleController {
   @ApiOperation({ summary: 'Listar horários por UC com filtros avançados' })
   findScheduleByUC(@Query(ValidationPipe) query: ListScheduleUCDto) {
     return this.scheduleService.findScheduleByUC(query);
+  }
+
+  @Get('by-uc2')
+  @ApiOperation({ summary: 'Listar horários por UC com filtros avançados' })
+  findScheduleByUC2(@Query(ValidationPipe) query: ListScheduleUCDto) {
+    return this.scheduleService.findScheduleByUC2(query);
   }
 
   @Get('by-docente')

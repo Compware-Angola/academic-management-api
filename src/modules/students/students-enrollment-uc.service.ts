@@ -22,7 +22,7 @@ interface GradeSemestreDTO {
 
 @Injectable()
 export class StudentsEnrollmentUCService {
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly dataSource: DataSource) {}
 
   private queryRunner: QueryRunner;
 
@@ -161,20 +161,45 @@ export class StudentsEnrollmentUCService {
     codigoMatricula: number,
     codigoAnoLectivo: number,
   ): Promise<void> {
+    const disciplinaAtual = await this.queryRunner.query(
+      `
+    SELECT dis.CODIGO AS CODIGO_DISCIPLINA, dis.DESIGNACAO AS NOME_DISCIPLINA
+    FROM FK2_TB_GRADE_CURRICULAR gc
+    INNER JOIN FK2_TB_DISCIPLINAS dis
+      ON dis.CODIGO = gc.CODIGO_DISCIPLINA
+    WHERE gc.CODIGO = :codigoGrade
+    `,
+      { codigoGrade } as any,
+    );
+
+    if (!disciplinaAtual || disciplinaAtual.length === 0) {
+      throw new BadRequestException('A grade selecionada não existe');
+    }
+
+    const { CODIGO_DISCIPLINA, NOME_DISCIPLINA } = disciplinaAtual[0];
+
     const sql = `
-      SELECT CODIGO
-      FROM FK2_TB_GRADE_CURRICULAR_ALUNO
-      WHERE 1=1
-        AND CODIGO_GRADE_CURRICULAR = :codigoGrade
-        AND CODIGO_STATUS_GRADE_CURRICULAR IN (2,3)
-        AND CODIGO_ANO_LECTIVO = :codigoAnoLectivo
-        AND CODIGO_MATRICULA = :codigoMatricula
-    `;
+    SELECT al.CODIGO
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
+    INNER JOIN FK2_TB_GRADE_CURRICULAR gc
+      ON al.CODIGO_GRADE_CURRICULAR = gc.CODIGO
+    INNER JOIN FK2_TB_DISCIPLINAS dis
+      ON gc.CODIGO_DISCIPLINA = dis.CODIGO
+    WHERE 1=1
+      AND al.CODIGO_STATUS_GRADE_CURRICULAR IN (2,3)
+      AND al.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+      AND al.CODIGO_MATRICULA = :codigoMatricula
+      AND (
+        dis.CODIGO = :codigoDisc
+        OR UPPER(TRIM(dis.DESIGNACAO)) = UPPER(:nomeDisc)
+      )
+  `;
 
     const result = await this.queryRunner.query(sql, {
-      codigoGrade,
-      codigoMatricula,
       codigoAnoLectivo,
+      codigoMatricula,
+      codigoDisc: CODIGO_DISCIPLINA,
+      nomeDisc: NOME_DISCIPLINA,
     } as any);
 
     if (result.length > 0) {
@@ -365,7 +390,6 @@ export class StudentsEnrollmentUCService {
       codigoMatricula,
       codigoAnoLectivo,
     );
-
 
     const codigoPrimeiro = await this.resolverConfirmacaoPorSemestre(
       confirmacoes,

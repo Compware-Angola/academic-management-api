@@ -543,7 +543,7 @@ export class AcademicActivitiesService {
         SELECT CODIGO
         FROM FK2_TB_ANO_LECTIVO
         WHERE CODIGO = :codigoAnoLectivo
-          AND STATUS_ = 1
+          AND FASE_ANOLECTIVO in ('${EstadoAnoLectivoType.ACTIVO}', '${EstadoAnoLectivoType.CONFIGURAVEL}', '${EstadoAnoLectivoType.USAVEL}')
         FETCH FIRST 1 ROWS ONLY
         `,
         { codigoAnoLectivo: codigo_ano_lectivo } as any,
@@ -551,7 +551,7 @@ export class AcademicActivitiesService {
 
       if (!anoLectivo) {
         throw new BadRequestException(
-          'Deves cadastrar em um ano lectivo ativo',
+          `Deves editar em um ano lectivo ('${EstadoAnoLectivoType.ACTIVO}', '${EstadoAnoLectivoType.CONFIGURAVEL}', '${EstadoAnoLectivoType.USAVEL}')`,
         );
       }
 
