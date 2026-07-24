@@ -639,6 +639,7 @@ export class AcademicCalendarService {
         INNER JOIN FK2_MCAL_TB_SEMESTRE TS
           ON TS.PK_SEMESTRE = MT.SEMESTRE
         WHERE MT.ANO_LECTIVO = :1
+           AND MT.ACTIVO = 1
         ORDER BY MT.DATA_LIMITE, MT.DESIGNACAO
       `,
       [anolectivo],
