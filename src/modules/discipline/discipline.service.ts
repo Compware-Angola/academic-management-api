@@ -18,7 +18,7 @@ import { FindUnidadeCurricularDeptDto } from './dto/find-unidade-curricular-dept
 
 @Injectable()
 export class DisciplineService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
   async findGradeCurricularAluno({
     matriculaId,
     semestre,
@@ -399,6 +399,7 @@ export class DisciplineService {
     const sql = `
     SELECT
       plc.Codigo        AS codigo_plano_curricular,
+      plc.DESIGNACAO as descricao_plano_curricular,
       gc.Codigo         AS codigo_grade_curricular,
       dd.CODIGO         AS codigo_disciplina,
       dd.DESIGNACAO     AS descricao_disciplina,
@@ -408,6 +409,14 @@ export class DisciplineService {
       cl.CODIGO         AS codigo_classe,
       ss.CODIGO         AS codigo_semestre,
       ss.DESIGNACAO     AS designacao_semestre,
+
+     pcg.PESO_PRIMEIRA_FREQ  AS peso_primeira_freq,
+     pcg.PESO_SEGUNDA_FREQ   AS peso_segunda_freq,
+     pcg.PESO_PRATICA        AS peso_pratica,
+     pcg.NOTA_MIN_PRIMEIRA_FREQ AS nota_min_primeira_freq,
+     pcg.NOTA_MIN_SEGUNDA_FREQ AS nota_min_segunda_freq,
+     pcg.NOTA_MIN_PRATICA      AS nota_min_pratica,
+
       dd.STATUS_        AS status
     FROM FK2_TB_PLANO_CURRICULAR_CURSO plc
     INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pcg  on pcg.CODIGO_PLANO_CURRICULAR_CURSO  = plc.CODIGO
