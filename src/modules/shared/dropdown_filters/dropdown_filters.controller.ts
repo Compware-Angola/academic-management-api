@@ -21,6 +21,7 @@ import { AnoLectivoConfirmadosService } from './services/anolectivo-confirmados.
 import { SituationService } from './services/situation.service';
 import { SearchClientDto } from './dto/search.client.dto';
 import { SearchClientService } from './services/search-client.service';
+import { GrauAcademicoService } from './services/grau-academico.service';
 
 @ApiTags('DROPDOWN-FILTERS')
 @Controller('dropdown-filters')
@@ -37,7 +38,9 @@ export class DropdownFiltersController {
     private readonly anoLectivoConfirmadosService: AnoLectivoConfirmadosService,
     private readonly situationService: SituationService,
     private readonly searchClientService: SearchClientService,
-  ) {}
+    private readonly grauAcademicoService: GrauAcademicoService,
+
+  ) { }
 
   @Get('escalao')
   async getEscalaoDropdown() {
@@ -94,5 +97,10 @@ export class DropdownFiltersController {
   @Get('search-client')
   async searchClient(@Query() query: SearchClientDto) {
     return this.searchClientService.find(query);
+  }
+
+  @Get('grau-academico/dropdown')
+  async getGrauAcademicoDropdown() {
+    return this.grauAcademicoService.getGrauAcademicoDropdown();
   }
 }

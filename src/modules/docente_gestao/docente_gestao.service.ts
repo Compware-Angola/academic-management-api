@@ -19,7 +19,7 @@ import { DefinirRegenteDto } from './dto/definir-regente.dto';
 
 @Injectable()
 export class DocenteGestaoService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
   async getTeacherParameters(dto: FindParametrosDocenteTO) {
     const { page = 1, limit = 10, search } = dto;
     const offset = (page - 1) * limit;
@@ -900,8 +900,8 @@ export class DocenteGestaoService {
         ON esc.CODIGO = d.FK_ESCALAO
       LEFT JOIN FK2_TB_CATEGORIA_DOCENTE cat
         ON cat.CODIGO = d.TB_CATEGORIA_DOCENTE
-      LEFT JOIN UMA_TB_GRAU_ACADEMICO grau
-        ON grau."Codigo" = c.GRAU_ACADEMICO
+      LEFT JOIN FK2_TB_GRAU_ACADEMICO grau
+        ON grau.CODIGO = c.GRAU_ACADEMICO
       LEFT JOIN FK2_TB_PESSOA tp
         ON tp.PK_PESSOA = JSON_VALUE(ut.REF_PESSOA, '$.pk')
       ${whereClause}
