@@ -48,6 +48,15 @@ export class DisciplineController {
     status: 201,
     description: 'Disciplina criada com sucesso',
   })
+
+  @ApiResponse({
+    status: 400,
+    description: 'Erro de validação nos dados enviados',
+  })
+  async createDisciplina(@Body() dto: CreateDisciplinaDto) {
+    const pkUtilizador = 1;
+    return this.disciplineService.createDisciplina(dto, pkUtilizador);
+  }
   @Post('add-grade-curricular-plano-massa')
   @ApiBody({ type: CreatePlanoGradeCurricularEmMassaDto })
   @ApiResponse({
@@ -57,14 +66,6 @@ export class DisciplineController {
   async adicionarGradeCurricularNoPlanoEmMassa(@Body() dto: CreatePlanoGradeCurricularEmMassaDto) {
     const codigoUtilizador = 1;
     return this.configurationPlaneService.createConfigurationPlano(dto, codigoUtilizador);
-  }
-  @ApiResponse({
-    status: 400,
-    description: 'Erro de validação nos dados enviados',
-  })
-  async createDisciplina(@Body() dto: CreateDisciplinaDto) {
-    const pkUtilizador = 1;
-    return this.disciplineService.createDisciplina(dto, pkUtilizador);
   }
   @Patch(':codigo')
   async updateDisciplina(

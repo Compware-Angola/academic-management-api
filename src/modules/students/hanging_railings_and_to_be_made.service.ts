@@ -85,7 +85,11 @@ export class HangingRailingsAndToBeMadeService {
         const isEspecialidade = result[0].IS_ESPECIALIDADE === 1;
 
         if (classeAtual === null || classeAtual === undefined) {
-            return 1;
+            return {
+                proxima_classe: 1,
+                isEspecializacao: isEspecialidade,
+                duracao: duracao,
+            };
         }
 
         if (isEspecialidade) {
@@ -110,7 +114,11 @@ export class HangingRailingsAndToBeMadeService {
             return classeAtual;
         }
 
-        return classeAtual + 1;
+        return {
+            proxima_classe: classeAtual + 1,
+            isEspecializacao: isEspecialidade,
+            duracao: duracao,
+        };
     }
 
     /**
