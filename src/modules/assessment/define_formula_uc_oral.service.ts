@@ -6,13 +6,14 @@ import { AtualizarStatusOralDto } from './dto/atualizar-status-oral.dto';
 
 @Injectable()
 export class DefineFormulaUcOralService {
-    constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
-async buscar(params: ListarDefinirOralDto): Promise<DefinirOralGradeDto[]> {
-  const { cursoId, anoCurricular, semestre, anoLectivo } = params;
+  async buscar(params: ListarDefinirOralDto): Promise<DefinirOralGradeDto[]> {
+    const { cursoId, anoCurricular, semestre, anoLectivo } = params;
 
-  // 1. Buscar o plano curricular ativo (mesma lógica do outro método)
-  const planoSql = `
+
+    // 1. Buscar o plano curricular ativo (mesma lógica do outro método)
+    const planoSql = `
     SELECT CODIGO
     FROM FK2_TB_PLANO_CURRICULAR_CURSO
     WHERE (CODIGO_CURSO = ${cursoId} OR ${cursoId} = 0)
@@ -21,48 +22,70 @@ async buscar(params: ListarDefinirOralDto): Promise<DefinirOralGradeDto[]> {
     FETCH FIRST 1 ROW ONLY
   `;
 
-  const planos = await this.dataSource.query(planoSql);
+    const planos = await this.dataSource.query(planoSql);
 
-  if (!planos || planos.length === 0) {
-    throw new NotFoundException(`Plano não encontrado para curso ${cursoId} e ano letivo ${anoLectivo}`);
-  }
+    if (!planos || planos.length === 0) {
+      throw new NotFoundException(`Plano do Curso  não encontrado para curso ${cursoId} e ano letivo ${anoLectivo}`);
+    }
 
-  const planoCodigo = planos[0].CODIGO;
+    const planoCodigo = planos[0].CODIGO;
 
-  // 2. Buscar as disciplinas com configuração de oral, filtrando pelo plano ativo
-  const sql = `
-    SELECT 
-      tgc.CODIGO AS grade,
-      td.DESIGNACAO AS disciplina,
-      NVL(tgcdo.HABILITAR, 0) AS habilitar
+    // Montar filtros dinamicamente
+    const where: string[] = [
+      `pcg.CODIGO_PLANO_CURRICULAR_CURSO = :planoCodigo`,
+    ];
+
+    const binds: Record<string, any> = {
+      planoCodigo,
+    };
+
+    if (cursoId && cursoId !== 0) {
+      where.push(`tgc.CODIGO_CURSO = :cursoId`);
+      binds.cursoId = cursoId;
+    }
+
+    if (anoCurricular && anoCurricular !== 0) {
+      where.push(`tgc.CODIGO_CLASSE = :anoCurricular`);
+      binds.anoCurricular = anoCurricular;
+    }
+
+    if (semestre && semestre !== 0) {
+      where.push(`tgc.CODIGO_SEMESTRE = :semestre`);
+      binds.semestre = semestre;
+    }
+
+    const sql = `
+    SELECT
+      tgc.CODIGO AS GRADE,
+      td.DESIGNACAO AS DISCIPLINA,
+      NVL(tgcdo.HABILITAR, 0) AS HABILITAR
     FROM FK2_TB_PLANO_CURRICULAR_GRADE pcg
-    INNER JOIN FK2_TB_GRADE_CURRICULAR tgc 
+    INNER JOIN FK2_TB_GRADE_CURRICULAR tgc
       ON tgc.CODIGO = pcg.CODIGO_GRADE_CURRICULAR
-    INNER JOIN FK2_TB_DISCIPLINAS td 
+    INNER JOIN FK2_TB_DISCIPLINAS td
       ON td.CODIGO = tgc.CODIGO_DISCIPLINA
-    LEFT JOIN FK2_TB_GRADE_CURRICULAR_DEFINIR_ORAL tgcdo 
+    LEFT JOIN FK2_TB_GRADE_CURRICULAR_DEFINIR_ORAL tgcdo
       ON tgcdo.CODIGOGRADECURRICULAR = tgc.CODIGO
-    WHERE pcg.CODIGO_PLANO_CURRICULAR_CURSO = ${planoCodigo}
-      AND tgc.CODIGO_CURSO = ${cursoId}
-      AND tgc.CODIGO_CLASSE = ${anoCurricular}
-      AND tgc.CODIGO_SEMESTRE = ${semestre}
+    WHERE ${where.join("\n      AND ")}
     ORDER BY td.DESIGNACAO
   `;
 
-  const resultado = await this.dataSource.query(sql);
+    const resultado = await this.dataSource.query(sql, binds as any);
+    console.log(resultado);
 
-  return resultado.map((row: any) =>
-    new DefinirOralGradeDto(
-      row.GRADE,
-      row.DISCIPLINA,
-      row.HABILITAR === 1,
-    ),
-  );
-}
+    return resultado.map(
+      (row: any) =>
+        new DefinirOralGradeDto(
+          row.GRADE,
+          row.DISCIPLINA,
+          Number(row.HABILITAR) === 1,
+        ),
+    );
+  }
   async atualizarStatus(dto: AtualizarStatusOralDto): Promise<void> {
-  const { codigoGrade, habilitar } = dto;
+    const { codigoGrade, habilitar } = dto;
 
-  const sql = `
+    const sql = `
     MERGE INTO FK2_TB_GRADE_CURRICULAR_DEFINIR_ORAL t
     USING (SELECT ${codigoGrade} AS CODIGOGRADECURRICULAR FROM DUAL) s
     ON (t.CODIGOGRADECURRICULAR = s.CODIGOGRADECURRICULAR)
@@ -73,6 +96,6 @@ async buscar(params: ListarDefinirOralDto): Promise<DefinirOralGradeDto[]> {
       VALUES (${codigoGrade}, ${habilitar ? 1 : 0})
   `;
 
-  await this.dataSource.query(sql);
-}
+    await this.dataSource.query(sql);
+  }
 }

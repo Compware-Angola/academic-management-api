@@ -1,10 +1,10 @@
 // src/oral/dto/listar-definir-oral.dto.ts
-import { IsInt, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ListarDefinirOralDto {
-    @ApiProperty({
+  @ApiProperty({
     description: 'Ano letivo (últimos 2 dígitos, ex: 23 = 2023/2024)',
     example: 23,
   })
@@ -23,8 +23,7 @@ export class ListarDefinirOralDto {
   anoCurricular: number;
 
   @ApiProperty({ example: 1, description: 'Semestre (1 ou 2)' })
-  @IsInt()
-
+  @IsOptional()
   @Type(() => Number)
-  semestre: number;
+  semestre?: number;
 }
