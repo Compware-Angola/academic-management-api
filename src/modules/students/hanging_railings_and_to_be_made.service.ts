@@ -42,7 +42,7 @@ export class HangingRailingsAndToBeMadeService {
                 SELECT MAX(CODIGO_ANO_LECTIVO)
                 FROM FK2_TB_GRADE_CURRICULAR_ALUNO
                 WHERE CODIGO_MATRICULA = m.CODIGO
-                  AND CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+                  AND CODIGO_STATUS_GRADE_CURRICULAR IN (2)
               )`;
 
         const sql = `
@@ -62,7 +62,7 @@ export class HangingRailingsAndToBeMadeService {
             LEFT JOIN FK2_TB_CURSO_ESPECIALIDADE ce
                 ON ce.CODIGO_CURSO_ESPECIALIDADE = c.CODIGO
             WHERE m.CODIGO = :matricula
-              AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+              AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2)
               ${anoLectivoFilter}
             GROUP BY cl.CODIGO, c.DURACAO, ce.CODIGO_CURSO_ESPECIALIDADE
             ORDER BY COUNT(ftgca.CODIGO) DESC
