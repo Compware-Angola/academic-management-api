@@ -355,7 +355,7 @@ export class ConfigurationPlaneService {
       } as any,
     );
 
-    return Number(result?.[0]?.CODIGO ?? result?.CODIGO);
+    return Number(result?.[0]?.codigo ?? result?.codigo);
   }
 
   private async ativegrade(codigoGrade: number) {
