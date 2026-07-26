@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsNotEmpty, IsNumber, IsPositive } from "class-validator";
+import { IsNotEmpty, IsNumber, IsOptional, IsPositive } from "class-validator";
 
 export class FindPlanPorClasseDTO {
     @IsNumber()
@@ -24,4 +24,13 @@ export class FindPlanPorClasseDTO {
     })
     @Type(() => Number)
     codigoClasse: number;
+
+    @IsNumber()
+    @ApiProperty({
+        type: Number,
+        description: 'Código do ano lectivo',
+        example: 2024,
+    })
+    @Type(() => Number)
+    codigoAnoLectivo: number;
 }
