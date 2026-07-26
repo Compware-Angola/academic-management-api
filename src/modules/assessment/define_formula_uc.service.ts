@@ -14,31 +14,36 @@ export class DefineFormulaUcService {
   async listarUnidadesCurriculares(
     params: ListarUnidadesCurricularesDto,
   ): Promise<UnidadeCurricularGradeDto[]> {
-    const { cursoId, anoLectivoId, anoCurricular, semestre } = params;
-
-
+    const { cursoId, anoLectivoId, anoCurricular, semestre, tipoCandidatura } =
+      params;
 
     const planoSql = `
-      SELECT CODIGO
-      FROM FK2_TB_PLANO_CURRICULAR_CURSO
-      WHERE (CODIGO_CURSO = ${cursoId} OR ${cursoId} = 0)
-        AND (CODIGO_ANO_LECTIVO = ${anoLectivoId} OR ${anoLectivoId} = 0)
-     
-      ORDER BY CODIGO DESC
-      FETCH FIRST 1 ROW ONLY
-    `;
+  SELECT pc.CODIGO
+  FROM FK2_TB_PLANO_CURRICULAR_CURSO pc
+  INNER JOIN FK2_TB_CURSOS tc ON tc.CODIGO = pc.CODIGO_CURSO
+  WHERE (pc.CODIGO_CURSO = :cursoId OR :cursoId = 0)
+    AND (pc.CODIGO_ANO_LECTIVO = :anoLectivoId OR :anoLectivoId = 0)
+    AND (:tipoCandidatura IS NULL OR tc.TIPO_CANDIDATURA = :tipoCandidatura)
+  ORDER BY pc.CODIGO DESC
+  FETCH FIRST 1 ROW ONLY
+`;
 
-    const planos = await this.dataSource.query(planoSql);
-
+    const planos = await this.dataSource.query(planoSql, {
+      cursoId,
+      anoLectivoId,
+      tipoCandidatura: tipoCandidatura ?? null,
+    } as any);
     if (!planos || planos.length === 0) {
-      throw new NotFoundException(`Plano não encontrado (curso: ${cursoId}, ano: ${anoLectivoId})`);
+      throw new NotFoundException(
+        `Plano não encontrado (curso: ${cursoId}, ano: ${anoLectivoId})`,
+      );
     }
 
     const planoCodigo = planos[0].CODIGO;
 
     // 2. BUSCA AS DISCIPLINAS — TAMBÉM COM ? + ARRAY  UTILIZADOR
- const disciplinasSql = `
-      SELECT 
+    const disciplinasSql = `
+      SELECT
         PG.CODIGO AS "codigo",
         D.DESIGNACAO AS "disciplina",
         PG.NOTA_MIN_PRATICA AS "notaMinPratica",
@@ -64,34 +69,38 @@ export class DefineFormulaUcService {
       ORDER BY D.DESIGNACAO
     `;
 
-    const result = await this.dataSource.query<UnidadeCurricularGradeDto[]>(disciplinasSql);
+    const result =
+      await this.dataSource.query<UnidadeCurricularGradeDto[]>(disciplinasSql);
 
     return result;
   }
-  async atualizarFormula(dto: AtualizarFormulaDto,updatedBy:number): Promise<UnidadeCurricularGradeDto> {
-  const { codigo, ...campos } = dto;
+  async atualizarFormula(
+    dto: AtualizarFormulaDto,
+    updatedBy: number,
+  ): Promise<UnidadeCurricularGradeDto> {
+    const { codigo, ...campos } = dto;
 
-  await this.dataSource.query(`
+    await this.dataSource.query(`
     UPDATE FK2_TB_PLANO_CURRICULAR_GRADE
-  
-    SET 
+
+    SET
       NOTA_MIN_PRATICA = ${campos.notaMinPratica ?? 'NOTA_MIN_PRATICA'},
       PESO_PRATICA = ${campos.pesoPratica ?? 'PESO_PRATICA'},
       NOTA_MIN_PRIMEIRA_FREQ = ${campos.notaMinPrimeiraFreq ?? 'NOTA_MIN_PRIMEIRA_FREQ'},
       PESO_PRIMEIRA_FREQ = ${campos.pesoPrimeiraFreq ?? 'PESO_PRIMEIRA_FREQ'},
       NOTA_MIN_SEGUNDA_FREQ = ${campos.notaMinSegundaFreq ?? 'NOTA_MIN_SEGUNDA_FREQ'},
       PESO_SEGUNDA_FREQ = ${campos.pesoSegundaFreq ?? 'PESO_SEGUNDA_FREQ'},
-     
+
       UTILIZADOR = ${updatedBy ?? 'UTILIZADOR'},
       CODIGO_UTILIZADOR = ${updatedBy ?? 'CODIGO_UTILIZADOR'}
     WHERE CODIGO = ${codigo}
   `);
 
-  // retorna a linha atualizada
-  const [atualizado] = await this.dataSource.query(`
+    // retorna a linha atualizada
+    const [atualizado] = await this.dataSource.query(`
     SELECT * FROM FK2_TB_PLANO_CURRICULAR_GRADE WHERE CODIGO = ${codigo}
   `);
-  const resultadoBonito = toLowerCaseKeys(atualizado);
-  return resultadoBonito;
-}
+    const resultadoBonito = toLowerCaseKeys(atualizado);
+    return resultadoBonito;
+  }
 }

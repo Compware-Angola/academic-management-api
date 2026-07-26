@@ -75,7 +75,7 @@ import { CreateEquivalenceTFCMigration } from './dto/create-equivalence-tfc-migr
 import { HangingRailingsAndToBeMadeService } from './hanging_railings_and_to_be_made.service';
 import { FindPlanPorClasseDTO } from './dto/FindPlanPorClasseDTO';
 import { NextClassDTO } from './dto/next-class';
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @ApiTags('Students')
 @Controller('students')
 export class StudentsController {
@@ -90,7 +90,7 @@ export class StudentsController {
     private readonly equivalenceTFMigration: EquivalenceTFCMigration,
     private readonly hangingRailingsAndToBeMadeService: HangingRailingsAndToBeMadeService,
     private httpService: HttpService,
-  ) {}
+  ) { }
   private log(req: any, descricao: string) {
     const user = req.user;
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
@@ -564,18 +564,16 @@ export class StudentsController {
 
   @Get('next-class/:matricula')
   @ApiOperation({ summary: 'Obter proxima classe do estudante' })
-  @ApiQuery({ name: 'anoLectivo', required: false, type: Number })
   @ApiResponse({
     status: 200,
     description: 'Proxima classe do estudante obtida com sucesso',
   })
   async getNextClass(
     @Param('matricula', ParseIntPipe) matricula: number,
-    @Query(ValidationPipe) query: NextClassDTO,
+
   ) {
     return this.hangingRailingsAndToBeMadeService.getNextClass(
-      matricula,
-      query.anoLectivo,
+      matricula
     );
   }
 
