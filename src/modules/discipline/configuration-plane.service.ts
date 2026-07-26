@@ -336,18 +336,31 @@ export class ConfigurationPlaneService {
     codigoAnoLectivo: number,
     codigoUtilizador: number,
   ): Promise<number> {
+    const resultDescription = await this.dataSource.query(
+      `
+      SELECT
+        (SELECT DESIGNACAO FROM FK2_TB_CURSOS WHERE CODIGO = :CODIGOCURSO) AS CURSO,
+         (SELECT DESIGNACAO FROM FK2_TB_ANO_LECTIVO WHERE CODIGO = :CODIGOANOLECTIVO) AS ANOLECTIVO
+      FROM dual
+      `,
+      { codigoCurso, codigoAnoLectivo } as any,
+    );
+    const description = `Plano de Estudo do Curso de ${resultDescription?.[0]?.CURSO} ${resultDescription?.[0]?.ANOLECTIVO}`;
+
     const result = await this.dataSource.query(
       `
     INSERT INTO FK2_TB_PLANO_CURRICULAR_CURSO
-      (CODIGO_CURSO, CODIGO_ANO_LECTIVO, CODIGO_UTILIZADOR, DATA )
+      (CODIGO_CURSO,DESIGNACAO, CODIGO_ANO_LECTIVO, CODIGO_UTILIZADOR, DATA )
     VALUES
-      (:codigoCurso, :codigoAnoLectivo, :codigoUtilizador, SYSDATE)
+      (:codigoCurso,:descricao ,:codigoAnoLectivo, :codigoUtilizador, SYSDATE)
     RETURNING CODIGO INTO :codigo
     `,
       {
         codigoCurso,
+        descricao: description,
         codigoAnoLectivo,
         codigoUtilizador,
+
         codigo: {
           dir: oracledb.BIND_OUT,
           type: oracledb.NUMBER,
