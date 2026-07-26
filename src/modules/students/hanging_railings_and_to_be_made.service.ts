@@ -23,15 +23,14 @@ export interface FindGradeCursoReturnDTO {
 }
 
 export interface FindMatriculaDetails {
-    codigo_matricula: number;
-    estado: string;
+    codigo_matricula: number | null;
+    estado: string | null;
     nome_completo: string;
     bi: string;
     curso: string;
     codigo_curso: number;
     candidatura: string;
 }
-
 
 @Injectable()
 export class HangingRailingsAndToBeMadeService {
@@ -75,8 +74,6 @@ export class HangingRailingsAndToBeMadeService {
         if (anoLectivo) queryParams.anoLectivo = anoLectivo;
 
         const result = await this.dataSource.query(sql, queryParams as any);
-        console.log('result', result);
-
 
         if (!result || result.length === 0) {
             throw new BadRequestException(`Matrícula ${matricula} não encontrada`);
@@ -139,12 +136,66 @@ export class HangingRailingsAndToBeMadeService {
      * proposital: se o aluno deixou uma disciplina em anos anteriores, ele
      * precisa se reinscrever apontando para a grade curricular vinculada ao
      * plano ATUAL do curso (não à grade do plano antigo em que ele cursou).
+     *
+     * ALUNO NOVO (params.alunoNovo = true):
+     * - não existe matrícula ainda, então a busca das cadeiras é feita a
+     *   partir do CODIGO_PRE_INSCRICAO (params.codigoPreInscricao), não da
+     *   matrícula;
+     * - a classe é sempre fixada em 1;
+     * - não há gradesPendentes (aluno novo não tem histórico).
      */
     async findHangingRailingsAndToBeMade(params: FindPlanPorClasseDTO) {
+        const { alunoNovo } = params;
+
+        if (alunoNovo) {
+            return this.findParaAlunoNovo(params);
+        }
+
+        return this.findParaAlunoAntigo(params);
+    }
+
+    private async findParaAlunoNovo(params: FindPlanPorClasseDTO) {
+        const { codigoPreInscricao, codigoAnoLectivo } = params;
+
+        if (!codigoPreInscricao) {
+            throw new BadRequestException(
+                `codigoPreInscricao é obrigatório para aluno novo`,
+            );
+        }
+
+        const preInscricao = await this.getPreInscricaoDetails(codigoPreInscricao);
+
+        const gradesCurso = await this.findGradeCursoNovo(
+            preInscricao.codigo_curso,
+            codigoAnoLectivo!,
+        );
+
+        const gradesAFazer = [...gradesCurso].sort(
+            (a, b) => a.codigo_disciplina - b.codigo_disciplina,
+        );
+
+        return {
+            matricula: null,
+            preInscricao: preInscricao,
+            gradesPendentes: [],
+            totalGradesPendentes: 0,
+            gradesAFazer,
+            totalGradesAFazer: gradesAFazer.length,
+            isEspecializacao: false,
+        };
+    }
+
+    private async findParaAlunoAntigo(params: FindPlanPorClasseDTO) {
         const { codigoMatricula, codigoAnoLectivo } = params;
 
+        if (!codigoMatricula) {
+            throw new BadRequestException(
+                `codigoMatricula é obrigatório para aluno antigo`,
+            );
+        }
+
         const proximaClasse = await this.getNextClass(codigoMatricula);
-        if (proximaClasse.proxima_classe <= 1) {
+        if (proximaClasse.proxima_classe < 1) {
             throw new BadRequestException(
                 `Erro ao calcular a próxima classe`
             );
@@ -159,8 +210,8 @@ export class HangingRailingsAndToBeMadeService {
         const gradesCursoQueries: Promise<FindGradeCursoReturnDTO[]>[] = [
             this.findGradeCurso({
                 codigoCurso: matricula.codigo_curso,
-                codigoMatricula: matricula.codigo_matricula,
-                codigoAnoLectivo: codigoAnoLectivo,
+                codigoMatricula: matricula.codigo_matricula!,
+                codigoAnoLectivo: codigoAnoLectivo!,
             }),
         ];
 
@@ -168,7 +219,7 @@ export class HangingRailingsAndToBeMadeService {
             gradesCursoQueries.push(
                 this.findGradeCurso({
                     codigoCurso: codigoCursoAnterior,
-                    codigoMatricula: matricula.codigo_matricula,
+                    codigoMatricula: matricula.codigo_matricula!,
                     codigoAnoLectivo: codigoAnoLectivo!,
                 }),
             );
@@ -264,6 +315,51 @@ export class HangingRailingsAndToBeMadeService {
         return toLowerCaseKeys(result[0]);
     }
 
+    /**
+     * ATENÇÃO: assumi que FK2_TB_PREINSCRICAO tem a coluna CODIGO_CURSO
+     * (curso escolhido no ato da pré-inscrição). Se o curso do aluno novo
+     * vier de outra tabela (ex: FK2_TB_ADMISSAO ou uma tabela de
+     * candidatura), ajusta este JOIN/coluna.
+     */
+    private async getPreInscricaoDetails(
+        codigoPreInscricao: number,
+    ): Promise<FindMatriculaDetails> {
+        const sql = `
+      SELECT
+        p.NOME_COMPLETO        AS nome_completo,
+        p.BILHETE_IDENTIDADE   AS bi,
+        c.designacao           AS curso,
+        c.codigo               AS codigo_curso,
+        ca.DESIGNACAO          AS candidatura
+      FROM FK2_TB_PREINSCRICAO p
+      INNER JOIN FK2_TB_CURSOS c
+        ON c.codigo = p.CURSO_CANDIDATURA
+      INNER JOIN FK2_TB_TIPO_CANDIDATURA ca
+        ON ca.ID = c.TIPO_CANDIDATURA
+      WHERE p.codigo = :codigoPreInscricao
+    `;
+
+        const result = await this.dataSource.query(sql, {
+            codigoPreInscricao,
+        } as any);
+
+        if (!result || result.length === 0) {
+            throw new NotFoundException('Pré-inscrição não encontrada');
+        }
+
+        const row = toLowerCaseKeys(result[0]);
+
+        return {
+            codigo_matricula: null,
+            estado: null,
+            nome_completo: row.nome_completo,
+            bi: row.bi,
+            curso: row.curso,
+            codigo_curso: row.codigo_curso,
+            candidatura: row.candidatura,
+        };
+    }
+
     private async findGradeCurso(
         params: FindGradeCursoDTO,
     ): Promise<FindGradeCursoReturnDTO[]> {
@@ -351,6 +447,62 @@ export class HangingRailingsAndToBeMadeService {
 
         const result = await this.dataSource.query(sql, {
             codigoMatricula,
+            codigoCurso,
+            codigoAnoLectivo,
+        } as any);
+
+        if (!result?.length) return [];
+
+        const rows = toLowerCaseKeys(result) as any[];
+
+        return rows.map((row) => ({
+            ...row,
+            existe_no_plano_atual: Number(row.existe_no_plano_atual) === 1,
+        }));
+    }
+
+    /**
+     * Busca as disciplinas da classe 1 do plano curricular ATUAL do curso,
+     * para aluno novo (sem histórico e sem notas lançadas).
+     */
+    private async findGradeCursoNovo(
+        codigoCurso: number,
+        codigoAnoLectivo: number,
+    ): Promise<FindGradeCursoReturnDTO[]> {
+        const sql = `
+      SELECT
+        g.CODIGO,
+        s.DESIGNACAO   AS SEMESTRE,
+        d.DESIGNACAO   AS DISCIPLINA,
+        dur.DESIGNACAO AS DURACAO,
+        CAST(NULL AS NUMBER)  AS NOTA,
+        g.CODIGO_DISCIPLINA,
+        g.CODIGO_CLASSE,
+        cl.DESIGNACAO  AS CLASSE,
+        CAST(NULL AS NUMBER)  AS CODIGO_GRADE_ALUNO,
+        1 AS EXISTE_NO_PLANO_ATUAL
+      FROM FK2_TB_GRADE_CURRICULAR g
+      INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pg
+        ON pg.CODIGO_GRADE_CURRICULAR = g.CODIGO
+      INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pgc
+        ON pgc.CODIGO = pg.CODIGO_PLANO_CURRICULAR_CURSO
+      INNER JOIN FK2_TB_DISCIPLINAS d
+        ON d.CODIGO = g.CODIGO_DISCIPLINA
+      INNER JOIN FK2_TB_CLASSES cl
+        ON cl.CODIGO = g.CODIGO_CLASSE
+      INNER JOIN FK2_TB_SEMESTRES s
+        ON s.CODIGO = g.CODIGO_SEMESTRE
+      INNER JOIN FK2_TB_DURACAO dur
+        ON dur.CODIGO = d.DURACAO
+      WHERE g.CODIGO_CURSO         = :codigoCurso
+        AND g.STATUS_              = 1
+        AND d.STATUS_              = 1
+        AND g.CODIGO_CLASSE        = 1
+        AND pgc.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+      ORDER BY g.CODIGO_DISCIPLINA ASC
+    `;
+
+        const result = await this.dataSource.query(sql, {
             codigoCurso,
             codigoAnoLectivo,
         } as any);
