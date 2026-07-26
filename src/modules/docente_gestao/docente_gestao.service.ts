@@ -19,7 +19,7 @@ import { DefinirRegenteDto } from './dto/definir-regente.dto';
 
 @Injectable()
 export class DocenteGestaoService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
   async getTeacherParameters(dto: FindParametrosDocenteTO) {
     const { page = 1, limit = 10, search } = dto;
     const offset = (page - 1) * limit;
@@ -600,6 +600,8 @@ export class DocenteGestaoService {
   async updateDocente(codigo: number, dto: UpdateDocenteDto) {
     const fields: string[] = [];
     const params: Record<string, any> = { codigo };
+    console.log(dto);
+
 
     const docenteActual = await this.dataSource.query(
       `
@@ -678,10 +680,32 @@ export class DocenteGestaoService {
       fields.push('VALOR_HORA = :valorHora');
       params.valorHora = dto.valorHora;
     }
-    if (dto.fkCandidatura !== undefined) {
-      fields.push('FK_CANDIDATURA = :fkCandidatura');
-      params.fkCandidatura = dto.fkCandidatura;
+
+    if (dto.fkGrauAcademico !== undefined) {
+      //Buscar o codigo da candidatura do docente
+      const sqlBuscaCandidatura = `
+      SELECT FK_CANDIDATURA
+      FROM FK2_MGD_TB_DOCENTE
+      WHERE CODIGO = :codigo
+      `;
+      const candidatura = await this.dataSource.query(sqlBuscaCandidatura, {
+        codigo: docenteActual[0].CODIGO,
+      } as any);
+      console.log(candidatura);
+
+      const sqlCanditatura = `
+  UPDATE FK2_MGD_TB_CANDIDATURA
+  SET GRAU_ACADEMICO = :fkGrauAcademico
+  WHERE codigo = :codigoCandidatura
+  `;
+      await this.dataSource.query(sqlCanditatura, {
+        fkGrauAcademico: dto.fkGrauAcademico,
+        codigoCandidatura: candidatura[0].FK_CANDIDATURA,
+      } as any);
     }
+
+
+
     if (dto.totalAnoExperiencia !== undefined) {
       fields.push('TOTAL_ANO_EXPERIENCIA = :totalAnoExperiencia');
       params.totalAnoExperiencia = dto.totalAnoExperiencia;
@@ -711,6 +735,8 @@ export class DocenteGestaoService {
     SET ${fields.join(', \n    ')}
     WHERE CODIGO = :codigo
   `;
+
+
 
     try {
       const result = await this.dataSource.query(sql, params as any);
@@ -781,7 +807,7 @@ export class DocenteGestaoService {
   }
 
   async listDocentes(filter: FilterDocenteDto) {
-    const { page = 1, limit = 25, area, search } = filter;
+    const { page = 1, limit = 25, area, search, grauAcademico } = filter;
     const offset = (page - 1) * limit;
 
     const params: Record<string, any> = {
@@ -868,6 +894,11 @@ export class DocenteGestaoService {
       `;
       }
     }
+    if (grauAcademico && grauAcademico !== 0) {
+      whereClause += ` AND c.GRAU_ACADEMICO = :grauAcademico`;
+      params.grauAcademico = grauAcademico;
+      countParams.grauAcademico = grauAcademico;
+    }
 
     if (search && search.trim()) {
       const term = `%${search.trim().toUpperCase()}%`;
@@ -879,7 +910,7 @@ export class DocenteGestaoService {
         OR UPPER(NVL(d.N_MECANOGRAFICO, '-')) LIKE :search
         OR UPPER(NVL(esc.DESIGNACAO, '-')) LIKE :search
         OR UPPER(NVL(cat.DESIGNACAO, '-')) LIKE :search
-        OR UPPER(NVL(grau."Designacao", '-')) LIKE :search
+       
       )
     `;
 
@@ -900,8 +931,8 @@ export class DocenteGestaoService {
         ON esc.CODIGO = d.FK_ESCALAO
       LEFT JOIN FK2_TB_CATEGORIA_DOCENTE cat
         ON cat.CODIGO = d.TB_CATEGORIA_DOCENTE
-      LEFT JOIN UMA_TB_GRAU_ACADEMICO grau
-        ON grau."Codigo" = c.GRAU_ACADEMICO
+      LEFT JOIN FK2_TB_GRAU_ACADEMICO grau
+        ON grau.CODIGO = c.GRAU_ACADEMICO
       LEFT JOIN FK2_TB_PESSOA tp
         ON tp.PK_PESSOA = JSON_VALUE(ut.REF_PESSOA, '$.pk')
       ${whereClause}

@@ -76,6 +76,8 @@ export class StudentsService {
       p.SEXO                 AS sexo,
       fac.DESIGNACAO         AS faculdade,
       tpc.DESIGNACAO         AS grau,
+      tpc.SIGLA              AS sigla_grau,
+      tpc.ID                 AS tipo_canditatura_codigo,
       pr.DESIGNACAO          AS regime,
       p.MORADA_COMPLETA      AS morada,
       p.SALDO                AS saldo_atual,
@@ -196,6 +198,8 @@ export class StudentsService {
         c.DESIGNACAO           AS curso,
         pe.DESIGNACAO          AS periodo,
         m.ESTADO_MATRICULA     AS estado,
+        tpc.DESIGNACAO         AS grau,
+        tpc.SIGLA              AS sigla_grau,
 
         CASE
           WHEN EXISTS (
@@ -224,6 +228,9 @@ export class StudentsService {
 
     INNER JOIN FK2_TB_CURSOS c
       ON c.CODIGO = m.CODIGO_CURSO
+
+       LEFT JOIN FK2_TB_TIPO_CANDIDATURA tpc
+      ON tpc.ID = p.CODIGO_TIPO_CANDIDATURA
 
     INNER JOIN FK2_TB_PERIODOS pe
       ON pe.CODIGO = p.CODIGO_TURNO

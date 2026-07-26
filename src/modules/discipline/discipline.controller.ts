@@ -30,11 +30,13 @@ import { FindGradeCurricularDto } from './dto/FindGradeCurricularDto';
 import { CreateUnidadeCurricularDto } from './dto/create-unidade-curricular.plano.dto';
 import { CreateUnidadeCurricularDepartamentoDto } from './dto/create-unidade-curricular-departamento.dto';
 import { FindUnidadeCurricularDeptDto } from './dto/find-unidade-curricular-dept.dto';
+import { CreatePlanoGradeCurricularEmMassaDto } from './dto/create-plano-grade-curricular-em-massa.dto';
+import { ConfigurationPlaneService } from './configuration-plane.service';
 
 @ApiTags('DISCIPLINAS')
 @Controller('discipline')
 export class DisciplineController {
-  constructor(private readonly disciplineService: DisciplineService) { }
+  constructor(private readonly disciplineService: DisciplineService, private readonly configurationPlaneService: ConfigurationPlaneService) { }
 
   @Post()
   @ApiOperation({
@@ -46,6 +48,7 @@ export class DisciplineController {
     status: 201,
     description: 'Disciplina criada com sucesso',
   })
+
   @ApiResponse({
     status: 400,
     description: 'Erro de validação nos dados enviados',
@@ -53,6 +56,16 @@ export class DisciplineController {
   async createDisciplina(@Body() dto: CreateDisciplinaDto) {
     const pkUtilizador = 1;
     return this.disciplineService.createDisciplina(dto, pkUtilizador);
+  }
+  @Post('add-grade-curricular-plano-massa')
+  @ApiBody({ type: CreatePlanoGradeCurricularEmMassaDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Grades curriculares adicionadas ao plano com sucesso.',
+  })
+  async adicionarGradeCurricularNoPlanoEmMassa(@Body() dto: CreatePlanoGradeCurricularEmMassaDto) {
+    const codigoUtilizador = 1;
+    return this.configurationPlaneService.createConfigurationPlano(dto, codigoUtilizador);
   }
   @Patch(':codigo')
   async updateDisciplina(
@@ -76,7 +89,7 @@ export class DisciplineController {
     @Query(ValidationPipe) query: FindDisciplinaAlunoDTO,
     @Req() req: any,
   ) {
-    console.log("chegou aqui",query);
+    console.log("chegou aqui", query);
     return this.disciplineService.findGradeCurricularAluno(query);
   }
 
