@@ -14,6 +14,7 @@ import { SituationService } from './services/situation.service';
 import { SearchClientService } from './services/search-client.service';
 import { GrauAcademicoService } from './services/grau-academico.service';
 import { DocenteDropDownService } from './services/docente.service';
+import { GradeCurricularService } from './services/gradecurricular.service';
 
 @Module({
   controllers: [DropdownFiltersController],
@@ -31,6 +32,7 @@ import { DocenteDropDownService } from './services/docente.service';
     SearchClientService,
     GrauAcademicoService,
     DocenteDropDownService,
+    GradeCurricularService,
   ],
 })
 export class DropdownFiltersModule {}

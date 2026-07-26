@@ -25,6 +25,8 @@ import { GrauAcademicoService } from './services/grau-academico.service';
 import { DocentesService } from 'src/modules/docentes/docentes.service';
 import { DocenteDropDownService } from './services/docente.service';
 import { FindDocentesDTO } from 'src/modules/academic_activities/dto/find-docente.dto';
+import { FindUnidadesCurricularesDTO } from './dto/find-unidades-curriculares.dto';
+import { GradeCurricularService } from './services/gradecurricular.service';
 
 @ApiTags('DROPDOWN-FILTERS')
 @Controller('dropdown-filters')
@@ -44,6 +46,7 @@ export class DropdownFiltersController {
     private readonly grauAcademicoService: GrauAcademicoService,
 
     private readonly docenteDropDownService: DocenteDropDownService,
+    private readonly gradeCurricularService: GradeCurricularService,
   ) {}
 
   @Get('escalao')
@@ -110,5 +113,9 @@ export class DropdownFiltersController {
   @Get('docentes')
   async findDocentes(@Query() query: FindDocentesDTO) {
     return this.docenteDropDownService.findDocentes(query);
+  }
+  @Get('grade-curricular')
+  async findGradeCurricular(@Query() query: FindUnidadesCurricularesDTO) {
+    return this.gradeCurricularService.findUnidadesCurriculares(query);
   }
 }
