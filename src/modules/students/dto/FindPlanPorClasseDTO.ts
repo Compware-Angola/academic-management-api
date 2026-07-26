@@ -4,6 +4,7 @@ import {
     IsBoolean,
     IsNotEmpty,
     IsNumber,
+    IsOptional,
     IsPositive,
     ValidateIf,
 } from "class-validator";
@@ -22,8 +23,8 @@ export class FindPlanPorClasseDTO {
 
     @ValidateIf((o) => !o.alunoNovo)
     @IsNumber()
+    @IsOptional()
     @IsPositive()
-    @IsNotEmpty()
     @ApiProperty({
         type: Number,
         description: 'Código da matrícula (obrigatório quando alunoNovo = false)',
@@ -35,8 +36,8 @@ export class FindPlanPorClasseDTO {
 
     @ValidateIf((o) => o.alunoNovo)
     @IsNumber()
+    @IsOptional()
     @IsPositive()
-    @IsNotEmpty()
     @ApiProperty({
         type: Number,
         description: 'Código da pré-inscrição (obrigatório quando alunoNovo = true)',
