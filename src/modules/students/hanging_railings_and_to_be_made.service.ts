@@ -143,7 +143,7 @@ export class HangingRailingsAndToBeMadeService {
     async findHangingRailingsAndToBeMade(params: FindPlanPorClasseDTO) {
         const { codigoMatricula, codigoAnoLectivo } = params;
 
-        const proximaClasse = await this.getNextClass(codigoMatricula, codigoAnoLectivo);
+        const proximaClasse = await this.getNextClass(codigoMatricula);
         if (proximaClasse.proxima_classe <= 1) {
             throw new BadRequestException(
                 `Erro ao calcular a próxima classe`
