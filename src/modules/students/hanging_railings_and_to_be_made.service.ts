@@ -6,6 +6,7 @@ import { FindPlanPorClasseDTO } from './dto/FindPlanPorClasseDTO';
 export interface FindGradeCursoDTO {
     codigoMatricula: number;
     codigoCurso: number;
+    codigoAnoLectivo: number;
 }
 
 export interface FindGradeCursoReturnDTO {
@@ -18,6 +19,7 @@ export interface FindGradeCursoReturnDTO {
     codigo_classe: number;
     classe: string;
     codigo_grade_aluno?: number;
+    existe_no_plano_atual: boolean;
 }
 
 export interface FindMatriculaDetails {
@@ -127,9 +129,15 @@ export class HangingRailingsAndToBeMadeService {
      *   que o aluno ainda NÃO tem nota lançada (pendentes)
      * - gradesAFazer: disciplinas da classe IGUAL à informada que o aluno
      *   ainda NÃO concluiu (nota null ou < 10)
+     *
+     * IMPORTANTE: tanto as pendentes quanto as a fazer são resolvidas contra o
+     * plano curricular do ANO LECTIVO informado (codigoAnoLectivo). Isto é
+     * proposital: se o aluno deixou uma disciplina em anos anteriores, ele
+     * precisa se reinscrever apontando para a grade curricular vinculada ao
+     * plano ATUAL do curso (não à grade do plano antigo em que ele cursou).
      */
     async findHangingRailingsAndToBeMade(params: FindPlanPorClasseDTO) {
-        const { codigoMatricula, codigoClasse } = params;
+        const { codigoMatricula, codigoClasse, codigoAnoLectivo } = params;
 
         const matricula = await this.getMatriculaDetails(codigoMatricula);
 
@@ -141,6 +149,7 @@ export class HangingRailingsAndToBeMadeService {
             this.findGradeCurso({
                 codigoCurso: matricula.codigo_curso,
                 codigoMatricula: matricula.codigo_matricula,
+                codigoAnoLectivo: codigoAnoLectivo,
             }),
         ];
 
@@ -149,6 +158,7 @@ export class HangingRailingsAndToBeMadeService {
                 this.findGradeCurso({
                     codigoCurso: codigoCursoAnterior,
                     codigoMatricula: matricula.codigo_matricula,
+                    codigoAnoLectivo: codigoAnoLectivo!,
                 }),
             );
         }
@@ -246,10 +256,14 @@ export class HangingRailingsAndToBeMadeService {
     private async findGradeCurso(
         params: FindGradeCursoDTO,
     ): Promise<FindGradeCursoReturnDTO[]> {
-        const { codigoCurso, codigoMatricula } = params;
+        const { codigoCurso, codigoMatricula, codigoAnoLectivo } = params;
 
         const sql = `
       WITH grade_base AS (
+        -- Histórico: todas as grades já vinculadas a QUALQUER plano deste
+        -- curso (independente do ano lectivo). É aqui que descobrimos o que
+        -- o aluno deixou/tem pendente, com a classe/semestre em que a
+        -- disciplina foi originalmente cursada.
         SELECT
           g.CODIGO,
           g.CODIGO_DISCIPLINA,
@@ -275,6 +289,22 @@ export class HangingRailingsAndToBeMadeService {
           AND g.STATUS_      = 1
           AND d.STATUS_      = 1
       ),
+      grade_atual AS (
+        -- Mapeamento disciplina -> CODIGO da grade curricular no plano do
+        -- ANO LECTIVO informado por parâmetro. Usado para "apontar" a
+        -- disciplina pendente para a grade correta na hora de reinscrever.
+        SELECT
+          g.CODIGO,
+          g.CODIGO_DISCIPLINA
+        FROM FK2_TB_GRADE_CURRICULAR g
+        INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pg
+          ON pg.CODIGO_GRADE_CURRICULAR = g.CODIGO
+        INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pgc
+          ON pgc.CODIGO = pg.CODIGO_PLANO_CURRICULAR_CURSO
+        WHERE g.CODIGO_CURSO         = :codigoCurso
+          AND g.STATUS_              = 1
+          AND pgc.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+      ),
       aluno_base AS (
         SELECT
           al.CODIGO               AS CODIGO_GRADE_ALUNO,
@@ -289,7 +319,7 @@ export class HangingRailingsAndToBeMadeService {
           AND al.CODIGO_STATUS_GRADE_CURRICULAR NOT IN (5, 4)
       )
       SELECT DISTINCT
-        gb.CODIGO,
+        COALESCE(gat.CODIGO, gb.CODIGO) AS CODIGO,
         gb.SEMESTRE,
         gb.DISCIPLINA,
         gb.DURACAO,
@@ -297,8 +327,11 @@ export class HangingRailingsAndToBeMadeService {
         gb.CODIGO_DISCIPLINA,
         gb.CODIGO_CLASSE,
         gb.CLASSE,
-        ab.CODIGO_GRADE_ALUNO
+        ab.CODIGO_GRADE_ALUNO,
+        CASE WHEN gat.CODIGO IS NULL THEN 0 ELSE 1 END AS EXISTE_NO_PLANO_ATUAL
       FROM grade_base gb
+      LEFT JOIN grade_atual gat
+        ON gat.CODIGO_DISCIPLINA = gb.CODIGO_DISCIPLINA
       LEFT JOIN aluno_base ab
         ON ab.CODIGO_GRADE_CURRICULAR = gb.CODIGO
         OR ab.CODIGO_DISCIPLINA       = gb.CODIGO_DISCIPLINA
@@ -308,11 +341,17 @@ export class HangingRailingsAndToBeMadeService {
         const result = await this.dataSource.query(sql, {
             codigoMatricula,
             codigoCurso,
+            codigoAnoLectivo,
         } as any);
 
         if (!result?.length) return [];
 
-        return toLowerCaseKeys(result);
+        const rows = toLowerCaseKeys(result) as any[];
+
+        return rows.map((row) => ({
+            ...row,
+            existe_no_plano_atual: Number(row.existe_no_plano_atual) === 1,
+        }));
     }
 
     private deduplicateGradesCurso(

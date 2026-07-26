@@ -59,6 +59,15 @@ export class getAttendanceListDto {
   semestre: number;
 
   @ApiProperty({
+    description: 'Tipo de Avaliação',
+    example: 1,
+    type: Number,
+  })
+  @IsInt()
+  @Type(() => Number)
+  tipo_avaliacao: number;
+
+  @ApiProperty({
     description: 'Código do Matricula associado ao aluno',
     example: 25903,
     type: Number,
@@ -82,13 +91,13 @@ export class getAttendanceListDto {
     description: 'Quantidade de registros por página (máximo 100)',
     example: 25,
     minimum: 1,
-    maximum: 100,
+    maximum: 500,
     default: 25,
   })
   @IsOptional()
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(500)
   @Type(() => Number)
-  limit?: number = 25;
+  limit?: number = 500;
 }

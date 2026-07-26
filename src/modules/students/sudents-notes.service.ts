@@ -287,7 +287,8 @@ export class StudentNoteService {
 
       //====================== Já tem nota não calcula ========================================
       if (
-        gradeAluno.CODIGO_ANO_LECTIVO !== anoCorrente &&
+       // gradeAluno.CODIGO_ANO_LECTIVO !== anoCorrente &&
+        gradeAluno.EQUIVALENCIA !== 0 &&
         gradeAluno.NOTA !== null &&
         gradeAluno.NOTA !== undefined &&
         Number(gradeAluno.NOTA) > 0
