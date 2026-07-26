@@ -37,7 +37,7 @@ export interface FindMatriculaDetails {
 export class HangingRailingsAndToBeMadeService {
     constructor(private readonly dataSource: DataSource) { }
 
-    async getNextClass(matricula: number, anoLectivo?: number) {
+    async getNextClass(matricula: number, anoLectivo?: number): Promise<{ proxima_classe: number, isEspecializacao: boolean, duracao: string }> {
         const anoLectivoFilter = anoLectivo
             ? `AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo`
             : `AND ftgca.CODIGO_ANO_LECTIVO = (
@@ -113,7 +113,11 @@ export class HangingRailingsAndToBeMadeService {
             );
         }
         if (classeAtual === duracao) {
-            return classeAtual;
+            return {
+                proxima_classe: classeAtual,
+                isEspecializacao: isEspecialidade,
+                duracao: duracao,
+            };
         }
 
         return {
@@ -137,7 +141,14 @@ export class HangingRailingsAndToBeMadeService {
      * plano ATUAL do curso (não à grade do plano antigo em que ele cursou).
      */
     async findHangingRailingsAndToBeMade(params: FindPlanPorClasseDTO) {
-        const { codigoMatricula, codigoClasse, codigoAnoLectivo } = params;
+        const { codigoMatricula, codigoAnoLectivo } = params;
+
+        const proximaClasse = await this.getNextClass(codigoMatricula, codigoAnoLectivo);
+        if (proximaClasse.proxima_classe <= 1) {
+            throw new BadRequestException(
+                `Erro ao calcular a próxima classe`
+            );
+        }
 
         const matricula = await this.getMatriculaDetails(codigoMatricula);
 
@@ -172,7 +183,7 @@ export class HangingRailingsAndToBeMadeService {
         const gradesPendentes = gradesSemDuplicidade
             .filter(
                 (g) =>
-                    g.codigo_classe < codigoClasse &&
+                    g.codigo_classe < proximaClasse.proxima_classe &&
                     (g.nota === null || g.nota === undefined),
             )
             .sort((a, b) => a.codigo_classe - b.codigo_classe);
@@ -180,7 +191,7 @@ export class HangingRailingsAndToBeMadeService {
         const gradesAFazer = gradesSemDuplicidade
             .filter(
                 (g) =>
-                    g.codigo_classe === codigoClasse &&
+                    g.codigo_classe === proximaClasse.proxima_classe &&
                     (g.nota === null || g.nota === undefined || g.nota < 10),
             )
             .sort((a, b) => a.codigo_disciplina - b.codigo_disciplina);

@@ -13,18 +13,6 @@ export class FindPlanPorClasseDTO {
     })
     @Type(() => Number)
     codigoMatricula: number;
-
-    @IsNumber()
-    @IsPositive()
-    @IsNotEmpty()
-    @ApiProperty({
-        type: Number,
-        description: 'Código da classe',
-        example: 1,
-    })
-    @Type(() => Number)
-    codigoClasse: number;
-
     @IsNumber()
     @ApiProperty({
         type: Number,
