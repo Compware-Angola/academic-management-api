@@ -38,10 +38,10 @@ export class UpdateDocenteDto {
   @IsNumber()
   valorHora?: number;
 
-  @ApiPropertyOptional({ description: 'ID da candidatura', example: 10 })
+  @ApiPropertyOptional({ description: 'ID do grau académico', example: 10 })
   @IsOptional()
   @IsNumber()
-  fkCandidatura?: number;
+  fkGrauAcademico?: number;
 
   @ApiPropertyOptional({ description: 'Total de anos de experiência', example: 5 })
   @IsOptional()
@@ -64,7 +64,7 @@ export class UpdateDocenteDto {
   @IsNumber()
   valorhoraAlt?: number;
 
-  @ApiPropertyOptional({ description: 'Código do contrato', example: 0})
+  @ApiPropertyOptional({ description: 'Código do contrato', example: 0 })
   @IsOptional()
   @IsNumber()
   codContrato?: number;

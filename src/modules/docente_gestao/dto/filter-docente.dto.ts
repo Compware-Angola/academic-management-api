@@ -32,10 +32,20 @@ export class FilterDocenteDto {
   area?: number;
 
   @ApiPropertyOptional({
+    description: 'Código do grau académico. Use 0 ou omita para listar todos.',
+    example: 1,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  grauAcademico?: number;
+
+  @ApiPropertyOptional({
     description: 'Texto para pesquisa por nome, email, categoria, escalão, grau académico ou número mecanográfico',
     example: 'Pedro',
   })
   @IsOptional()
   @IsString()
   search?: string;
+
 }

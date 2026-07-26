@@ -5,7 +5,7 @@ import { toLowerCaseKeys } from "../util/toLowerCaseKeys";
 
 @Injectable()
 export class UcDocenteSemAfetacaoService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   async listarUC(filters: ListarUCDocenteSemAfetacaoFiltroDto) {
     const {
@@ -13,6 +13,7 @@ export class UcDocenteSemAfetacaoService {
       cursoId,
       semestreId,
       classeId,
+      tipoCandidaturaId,
       page = 1,
       limit = 10,
       search
@@ -51,6 +52,10 @@ export class UcDocenteSemAfetacaoService {
       );
     }
 
+    if (tipoCandidaturaId) {
+      queryBuilder.andWhere("TC.TIPO_CANDIDATURA = :tipoCandidaturaId", { tipoCandidaturaId });
+    }
+
     if (cursoId) {
       queryBuilder.andWhere("TC.CODIGO = :cursoId", { cursoId });
     }
@@ -68,9 +73,9 @@ export class UcDocenteSemAfetacaoService {
         { classeId }
       );
     }
-if (search) {
-  queryBuilder.andWhere(
-    `(
+    if (search) {
+      queryBuilder.andWhere(
+        `(
       TRANSLATE(UPPER(TD.DESIGNACAO),
                 'ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ',
                 'AAAAAEEEEIIIIOOOOUUUUC') LIKE TRANSLATE(UPPER(:search), 'ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ', 'AAAAAEEEEIIIIOOOOUUUUC')
@@ -79,9 +84,9 @@ if (search) {
                 'ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ',
                 'AAAAAEEEEIIIIOOOOUUUUC') LIKE TRANSLATE(UPPER(:search), 'ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ', 'AAAAAEEEEIIIIOOOOUUUUC')
     )`,
-    { search: `%${search}%` }
-  );
-}
+        { search: `%${search}%` }
+      );
+    }
     const countQuery = queryBuilder
       .clone()
       .select("COUNT(*)", "total");

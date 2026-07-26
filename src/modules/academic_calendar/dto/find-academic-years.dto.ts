@@ -8,10 +8,11 @@ export class FindAcademicYearsDTO {
     description: 'Código do tipo de candidatura',
     example: 1,
   })
+  @IsOptional()
   @IsInt()
   @IsPositive()
   @Type(() => Number)
-  tipoCandidatura: number;
+  tipoCandidatura?: number;
 
   @ApiPropertyOptional({
     description: 'Código do ano Lectivo',
@@ -22,27 +23,4 @@ export class FindAcademicYearsDTO {
   @IsPositive()
   @Type(() => Number)
   codigoAnoLectivo?: number;
-
-  @ApiPropertyOptional({
-    description: 'Número da página',
-    example: 1,
-    default: 1,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Type(() => Number)
-  page?: number = 1;
-
-  @ApiPropertyOptional({
-    description: 'Quantidade de registros por página',
-    example: 10,
-    default: 10,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  @Type(() => Number)
-  limit?: number = 10;
 }
