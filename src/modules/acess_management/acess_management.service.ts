@@ -246,12 +246,12 @@ export class AcessosService {
     }
 
     if (filter.sigla) {
-      whereClause += ` AND A.SIGLA LIKE :${params.length + 1}`;
+      whereClause += ` AND UPPER(A.SIGLA) LIKE UPPER(:${params.length + 1})`;
       params.push(`%${filter.sigla}%`);
     }
 
     if (filter.designacao) {
-      whereClause += ` AND A.DESIGNACAO LIKE :${params.length + 1}`;
+      whereClause += ` AND FN_REMOVE_ACENTOS(UPPER(A.DESIGNACAO)) LIKE FN_REMOVE_ACENTOS(UPPER(:${params.length + 1}))`;
       params.push(`%${filter.designacao}%`);
     }
 

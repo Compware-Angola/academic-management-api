@@ -12,12 +12,20 @@ export type AcademicYearPhaseTransitions = Record<
 >;
 
 export const VALID_PHASE_TRANSITIONS: AcademicYearPhaseTransitions = {
-  [EstadoAnoLectivoType.RASCUNHO]: [EstadoAnoLectivoType.CONFIGURAVEL],
+  [EstadoAnoLectivoType.RASCUNHO]: [
+    EstadoAnoLectivoType.CONFIGURAVEL,
+    EstadoAnoLectivoType.ENCERRADO,
+  ],
   [EstadoAnoLectivoType.CONFIGURAVEL]: [
     EstadoAnoLectivoType.USAVEL,
     EstadoAnoLectivoType.RASCUNHO,
+    EstadoAnoLectivoType.ENCERRADO,
   ],
-  [EstadoAnoLectivoType.USAVEL]: [EstadoAnoLectivoType.CONFIGURAVEL],
-  [EstadoAnoLectivoType.ACTIVO]: [EstadoAnoLectivoType.USAVEL],
+  [EstadoAnoLectivoType.USAVEL]: [
+    EstadoAnoLectivoType.CONFIGURAVEL,
+    EstadoAnoLectivoType.ACTIVO,
+    EstadoAnoLectivoType.ENCERRADO,
+  ],
+  [EstadoAnoLectivoType.ACTIVO]: [EstadoAnoLectivoType.ENCERRADO],
   [EstadoAnoLectivoType.ENCERRADO]: [],
 };

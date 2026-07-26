@@ -106,7 +106,7 @@ export class AssessmentController {
     private readonly viewNotesService: ViewNotesService,
     private httpService: HttpService,
     private readonly calendarioProvaService: BookTestService,
-  ) { }
+  ) {}
 
   @Post('upsert')
   @ApiOperation({
@@ -147,8 +147,6 @@ export class AssessmentController {
     });
     console.log(descricoes);
 
-
-
     await AccessLogHelper.logAccess(this.httpService, {
       descricao: descricoes,
       fkAcesso: 7,
@@ -156,7 +154,6 @@ export class AssessmentController {
       ip,
     });
     return result;
-
   }
 
   @Post('parametros-avaliacoes')
@@ -227,6 +224,17 @@ export class AssessmentController {
   @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA.sigla)
   async getAttendanceList(@Query(ValidationPipe) dto: getAttendanceListDto) {
     return this.attendanceService.getAttendanceList(dto);
+  }
+
+  @Get('export-presence-attendance')
+  @ApiOperation({ summary: 'Exportar lista de presenças/faltas em PDF' })
+  @ApiResponse({ status: 200, description: 'Arquivo gerado com sucesso.' })
+  @ApiResponse({ status: 400, description: 'Parâmetros inválidos.' })
+  @RequiredPermissions(PermissionTypeDetails.LISTA_PRESENCA.sigla)
+  async exportAttendanceList(
+    @Query(ValidationPipe) dto: Omit<getAttendanceListDto, 'page' | 'limit'>,
+  ) {
+    return this.attendanceService.exportAttendanceList(dto);
   }
 
   // Endpoint exclusivo da branch develop – mantido

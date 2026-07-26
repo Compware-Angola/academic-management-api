@@ -639,6 +639,7 @@ export class AcademicCalendarService {
         INNER JOIN FK2_MCAL_TB_SEMESTRE TS
           ON TS.PK_SEMESTRE = MT.SEMESTRE
         WHERE MT.ANO_LECTIVO = :1
+           AND MT.ACTIVO = 1
         ORDER BY MT.DATA_LIMITE, MT.DESIGNACAO
       `,
       [anolectivo],
@@ -1293,12 +1294,13 @@ export class AcademicCalendarService {
         const activationStartDate = new Date(firstSemesterStart);
         activationStartDate.setDate(activationStartDate.getDate() - 10);
 
-        const activationEndDate = new Date(firstSemesterStart);
-        activationEndDate.setDate(activationEndDate.getDate() + 10);
+        // const activationEndDate = new Date(firstSemesterStart);
+        // activationEndDate.setDate(activationEndDate.getDate() + 10);
 
-        if (today < activationStartDate || today > activationEndDate) {
+        if (today < activationStartDate) {
           throw new BadRequestException(
-            `O ano lectivo só pode ser activado entre ${activationStartDate.toISOString().split('T')[0]} e ${activationEndDate.toISOString().split('T')[0]}.`,
+            `Este Ano Lectivo só pode ser activado a partir de
+10 dias antes do início do 1.º semestre.`,
           );
         }
       }

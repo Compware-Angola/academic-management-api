@@ -23,6 +23,30 @@ export const TIPO_AVALIACAO = {
   EXAME_ESPECIAL: 11,
 } as const;
 
+const SEMESTRE_TODOS = 3;
+
+const SEMESTRE_CODIGO: Record<string, number> = {
+  'I SEMESTRE': 1,
+  'II SEMESTRE': 2,
+};
+
+const SIGLA_TIPO_PRAZO_LANCAMENTO_NOTAS = 'LN';
+const SIGLA_1F = '1F';
+const SIGLA_2F = '2F';
+
+// Adicionar aos teus enums/constantes existentes (perto de TIPO_AVALIACAO)
+// const TIPO_PRAZO_LANCAMENTO = {
+//   LANCAR_1F: 14, // L.1F - Lançar nota da 1ª Frequência
+//   LANCAR_2F: 15, // L.2F - Lançar nota da 2ª Frequência
+// } as const;
+
+type SituacaoPrazo = 'ANTES' | 'DURANTE' | 'DEPOIS' | 'NAO_CONFIGURADO';
+
+interface PrazosLancamentoSemestre {
+  situacao1F: SituacaoPrazo;
+  situacao2F: SituacaoPrazo;
+}
+
 export type CodigoTipoAvaliacao =
   (typeof TIPO_AVALIACAO)[keyof typeof TIPO_AVALIACAO];
 
@@ -86,13 +110,125 @@ export class StudentsProvasService {
     );
   }
 
+  private async buscarSituacaoPrazosLancamento(
+    codigoAnoLectivo: number,
+    semestresDesignacao: string[],
+  ): Promise<Map<string, PrazosLancamentoSemestre>> {
+    const mapa = new Map<string, PrazosLancamentoSemestre>();
+    if (!semestresDesignacao.length) return mapa;
+
+    const codigosPorDesignacao = new Map<string, number>();
+    for (const designacao of semestresDesignacao) {
+      const codigo = SEMESTRE_CODIGO[designacao];
+      if (codigo !== undefined) codigosPorDesignacao.set(designacao, codigo);
+    }
+
+    if (!codigosPorDesignacao.size) return mapa;
+
+    const codigosBusca = [
+      ...new Set([...codigosPorDesignacao.values(), SEMESTRE_TODOS]),
+    ];
+
+    const placeholdersSemestre = codigosBusca
+      .map((_, i) => `:sem${i}`)
+      .join(', ');
+
+    const sql = `
+    SELECT
+      pz.FK_SEMESTRE,
+      ta.SIGLA AS SIGLA_AVALIACAO,
+      CASE
+        WHEN TRUNC(SYSDATE) < TRUNC(pz.DATA_INICIO) THEN 'ANTES'
+        WHEN TRUNC(SYSDATE) > TRUNC(pz.DATA_FIM) THEN 'DEPOIS'
+        WHEN TRUNC(SYSDATE) BETWEEN TRUNC(pz.DATA_INICIO) AND TRUNC(pz.DATA_FIM) THEN 'DURANTE'
+        ELSE 'DESCONHECIDO'
+      END AS SITUACAO
+    FROM FK2_MCAL_TB_PRAZO pz
+    INNER JOIN FK2_MCAL_TB_TIPO_PRAZO tpz
+      ON tpz.PK_TIPO_PRAZO = pz.FK_TIPO_PRAZO
+    INNER JOIN FK2_MCAL_TB_TIPO_AVALIACAO ta
+      ON ta.PK_TIPO_AVALIACAO = pz.FK_TIPO_AVALIACAO
+    WHERE tpz.SIGLA = :siglaTipoPrazo
+      AND ta.SIGLA IN (:sigla1F, :sigla2F)
+      AND pz.FK_ANO_LECTIVO = :anoLectivo
+      AND pz.FK_SEMESTRE IN (${placeholdersSemestre})
+      AND NVL(pz.ACTIVE_STATE, 1) != 0
+  `;
+
+    const params = [
+      SIGLA_TIPO_PRAZO_LANCAMENTO_NOTAS,
+      SIGLA_1F,
+      SIGLA_2F,
+      String(codigoAnoLectivo),
+      ...codigosBusca,
+    ];
+
+    const rows = toLowerCaseKeys(await this.dataSource.query(sql, params));
+
+    const prioridade: Record<SituacaoPrazo, number> = {
+      DURANTE: 1,
+      ANTES: 2,
+      DEPOIS: 3,
+      NAO_CONFIGURADO: 4,
+    };
+
+    const obterSituacao = (linhas: any[], sigla: string): SituacaoPrazo => {
+      const linhasSigla = linhas.filter((r) => r.sigla_avaliacao === sigla);
+      if (!linhasSigla.length) return 'NAO_CONFIGURADO';
+
+      return linhasSigla.sort(
+        (a, b) => prioridade[a.situacao] - prioridade[b.situacao],
+      )[0].situacao;
+    };
+
+    for (const [designacao, codigo] of codigosPorDesignacao) {
+      const linhasSemestre = rows.filter(
+        (r) => r.fk_semestre === codigo || r.fk_semestre === SEMESTRE_TODOS,
+      );
+
+      mapa.set(designacao, {
+        situacao1F: obterSituacao(linhasSemestre, SIGLA_1F),
+        situacao2F: obterSituacao(linhasSemestre, SIGLA_2F),
+      });
+    }
+
+    return mapa;
+  }
+  private prazoNotasPendentesEncerrado(
+    cadeira: AvaliacaoItem,
+    prazosPorSemestre: Map<string, PrazosLancamentoSemestre>,
+  ): boolean {
+    const prazos = prazosPorSemestre.get(cadeira.semestre);
+
+    // sem prazo configurado para o semestre inteiro = não bloqueia
+    if (!prazos) return true;
+
+    const situacoesPendentes: SituacaoPrazo[] = [];
+
+    if (!this.temNota(cadeira.nota1f)) {
+      situacoesPendentes.push(prazos.situacao1F);
+    }
+    if (!this.temNota(cadeira.nota2f)) {
+      situacoesPendentes.push(prazos.situacao2F);
+    }
+
+    // ambas as notas já lançadas -> não há o que esperar
+    if (!situacoesPendentes.length) return true;
+
+    // todas as notas pendentes precisam ter o prazo encerrado ou não configurado
+    return situacoesPendentes.every(
+      (situacao) => situacao === 'DEPOIS' || situacao === 'NAO_CONFIGURADO',
+    );
+  }
+
   private filtrarCadeirasElegiveis(
     cadeiras: AvaliacaoItem[],
     opcoes: OpcoesFiltroElegibilidade,
+    prazosPorSemestre?: Map<string, PrazosLancamentoSemestre>,
   ): AvaliacaoItem[] {
     return cadeiras.filter((cadeira) => {
       // Regra 1: apenas reprovadas
-      if (opcoes.apenasReprovadas && cadeira.resultado !== 'Reprovado') {
+      if (opcoes.apenasReprovadas && cadeira.resultado === 'Aprovado') {
         return false;
       }
 
@@ -118,6 +254,16 @@ export class StudentsProvasService {
           (condicao) => condicao(cadeira),
         );
         if (!satisfazCondicao) return false;
+      }
+
+      // Regra 5: se falta lançar 1F ou 2F, o prazo de lançamento
+      // dessa nota tem de já ter passado (ou não estar configurado).
+      // Só se aplica quando o mapa de prazos é fornecido (fluxo de recurso).
+      if (
+        prazosPorSemestre &&
+        !this.prazoNotasPendentesEncerrado(cadeira, prazosPorSemestre)
+      ) {
+        return false;
       }
 
       return true;
@@ -455,10 +601,23 @@ export class StudentsProvasService {
       codigoMatricula: dto.codigoMatricula,
     });
 
-    const elegiveis = this.filtrarCadeirasElegiveis(data, {
-      apenasReprovadas: true,
-      excluirComEtapasPosExame: true,
-    });
+    const semestres = [...new Set(data.map((c) => c.semestre))];
+    console.log('Semestres', semestres);
+
+    const prazosPorSemestre = await this.buscarSituacaoPrazosLancamento(
+      dto.codigoAnoLectivo,
+      semestres,
+    );
+    console.log('Prazos', prazosPorSemestre);
+
+    const elegiveis = this.filtrarCadeirasElegiveis(
+      data,
+      {
+        apenasReprovadas: true,
+        excluirComEtapasPosExame: true,
+      },
+      prazosPorSemestre,
+    );
 
     if (!elegiveis.length) {
       return { total: 0, cadeiras: [] };
