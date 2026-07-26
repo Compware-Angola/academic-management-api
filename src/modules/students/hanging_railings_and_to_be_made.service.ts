@@ -7,6 +7,7 @@ export interface FindGradeCursoDTO {
     codigoMatricula: number;
     codigoCurso: number;
     codigoAnoLectivo: number;
+    codigoSemestre: number;
 }
 
 export interface FindGradeCursoReturnDTO {
@@ -145,7 +146,7 @@ export class HangingRailingsAndToBeMadeService {
      * - não há gradesPendentes (aluno novo não tem histórico).
      */
     async findHangingRailingsAndToBeMade(params: FindPlanPorClasseDTO) {
-        const { alunoNovo } = params;
+        const { codigoAnoLectivo, alunoNovo } = params;
 
         if (alunoNovo) {
             return this.findParaAlunoNovo(params);
@@ -175,8 +176,7 @@ export class HangingRailingsAndToBeMadeService {
         );
 
         return {
-            matricula: null,
-            preInscricao: preInscricao,
+            matricula: preInscricao,
             gradesPendentes: [],
             totalGradesPendentes: 0,
             gradesAFazer,
@@ -186,7 +186,7 @@ export class HangingRailingsAndToBeMadeService {
     }
 
     private async findParaAlunoAntigo(params: FindPlanPorClasseDTO) {
-        const { codigoMatricula, codigoAnoLectivo } = params;
+        const { codigoMatricula, codigoAnoLectivo, codigoSemestre } = params;
 
         if (!codigoMatricula) {
             throw new BadRequestException(
@@ -194,8 +194,14 @@ export class HangingRailingsAndToBeMadeService {
             );
         }
 
+        if (!codigoSemestre) {
+            throw new BadRequestException(
+                `codigoSemestre é obrigatório para aluno antigo`,
+            );
+        }
+
         const proximaClasse = await this.getNextClass(codigoMatricula);
-        if (proximaClasse.proxima_classe < 1) {
+        if (proximaClasse.proxima_classe <= 1) {
             throw new BadRequestException(
                 `Erro ao calcular a próxima classe`
             );
@@ -212,6 +218,7 @@ export class HangingRailingsAndToBeMadeService {
                 codigoCurso: matricula.codigo_curso,
                 codigoMatricula: matricula.codigo_matricula!,
                 codigoAnoLectivo: codigoAnoLectivo!,
+                codigoSemestre: codigoSemestre!,
             }),
         ];
 
@@ -221,6 +228,7 @@ export class HangingRailingsAndToBeMadeService {
                     codigoCurso: codigoCursoAnterior,
                     codigoMatricula: matricula.codigo_matricula!,
                     codigoAnoLectivo: codigoAnoLectivo!,
+                    codigoSemestre: codigoSemestre!,
                 }),
             );
         }
@@ -363,7 +371,7 @@ export class HangingRailingsAndToBeMadeService {
     private async findGradeCurso(
         params: FindGradeCursoDTO,
     ): Promise<FindGradeCursoReturnDTO[]> {
-        const { codigoCurso, codigoMatricula, codigoAnoLectivo } = params;
+        const { codigoCurso, codigoMatricula, codigoAnoLectivo, codigoSemestre } = params;
 
         const sql = `
       WITH grade_base AS (
@@ -371,6 +379,8 @@ export class HangingRailingsAndToBeMadeService {
         -- curso (independente do ano lectivo). É aqui que descobrimos o que
         -- o aluno deixou/tem pendente, com a classe/semestre em que a
         -- disciplina foi originalmente cursada.
+        -- Filtrado pelo semestre informado (aluno antigo sempre indica o
+        -- semestre que quer consultar).
         SELECT
           g.CODIGO,
           g.CODIGO_DISCIPLINA,
@@ -392,9 +402,10 @@ export class HangingRailingsAndToBeMadeService {
           ON s.CODIGO = g.CODIGO_SEMESTRE
         INNER JOIN FK2_TB_DURACAO dur
           ON dur.CODIGO = d.DURACAO
-        WHERE g.CODIGO_CURSO = :codigoCurso
-          AND g.STATUS_      = 1
-          AND d.STATUS_      = 1
+        WHERE g.CODIGO_CURSO      = :codigoCurso
+          AND g.STATUS_           = 1
+          AND d.STATUS_           = 1
+          AND g.CODIGO_SEMESTRE   = :codigoSemestre
       ),
       grade_atual AS (
         -- Mapeamento disciplina -> CODIGO da grade curricular no plano do
@@ -449,6 +460,7 @@ export class HangingRailingsAndToBeMadeService {
             codigoMatricula,
             codigoCurso,
             codigoAnoLectivo,
+            codigoSemestre,
         } as any);
 
         if (!result?.length) return [];

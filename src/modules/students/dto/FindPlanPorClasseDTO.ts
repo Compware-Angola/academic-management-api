@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
     IsBoolean,
     IsNotEmpty,
@@ -18,13 +18,17 @@ export class FindPlanPorClasseDTO {
         example: false,
         default: false,
     })
-    @Type(() => Boolean)
+    @Transform(({ value }) => {
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'string') return value.toLowerCase() === 'true';
+        return value;
+    })
     alunoNovo: boolean;
 
     @ValidateIf((o) => !o.alunoNovo)
     @IsNumber()
-    @IsOptional()
     @IsPositive()
+    @IsNotEmpty()
     @ApiProperty({
         type: Number,
         description: 'Código da matrícula (obrigatório quando alunoNovo = false)',
@@ -36,8 +40,8 @@ export class FindPlanPorClasseDTO {
 
     @ValidateIf((o) => o.alunoNovo)
     @IsNumber()
-    @IsOptional()
     @IsPositive()
+    @IsNotEmpty()
     @ApiProperty({
         type: Number,
         description: 'Código da pré-inscrição (obrigatório quando alunoNovo = true)',
@@ -56,4 +60,17 @@ export class FindPlanPorClasseDTO {
     })
     @Type(() => Number)
     codigoAnoLectivo: number;
+
+    @ValidateIf((o) => !o.alunoNovo)
+    @IsNumber()
+    @IsPositive()
+    @IsNotEmpty()
+    @ApiProperty({
+        type: Number,
+        description: 'Código do semestre (obrigatório quando alunoNovo = false)',
+        example: 1,
+        required: false,
+    })
+    @Type(() => Number)
+    codigoSemestre?: number;
 }
