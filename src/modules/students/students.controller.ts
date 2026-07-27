@@ -75,7 +75,8 @@ import { CreateEquivalenceTFCMigration } from './dto/create-equivalence-tfc-migr
 import { HangingRailingsAndToBeMadeService } from './hanging_railings_and_to_be_made.service';
 import { FindPlanPorClasseDTO } from './dto/FindPlanPorClasseDTO';
 import { NextClassDTO } from './dto/next-class';
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+import { GetConfirmationDTO } from './dto/get-confirmation.dto';
+//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @ApiTags('Students')
 @Controller('students')
 export class StudentsController {
@@ -579,5 +580,20 @@ export class StudentsController {
     return this.hangingRailingsAndToBeMadeService.findHangingRailingsAndToBeMade(
       query,
     );
+  }
+
+
+  @Get('confirmation/:codigoMatricula')
+  @ApiOperation({ summary: 'Obter confirmação' })
+  @ApiResponse({
+    status: 200,
+    description: 'Confirmação obtida com sucesso',
+  })
+  async getConfirmation(
+    @Query(ValidationPipe) query: GetConfirmationDTO,
+    @Param('codigoMatricula', ParseIntPipe) codigoMatricula: number,
+
+  ) {
+    return this.studentsService.getConfirmation(codigoMatricula, query);
   }
 }
