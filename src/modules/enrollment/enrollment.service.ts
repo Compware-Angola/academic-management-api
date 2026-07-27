@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import * as oracledb from 'oracledb';
 import { DataSource } from 'typeorm';
 import { EnrollmentDto, GradeItemDto } from './dto/create-enrollment.dto';
@@ -94,18 +94,22 @@ export class EnrollmentService {
       const codMatricula = matriculaResult.outId[0];
 
 
-      const anoResult = await queryRunner.query(
-        `SELECT "CODIGO" FROM FK2_TB_ANO_LECTIVO WHERE "ESTADO" = 'Activo' FETCH FIRST 1 ROWS ONLY`,
+      // 5. Verificar se Existe o ano Lectivo informado e se esta activo
+      if (!enrollmentDto.anoLectivo) {
+        throw new BadRequestException('Ano Lectivo não informado');
+      }
+      const anoLectivo = await queryRunner.query(
+        `SELECT CODIGO
+         FROM FK2_TB_ANO_LECTIVO
+         WHERE CODIGO = :anoLectivo AND (estado = 'Activo' or  FASE_ANOLECTIVO = 'USAVEL' or FASE_ANOLECTIVO = 'RASCUNHO' or FASE_ANOLECTIVO ='CONFIGURAVEL')`,
+        { anoLectivo: enrollmentDto.anoLectivo } as any,
       );
 
-      if (anoResult.length === 0) {
-        throw new HttpException(
-          'Nenhum ano lectivo activo encontrado',
-          HttpStatus.NOT_FOUND,
-        );
+      if (!anoLectivo) {
+        throw new BadRequestException('Não existe ano letivo ativo');
       }
 
-      const codAnoActual = anoResult[0].CODIGO;
+      const codAnoActual = anoLectivo;
 
 
 
