@@ -34,6 +34,7 @@ import {
   EstadoAnoLectivoType,
   VALID_PHASE_TRANSITIONS,
 } from 'src/common/enums/faso_anolectivo.type';
+import { definirSemestre } from '../academic_activities/util/definir-semestre';
 type InsertVagasCursoType = {
   codigoUtilizador: number;
   codigoAnoLectivo: number;
@@ -1192,7 +1193,13 @@ export class AcademicCalendarService {
     // Se não existe ativo, cai direto para tentar achar um usável
     if (!ativo) {
       const usavel = await this.findNextAcademicYear(tipoCandidatura);
-      return { data: usavel ? toLowerCaseKeys(usavel) : null };
+      const semestre = definirSemestre({
+        DATAINICIOPRIMEIROSEMESTRE: usavel?.DATAINICIOPRIMEIROSEMESTRE,
+        DATAFIMPRIMEIROSEMESTRE: usavel?.DATAFIMPRIMEIROSEMESTRE,
+        DATAINICIOSEGUNDOSEMESTRE: usavel?.DATAINICIOSEGUNDOSEMESTRE,
+        DATAFIMSEGUNDOSEMESTRE: usavel?.DATAFIMSEGUNDOSEMESTRE,
+      })
+      return { data: usavel ? toLowerCaseKeys({ ...usavel, semestre }) : null };
     }
 
     const diasRestantes = this.diasAteData(ativo.datafimsegundosemestre);
@@ -1200,12 +1207,24 @@ export class AcademicCalendarService {
     if (diasRestantes <= this.DIAS_ANTECEDENCIA_TROCA_ANO_LECTIVO) {
       const usavel = await this.findNextAcademicYear(tipoCandidatura);
       if (usavel) {
-        return { data: toLowerCaseKeys(usavel) };
+        const semestre = definirSemestre({
+          DATAINICIOPRIMEIROSEMESTRE: usavel?.DATAINICIOPRIMEIROSEMESTRE,
+          DATAFIMPRIMEIROSEMESTRE: usavel?.DATAFIMPRIMEIROSEMESTRE,
+          DATAINICIOSEGUNDOSEMESTRE: usavel?.DATAINICIOSEGUNDOSEMESTRE,
+          DATAFIMSEGUNDOSEMESTRE: usavel?.DATAFIMSEGUNDOSEMESTRE,
+        })
+        return { data: toLowerCaseKeys({ ...usavel, semestre }) };
       }
     }
 
     // 3. Caso contrário (ou não exista usável), continua no ativo
-    return { data: toLowerCaseKeys(ativo) };
+    const semestre = definirSemestre({
+      DATAINICIOPRIMEIROSEMESTRE: ativo?.DATAINICIOPRIMEIROSEMESTRE,
+      DATAFIMPRIMEIROSEMESTRE: ativo?.DATAFIMPRIMEIROSEMESTRE,
+      DATAINICIOSEGUNDOSEMESTRE: ativo?.DATAINICIOSEGUNDOSEMESTRE,
+      DATAFIMSEGUNDOSEMESTRE: ativo?.DATAFIMSEGUNDOSEMESTRE,
+    })
+    return { data: toLowerCaseKeys({ ...ativo, semestre }) };
   }
 
   private async findActiveAcademicYear(tipoCandidatura: number) {
