@@ -27,6 +27,7 @@ import { formatarDataExtenso, notaExtenso } from '../util/diploma.util';
 import { GerarCertificadoDto } from './dto/gerar-certificado.dto';
 import { ListarDiplomadosDTO } from './dto/listar-diplomados-dto';
 import { StudentsResultPlanService } from './students-result-plan.service';
+import { GetConfirmationDTO } from './dto/get-confirmation.dto';
 
 @Injectable()
 export class StudentsService {
@@ -2808,7 +2809,6 @@ WHERE M."CODIGO" = :codigoMatricula`;
       },
     };
   }
-
   async listarEstudantesDiplomados(filter: ListarDiplomadosDTO) {
     const {
       anoLectivo,
@@ -2910,6 +2910,77 @@ WHERE M."CODIGO" = :codigoMatricula`;
       page,
       limit,
       totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
+  async getConfirmation(
+    codigoMatricula: number,
+    query: GetConfirmationDTO,
+  ) {
+    const { codigoAnoLectivo, codigoSemestre, alunoNovo } = query;
+
+    if (alunoNovo && !codigoSemestre) {
+      throw new BadRequestException(
+        "O semestre não foi informado para aluno novo",
+      );
+    }
+
+    let sql = `
+    SELECT
+      cf.CODIGO_MATRICULA,
+      al.CODIGO,
+      cf.DATA_CONFIRMACAO,
+      cf.ESTADO,
+      cf.CLASSE,
+      cf.CANAL,
+      cf.SEMESTRE
+    FROM FK2_TB_CONFIRMACOES cf
+    LEFT JOIN FK2_TB_ANO_LECTIVO al
+      ON al.CODIGO = cf.CODIGO_ANO_LECTIVO
+    WHERE cf.CODIGO_MATRICULA = :codigoMatricula
+      AND al.CODIGO = :codigoAnoLectivo
+  `;
+
+    const params: any = {
+      codigoMatricula,
+      codigoAnoLectivo,
+    };
+
+    // Para aluno novo é obrigatório.
+    // Para aluno antigo filtra apenas se o semestre for informado.
+    if (codigoSemestre) {
+      sql += ` AND cf.SEMESTRE = :codigoSemestre`;
+      params.codigoSemestre = codigoSemestre;
+    }
+
+    sql += `
+    ORDER BY cf.CODIGO DESC
+    FETCH FIRST 1 ROWS ONLY
+  `;
+
+    const [confirmacao] = await this.dataSource.query(sql, params);
+
+    const confirmacaoFormatada = confirmacao
+      ? toLowerCaseKeys(confirmacao)
+      : null;
+
+    return {
+      confirmacao: confirmacaoFormatada,
+      informacoes: {
+        podeConfirmar: !confirmacao,
+        confirmacao_status: confirmacaoFormatada?.estado ?? null,
+        mensagens: confirmacaoFormatada
+          ? [
+            `Confirmação já realizada em ${formatarDataExtenso(
+              new Date(confirmacaoFormatada.data_confirmacao),
+            )}`,
+            confirmacaoFormatada.estado === 0
+              ? "A confirmação está pendente"
+              : confirmacaoFormatada.estado === 1
+                ? "A confirmação foi validada"
+                : "A confirmação foi rejeitada",
+          ]
+          : ["Confirmação não realizada"],
+      },
     };
   }
 }
