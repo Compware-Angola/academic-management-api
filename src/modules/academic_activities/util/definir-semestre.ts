@@ -25,7 +25,7 @@ function definirSemestre(
     return 2;
   }
 
-  return 2; // fora do período letivo
+  return 1; // fora do período letivo
 }
 
 export { definirSemestre };
