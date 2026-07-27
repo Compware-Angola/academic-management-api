@@ -1194,17 +1194,9 @@ export class AcademicCalendarService {
       const usavel = await this.findNextAcademicYear(tipoCandidatura);
       return { data: usavel ? toLowerCaseKeys(usavel) : null };
     }
-    console.log('ativo:', ativo);
-    console.log('new Date(ativo.datafimsegundosemestre):', new Date(ativo.datafimsegundosemestre));
 
     const diasRestantes = this.diasAteData(ativo.datafimsegundosemestre);
-    console.log("diasRestantes: ", diasRestantes);
-    console.log("DIAS_ANTECEDENCIA_TROCA_ANO_LECTIVO: ", this.DIAS_ANTECEDENCIA_TROCA_ANO_LECTIVO);
-    console.log(diasRestantes <= this.DIAS_ANTECEDENCIA_TROCA_ANO_LECTIVO);
 
-
-    // 2. Só verifica/considera o usável se faltarem <= 15 dias para o fim
-    //    do segundo semestre do ano ativo
     if (diasRestantes <= this.DIAS_ANTECEDENCIA_TROCA_ANO_LECTIVO) {
       const usavel = await this.findNextAcademicYear(tipoCandidatura);
       if (usavel) {
