@@ -106,7 +106,7 @@ export class EnrollmentRegistrationsUCService {
         throw new BadRequestException('Não existe ano letivo ativo');
       }
 
-      const codAnoActual = anoLectivo?.CODIGO;
+      const codAnoActual = anoLectivo[0]?.CODIGO;
 
       // 6. Verificar se já existe confirmação para essa matrícula + ano
       const countConf = await queryRunner.query(
