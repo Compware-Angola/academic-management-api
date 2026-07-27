@@ -12,7 +12,7 @@ export class EnrollmentRegistrationsUCService {
   async registerGradesUc(
     body: EnrollmentRegistrationsUCDto
   ) {
-    const { codPreInscricao, grades, semestre } = body;
+    const { codPreInscricao, grades, semestre, anoLectivo } = body;
 
     if (!codPreInscricao) {
       throw new BadRequestException('codPreInscricao é obrigatório');
@@ -91,19 +91,22 @@ export class EnrollmentRegistrationsUCService {
 
       const codMatricula = matricula[0].CODIGO;
 
-      // 5. Buscar ano letivo ativo
-      const [anoAtual] = await queryRunner.query(
+      // 5. Verificar se Existe o ano Lectivo informado e se esta activo
+      if (!body.anoLectivo) {
+        throw new BadRequestException('Ano Lectivo não informado');
+      }
+      const anoLectivo = await queryRunner.query(
         `SELECT CODIGO
          FROM FK2_TB_ANO_LECTIVO
-         WHERE estado = 'Activo'
-         FETCH FIRST 1 ROWS ONLY`,
+         WHERE CODIGO = :anoLectivo or estado = 'Activo' or  estado  = 'USAVEL'`,
+        { anoLectivo: body.anoLectivo } as any,
       );
 
-      if (!anoAtual) {
+      if (!anoLectivo) {
         throw new BadRequestException('Não existe ano letivo ativo');
       }
 
-      const codAnoActual = anoAtual.CODIGO;
+      const codAnoActual = anoLectivo?.CODIGO;
 
       // 6. Verificar se já existe confirmação para essa matrícula + ano
       const countConf = await queryRunner.query(

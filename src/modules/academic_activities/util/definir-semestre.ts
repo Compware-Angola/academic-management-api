@@ -17,7 +17,7 @@ function definirSemestre(
   const inicio2 = new Date(datas.DATAINICIOSEGUNDOSEMESTRE);
   const fim2 = new Date(datas.DATAFIMSEGUNDOSEMESTRE);
 
-  if (ref >= inicio1 && ref <= fim1) {
+  if ((ref >= inicio1 && ref <= fim1) || inicio1 >= ref) {
     return 1;
   }
 
@@ -25,7 +25,7 @@ function definirSemestre(
     return 2;
   }
 
-  return 2; // fora do período letivo
+  return null;
 }
 
 export { definirSemestre };
