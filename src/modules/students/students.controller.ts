@@ -90,7 +90,7 @@ export class StudentsController {
     private readonly equivalenceTFMigration: EquivalenceTFCMigration,
     private readonly hangingRailingsAndToBeMadeService: HangingRailingsAndToBeMadeService,
     private httpService: HttpService,
-  ) { }
+  ) {}
   private log(req: any, descricao: string) {
     const user = req.user;
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
@@ -568,13 +568,8 @@ export class StudentsController {
     status: 200,
     description: 'Proxima classe do estudante obtida com sucesso',
   })
-  async getNextClass(
-    @Param('matricula', ParseIntPipe) matricula: number,
-
-  ) {
-    return this.hangingRailingsAndToBeMadeService.getNextClass(
-      matricula
-    );
+  async getNextClass(@Param('matricula', ParseIntPipe) matricula: number) {
+    return this.hangingRailingsAndToBeMadeService.getNextClass(matricula);
   }
 
   @Get('hanging-railings-and-to-be-made')

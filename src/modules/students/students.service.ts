@@ -35,7 +35,7 @@ export class StudentsService {
     private readonly dataSource: DataSource,
     private readonly anoLectivoUtil: AnoLectivoUtil,
     private readonly planStudent: StudentsResultPlanService,
-  ) { }
+  ) {}
 
   async getProfileEstatistic(
     codigoMatricula: number,
@@ -125,7 +125,25 @@ export class StudentsService {
           SELECT MAX(conf.CLASSE)
           FROM FK2_TB_CONFIRMACOES conf
           WHERE conf.CODIGO_MATRICULA = m.CODIGO
-      ) AS classe_confirmacao_max
+      ) AS classe_confirmacao_max,
+
+      -- Ficheiro da acta de diplomação (registo mais recente)
+      (
+          SELECT log.FILENAME
+          FROM FK2_MGA_TB_LOG_DIPLOMAR log
+          WHERE log.FK_MATRICULA = m.CODIGO
+          ORDER BY log.CREATED_AT DESC, log.PK_LOG_DIPLOMAR DESC
+          FETCH FIRST 1 ROWS ONLY
+      ) AS acta_filename,
+
+      -- Data da acta de diplomação (registo mais recente)
+      (
+          SELECT log.DATA_ACTA
+          FROM FK2_MGA_TB_LOG_DIPLOMAR log
+          WHERE log.FK_MATRICULA = m.CODIGO
+          ORDER BY log.CREATED_AT DESC, log.PK_LOG_DIPLOMAR DESC
+          FETCH FIRST 1 ROWS ONLY
+      ) AS data_acta
 
   FROM FK2_TB_MATRICULAS m
   LEFT JOIN FK2_TB_ADMISSAO a
@@ -189,7 +207,8 @@ export class StudentsService {
     }
 
     const anoLectivo = await this.anoLectivoUtil.getAnoAtualId();
-    const semestre = (await this.anoLectivoUtil.getSemestreAtual()).semestre ?? 1;
+    const semestre =
+      (await this.anoLectivoUtil.getSemestreAtual()).semestre ?? 1;
 
     const sql = `
     SELECT
@@ -620,14 +639,15 @@ export class StudentsService {
             AND tm.CODIGO_CURSO = tgc.CODIGO_CURSO
         )
       ) = 1
-      ${search && search.trim()
-        ? `
+      ${
+        search && search.trim()
+          ? `
         AND (
           UPPER(tp.NOME_COMPLETO) LIKE :search
           OR UPPER(NVL(tp.BILHETE_IDENTIDADE, '-')) LIKE :search
         )
       `
-        : ``
+          : ``
       }
     ) q
   ) t
@@ -688,7 +708,8 @@ export class StudentsService {
           AND tm.CODIGO_CURSO = tgc.CODIGO_CURSO
       )
     ) = 1
-    ${search && search.trim()
+    ${
+      search && search.trim()
         ? `
       AND (
         UPPER(tp.NOME_COMPLETO) LIKE :search
@@ -696,7 +717,7 @@ export class StudentsService {
       )
     `
         : ``
-      }
+    }
   )
 `;
 
@@ -1272,7 +1293,11 @@ WHERE M."CODIGO" = :codigoMatricula`;
     PASSWORD_RESET_REQUIRED = :passwordResetRequired
     WHERE "ID" = :user_id
     `,
-      { hash: hash, user_id: toLowerCaseKeys(result[0]).user_id, passwordResetRequired: 0 } as any,
+      {
+        hash: hash,
+        user_id: toLowerCaseKeys(result[0]).user_id,
+        passwordResetRequired: 0,
+      } as any,
     );
 
     return { message: 'Senha atualizada com sucesso' };
@@ -1280,7 +1305,6 @@ WHERE M."CODIGO" = :codigoMatricula`;
 
   async updateContactos(body: UpdateStudentContactDTO) {
     const { codigoMatricula, email, contacto, contactoAlternativo } = body;
-
 
     if (!email && !contacto && !contactoAlternativo) {
       throw new BadRequestException(
@@ -2293,6 +2317,8 @@ WHERE M."CODIGO" = :codigoMatricula`;
       codigoMatricula: number;
       dataConclusao?: Date | string;
       imprimeCartaConclusao?: boolean;
+      dataActa?: string;
+      fileName?: string;
     },
     usuarioLogado: any,
   ) {
@@ -2300,6 +2326,8 @@ WHERE M."CODIGO" = :codigoMatricula`;
       codigoMatricula,
       dataConclusao,
       imprimeCartaConclusao = false,
+      dataActa,
+      fileName,
     } = body;
 
     if (!codigoMatricula) {
@@ -2432,9 +2460,9 @@ WHERE M."CODIGO" = :codigoMatricula`;
       const refUtilizador =
         usuarioLogado?.sub || usuarioLogado?.name
           ? JSON.stringify({
-            pk: usuarioLogado?.sub ?? null,
-            desc: usuarioLogado?.name ?? null,
-          })
+              pk: usuarioLogado?.sub ?? null,
+              desc: usuarioLogado?.name ?? null,
+            })
           : null;
 
       // Verifica se já existe conclusão para esta matrícula
@@ -2546,21 +2574,27 @@ WHERE M."CODIGO" = :codigoMatricula`;
       // Log
       await manager.query(
         `
-      INSERT INTO FK2_MGA_TB_LOG_DIPLOMAR (
-        DESCRICAO,
-        FK_MATRICULA,
-        FK_UTILIZADOR_RESPONSAVEL,
-        CREATED_AT
-      ) VALUES (
-        'Diplomado',
-        :codigoMatricula,
-        :utilizadorResponsavel,
-        SYSDATE
-      )
-      `,
+  INSERT INTO FK2_MGA_TB_LOG_DIPLOMAR (
+    DESCRICAO,
+    FK_MATRICULA,
+    FK_UTILIZADOR_RESPONSAVEL,
+    CREATED_AT,
+    DATA_ACTA,
+    FILENAME
+  ) VALUES (
+    'Diplomado',
+    :codigoMatricula,
+    :utilizadorResponsavel,
+    SYSDATE,
+    TO_DATE(:dataActa, 'YYYY-MM-DD'),
+    :fileName
+  )
+  `,
         {
           codigoMatricula,
           utilizadorResponsavel: usuarioLogado?.sub ?? null,
+          dataActa: dataActa ?? null,
+          fileName: fileName ?? null,
         } as any,
       );
 
