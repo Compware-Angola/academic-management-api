@@ -92,29 +92,31 @@ export class EnrollmentRegistrationsUCService {
       const codMatricula = matricula[0].CODIGO;
 
       // 5. Verificar se Existe o ano Lectivo informado e se esta activo
-      if (!body.anoLectivo) {
+      if (!anoLectivo) {
         throw new BadRequestException('Ano Lectivo não informado');
       }
-      const anoLectivo = await queryRunner.query(
+      const verifyAnoLectivo = await queryRunner.query(
         `SELECT CODIGO
          FROM FK2_TB_ANO_LECTIVO
-         WHERE CODIGO = :anoLectivo or estado = 'Activo' or  estado  = 'USAVEL'`,
-        { anoLectivo: body.anoLectivo } as any,
+         WHERE CODIGO = :anoLectivo AND (estado = 'Activo' or  FASE_ANOLECTIVO = 'USAVEL' or FASE_ANOLECTIVO = 'RASCUNHO' or FASE_ANOLECTIVO ='CONFIGURAVEL')`,
+        { anoLectivo } as any,
       );
 
-      if (!anoLectivo) {
+      if (!verifyAnoLectivo) {
         throw new BadRequestException('Não existe ano letivo ativo');
       }
 
-      const codAnoActual = anoLectivo[0]?.CODIGO;
+      const codAnoActual = anoLectivo;
 
       // 6. Verificar se já existe confirmação para essa matrícula + ano
       const countConf = await queryRunner.query(
         `SELECT COUNT(*) as cnt
          FROM FK2_TB_CONFIRMACOES
          WHERE Codigo_Matricula = :codMatricula
-           AND Codigo_Ano_lectivo = :codAnoActual`,
-        { codMatricula, codAnoActual } as any,
+           AND Codigo_Ano_lectivo = :codAnoActual
+           AND semestre = :semestre
+           `,
+        { codMatricula, codAnoActual, semestre } as any,
       );
 
       if (Number(countConf.cnt) > 0) {
