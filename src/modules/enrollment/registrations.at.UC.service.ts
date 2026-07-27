@@ -191,25 +191,7 @@ export class EnrollmentRegistrationsUCService {
       classe = iSSameYear ? classe : classe + 1;
 
       //Verificar  o semestre
-      try {
-        const countConfSemestre = await queryRunner.query(
-          `SELECT COUNT(*) as cnt
-               FROM FK2_TB_CONFIRMACOES
-               WHERE Codigo_Matricula = :codMatricula
-              -- AND Estado = '1'
-                 AND Semestre = :semestre`,
-          { codMatricula, semestre } as any,
-        );
-        console.log(countConfSemestre);
 
-
-        if (Number(countConfSemestre[0].CNT) != 0) {
-          throw new BadRequestException('Já existe uma confirmação para esta matrícula neste semestre');
-        }
-
-      } catch (error) {
-        throw new BadRequestException('Erro ao verificar confirmação existente para o semestre: ' + error.message);
-      }
 
 
       const result = await queryRunner.query(
@@ -236,12 +218,6 @@ export class EnrollmentRegistrationsUCService {
           desc: descHorario || '',
         });
 
-        // Gerar próximo código da grade do aluno
-        const [maxGradeAl] = await queryRunner.query(
-          `SELECT MAX(CODIGO) as maxcod
-           FROM FK2_TB_GRADE_CURRICULAR_ALUNO
-           WHERE REGEXP_LIKE(Codigo, '^[0-9]+$')`,
-        );
 
         // const codGradeCurricularAluno = Number(maxGradeAl.MAXCOD) + 1;
 
