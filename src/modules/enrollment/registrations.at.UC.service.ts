@@ -98,7 +98,7 @@ export class EnrollmentRegistrationsUCService {
       const anoLectivo = await queryRunner.query(
         `SELECT CODIGO
          FROM FK2_TB_ANO_LECTIVO
-         WHERE CODIGO = :anoLectivo or estado = 'Activo' or  estado  = 'USAVEL'`,
+         WHERE CODIGO = :anoLectivo AND (estado = 'Activo' or  FASE_ANOLECTIVO = 'USAVEL' or FASE_ANOLECTIVO = 'RASCUNHO')`,
         { anoLectivo: body.anoLectivo } as any,
       );
 
