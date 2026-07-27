@@ -2916,13 +2916,8 @@ WHERE M."CODIGO" = :codigoMatricula`;
     codigoMatricula: number,
     query: GetConfirmationDTO,
   ) {
-    const { codigoAnoLectivo, codigoSemestre, alunoNovo } = query;
+    const { codigoAnoLectivo, codigoSemestre } = query;
 
-    if (alunoNovo && !codigoSemestre) {
-      throw new BadRequestException(
-        "O semestre não foi informado para aluno novo",
-      );
-    }
 
     let sql = `
     SELECT

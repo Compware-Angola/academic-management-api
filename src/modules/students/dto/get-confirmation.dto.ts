@@ -3,20 +3,7 @@ import { IsBoolean, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, Max, Mi
 import { Transform, Type } from 'class-transformer';
 
 export class GetConfirmationDTO {
-    @IsBoolean()
-    @IsNotEmpty()
-    @ApiProperty({
-        type: Boolean,
-        description: 'Indica se é aluno novo (sem matrícula, usa pré-inscrição) ou aluno antigo (usa matrícula)',
-        example: false,
-        default: false,
-    })
-    @Transform(({ value }) => {
-        if (typeof value === 'boolean') return value;
-        if (typeof value === 'string') return value.toLowerCase() === 'true';
-        return value;
-    })
-    alunoNovo: boolean;
+
     @ApiProperty({
         example: 2024,
         description: 'Código do ano lectivo',
@@ -26,7 +13,7 @@ export class GetConfirmationDTO {
     @Type(() => Number)
     @IsOptional()
     codigoAnoLectivo: number;
-    @ValidateIf((o) => !o.alunoNovo)
+
     @IsNumber()
     @IsPositive()
     @IsNotEmpty()
