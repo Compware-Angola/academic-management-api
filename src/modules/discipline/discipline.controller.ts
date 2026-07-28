@@ -15,12 +15,7 @@ import {
 } from '@nestjs/common';
 import { DisciplineService } from './discipline.service';
 
-import {
-  ApiOperation,
-  ApiTags,
-  ApiBody,
-  ApiResponse,
-} from '@nestjs/swagger';
+import { ApiOperation, ApiTags, ApiBody, ApiResponse } from '@nestjs/swagger';
 
 import { FindDisciplinaAlunoDTO } from './dto/find-disciplina-aluno.dto';
 import { FindDisciplinasDto } from './dto/find-disciplinas.dto';
@@ -32,23 +27,28 @@ import { CreateUnidadeCurricularDepartamentoDto } from './dto/create-unidade-cur
 import { FindUnidadeCurricularDeptDto } from './dto/find-unidade-curricular-dept.dto';
 import { CreatePlanoGradeCurricularEmMassaDto } from './dto/create-plano-grade-curricular-em-massa.dto';
 import { ConfigurationPlaneService } from './configuration-plane.service';
+import { ToggleStatusGradeCurricularDto } from './dto/toggle-status-grade-curricular.dto';
+import { FindGradeCurricularAdminDto } from './dto/find-grade-curricular-admin.dto';
 
 @ApiTags('DISCIPLINAS')
 @Controller('discipline')
 export class DisciplineController {
-  constructor(private readonly disciplineService: DisciplineService, private readonly configurationPlaneService: ConfigurationPlaneService) { }
+  constructor(
+    private readonly disciplineService: DisciplineService,
+    private readonly configurationPlaneService: ConfigurationPlaneService,
+  ) {}
 
   @Post()
   @ApiOperation({
     summary: 'Criar Disciplina',
-    description: 'Endpoint responsável por criar uma nova disciplina no sistema.',
+    description:
+      'Endpoint responsável por criar uma nova disciplina no sistema.',
   })
   @ApiBody({ type: CreateDisciplinaDto })
   @ApiResponse({
     status: 201,
     description: 'Disciplina criada com sucesso',
   })
-
   @ApiResponse({
     status: 400,
     description: 'Erro de validação nos dados enviados',
@@ -63,9 +63,14 @@ export class DisciplineController {
     status: 201,
     description: 'Grades curriculares adicionadas ao plano com sucesso.',
   })
-  async adicionarGradeCurricularNoPlanoEmMassa(@Body() dto: CreatePlanoGradeCurricularEmMassaDto) {
+  async adicionarGradeCurricularNoPlanoEmMassa(
+    @Body() dto: CreatePlanoGradeCurricularEmMassaDto,
+  ) {
     const codigoUtilizador = 1;
-    return this.configurationPlaneService.createConfigurationPlano(dto, codigoUtilizador);
+    return this.configurationPlaneService.createConfigurationPlano(
+      dto,
+      codigoUtilizador,
+    );
   }
   @Patch(':codigo')
   async updateDisciplina(
@@ -89,7 +94,7 @@ export class DisciplineController {
     @Query(ValidationPipe) query: FindDisciplinaAlunoDTO,
     @Req() req: any,
   ) {
-    console.log("chegou aqui", query);
+    console.log('chegou aqui', query);
     return this.disciplineService.findGradeCurricularAluno(query);
   }
 
@@ -114,6 +119,27 @@ export class DisciplineController {
   async findGradeCurricular(@Query() dto: FindGradeCurricularDto) {
     return this.disciplineService.findGradeCurricular(dto);
   }
+
+  @Get('grade-curricular2')
+  @ApiOperation({
+    summary: 'Listar  UC no plano',
+    description: 'Retorna lista dos uc.',
+  })
+  async findGradeCurricular2(@Query() dto: FindGradeCurricularAdminDto) {
+    return this.disciplineService.findAllGradeCurricular(dto);
+  }
+
+  @Patch('grade-curricular/:codigo/status')
+  toggleStatusGradeCurricular(
+    @Param('codigo', ParseIntPipe) codigo: number,
+    @Body() dto: ToggleStatusGradeCurricularDto,
+  ) {
+    return this.disciplineService.toggleStatusGradeCurricular(
+      codigo,
+      dto.status,
+    );
+  }
+
   @Post('plano-curricular')
   @ApiOperation({
     summary: 'add uc no plano',
@@ -123,8 +149,11 @@ export class DisciplineController {
   async adicionarUnidadeCurricularNoPlano(
     @Body() dto: CreateUnidadeCurricularDto,
   ) {
-    const codigoUtilizador = 1
-    return this.disciplineService.adicionarUnidadeCurricularNoPlano(dto, codigoUtilizador);
+    const codigoUtilizador = 1;
+    return this.disciplineService.adicionarUnidadeCurricularNoPlano(
+      dto,
+      codigoUtilizador,
+    );
   }
   @Delete('plano-curricular/:codigoGrade')
   @ApiOperation({
@@ -154,7 +183,9 @@ export class DisciplineController {
     summary: 'Listar  UC no departamento',
     description: 'Retorna lista de uc no departamento.',
   })
-  async listarUnidadeCurricularDept(@Query() dto: FindUnidadeCurricularDeptDto) {
+  async listarUnidadeCurricularDept(
+    @Query() dto: FindUnidadeCurricularDeptDto,
+  ) {
     return this.disciplineService.listarUnidadeCurricularDept(dto);
   }
 }

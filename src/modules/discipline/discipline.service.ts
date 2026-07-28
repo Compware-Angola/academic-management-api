@@ -15,6 +15,7 @@ import { FindGradeCurricularDto } from './dto/FindGradeCurricularDto';
 import { CreateUnidadeCurricularDto } from './dto/create-unidade-curricular.plano.dto';
 import { CreateUnidadeCurricularDepartamentoDto } from './dto/create-unidade-curricular-departamento.dto';
 import { FindUnidadeCurricularDeptDto } from './dto/find-unidade-curricular-dept.dto';
+import { FindGradeCurricularAdminDto } from './dto/find-grade-curricular-admin.dto';
 
 @Injectable()
 export class DisciplineService {
@@ -490,6 +491,156 @@ export class DisciplineService {
       console.error('Erro ao buscar grade curricular:', error);
       throw new InternalServerErrorException(
         `Erro ao buscar grade curricular: ${error.message}`,
+      );
+    }
+  }
+
+  // service — método de listagem (todas as linhas, sem dedup por disciplina)
+
+  async findAllGradeCurricular(dto: FindGradeCurricularAdminDto) {
+    const {
+      curso,
+      classe,
+      semestre,
+      disciplina,
+      estado,
+      search,
+      page = 1,
+      limit = 25,
+    } = dto;
+
+    const offset = (page - 1) * limit;
+    const conditions: string[] = ['1=1'];
+    const params: Record<string, any> = {};
+
+    if (curso) {
+      conditions.push('gc.CODIGO_CURSO = :curso');
+      params.curso = curso;
+    }
+
+    if (classe) {
+      conditions.push('gc.CODIGO_CLASSE = :classe');
+      params.classe = classe;
+    }
+
+    if (semestre) {
+      conditions.push('gc.CODIGO_SEMESTRE = :semestre');
+      params.semestre = semestre;
+    }
+
+    if (disciplina) {
+      conditions.push('gc.CODIGO_DISCIPLINA = :disciplina');
+      params.disciplina = disciplina;
+    }
+
+    if (estado === 0 || estado === 1) {
+      conditions.push('gc.STATUS_ = :estado');
+      params.estado = Number(estado);
+    }
+
+    if (search) {
+      conditions.push('UPPER(dd.DESIGNACAO) LIKE UPPER(:search)');
+      params.search = `%${search}%`;
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    // Sem ROW_NUMBER / dedup aqui de propósito: precisamos ver cada
+    // registo de FK2_TB_GRADE_CURRICULAR individualmente (mesmo que a
+    // mesma disciplina apareça mais de uma vez, ex: I e II semestre,
+    // ou registos duplicados por engano) para poder activar/inactivar
+    // cada um separadamente.
+    const baseFrom = `
+    FROM FK2_TB_GRADE_CURRICULAR gc
+    INNER JOIN FK2_TB_DISCIPLINAS dd ON dd.CODIGO = gc.CODIGO_DISCIPLINA
+    INNER JOIN FK2_TB_CURSOS cc      ON cc.CODIGO = gc.CODIGO_CURSO
+    INNER JOIN FK2_TB_CLASSES cl     ON cl.CODIGO = gc.CODIGO_CLASSE
+    INNER JOIN FK2_TB_SEMESTRES ss   ON ss.CODIGO = gc.CODIGO_SEMESTRE
+    WHERE ${whereClause}
+  `;
+
+    const sql = `
+    SELECT
+      gc.CODIGO             AS codigo,
+      gc.CODIGO_CURSO       AS codigo_curso,
+      cc.DESIGNACAO         AS descricao_curso,
+      gc.CODIGO_DISCIPLINA  AS codigo_disciplina,
+      dd.DESIGNACAO         AS descricao_disciplina,
+      gc.CODIGO_CLASSE      AS codigo_classe,
+      cl.DESIGNACAO         AS descricao_classe,
+      gc.CODIGO_SEMESTRE    AS codigo_semestre,
+      ss.DESIGNACAO         AS designacao_semestre,
+      gc.HORASTOTAIS        AS horas_totais,
+      gc.STATUS_             AS status
+    ${baseFrom}
+    ORDER BY cc.DESIGNACAO ASC, cl.DESIGNACAO ASC, ss.CODIGO ASC, dd.DESIGNACAO ASC
+    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+  `;
+
+    const countSql = `
+    SELECT COUNT(*) AS total
+    ${baseFrom}
+  `;
+
+    try {
+      const [records, countResult] = await Promise.all([
+        this.dataSource.query(sql, params as any),
+        this.dataSource.query(countSql, params as any),
+      ]);
+
+      const total = Number(countResult?.[0]?.TOTAL ?? 0);
+
+      return {
+        data: toLowerCaseKeys(records),
+        total,
+        page,
+        limit,
+        totalPages: total > 0 ? Math.ceil(total / limit) : 1,
+      };
+    } catch (error) {
+      console.error('Erro ao buscar grades curriculares:', error);
+      throw new InternalServerErrorException(
+        `Erro ao buscar grades curriculares: ${error.message}`,
+      );
+    }
+  }
+
+  // service — método de toggle (activar/inactivar por CODIGO)
+
+  async toggleStatusGradeCurricular(codigo: number, status: number) {
+    const sql = `
+    UPDATE FK2_TB_GRADE_CURRICULAR
+    SET STATUS_ = :status
+    WHERE CODIGO = :codigo
+  `;
+
+    try {
+      const result = await this.dataSource.query(sql, {
+        status,
+        codigo,
+      } as any);
+
+      // dataSource.query em UPDATE via Oracle não retorna linhas afectadas
+      // de forma consistente entre drivers — confirmamos buscando o registo.
+      const [updated] = await this.dataSource.query(
+        `SELECT CODIGO AS codigo, STATUS_ AS status
+       FROM FK2_TB_GRADE_CURRICULAR
+       WHERE CODIGO = :codigo`,
+        { codigo } as any,
+      );
+
+      if (!updated) {
+        throw new NotFoundException(
+          `Grade curricular com código ${codigo} não encontrada`,
+        );
+      }
+
+      return toLowerCaseKeys([updated])[0];
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      console.error('Erro ao alterar status da grade curricular:', error);
+      throw new InternalServerErrorException(
+        `Erro ao alterar status da grade curricular: ${error.message}`,
       );
     }
   }
