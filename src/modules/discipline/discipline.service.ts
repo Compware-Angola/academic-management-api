@@ -18,7 +18,7 @@ import { FindUnidadeCurricularDeptDto } from './dto/find-unidade-curricular-dept
 
 @Injectable()
 export class DisciplineService {
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly dataSource: DataSource) {}
   async findGradeCurricularAluno({
     matriculaId,
     semestre,
@@ -367,7 +367,6 @@ export class DisciplineService {
     const offset = (page - 1) * limit;
     const conditions: string[] = ['1=1'];
     const params: Record<string, any> = {};
-    // conditions.push('gc.STATUS_ = 1');
 
     if (classe) {
       conditions.push('gc.CODIGO_CLASSE = :classe');
@@ -390,64 +389,87 @@ export class DisciplineService {
       conditions.push('gc.STATUS_ = 1'); // default: só ativas quando não filtrado
     }
     if (search) {
-      conditions.push('UPPER( dd.DESIGNACAO) LIKE UPPER(:search)');
+      conditions.push('UPPER(dd.DESIGNACAO) LIKE UPPER(:search)');
       params.search = `%${search}%`;
     }
 
     const whereClause = conditions.join(' AND ');
 
+    // Base comum às duas queries: uma linha por grade curricular (rn = 1),
+    // escolhendo o plano curricular mais recente (ajusta o ORDER BY do
+    // ROW_NUMBER se existir um campo de vigência/status no plano, ex:
+    // plc.STATUS_ ou plc.CODIGO_ANO_LECTIVO)
+    const baseCte = `
+    WITH ranked AS (
+      SELECT
+        plc.Codigo        AS codigo_plano_curricular,
+        plc.DESIGNACAO    AS descricao_plano_curricular,
+        gc.Codigo         AS codigo_grade_curricular,
+        dd.CODIGO         AS codigo_disciplina,
+        dd.DESIGNACAO     AS descricao_disciplina,
+        cc.DESIGNACAO     AS descricao_curso,
+        cc.CODIGO         AS codigo_curso,
+        cl.DESIGNACAO     AS descricao_classe,
+        cl.CODIGO         AS codigo_classe,
+        ss.CODIGO         AS codigo_semestre,
+        ss.DESIGNACAO     AS designacao_semestre,
+
+        pcg.PESO_PRIMEIRA_FREQ     AS peso_primeira_freq,
+        pcg.PESO_SEGUNDA_FREQ      AS peso_segunda_freq,
+        pcg.PESO_PRATICA           AS peso_pratica,
+        pcg.NOTA_MIN_PRIMEIRA_FREQ AS nota_min_primeira_freq,
+        pcg.NOTA_MIN_SEGUNDA_FREQ  AS nota_min_segunda_freq,
+        pcg.NOTA_MIN_PRATICA       AS nota_min_pratica,
+
+        dd.STATUS_        AS status,
+        ROW_NUMBER() OVER (
+          PARTITION BY gc.Codigo
+          ORDER BY plc.Codigo DESC
+        ) AS rn
+      FROM FK2_TB_PLANO_CURRICULAR_CURSO plc
+      INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pcg ON pcg.CODIGO_PLANO_CURRICULAR_CURSO = plc.CODIGO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR gc        ON gc.Codigo = pcg.codigo_grade_curricular
+      INNER JOIN FK2_TB_DISCIPLINAS dd             ON dd.CODIGO = gc.Codigo_Disciplina
+      INNER JOIN FK2_TB_CURSOS cc                  ON cc.CODIGO = gc.Codigo_Curso
+      INNER JOIN FK2_TB_CLASSES cl                 ON cl.CODIGO = gc.CODIGO_CLASSE
+      INNER JOIN FK2_TB_SEMESTRES ss               ON ss.CODIGO = gc.Codigo_Semestre
+      WHERE ${whereClause}
+    )
+  `;
+
     const sql = `
+    ${baseCte}
     SELECT
-      plc.Codigo        AS codigo_plano_curricular,
-      plc.DESIGNACAO as descricao_plano_curricular,
-      gc.Codigo         AS codigo_grade_curricular,
-      dd.CODIGO         AS codigo_disciplina,
-      dd.DESIGNACAO     AS descricao_disciplina,
-      cc.DESIGNACAO     AS descricao_curso,
-      cc.CODIGO         AS codigo_curso,
-      cl.DESIGNACAO     AS descricao_classe,
-      cl.CODIGO         AS codigo_classe,
-      ss.CODIGO         AS codigo_semestre,
-      ss.DESIGNACAO     AS designacao_semestre,
-
-     pcg.PESO_PRIMEIRA_FREQ  AS peso_primeira_freq,
-     pcg.PESO_SEGUNDA_FREQ   AS peso_segunda_freq,
-     pcg.PESO_PRATICA        AS peso_pratica,
-     pcg.NOTA_MIN_PRIMEIRA_FREQ AS nota_min_primeira_freq,
-     pcg.NOTA_MIN_SEGUNDA_FREQ AS nota_min_segunda_freq,
-     pcg.NOTA_MIN_PRATICA      AS nota_min_pratica,
-
-      dd.STATUS_        AS status
-    FROM FK2_TB_PLANO_CURRICULAR_CURSO plc
-    INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pcg  on pcg.CODIGO_PLANO_CURRICULAR_CURSO  = plc.CODIGO
-    INNER JOIN FK2_TB_GRADE_CURRICULAR gc on gc.Codigo = pcg.codigo_grade_curricular
-    INNER JOIN FK2_TB_DISCIPLINAS dd ON dd.CODIGO = gc.Codigo_Disciplina
-    INNER JOIN FK2_TB_CURSOS cc      ON cc.CODIGO = gc.Codigo_Curso
-    INNER JOIN FK2_TB_CLASSES cl     ON cl.CODIGO = gc.CODIGO_CLASSE
-    INNER JOIN FK2_TB_SEMESTRES ss   ON ss.CODIGO = gc.Codigo_Semestre
-
-    WHERE ${whereClause}
-    ORDER BY cc.DESIGNACAO ASC, cl.DESIGNACAO ASC, ss.CODIGO ASC
+      codigo_plano_curricular,
+      descricao_plano_curricular,
+      codigo_grade_curricular,
+      codigo_disciplina,
+      descricao_disciplina,
+      descricao_curso,
+      codigo_curso,
+      descricao_classe,
+      codigo_classe,
+      codigo_semestre,
+      designacao_semestre,
+      peso_primeira_freq,
+      peso_segunda_freq,
+      peso_pratica,
+      nota_min_primeira_freq,
+      nota_min_segunda_freq,
+      nota_min_pratica,
+      status
+    FROM ranked
+    WHERE rn = 1
+    ORDER BY descricao_curso ASC, descricao_classe ASC, codigo_semestre ASC
     OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
   `;
 
     const countSql = `
-SELECT COUNT(DISTINCT gc.CODIGO) AS total
-FROM FK2_TB_PLANO_CURRICULAR_CURSO plc
-INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pcg
-  ON pcg.CODIGO_PLANO_CURRICULAR_CURSO = plc.CODIGO
-INNER JOIN FK2_TB_GRADE_CURRICULAR gc
-  ON gc.CODIGO = pcg.CODIGO_GRADE_CURRICULAR
-INNER JOIN FK2_TB_DISCIPLINAS dd
-  ON dd.CODIGO = gc.CODIGO_DISCIPLINA
-INNER JOIN FK2_TB_CURSOS cc
-  ON cc.CODIGO = gc.CODIGO_CURSO
-INNER JOIN FK2_TB_CLASSES cl
-  ON cl.CODIGO = gc.CODIGO_CLASSE
-INNER JOIN FK2_TB_SEMESTRES ss
-  ON ss.CODIGO = gc.CODIGO_SEMESTRE
-WHERE ${whereClause}
-`;
+    ${baseCte}
+    SELECT COUNT(*) AS total
+    FROM ranked
+    WHERE rn = 1
+  `;
 
     try {
       const [records, countResult] = await Promise.all([
