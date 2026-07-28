@@ -28,11 +28,11 @@ import { SchedulePortalController } from './schedule-portal.controller';
       name: 'schedule_service',
     }),
   ],
-  controllers: [ScheduleController, DocenteSubstitutoController, ClassTimesScheduleController],
+  controllers: [ScheduleController, DocenteSubstitutoController, ClassTimesScheduleController, SchedulePortalController],
   providers: [
     ScheduleService,
     promptToCreateAndEditService,
-    SchedulePortalController,
+
     ClassTimesScheduleService,
     AnoLectivoUtil,
     DocenteSubstitutoService,
