@@ -27,6 +27,7 @@ import { formatarDataExtenso, notaExtenso } from '../util/diploma.util';
 import { GerarCertificadoDto } from './dto/gerar-certificado.dto';
 import { ListarDiplomadosDTO } from './dto/listar-diplomados-dto';
 import { StudentsResultPlanService } from './students-result-plan.service';
+import { GetConfirmationDTO } from './dto/get-confirmation.dto';
 
 @Injectable()
 export class StudentsService {
@@ -34,7 +35,7 @@ export class StudentsService {
     private readonly dataSource: DataSource,
     private readonly anoLectivoUtil: AnoLectivoUtil,
     private readonly planStudent: StudentsResultPlanService,
-  ) { }
+  ) {}
 
   async getProfileEstatistic(
     codigoMatricula: number,
@@ -124,7 +125,25 @@ export class StudentsService {
           SELECT MAX(conf.CLASSE)
           FROM FK2_TB_CONFIRMACOES conf
           WHERE conf.CODIGO_MATRICULA = m.CODIGO
-      ) AS classe_confirmacao_max
+      ) AS classe_confirmacao_max,
+
+      -- Ficheiro da acta de diplomação (registo mais recente)
+      (
+          SELECT log.FILENAME
+          FROM FK2_MGA_TB_LOG_DIPLOMAR log
+          WHERE log.FK_MATRICULA = m.CODIGO
+          ORDER BY log.CREATED_AT DESC, log.PK_LOG_DIPLOMAR DESC
+          FETCH FIRST 1 ROWS ONLY
+      ) AS acta_filename,
+
+      -- Data da acta de diplomação (registo mais recente)
+      (
+          SELECT log.DATA_ACTA
+          FROM FK2_MGA_TB_LOG_DIPLOMAR log
+          WHERE log.FK_MATRICULA = m.CODIGO
+          ORDER BY log.CREATED_AT DESC, log.PK_LOG_DIPLOMAR DESC
+          FETCH FIRST 1 ROWS ONLY
+      ) AS data_acta
 
   FROM FK2_TB_MATRICULAS m
   LEFT JOIN FK2_TB_ADMISSAO a
@@ -188,7 +207,8 @@ export class StudentsService {
     }
 
     const anoLectivo = await this.anoLectivoUtil.getAnoAtualId();
-    const semestre = (await this.anoLectivoUtil.getSemestreAtual()).semestre ?? 1;
+    const semestre =
+      (await this.anoLectivoUtil.getSemestreAtual()).semestre ?? 1;
 
     const sql = `
     SELECT
@@ -619,14 +639,15 @@ export class StudentsService {
             AND tm.CODIGO_CURSO = tgc.CODIGO_CURSO
         )
       ) = 1
-      ${search && search.trim()
-        ? `
+      ${
+        search && search.trim()
+          ? `
         AND (
           UPPER(tp.NOME_COMPLETO) LIKE :search
           OR UPPER(NVL(tp.BILHETE_IDENTIDADE, '-')) LIKE :search
         )
       `
-        : ``
+          : ``
       }
     ) q
   ) t
@@ -687,7 +708,8 @@ export class StudentsService {
           AND tm.CODIGO_CURSO = tgc.CODIGO_CURSO
       )
     ) = 1
-    ${search && search.trim()
+    ${
+      search && search.trim()
         ? `
       AND (
         UPPER(tp.NOME_COMPLETO) LIKE :search
@@ -695,7 +717,7 @@ export class StudentsService {
       )
     `
         : ``
-      }
+    }
   )
 `;
 
@@ -1271,7 +1293,11 @@ WHERE M."CODIGO" = :codigoMatricula`;
     PASSWORD_RESET_REQUIRED = :passwordResetRequired
     WHERE "ID" = :user_id
     `,
-      { hash: hash, user_id: toLowerCaseKeys(result[0]).user_id, passwordResetRequired: 0 } as any,
+      {
+        hash: hash,
+        user_id: toLowerCaseKeys(result[0]).user_id,
+        passwordResetRequired: 0,
+      } as any,
     );
 
     return { message: 'Senha atualizada com sucesso' };
@@ -1279,7 +1305,6 @@ WHERE M."CODIGO" = :codigoMatricula`;
 
   async updateContactos(body: UpdateStudentContactDTO) {
     const { codigoMatricula, email, contacto, contactoAlternativo } = body;
-
 
     if (!email && !contacto && !contactoAlternativo) {
       throw new BadRequestException(
@@ -2292,6 +2317,8 @@ WHERE M."CODIGO" = :codigoMatricula`;
       codigoMatricula: number;
       dataConclusao?: Date | string;
       imprimeCartaConclusao?: boolean;
+      dataActa?: string;
+      fileName?: string;
     },
     usuarioLogado: any,
   ) {
@@ -2299,6 +2326,8 @@ WHERE M."CODIGO" = :codigoMatricula`;
       codigoMatricula,
       dataConclusao,
       imprimeCartaConclusao = false,
+      dataActa,
+      fileName,
     } = body;
 
     if (!codigoMatricula) {
@@ -2431,9 +2460,9 @@ WHERE M."CODIGO" = :codigoMatricula`;
       const refUtilizador =
         usuarioLogado?.sub || usuarioLogado?.name
           ? JSON.stringify({
-            pk: usuarioLogado?.sub ?? null,
-            desc: usuarioLogado?.name ?? null,
-          })
+              pk: usuarioLogado?.sub ?? null,
+              desc: usuarioLogado?.name ?? null,
+            })
           : null;
 
       // Verifica se já existe conclusão para esta matrícula
@@ -2545,21 +2574,27 @@ WHERE M."CODIGO" = :codigoMatricula`;
       // Log
       await manager.query(
         `
-      INSERT INTO FK2_MGA_TB_LOG_DIPLOMAR (
-        DESCRICAO,
-        FK_MATRICULA,
-        FK_UTILIZADOR_RESPONSAVEL,
-        CREATED_AT
-      ) VALUES (
-        'Diplomado',
-        :codigoMatricula,
-        :utilizadorResponsavel,
-        SYSDATE
-      )
-      `,
+  INSERT INTO FK2_MGA_TB_LOG_DIPLOMAR (
+    DESCRICAO,
+    FK_MATRICULA,
+    FK_UTILIZADOR_RESPONSAVEL,
+    CREATED_AT,
+    DATA_ACTA,
+    FILENAME
+  ) VALUES (
+    'Diplomado',
+    :codigoMatricula,
+    :utilizadorResponsavel,
+    SYSDATE,
+    TO_DATE(:dataActa, 'YYYY-MM-DD'),
+    :fileName
+  )
+  `,
         {
           codigoMatricula,
           utilizadorResponsavel: usuarioLogado?.sub ?? null,
+          dataActa: dataActa ?? null,
+          fileName: fileName ?? null,
         } as any,
       );
 
@@ -2808,7 +2843,6 @@ WHERE M."CODIGO" = :codigoMatricula`;
       },
     };
   }
-
   async listarEstudantesDiplomados(filter: ListarDiplomadosDTO) {
     const {
       anoLectivo,
@@ -2910,6 +2944,72 @@ WHERE M."CODIGO" = :codigoMatricula`;
       page,
       limit,
       totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
+  async getConfirmation(
+    codigoMatricula: number,
+    query: GetConfirmationDTO,
+  ) {
+    const { codigoAnoLectivo, codigoSemestre } = query;
+
+
+    let sql = `
+    SELECT
+      cf.CODIGO_MATRICULA,
+      al.CODIGO,
+      cf.DATA_CONFIRMACAO,
+      cf.ESTADO,
+      cf.CLASSE,
+      cf.CANAL,
+      cf.SEMESTRE
+    FROM FK2_TB_CONFIRMACOES cf
+    LEFT JOIN FK2_TB_ANO_LECTIVO al
+      ON al.CODIGO = cf.CODIGO_ANO_LECTIVO
+    WHERE cf.CODIGO_MATRICULA = :codigoMatricula
+      AND al.CODIGO = :codigoAnoLectivo
+  `;
+
+    const params: any = {
+      codigoMatricula,
+      codigoAnoLectivo,
+    };
+
+    // Para aluno novo é obrigatório.
+    // Para aluno antigo filtra apenas se o semestre for informado.
+    if (codigoSemestre) {
+      sql += ` AND cf.SEMESTRE = :codigoSemestre`;
+      params.codigoSemestre = codigoSemestre;
+    }
+
+    sql += `
+    ORDER BY cf.CODIGO DESC
+    FETCH FIRST 1 ROWS ONLY
+  `;
+
+    const [confirmacao] = await this.dataSource.query(sql, params);
+
+    const confirmacaoFormatada = confirmacao
+      ? toLowerCaseKeys(confirmacao)
+      : null;
+
+    return {
+      confirmacao: confirmacaoFormatada,
+      informacoes: {
+        podeConfirmar: !confirmacao,
+        confirmacao_status: confirmacaoFormatada?.estado ?? null,
+        mensagens: confirmacaoFormatada
+          ? [
+            `Confirmação já realizada em ${formatarDataExtenso(
+              new Date(confirmacaoFormatada.data_confirmacao),
+            )}`,
+            confirmacaoFormatada.estado === 0
+              ? "A confirmação está pendente"
+              : confirmacaoFormatada.estado === 1
+                ? "A confirmação foi validada"
+                : "A confirmação foi rejeitada",
+          ]
+          : ["Confirmação não realizada"],
+      },
     };
   }
 }

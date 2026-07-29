@@ -7,14 +7,11 @@ import { EnrollmentDto } from './dto/create-enrollment.dto';
 import { EstudantesService } from './estatiticas.service';
 import { EstudanteDTO } from './dto/estudante.dto';
 
-import { EnrollmentRegistrationsUCService } from './registrations.at.UC.service';
-import { EnrollmentRegistrationsUCDto } from './dto/registrations.at.UC.dto';
 
-
-@ApiTags('enrollment') 
+@ApiTags('enrollment')
 @Controller('enrollment')
 export class EnrollmentController {
-  constructor(private readonly enrollmentService: EnrollmentService, private readonly estudantesService: EstudantesService) {}
+  constructor(private readonly enrollmentService: EnrollmentService, private readonly estudantesService: EstudantesService) { }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -39,7 +36,7 @@ export class EnrollmentController {
   async findEstudantes(
     @Query() estudanteDto: EstudanteDTO
   ) {
-   return this.estudantesService.findEstudantes(estudanteDto);
+    return this.estudantesService.findEstudantes(estudanteDto);
   }
 
 }

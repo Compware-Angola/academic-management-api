@@ -58,4 +58,14 @@ export class EnrollmentRegistrationsUCDto {
     message: 'semestre deve ser 1 ou 2',
   })
   semestre: number;
+
+  @ApiProperty({
+    example: 1,
+    description: 'Ano lectivo da inscrição das unidades curriculares',
+
+  })
+  @IsNotEmpty({ message: 'anoLectivo é obrigatório' })
+  @IsNumber({}, { message: 'anoLectivo deve ser um número' })
+  @Type(() => Number)
+  anoLectivo: number;
 }
