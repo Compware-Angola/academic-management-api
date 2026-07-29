@@ -44,6 +44,12 @@ import { PrazosModule } from './modules/prazos/prazos.module';
 import { ScriptModule } from './modules/script/script.module';
 import { PostGraduationModule } from './modules/post-graduation/post-graduation.module';
 import { StatisModule } from './modules/stats/stats.module';
+import { NacionalitiesModule } from './modules/nacionalities/nacionalities.module';
+import { MaritalStatusModule } from './modules/marital-status/marital-status.module';
+import { DocumentTypeModule } from './modules/document-type/document-type.module';
+import { GenderModule } from './modules/gender/gender.module';
+import { AcademicDegreeModule } from './modules/academic-degree/academic-degrees.module';
+import { CourseTrainingAreaModule } from './modules/course-training-area/course-training-area.module';
 
 @Module({
   imports: [
@@ -137,7 +143,15 @@ import { StatisModule } from './modules/stats/stats.module';
     PostGraduationModule,
 
 
-    StatisModule
+
+
+    StatisModule,
+    NacionalitiesModule,
+    MaritalStatusModule,
+    DocumentTypeModule,
+    GenderModule,
+    AcademicDegreeModule,
+    CourseTrainingAreaModule
 
   ],
   controllers: [AppController],

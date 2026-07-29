@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsDateString, IsInt, IsOptional } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class DiplomarAlunoDTO {
   @ApiProperty({
@@ -16,6 +23,23 @@ export class DiplomarAlunoDTO {
   @IsOptional()
   @IsDateString()
   dataConclusao?: string;
+
+  @ApiPropertyOptional({
+    example: '2026-04-21',
+    description: 'Data da acta de diplomação',
+  })
+  @IsOptional()
+  @IsDateString()
+  dataActa?: string;
+
+  @ApiPropertyOptional({
+    example: 'ACTA_9F3KX2P1.pdf',
+    description: 'Nome do ficheiro da acta salvo no storage (S3)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  fileName?: string;
 
   @ApiPropertyOptional({
     example: false,

@@ -74,7 +74,7 @@ import { EquivalenceTFCMigration } from './equivalence-tfc-migration.service';
 import { CreateEquivalenceTFCMigration } from './dto/create-equivalence-tfc-migration';
 import { HangingRailingsAndToBeMadeService } from './hanging_railings_and_to_be_made.service';
 import { FindPlanPorClasseDTO } from './dto/FindPlanPorClasseDTO';
-import { NextClassDTO } from './dto/next-class';
+import { GetConfirmationDTO } from './dto/get-confirmation.dto';
 //@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @ApiTags('Students')
 @Controller('students')
@@ -90,7 +90,7 @@ export class StudentsController {
     private readonly equivalenceTFMigration: EquivalenceTFCMigration,
     private readonly hangingRailingsAndToBeMadeService: HangingRailingsAndToBeMadeService,
     private httpService: HttpService,
-  ) { }
+  ) {}
   private log(req: any, descricao: string) {
     const user = req.user;
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
@@ -568,13 +568,8 @@ export class StudentsController {
     status: 200,
     description: 'Proxima classe do estudante obtida com sucesso',
   })
-  async getNextClass(
-    @Param('matricula', ParseIntPipe) matricula: number,
-
-  ) {
-    return this.hangingRailingsAndToBeMadeService.getNextClass(
-      matricula
-    );
+  async getNextClass(@Param('matricula', ParseIntPipe) matricula: number) {
+    return this.hangingRailingsAndToBeMadeService.getNextClass(matricula);
   }
 
   @Get('hanging-railings-and-to-be-made')
@@ -584,5 +579,20 @@ export class StudentsController {
     return this.hangingRailingsAndToBeMadeService.findHangingRailingsAndToBeMade(
       query,
     );
+  }
+
+
+  @Get('confirmation/:codigoMatricula')
+  @ApiOperation({ summary: 'Obter confirmação' })
+  @ApiResponse({
+    status: 200,
+    description: 'Confirmação obtida com sucesso',
+  })
+  async getConfirmation(
+    @Query(ValidationPipe) query: GetConfirmationDTO,
+    @Param('codigoMatricula', ParseIntPipe) codigoMatricula: number,
+
+  ) {
+    return this.studentsService.getConfirmation(codigoMatricula, query);
   }
 }

@@ -3,6 +3,8 @@ import {
   ArrayMinSize,
   IsArray,
   IsInt,
+  IsNotEmpty,
+  IsNumber,
   IsString,
   Max,
   Min,
@@ -35,6 +37,8 @@ export class GradeItemDto {
   @Max(2)
   @Type(() => Number)
   semestre: number;
+
+
 }
 
 export class EnrollmentDto {
@@ -54,4 +58,14 @@ export class EnrollmentDto {
   @ValidateNested({ each: true })
   @Type(() => GradeItemDto)
   grades: GradeItemDto[];
+
+  @ApiProperty({
+    example: 1,
+    description: 'Ano lectivo da inscrição das unidades curriculares',
+
+  })
+  @IsNotEmpty({ message: 'anoLectivo é obrigatório' })
+  @IsNumber({}, { message: 'anoLectivo deve ser um número' })
+  @Type(() => Number)
+  anoLectivo: number;
 }

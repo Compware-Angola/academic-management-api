@@ -12,7 +12,7 @@ export class EnrollmentRegistrationsUCService {
   async registerGradesUc(
     body: EnrollmentRegistrationsUCDto
   ) {
-    const { codPreInscricao, grades, semestre } = body;
+    const { codPreInscricao, grades, semestre, anoLectivo } = body;
 
     if (!codPreInscricao) {
       throw new BadRequestException('codPreInscricao é obrigatório');
@@ -91,27 +91,32 @@ export class EnrollmentRegistrationsUCService {
 
       const codMatricula = matricula[0].CODIGO;
 
-      // 5. Buscar ano letivo ativo
-      const [anoAtual] = await queryRunner.query(
+      // 5. Verificar se Existe o ano Lectivo informado e se esta activo
+      if (!anoLectivo) {
+        throw new BadRequestException('Ano Lectivo não informado');
+      }
+      const verifyAnoLectivo = await queryRunner.query(
         `SELECT CODIGO
          FROM FK2_TB_ANO_LECTIVO
-         WHERE estado = 'Activo'
-         FETCH FIRST 1 ROWS ONLY`,
+         WHERE CODIGO = :anoLectivo AND (estado = 'Activo' or  FASE_ANOLECTIVO = 'USAVEL' or FASE_ANOLECTIVO = 'RASCUNHO' or FASE_ANOLECTIVO ='CONFIGURAVEL')`,
+        { anoLectivo } as any,
       );
 
-      if (!anoAtual) {
+      if (!verifyAnoLectivo) {
         throw new BadRequestException('Não existe ano letivo ativo');
       }
 
-      const codAnoActual = anoAtual.CODIGO;
+      const codAnoActual = anoLectivo;
 
       // 6. Verificar se já existe confirmação para essa matrícula + ano
       const countConf = await queryRunner.query(
         `SELECT COUNT(*) as cnt
          FROM FK2_TB_CONFIRMACOES
          WHERE Codigo_Matricula = :codMatricula
-           AND Codigo_Ano_lectivo = :codAnoActual`,
-        { codMatricula, codAnoActual } as any,
+           AND Codigo_Ano_lectivo = :codAnoActual
+           AND semestre = :semestre
+           `,
+        { codMatricula, codAnoActual, semestre } as any,
       );
 
       if (Number(countConf.cnt) > 0) {
@@ -186,25 +191,7 @@ export class EnrollmentRegistrationsUCService {
       classe = iSSameYear ? classe : classe + 1;
 
       //Verificar  o semestre
-      try {
-        const countConfSemestre = await queryRunner.query(
-          `SELECT COUNT(*) as cnt
-               FROM FK2_TB_CONFIRMACOES
-               WHERE Codigo_Matricula = :codMatricula
-              -- AND Estado = '1'
-                 AND Semestre = :semestre`,
-          { codMatricula, semestre } as any,
-        );
-        console.log(countConfSemestre);
 
-
-        if (Number(countConfSemestre[0].CNT) != 0) {
-          throw new BadRequestException('Já existe uma confirmação para esta matrícula neste semestre');
-        }
-
-      } catch (error) {
-        throw new BadRequestException('Erro ao verificar confirmação existente para o semestre: ' + error.message);
-      }
 
 
       const result = await queryRunner.query(
@@ -231,12 +218,6 @@ export class EnrollmentRegistrationsUCService {
           desc: descHorario || '',
         });
 
-        // Gerar próximo código da grade do aluno
-        const [maxGradeAl] = await queryRunner.query(
-          `SELECT MAX(CODIGO) as maxcod
-           FROM FK2_TB_GRADE_CURRICULAR_ALUNO
-           WHERE REGEXP_LIKE(Codigo, '^[0-9]+$')`,
-        );
 
         // const codGradeCurricularAluno = Number(maxGradeAl.MAXCOD) + 1;
 

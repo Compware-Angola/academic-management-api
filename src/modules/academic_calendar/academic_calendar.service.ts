@@ -34,6 +34,7 @@ import {
   EstadoAnoLectivoType,
   VALID_PHASE_TRANSITIONS,
 } from 'src/common/enums/faso_anolectivo.type';
+import { definirSemestre } from '../academic_activities/util/definir-semestre';
 type InsertVagasCursoType = {
   codigoUtilizador: number;
   codigoAnoLectivo: number;
@@ -1183,53 +1184,120 @@ export class AcademicCalendarService {
       data: toLowerCaseKeys(result),
     };
   }
+  private readonly DIAS_ANTECEDENCIA_TROCA_ANO_LECTIVO = 15;
+
   public async findUsableAcademicYear(tipoCandidatura: number) {
-    const sql = `
-    SELECT
-      al.designacao,
-      al.datainicioprimeirosemestre,
-      al.datafimprimeirosemestre,
-      al.datainiciosegundosemestre,
-      al.datafimsegundosemestre,
-      al.estado,
-      al.data_ultima_atualizacao,
-      al.utilizador,
-      al.status_,
-      al.ordem,
-      al.epoca_exame_acesso,
-      al.codigo,
-      al.codigo_tipo_candidatura,
-      al.fase_anolectivo,
-      cand.designacao AS tipo_candidatura
-    FROM fk2_tb_ano_lectivo al
-    INNER JOIN fk2_tb_tipo_candidatura cand
-      ON cand.id = al.codigo_tipo_candidatura
-    WHERE al.codigo_tipo_candidatura = :tipoCandidatura
-      AND (
-        al.fase_anolectivo = 'USAVEL'
-        OR al.status_ = 1
-      )
-    ORDER BY
-      CASE
-        WHEN al.fase_anolectivo = 'USAVEL' THEN 1
-        WHEN al.status_ = 1 THEN 2
-      END,
-      al.ordem DESC
-    FETCH FIRST 1 ROW ONLY
-  `;
+    // 1. Busca o ano letivo ATIVO (status_ = 1)
+    const ativo = await this.findActiveAcademicYear(tipoCandidatura);
 
-    const result = await this.dataSource.query(sql, {
-      tipoCandidatura,
-    } as any);
-
-    if (!result || result.length == 0) {
-      return {
-        data: null,
-      };
+    // Se não existe ativo, cai direto para tentar achar um usável
+    if (!ativo) {
+      const usavel = await this.findNextAcademicYear(tipoCandidatura);
+      const semestre = definirSemestre({
+        DATAINICIOPRIMEIROSEMESTRE: usavel?.DATAINICIOPRIMEIROSEMESTRE,
+        DATAFIMPRIMEIROSEMESTRE: usavel?.DATAFIMPRIMEIROSEMESTRE,
+        DATAINICIOSEGUNDOSEMESTRE: usavel?.DATAINICIOSEGUNDOSEMESTRE,
+        DATAFIMSEGUNDOSEMESTRE: usavel?.DATAFIMSEGUNDOSEMESTRE,
+      })
+      return { data: usavel ? toLowerCaseKeys({ ...usavel, semestre }) : null };
     }
-    return {
-      data: toLowerCaseKeys(result?.[0]),
-    };
+
+    const diasRestantes = this.diasAteData(ativo.datafimsegundosemestre);
+
+    if (diasRestantes <= this.DIAS_ANTECEDENCIA_TROCA_ANO_LECTIVO) {
+      const usavel = await this.findNextAcademicYear(tipoCandidatura);
+      if (usavel) {
+        const semestre = definirSemestre({
+          DATAINICIOPRIMEIROSEMESTRE: usavel?.DATAINICIOPRIMEIROSEMESTRE,
+          DATAFIMPRIMEIROSEMESTRE: usavel?.DATAFIMPRIMEIROSEMESTRE,
+          DATAINICIOSEGUNDOSEMESTRE: usavel?.DATAINICIOSEGUNDOSEMESTRE,
+          DATAFIMSEGUNDOSEMESTRE: usavel?.DATAFIMSEGUNDOSEMESTRE,
+        })
+        return { data: toLowerCaseKeys({ ...usavel, semestre }) };
+      }
+    }
+
+    // 3. Caso contrário (ou não exista usável), continua no ativo
+    const semestre = definirSemestre({
+      DATAINICIOPRIMEIROSEMESTRE: ativo?.DATAINICIOPRIMEIROSEMESTRE,
+      DATAFIMPRIMEIROSEMESTRE: ativo?.DATAFIMPRIMEIROSEMESTRE,
+      DATAINICIOSEGUNDOSEMESTRE: ativo?.DATAINICIOSEGUNDOSEMESTRE,
+      DATAFIMSEGUNDOSEMESTRE: ativo?.DATAFIMSEGUNDOSEMESTRE,
+    })
+    return { data: toLowerCaseKeys({ ...ativo, semestre }) };
+  }
+
+  private async findActiveAcademicYear(tipoCandidatura: number) {
+    const sql = `
+      SELECT
+        al.designacao,
+        al.datainicioprimeirosemestre,
+        al.datafimprimeirosemestre,
+        al.datainiciosegundosemestre,
+        al.datafimsegundosemestre,
+        al.estado,
+        al.data_ultima_atualizacao,
+        al.utilizador,
+        al.status_,
+        al.ordem,
+        al.epoca_exame_acesso,
+        al.codigo,
+        al.codigo_tipo_candidatura,
+        al.fase_anolectivo,
+        cand.designacao AS tipo_candidatura
+      FROM fk2_tb_ano_lectivo al
+      INNER JOIN fk2_tb_tipo_candidatura cand
+        ON cand.id = al.codigo_tipo_candidatura
+      WHERE al.codigo_tipo_candidatura = :tipoCandidatura
+        AND al.status_ = 1
+      ORDER BY al.ordem DESC
+      FETCH FIRST 1 ROW ONLY
+    `;
+
+    const result = await this.dataSource.query(sql, { tipoCandidatura } as any);
+    return toLowerCaseKeys(result?.[0] ?? null);
+  }
+
+  private async findNextAcademicYear(tipoCandidatura: number) {
+    const sql = `
+      SELECT
+        al.designacao,
+        al.datainicioprimeirosemestre,
+        al.datafimprimeirosemestre,
+        al.datainiciosegundosemestre,
+        al.datafimsegundosemestre,
+        al.estado,
+        al.data_ultima_atualizacao,
+        al.utilizador,
+        al.status_,
+        al.ordem,
+        al.epoca_exame_acesso,
+        al.codigo,
+        al.codigo_tipo_candidatura,
+        al.fase_anolectivo,
+        cand.designacao AS tipo_candidatura
+      FROM fk2_tb_ano_lectivo al
+      INNER JOIN fk2_tb_tipo_candidatura cand
+        ON cand.id = al.codigo_tipo_candidatura
+      WHERE al.codigo_tipo_candidatura = :tipoCandidatura
+        AND al.fase_anolectivo = 'USAVEL'
+      ORDER BY al.ordem DESC
+      FETCH FIRST 1 ROW ONLY
+    `;
+
+    const result = await this.dataSource.query(sql, { tipoCandidatura } as any);
+    return result?.[0] ?? null;
+  }
+
+  private diasAteData(data: string | Date): number {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    const dataFim = new Date(data);
+    dataFim.setHours(0, 0, 0, 0);
+
+    const diffMs = dataFim.getTime() - hoje.getTime();
+    return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
   }
   public async changeAcademicYearPhase(
     academicYearCode: number,

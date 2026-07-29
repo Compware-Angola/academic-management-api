@@ -13,6 +13,7 @@ import { MoveStudentsCorrectionService } from './move-students-correction.servic
 import { StudentWithoutScheduleService } from './student-without-schedule.service';
 import { ClassTimesScheduleService } from './class-times-schedule.service';
 import { ClassTimesScheduleController } from './class-times-schedule.controller';
+import { SchedulePortalController } from './schedule-portal.controller';
 
 @Module({
   imports: [
@@ -27,10 +28,11 @@ import { ClassTimesScheduleController } from './class-times-schedule.controller'
       name: 'schedule_service',
     }),
   ],
-  controllers: [ScheduleController, DocenteSubstitutoController, ClassTimesScheduleController],
+  controllers: [ScheduleController, DocenteSubstitutoController, ClassTimesScheduleController, SchedulePortalController],
   providers: [
     ScheduleService,
     promptToCreateAndEditService,
+
     ClassTimesScheduleService,
     AnoLectivoUtil,
     DocenteSubstitutoService,
