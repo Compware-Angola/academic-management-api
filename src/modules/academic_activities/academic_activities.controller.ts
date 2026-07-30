@@ -146,7 +146,7 @@ export class AcademicActivitiesController {
     return this.academicActivitiesService.updateAcademicActivityTerm(
       pkPrazo,
       dto,
-      req.user.sub, // <-- id numérico do utilizador autenticado
+      req.user.sub,
     );
   }
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
@@ -166,9 +166,9 @@ export class AcademicActivitiesController {
   remove(@Param('id') id: string) {
     return this.academicActivitiesService.deleteAcademicActivities(+id);
   }
-  @Get('prazos-matricula')
-  async prazosMatricula(@Query() query: FindPrazosMatricula) {
-    return this.academicActivitiesService.prazosMatricula(query);
+  @Get('enrollment-period-students-old')
+  async enrollmentPeriodStudentsOld(@Query() query: FindPrazosMatricula) {
+    return this.academicActivitiesService.enrollmentPeriodStudentsOld(query);
   }
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('marcacao-prova-prazo')

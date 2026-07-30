@@ -20,7 +20,7 @@ import { EstadoAnoLectivoType } from 'src/common/enums/faso_anolectivo.type';
 
 @Injectable()
 export class AcademicActivitiesService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   private getCodigoUtilizador(
     user: DecodedUserPayload,
@@ -28,11 +28,11 @@ export class AcademicActivitiesService {
   ): number {
     return Number(
       user?.sub ??
-        user?.userId ??
-        user?.PK_UTILIZADOR ??
-        user?.pk_utilizador ??
-        user?.id ??
-        codigoUtilizadorBody,
+      user?.userId ??
+      user?.PK_UTILIZADOR ??
+      user?.pk_utilizador ??
+      user?.id ??
+      codigoUtilizadorBody,
     );
   }
 
@@ -80,7 +80,7 @@ export class AcademicActivitiesService {
     return await toLowerCaseKeys(activities[0]);
   }
 
-  async prazosMatricula({ anoLectivo }: FindPrazosMatricula) {
+  async enrollmentPeriodStudentsOld({ anoLectivo }: FindPrazosMatricula) {
     const sqlAnoLectivo = `
       SELECT
         DESIGNACAO,
