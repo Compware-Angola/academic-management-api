@@ -24,7 +24,7 @@ export class ConfigurationPlaneService {
       );
     }
 
-    const adicionados: Array<{ codigoGradeCurricular: number }> = [];
+    const adicionados: Array<{ codigoGradeCurricular: number, nomeDisciplina: string | null }> = [];
     const duplicados: Array<{
       codigoGradeCurricular: number;
       nomeDisciplina: string | null;
@@ -184,6 +184,7 @@ export class ConfigurationPlaneService {
         itensNovos.forEach((item) => {
           adicionados.push({
             codigoGradeCurricular: item.codigoGradeCurricular,
+            nomeDisciplina: nomesGrade.get(item.codigoGradeCurricular) ?? '',
           });
         });
       } catch (error) {
@@ -194,6 +195,7 @@ export class ConfigurationPlaneService {
             ]);
             adicionados.push({
               codigoGradeCurricular: item.codigoGradeCurricular,
+              nomeDisciplina: nomesGrade.get(item.codigoGradeCurricular) ?? '',
             });
           } catch (itemError) {
             erros.push({
