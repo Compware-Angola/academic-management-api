@@ -79,6 +79,12 @@ export class CreatePreRegistrationDto {
   @IsNumber()
   codigoTurno: number;
 
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsNumber()
+  codigoFaculdade?: number;
+
   @ApiPropertyOptional({ example: 2 })
   @IsOptional()
   @IsNumber()
