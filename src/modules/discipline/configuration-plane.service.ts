@@ -10,7 +10,7 @@ import oracledb from 'oracledb';
 
 @Injectable()
 export class ConfigurationPlaneService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   async createConfigurationPlano(
     dto: CreatePlanoGradeCurricularEmMassaDto,
@@ -27,10 +27,12 @@ export class ConfigurationPlaneService {
     const adicionados: Array<{ codigoGradeCurricular: number }> = [];
     const duplicados: Array<{
       codigoGradeCurricular: number;
+      nomeDisciplina: string | null;
       motivo: string;
     }> = [];
     const erros: Array<{
       codigoGradeCurricular: number | null;
+      nomeDisciplina: string | null;
       motivo: string;
     }> = [];
 
@@ -42,6 +44,7 @@ export class ConfigurationPlaneService {
       if (vistosNoPayload.has(item.codigoGradeCurricular)) {
         duplicados.push({
           codigoGradeCurricular: item.codigoGradeCurricular,
+          nomeDisciplina: null, // não existe, não temos nome
           motivo: 'Item duplicado no payload enviado.',
         });
         continue;
@@ -89,22 +92,23 @@ export class ConfigurationPlaneService {
     }
 
     // 2. Verificar quais grades curriculares realmente existem
+    // 2. Verificar quais grades curriculares realmente existem
     const codigosGradeUnicos = itensUnicos.map((i) => i.codigoGradeCurricular);
-    const codigosValidos =
-      await this.filtrarGradesExistentes(codigosGradeUnicos);
+    const nomesGrade = await this.filtrarGradesExistentes(codigosGradeUnicos);
 
     const itensComGradeInvalida = itensUnicos.filter(
-      (i) => !codigosValidos.has(i.codigoGradeCurricular),
+      (i) => !nomesGrade.has(i.codigoGradeCurricular),
     );
     itensComGradeInvalida.forEach((item) => {
       erros.push({
         codigoGradeCurricular: item.codigoGradeCurricular,
+        nomeDisciplina: null, // não existe, não temos nome
         motivo: 'Grade curricular não encontrada.',
       });
     });
 
     const itensComGradeValida = itensUnicos.filter((i) =>
-      codigosValidos.has(i.codigoGradeCurricular),
+      nomesGrade.has(i.codigoGradeCurricular),
     );
 
     if (itensComGradeValida.length === 0) {
@@ -157,16 +161,17 @@ export class ConfigurationPlaneService {
         await this.ativegrade(item.codigoGradeCurricular);
         duplicados.push({
           codigoGradeCurricular: item.codigoGradeCurricular,
-          motivo: 'Já existia no plano — grade reativada.',
+          nomeDisciplina: nomesGrade.get(item.codigoGradeCurricular) ?? '',
+          motivo: 'Já existia no plano — apenas os parâmetros foram reativados.',
         });
       } catch (error) {
         erros.push({
           codigoGradeCurricular: item.codigoGradeCurricular,
+          nomeDisciplina: nomesGrade.get(item.codigoGradeCurricular) ?? null,
           motivo: `Falha ao reativar grade já existente no plano: ${this.mensagemErro(error)}`,
         });
       }
     }
-
     // 5. Inserir em massa os itens novos; se falhar, refazer item a item
     // para identificar exatamente qual registo causou o problema.
     if (itensNovos.length > 0) {
@@ -193,6 +198,7 @@ export class ConfigurationPlaneService {
           } catch (itemError) {
             erros.push({
               codigoGradeCurricular: item.codigoGradeCurricular,
+              nomeDisciplina: nomesGrade.get(item.codigoGradeCurricular) ?? null,
               motivo: `Falha ao inserir no plano: ${this.mensagemErro(itemError)}`,
             });
           }
@@ -242,11 +248,12 @@ export class ConfigurationPlaneService {
   }
 
   // Verifica, dentre os códigos informados, quais grades curriculares realmente existem
+
   private async filtrarGradesExistentes(
     codigosGrade: number[],
-  ): Promise<Set<number>> {
+  ): Promise<Map<number, string>> {
     if (codigosGrade.length === 0) {
-      return new Set();
+      return new Map();
     }
 
     const inPlaceholders = codigosGrade
@@ -260,16 +267,18 @@ export class ConfigurationPlaneService {
 
     const result = await this.dataSource.query(
       `
-      SELECT CODIGO
-      FROM FK2_TB_GRADE_CURRICULAR
-      WHERE CODIGO IN (${inPlaceholders})
-      `,
+    SELECT g.CODIGO, d.DESIGNACAO
+    FROM FK2_TB_GRADE_CURRICULAR g
+    JOIN FK2_TB_DISCIPLINAS d ON d.CODIGO = g.CODIGO_DISCIPLINA
+    WHERE g.CODIGO IN (${inPlaceholders})
+    `,
       params as any,
     );
 
-    return new Set((result ?? []).map((r: any) => Number(r.CODIGO)));
+    return new Map(
+      (result ?? []).map((r: any) => [Number(r.CODIGO), r.DESIGNACAO as string]),
+    );
   }
-
   // Insere um ou mais itens na FK2_TB_PLANO_CURRICULAR_GRADE
   private async inserirItensEmMassa(
     codigoPlanoCurso: number,
