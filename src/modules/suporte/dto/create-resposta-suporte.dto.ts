@@ -9,7 +9,8 @@ import {
 
 export class CreateRespostaSuporteDto {
   @ApiProperty({
-    example: 'Já resolvemos o problema da nota. Por favor verifique no sistema.',
+    example:
+      'Já resolvemos o problema da nota. Por favor verifique no sistema.',
     description: 'Texto da resposta ao pedido de suporte',
   })
   @IsString()
@@ -23,8 +24,6 @@ export class CreateRespostaSuporteDto {
   })
   @IsInt()
   contactos_id: number;
-
-
 
   @ApiPropertyOptional({
     example: 'comprovativo.pdf',
@@ -52,6 +51,4 @@ export class CreateRespostaSuporteDto {
   @IsString()
   @MaxLength(255)
   file_name3?: string;
-
-
 }
