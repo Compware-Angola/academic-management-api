@@ -35,6 +35,7 @@ import {
   VALID_PHASE_TRANSITIONS,
 } from 'src/common/enums/faso_anolectivo.type';
 import { definirSemestre } from '../academic_activities/util/definir-semestre';
+import { TipoCandidaturaSigla } from 'src/common/enums/tipo_candidatura.sigla';
 type InsertVagasCursoType = {
   codigoUtilizador: number;
   codigoAnoLectivo: number;
@@ -49,7 +50,7 @@ export class AcademicCalendarService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly anoLectivoUtil: AnoLectivoUtil,
-  ) { }
+  ) {}
 
   async findAcademicYearsWithConfiguredSemesters(
     params: FetchAcademicCalendarDto,
@@ -783,14 +784,18 @@ export class AcademicCalendarService {
   async obterAnoLectivo(anoLectivoId: number) {
     const sqlAnoLectivo = `
       SELECT
-        DATAINICIOPRIMEIROSEMESTRE,
-        DATAINICIOSEGUNDOSEMESTRE,
-        DESIGNACAO,
-        STATUS_,
-        FASE_ANOLECTIVO,
-        CODIGO_TIPO_CANDIDATURA,
-        CODIGO
-      FROM FK2_TB_ANO_LECTIVO WHERE CODIGO = :anoLectivoId
+        AL.DATAINICIOPRIMEIROSEMESTRE,
+        AL.DATAINICIOSEGUNDOSEMESTRE,
+        AL.DESIGNACAO,
+        AL.STATUS_,
+        AL.FASE_ANOLECTIVO,
+        AL.CODIGO_TIPO_CANDIDATURA,
+        AL.CODIGO,
+        TP.SIGLA
+      FROM FK2_TB_ANO_LECTIVO AL
+      INNER JOIN FK2_TB_TIPO_CANDIDATURA TP
+      ON TP.ID = AL.CODIGO_TIPO_CANDIDATURA
+      WHERE AL.CODIGO = :anoLectivoId
     `;
     const result = await this.dataSource.query(sqlAnoLectivo, {
       anoLectivoId,
@@ -1198,7 +1203,7 @@ export class AcademicCalendarService {
         DATAFIMPRIMEIROSEMESTRE: usavel?.DATAFIMPRIMEIROSEMESTRE,
         DATAINICIOSEGUNDOSEMESTRE: usavel?.DATAINICIOSEGUNDOSEMESTRE,
         DATAFIMSEGUNDOSEMESTRE: usavel?.DATAFIMSEGUNDOSEMESTRE,
-      })
+      });
       return { data: usavel ? toLowerCaseKeys({ ...usavel, semestre }) : null };
     }
 
@@ -1212,7 +1217,7 @@ export class AcademicCalendarService {
           DATAFIMPRIMEIROSEMESTRE: usavel?.DATAFIMPRIMEIROSEMESTRE,
           DATAINICIOSEGUNDOSEMESTRE: usavel?.DATAINICIOSEGUNDOSEMESTRE,
           DATAFIMSEGUNDOSEMESTRE: usavel?.DATAFIMSEGUNDOSEMESTRE,
-        })
+        });
         return { data: toLowerCaseKeys({ ...usavel, semestre }) };
       }
     }
@@ -1223,7 +1228,7 @@ export class AcademicCalendarService {
       DATAFIMPRIMEIROSEMESTRE: ativo?.DATAFIMPRIMEIROSEMESTRE,
       DATAINICIOSEGUNDOSEMESTRE: ativo?.DATAINICIOSEGUNDOSEMESTRE,
       DATAFIMSEGUNDOSEMESTRE: ativo?.DATAFIMSEGUNDOSEMESTRE,
-    })
+    });
     return { data: toLowerCaseKeys({ ...ativo, semestre }) };
   }
 
@@ -1397,10 +1402,17 @@ export class AcademicCalendarService {
       where codigo = :codigoAnoLectivo
     `,
         {
-          status: targetPhase == EstadoAnoLectivoType.ACTIVO ? 1 : 0,
+          status:
+            targetPhase == EstadoAnoLectivoType.ACTIVO &&
+            academicYear.sigla == TipoCandidaturaSigla.LICENCIATURA
+              ? 1
+              : 0,
           faseAnoLectiva: targetPhase,
           estadoExtenso:
-            targetPhase == EstadoAnoLectivoType.ACTIVO ? 'Activo' : 'Desactivo',
+            targetPhase == EstadoAnoLectivoType.ACTIVO &&
+            academicYear.sigla == TipoCandidaturaSigla.LICENCIATURA
+              ? 'Activo'
+              : 'Desactivo',
           codigoAnoLectivo: academicYearCode,
         } as any,
       );
