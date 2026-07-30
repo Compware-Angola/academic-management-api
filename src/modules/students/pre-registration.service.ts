@@ -65,7 +65,8 @@ export class PreRegistrationService {
             CODIGO_NACIONALIDADE,
             INQUERITO,
             CREATED_AT,
-            UPDATED_AT
+            UPDATED_AT,
+            CODIGO_FACULDADE
         ) VALUES (
             :cursoCandidatura,
             :tentou_universidade_publica,
@@ -90,6 +91,7 @@ export class PreRegistrationService {
             :mae,
             :necessidadeEspecialId,
             :poloId,
+            
             :cursoOpcional1Id,
             :cursoOpcional2Id,
             :userId,
@@ -100,7 +102,8 @@ export class PreRegistrationService {
             :codigoNacionalidade,
             :inquerito,
             SYSDATE,
-            SYSDATE
+            SYSDATE,
+            :codigoFaculdade
         )
         RETURNING CODIGO INTO :outId
         `,
@@ -128,6 +131,7 @@ export class PreRegistrationService {
         mae: dto.mae ?? null,
         necessidadeEspecialId: dto.necessidadeEspecialId ?? null,
         poloId: dto.poloId ?? null,
+        codigoFaculdade: dto.codigoFaculdade ?? null,
         cursoOpcional1Id: dto.cursoOpcional1Id ?? null,
         cursoOpcional2Id: dto.cursoOpcional2Id ?? null,
         userId: userId ?? null,
