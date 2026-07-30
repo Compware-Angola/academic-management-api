@@ -36,7 +36,7 @@ export class DisciplineService {
         : '';
     const baseWhere = `
   al.codigo_matricula = ${matriculaId}
-  AND g.status_ = 1
+  --AND g.status_ = 1
   AND al.estado != 3
   AND (mat.CODIGO_CURSO = g.CODIGO_CURSO or g.CODIGO_CURSO in (select CODIGO_CURSO from FK2_TB_CURSO_ESPECIALIDADE WHERE CODIGO_CURSO_ESPECIALIDADE = mat.CODIGO_CURSO))
   AND al.codigo_ano_lectivo = ${anoLectivo}

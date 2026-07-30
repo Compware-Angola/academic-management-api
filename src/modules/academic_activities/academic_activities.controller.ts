@@ -22,7 +22,7 @@ import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CreateAcademicActivitiesTermsDto } from './dto/create-academic-activities-terms.dto';
 import { AccessLogHelper } from '../../common/helpers/access-log.helper';
 import { HttpService } from '@nestjs/axios/dist/http.service';
-import { FindPrazosMatricula } from './dto/find-prazos-matricula.dto';
+import { FindEnrollmentRegistrationDeadlinesDTO } from './dto/find-prazos-matricula.dto';
 import { CreateCalendarActivityDto } from './dto/create-calendar-activity.dto';
 import { FindCalendarActivitiesDto } from './dto/find-calendar-activities.dto';
 import { FindAcademicActivityTermsDto } from './dto/find-academic-activity-terms.dto';
@@ -166,8 +166,8 @@ export class AcademicActivitiesController {
   remove(@Param('id') id: string) {
     return this.academicActivitiesService.deleteAcademicActivities(+id);
   }
-  @Get('enrollment-period-students-old')
-  async enrollmentPeriodStudentsOld(@Query() query: FindPrazosMatricula) {
+  @Get('enrollment-and-registration-deadlines')
+  async enrollmentPeriodStudentsOld(@Query() query: FindEnrollmentRegistrationDeadlinesDTO) {
     return this.academicActivitiesService.enrollmentPeriodStudentsOld(query);
   }
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)

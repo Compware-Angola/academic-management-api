@@ -10,7 +10,7 @@ import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FindMarcacaoPrazoDTO } from './dto/find-marcacao-prova-prazo.dto';
 import { CreateAcademicActivitiesTermsDto } from './dto/create-academic-activities-terms.dto';
 import { DecodedUserPayload } from '../../common/types/token-validation-response.interface';
-import { FindPrazosMatricula } from './dto/find-prazos-matricula.dto';
+import { FindEnrollmentRegistrationDeadlinesDTO } from './dto/find-prazos-matricula.dto';
 import { definirSemestre } from './util/definir-semestre';
 import { CreateCalendarActivityDto } from './dto/create-calendar-activity.dto';
 import { FindCalendarActivitiesDto } from './dto/find-calendar-activities.dto';
@@ -80,7 +80,7 @@ export class AcademicActivitiesService {
     return await toLowerCaseKeys(activities[0]);
   }
 
-  async enrollmentPeriodStudentsOld({ anoLectivo }: FindPrazosMatricula) {
+  async enrollmentPeriodStudentsOld({ anoLectivo, codigoTipoCandidatura, isNewStudent }: FindEnrollmentRegistrationDeadlinesDTO) {
     const sqlAnoLectivo = `
       SELECT
         DESIGNACAO,
@@ -100,23 +100,33 @@ export class AcademicActivitiesService {
     if (!rowAnoLectivo) {
       throw new BadRequestException('AnoLectivo não encontrado: ');
     }
+
+    const filtroCalendario =
+      isNewStudent === 1
+        ? '= 16'
+        : 'IN ( 4)';
+
     const sqlCalendarioAcademico = `
-      SELECT
-        DATA_INICIO,
-        DATA_TERMINO,
-        CODIGO_TIPO_CALENDARIO,
-        DESCRICAO
-      FROM FK2_TB_CALENDARIO_ACTIVIDADE_LECTIVAS
-      WHERE CODIGO_ANO_LECTIVO = :anoLectivo
-      AND CODIGO_TIPO_CALENDARIO in (16,4)
-      AND ATIVE_STATE = 1
-    `;
+  SELECT
+    DATA_INICIO,
+    DATA_TERMINO,
+    CODIGO_TIPO_CALENDARIO,
+    DESCRICAO
+  FROM FK2_TB_CALENDARIO_ACTIVIDADE_LECTIVAS
+  WHERE CODIGO_ANO_LECTIVO = :anoLectivo
+    AND CODIGO_TIPO_CALENDARIO ${filtroCalendario}
+    AND CODIGO_TIPO_CANDIDATURA = :codigoTipoCandidatura
+    AND ATIVE_STATE = 1
+`;
+
     const resultCalendarioAcademico = await this.dataSource.query(
       sqlCalendarioAcademico,
       {
         anoLectivo,
+        codigoTipoCandidatura,
       } as any,
     );
+
 
     const semestre = definirSemestre({
       DATAINICIOPRIMEIROSEMESTRE: rowAnoLectivo?.DATAINICIOPRIMEIROSEMESTRE,
