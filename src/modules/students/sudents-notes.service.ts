@@ -150,6 +150,7 @@ export class StudentNoteService {
 
             WHERE 1=1
                 ---AND ftgca.CODIGO_GRADE_CURRICULAR = :grade
+                AND ftgc.status_ = 1
                AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR <> 5
                 AND ftgca.CODIGO_MATRICULA = :numeroDeMatricula
                 AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo
@@ -287,7 +288,7 @@ export class StudentNoteService {
 
       //====================== Já tem nota não calcula ========================================
       if (
-       // gradeAluno.CODIGO_ANO_LECTIVO !== anoCorrente &&
+        // gradeAluno.CODIGO_ANO_LECTIVO !== anoCorrente &&
         gradeAluno.EQUIVALENCIA !== 0 &&
         gradeAluno.NOTA !== null &&
         gradeAluno.NOTA !== undefined &&

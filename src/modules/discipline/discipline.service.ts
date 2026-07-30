@@ -36,7 +36,7 @@ export class DisciplineService {
         : '';
     const baseWhere = `
   al.codigo_matricula = ${matriculaId}
-  AND g.status_ = 1
+  --AND g.status_ = 1
   AND al.estado != 3
   AND (mat.CODIGO_CURSO = g.CODIGO_CURSO or g.CODIGO_CURSO in (select CODIGO_CURSO from FK2_TB_CURSO_ESPECIALIDADE WHERE CODIGO_CURSO_ESPECIALIDADE = mat.CODIGO_CURSO))
   AND al.codigo_ano_lectivo = ${anoLectivo}
@@ -767,19 +767,8 @@ export class DisciplineService {
 
     // 2. Verificar se existe plano do curso
     let codigoPlanoCurso: number;
-    try {
-      codigoPlanoCurso = await this.getPlanoCurso(
-        codigoCurso,
-        codigoAnoLectivo,
-      );
 
-      if (!codigoPlanoCurso || codigoPlanoCurso < 0) {
-        throw new NotFoundException('Não foi encontrado plano do curso.');
-      }
-    } catch (error) {
-      if (error instanceof NotFoundException) throw error;
-      throw new NotFoundException('Não foi encontrado plano do curso.');
-    }
+    codigoPlanoCurso = await this.getPlanoCurso(codigoCurso, codigoAnoLectivo);
 
     // 3. Obter grade curricular caso exista
     const gradeResult = await this.dataSource.query(
@@ -1070,6 +1059,46 @@ export class DisciplineService {
   }
   // ─── Helpers privados ───────────────────────────────────────────────────────
 
+  private async criarPlanoCurso(
+    codigoCurso: number,
+    codigoAnoLectivo: number,
+    codigoUtilizador: number,
+  ): Promise<number> {
+    const resultDescription = await this.dataSource.query(
+      `
+        SELECT
+          (SELECT DESIGNACAO FROM FK2_TB_CURSOS WHERE CODIGO = :CODIGOCURSO) AS CURSO,
+           (SELECT DESIGNACAO FROM FK2_TB_ANO_LECTIVO WHERE CODIGO = :CODIGOANOLECTIVO) AS ANOLECTIVO
+        FROM dual
+        `,
+      { codigoCurso, codigoAnoLectivo } as any,
+    );
+    const description = `Plano de Estudo do Curso de ${resultDescription?.[0]?.CURSO} ${resultDescription?.[0]?.ANOLECTIVO}`;
+
+    const result = await this.dataSource.query(
+      `
+      INSERT INTO FK2_TB_PLANO_CURRICULAR_CURSO
+        (CODIGO_CURSO,DESIGNACAO, CODIGO_ANO_LECTIVO, CODIGO_UTILIZADOR, DATA )
+      VALUES
+        (:codigoCurso,:descricao ,:codigoAnoLectivo, :codigoUtilizador, SYSDATE)
+      RETURNING CODIGO INTO :codigo
+      `,
+      {
+        codigoCurso,
+        descricao: description,
+        codigoAnoLectivo,
+        codigoUtilizador,
+
+        codigo: {
+          dir: oracledb.BIND_OUT,
+          type: oracledb.NUMBER,
+        },
+      } as any,
+    );
+
+    return Number(result?.[0]?.codigo ?? result?.codigo);
+  }
+
   private async ativegrade(codigoGrade: number) {
     await this.dataSource.query(
       `
@@ -1219,23 +1248,32 @@ export class DisciplineService {
     codigoCurso: number,
     codigoAnoLectivo: number,
   ): Promise<number> {
-    const result = await this.dataSource.query(
+    const planos = await this.dataSource.query(
       `
-    SELECT CODIGO
-    FROM FK2_TB_PLANO_CURRICULAR_CURSO
-    WHERE CODIGO_CURSO       = :codigoCurso
-      AND CODIGO_ANO_LECTIVO = :codigoAnoLectivo
-    FETCH FIRST 1 ROWS ONLY
+      SELECT CODIGO
+      FROM FK2_TB_PLANO_CURRICULAR_CURSO
+      WHERE CODIGO_CURSO = :codigoCurso
+        AND CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+      FETCH FIRST 1 ROWS ONLY
     `,
       { codigoCurso, codigoAnoLectivo } as any,
     );
 
-    if (!result || result.length === 0) {
-      throw new NotFoundException(
-        `Plano do curso não encontrado para o curso ${codigoCurso} e ano lectivo ${codigoAnoLectivo}.`,
-      );
-    }
+    const planoExistente = planos?.[0];
 
-    return Number(result[0].CODIGO);
+    if (planoExistente) {
+      return Number(planoExistente.CODIGO);
+    }
+    const codigoPlanoCurso = await this.criarPlanoCurso(
+      codigoCurso,
+      codigoAnoLectivo,
+      1,
+    );
+    if (codigoPlanoCurso) {
+      return codigoPlanoCurso;
+    }
+    throw new NotFoundException(
+      `Plano do curso não encontrado para o curso ${codigoCurso} e ano lectivo ${codigoAnoLectivo}.`,
+    );
   }
 }
