@@ -1348,7 +1348,7 @@ export class AcademicCalendarService {
         if (today < activationStartDate) {
           throw new BadRequestException(
             `Este Ano Lectivo só pode ser activado a partir de
-10 dias antes do início do 1.º semestre.`,
+        10 dias antes do início do 1.º semestre.`,
           );
         }
       }
