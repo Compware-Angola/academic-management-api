@@ -24,6 +24,7 @@ export class PreRegistrationService {
   //  CREATE
   // ─────────────────────────────────────────────
   async create(dto: CreatePreRegistrationDto, userId: number) {
+    console.log(dto);
     await this.assertUniqueBI(dto.bilheteIdentidade);
     await this.assertUniqueEmail(dto.email);
 
