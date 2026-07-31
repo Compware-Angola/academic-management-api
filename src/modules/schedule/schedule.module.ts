@@ -14,6 +14,9 @@ import { StudentWithoutScheduleService } from './student-without-schedule.servic
 import { ClassTimesScheduleService } from './class-times-schedule.service';
 import { ClassTimesScheduleController } from './class-times-schedule.controller';
 import { SchedulePortalController } from './schedule-portal.controller';
+import { ImportSchedulesService } from './Import-schedules.service';
+import { ImportSchedulesController } from './Import-schedules.controller';
+import { CreateSchedulesImportedService } from './create-schedules-imported.service';
 
 @Module({
   imports: [
@@ -28,12 +31,13 @@ import { SchedulePortalController } from './schedule-portal.controller';
       name: 'schedule_service',
     }),
   ],
-  controllers: [ScheduleController, DocenteSubstitutoController, ClassTimesScheduleController, SchedulePortalController],
+  controllers: [ScheduleController, ImportSchedulesController, DocenteSubstitutoController, ClassTimesScheduleController, SchedulePortalController],
   providers: [
     ScheduleService,
     promptToCreateAndEditService,
-
+    ImportSchedulesService,
     ClassTimesScheduleService,
+    CreateSchedulesImportedService,
     AnoLectivoUtil,
     DocenteSubstitutoService,
     MoveStudentsCorrectionService,
