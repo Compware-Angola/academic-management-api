@@ -275,7 +275,6 @@ export class CreateSchedulesImportedService {
         `,
             { scheduleId } as any,
         );
-        console.log('Aulas de origem: ROW ', JSON.stringify(result));
 
         return this.unwrapRows<AulaOrigemRaw>(result);
     }
@@ -331,8 +330,7 @@ export class CreateSchedulesImportedService {
             if (!agrupado[dia]) agrupado[dia] = [];
             agrupado[dia].push(aula);
         }
-        console.log('Aulas por dia: ', JSON.stringify(agrupado));
-        console.log('Dias de origem: ', Object.keys(agrupado).map(Number));
+
         return agrupado;
     }
 
@@ -347,7 +345,6 @@ export class CreateSchedulesImportedService {
      */
     private async diaColide(aulasDoDia: AulaOrigemRaw[], fkanoLectivoDestino: number): Promise<boolean> {
         for (const aula of aulasDoDia) {
-            console.log('Aula222: ', JSON.stringify(aula));
 
             const salaId = aula.SALAID ? Number(aula.SALAID) : null;
 
@@ -376,8 +373,6 @@ export class CreateSchedulesImportedService {
                     horaFim: aula.HORATERMINO,
                 } as any,
             );
-            console.log('Result: ', JSON.stringify(result));
-
 
             const rows = this.unwrapRows<{ QTD: number }>(result);
             if (Number(rows[0]?.QTD ?? 0) > 0) {
