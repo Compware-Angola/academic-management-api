@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { ImportSchedulesService } from "./Import-schedules.service";
 
 import { ApiTags } from "@nestjs/swagger";
@@ -10,7 +10,7 @@ import { CreateImportSchedulesDto } from "./dto/create-schedules-imported.dto";
 
 
 @ApiTags('IMPORT SCHEDULE')
-// @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @Controller('import-schedules')
 export class ImportSchedulesController {
     constructor(
@@ -24,8 +24,9 @@ export class ImportSchedulesController {
     }
 
     @Post()
-    async createSchedulesImported(@Body() body: CreateImportSchedulesDto): Promise<ImportSummary> {
-        return this.createSchedulesImportedService.createSchedulesImported(body)
+    async createSchedulesImported(@Body() body: CreateImportSchedulesDto, @Req() req: any): Promise<ImportSummary> {
+        const user = req.user;
+        return this.createSchedulesImportedService.createSchedulesImported(body, user?.sub)
     }
 
 

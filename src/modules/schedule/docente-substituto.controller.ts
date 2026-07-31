@@ -20,7 +20,7 @@ export class DocenteSubstitutoController {
 
   @Post()
   @ApiOperation({ summary: 'Criar um novo registo de docente substituto' })
-  create(@Body(new ValidationPipe({ transform: true, whitelist: true })) dto: CreateDocenteSubstitutoDto, @Req() req: any,) {
+  create(@Body(new ValidationPipe({ transform: true, whitelist: true })) dto: CreateDocenteSubstitutoDto, @Req() req: any) {
     const user = req.user;
     return this.service.create(user.sub || 1, dto);
   }
