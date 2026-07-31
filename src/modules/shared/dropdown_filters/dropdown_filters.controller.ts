@@ -18,6 +18,7 @@ import { ProfissaoService } from './services/profissao.service';
 import { NacionalidadeService } from './services/nacionalidade.service';
 import { NecessidadeEspecialService } from './services/necessidade-especial.service';
 import { AnoLectivoConfirmadosService } from './services/anolectivo-confirmados.service';
+import { AnoCurriculareService } from './services/ano-corricular.service';
 import { SituationService } from './services/situation.service';
 import { SearchClientDto } from './dto/search.client.dto';
 import { SearchClientService } from './services/search-client.service';
@@ -40,6 +41,7 @@ export class DropdownFiltersController {
     private readonly profissaoService: ProfissaoService,
     private readonly nacionalidadeService: NacionalidadeService,
     private readonly necessidadeEspecialService: NecessidadeEspecialService,
+    private readonly anoCurriculareService: AnoCurriculareService,
     private readonly anoLectivoConfirmadosService: AnoLectivoConfirmadosService,
     private readonly situationService: SituationService,
     private readonly searchClientService: SearchClientService,
@@ -86,6 +88,14 @@ export class DropdownFiltersController {
       matricula,
     );
   }
+
+  @Get('ano-curricular/:curso')
+  async getAnosCurriculare(
+    @Param('curso', ParseIntPipe) curso: number,
+  ): Promise<any> {
+    return this.anoCurriculareService.getAnoCurriculare(curso);
+  }
+  
   @Get('necessidades-especiais')
   async getNecessidadeEspeciasDropdown() {
     return this.necessidadeEspecialService.getNecessidadeEspecialDropdown();
