@@ -9,7 +9,7 @@ interface AnoCurricular {
 
 @Injectable()
 export class AnoCurriculareService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   async getAnoCurriculare(codigoCurso: number): Promise<AnoCurricular[]> {
     try {
@@ -17,13 +17,13 @@ export class AnoCurriculareService {
       // 1. Buscar dados do curso
       // --------------------------------------------------------------
       const cursoSql = `
-        SELECT
-          c.DURACAO     AS duracao,
-          c.TIPO_CURSO  AS tipo_curso
-        FROM FK2_TB_CURSOS c
-        WHERE c.CODIGO = :codigoCurso
-          AND c.STATUS_ = 1
-      `;
+      SELECT
+        c.DURACAO     AS duracao,
+        c.TIPO_CURSO  AS tipo_curso
+      FROM FK2_TB_CURSOS c
+      WHERE c.CODIGO = :codigoCurso
+        AND c.STATUS_ = 1
+    `;
 
       const cursoRows = await this.dataSource.query(cursoSql, [codigoCurso]);
 
@@ -40,14 +40,14 @@ export class AnoCurriculareService {
       // 2. Verificar se o curso é uma especialidade e tem curso base
       // --------------------------------------------------------------
       const baseSql = `
-        SELECT cb.DURACAO AS duracao_base
-        FROM FK2_TB_CURSO_ESPECIALIDADE ce
-        INNER JOIN FK2_TB_CURSOS cb
-          ON cb.CODIGO = ce.CODIGO_CURSO
-        WHERE ce.CODIGO_CURSO_ESPECIALIDADE = :codigoCurso
-          AND cb.STATUS_ = 1
-          AND ROWNUM = 1
-      `;
+      SELECT cb.DURACAO AS duracao_base
+      FROM FK2_TB_CURSO_ESPECIALIDADE ce
+      INNER JOIN FK2_TB_CURSOS cb
+        ON cb.CODIGO = ce.CODIGO_CURSO
+      WHERE ce.CODIGO_CURSO_ESPECIALIDADE = :codigoCurso
+        AND cb.STATUS_ = 1
+        AND ROWNUM = 1
+    `;
 
       const baseRows = await this.dataSource.query(baseSql, [codigoCurso]);
       const duracaoCursoBase =
@@ -56,14 +56,26 @@ export class AnoCurriculareService {
           : 0;
 
       // --------------------------------------------------------------
-      // 3. Tipo de curso 2 ou 3 -> lógica de especialidade
+      // 3. 1->normal course
+      // 2->especialization
+      // 3->other especialization type
+      //  Tipo de curso 2 ou 3 -> lógica de especialidade
       // --------------------------------------------------------------
       if (tipoCurso === 2 || tipoCurso === 3) {
         if (duracaoCursoBase > 0) {
-          // Ex: curso base = 3 anos, especialidade = 1 ano -> 4º ano
+          // Curso base = 3 anos, especialidade = 1 ano -> traz 1º, 2º, 3º (base) + 4º (especialidade)
           const anoCalculado = duracaoCursoBase + duracao;
 
+          const anosBase = Array.from({ length: duracaoCursoBase }, (_, index) => {
+            const ano = index + 1;
+            return {
+              codigo: ano,
+              designacao: `${ano}º Ano`,
+            };
+          });
+
           return [
+            ...anosBase,
             {
               codigo: anoCalculado,
               designacao: `${anoCalculado}º Ano`,
@@ -71,7 +83,7 @@ export class AnoCurriculareService {
           ];
         }
 
-        // Sem curso base -> usa apenas a duração da especialidade
+        // Sem curso base -> nenhum ano anterior a trazer, usa apenas a duração da especialidade
         return [
           {
             codigo: duracao,
