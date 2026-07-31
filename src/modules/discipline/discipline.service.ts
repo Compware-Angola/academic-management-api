@@ -15,10 +15,11 @@ import { FindGradeCurricularDto } from './dto/FindGradeCurricularDto';
 import { CreateUnidadeCurricularDto } from './dto/create-unidade-curricular.plano.dto';
 import { CreateUnidadeCurricularDepartamentoDto } from './dto/create-unidade-curricular-departamento.dto';
 import { FindUnidadeCurricularDeptDto } from './dto/find-unidade-curricular-dept.dto';
+import { FindGradeCurricularAdminDto } from './dto/find-grade-curricular-admin.dto';
 
 @Injectable()
 export class DisciplineService {
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly dataSource: DataSource) {}
   async findGradeCurricularAluno({
     matriculaId,
     semestre,
@@ -35,7 +36,7 @@ export class DisciplineService {
         : '';
     const baseWhere = `
   al.codigo_matricula = ${matriculaId}
-  AND g.status_ = 1
+  --AND g.status_ = 1
   AND al.estado != 3
   AND (mat.CODIGO_CURSO = g.CODIGO_CURSO or g.CODIGO_CURSO in (select CODIGO_CURSO from FK2_TB_CURSO_ESPECIALIDADE WHERE CODIGO_CURSO_ESPECIALIDADE = mat.CODIGO_CURSO))
   AND al.codigo_ano_lectivo = ${anoLectivo}
@@ -367,7 +368,6 @@ export class DisciplineService {
     const offset = (page - 1) * limit;
     const conditions: string[] = ['1=1'];
     const params: Record<string, any> = {};
-    // conditions.push('gc.STATUS_ = 1');
 
     if (classe) {
       conditions.push('gc.CODIGO_CLASSE = :classe');
@@ -390,64 +390,87 @@ export class DisciplineService {
       conditions.push('gc.STATUS_ = 1'); // default: só ativas quando não filtrado
     }
     if (search) {
-      conditions.push('UPPER( dd.DESIGNACAO) LIKE UPPER(:search)');
+      conditions.push('UPPER(dd.DESIGNACAO) LIKE UPPER(:search)');
       params.search = `%${search}%`;
     }
 
     const whereClause = conditions.join(' AND ');
 
+    // Base comum às duas queries: uma linha por grade curricular (rn = 1),
+    // escolhendo o plano curricular mais recente (ajusta o ORDER BY do
+    // ROW_NUMBER se existir um campo de vigência/status no plano, ex:
+    // plc.STATUS_ ou plc.CODIGO_ANO_LECTIVO)
+    const baseCte = `
+    WITH ranked AS (
+      SELECT
+        plc.Codigo        AS codigo_plano_curricular,
+        plc.DESIGNACAO    AS descricao_plano_curricular,
+        gc.Codigo         AS codigo_grade_curricular,
+        dd.CODIGO         AS codigo_disciplina,
+        dd.DESIGNACAO     AS descricao_disciplina,
+        cc.DESIGNACAO     AS descricao_curso,
+        cc.CODIGO         AS codigo_curso,
+        cl.DESIGNACAO     AS descricao_classe,
+        cl.CODIGO         AS codigo_classe,
+        ss.CODIGO         AS codigo_semestre,
+        ss.DESIGNACAO     AS designacao_semestre,
+
+        pcg.PESO_PRIMEIRA_FREQ     AS peso_primeira_freq,
+        pcg.PESO_SEGUNDA_FREQ      AS peso_segunda_freq,
+        pcg.PESO_PRATICA           AS peso_pratica,
+        pcg.NOTA_MIN_PRIMEIRA_FREQ AS nota_min_primeira_freq,
+        pcg.NOTA_MIN_SEGUNDA_FREQ  AS nota_min_segunda_freq,
+        pcg.NOTA_MIN_PRATICA       AS nota_min_pratica,
+
+        dd.STATUS_        AS status,
+        ROW_NUMBER() OVER (
+          PARTITION BY gc.Codigo
+          ORDER BY plc.Codigo DESC
+        ) AS rn
+      FROM FK2_TB_PLANO_CURRICULAR_CURSO plc
+      INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pcg ON pcg.CODIGO_PLANO_CURRICULAR_CURSO = plc.CODIGO
+      INNER JOIN FK2_TB_GRADE_CURRICULAR gc        ON gc.Codigo = pcg.codigo_grade_curricular
+      INNER JOIN FK2_TB_DISCIPLINAS dd             ON dd.CODIGO = gc.Codigo_Disciplina
+      INNER JOIN FK2_TB_CURSOS cc                  ON cc.CODIGO = gc.Codigo_Curso
+      INNER JOIN FK2_TB_CLASSES cl                 ON cl.CODIGO = gc.CODIGO_CLASSE
+      INNER JOIN FK2_TB_SEMESTRES ss               ON ss.CODIGO = gc.Codigo_Semestre
+      WHERE ${whereClause}
+    )
+  `;
+
     const sql = `
+    ${baseCte}
     SELECT
-      plc.Codigo        AS codigo_plano_curricular,
-      plc.DESIGNACAO as descricao_plano_curricular,
-      gc.Codigo         AS codigo_grade_curricular,
-      dd.CODIGO         AS codigo_disciplina,
-      dd.DESIGNACAO     AS descricao_disciplina,
-      cc.DESIGNACAO     AS descricao_curso,
-      cc.CODIGO         AS codigo_curso,
-      cl.DESIGNACAO     AS descricao_classe,
-      cl.CODIGO         AS codigo_classe,
-      ss.CODIGO         AS codigo_semestre,
-      ss.DESIGNACAO     AS designacao_semestre,
-
-     pcg.PESO_PRIMEIRA_FREQ  AS peso_primeira_freq,
-     pcg.PESO_SEGUNDA_FREQ   AS peso_segunda_freq,
-     pcg.PESO_PRATICA        AS peso_pratica,
-     pcg.NOTA_MIN_PRIMEIRA_FREQ AS nota_min_primeira_freq,
-     pcg.NOTA_MIN_SEGUNDA_FREQ AS nota_min_segunda_freq,
-     pcg.NOTA_MIN_PRATICA      AS nota_min_pratica,
-
-      dd.STATUS_        AS status
-    FROM FK2_TB_PLANO_CURRICULAR_CURSO plc
-    INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pcg  on pcg.CODIGO_PLANO_CURRICULAR_CURSO  = plc.CODIGO
-    INNER JOIN FK2_TB_GRADE_CURRICULAR gc on gc.Codigo = pcg.codigo_grade_curricular
-    INNER JOIN FK2_TB_DISCIPLINAS dd ON dd.CODIGO = gc.Codigo_Disciplina
-    INNER JOIN FK2_TB_CURSOS cc      ON cc.CODIGO = gc.Codigo_Curso
-    INNER JOIN FK2_TB_CLASSES cl     ON cl.CODIGO = gc.CODIGO_CLASSE
-    INNER JOIN FK2_TB_SEMESTRES ss   ON ss.CODIGO = gc.Codigo_Semestre
-
-    WHERE ${whereClause}
-    ORDER BY cc.DESIGNACAO ASC, cl.DESIGNACAO ASC, ss.CODIGO ASC
+      codigo_plano_curricular,
+      descricao_plano_curricular,
+      codigo_grade_curricular,
+      codigo_disciplina,
+      descricao_disciplina,
+      descricao_curso,
+      codigo_curso,
+      descricao_classe,
+      codigo_classe,
+      codigo_semestre,
+      designacao_semestre,
+      peso_primeira_freq,
+      peso_segunda_freq,
+      peso_pratica,
+      nota_min_primeira_freq,
+      nota_min_segunda_freq,
+      nota_min_pratica,
+      status
+    FROM ranked
+    WHERE rn = 1
+    ORDER BY descricao_curso ASC, descricao_classe ASC, codigo_semestre ASC
     OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
   `;
 
     const countSql = `
-SELECT COUNT(DISTINCT gc.CODIGO) AS total
-FROM FK2_TB_PLANO_CURRICULAR_CURSO plc
-INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pcg
-  ON pcg.CODIGO_PLANO_CURRICULAR_CURSO = plc.CODIGO
-INNER JOIN FK2_TB_GRADE_CURRICULAR gc
-  ON gc.CODIGO = pcg.CODIGO_GRADE_CURRICULAR
-INNER JOIN FK2_TB_DISCIPLINAS dd
-  ON dd.CODIGO = gc.CODIGO_DISCIPLINA
-INNER JOIN FK2_TB_CURSOS cc
-  ON cc.CODIGO = gc.CODIGO_CURSO
-INNER JOIN FK2_TB_CLASSES cl
-  ON cl.CODIGO = gc.CODIGO_CLASSE
-INNER JOIN FK2_TB_SEMESTRES ss
-  ON ss.CODIGO = gc.CODIGO_SEMESTRE
-WHERE ${whereClause}
-`;
+    ${baseCte}
+    SELECT COUNT(*) AS total
+    FROM ranked
+    WHERE rn = 1
+  `;
 
     try {
       const [records, countResult] = await Promise.all([
@@ -468,6 +491,156 @@ WHERE ${whereClause}
       console.error('Erro ao buscar grade curricular:', error);
       throw new InternalServerErrorException(
         `Erro ao buscar grade curricular: ${error.message}`,
+      );
+    }
+  }
+
+  // service — método de listagem (todas as linhas, sem dedup por disciplina)
+
+  async findAllGradeCurricular(dto: FindGradeCurricularAdminDto) {
+    const {
+      curso,
+      classe,
+      semestre,
+      disciplina,
+      estado,
+      search,
+      page = 1,
+      limit = 25,
+    } = dto;
+
+    const offset = (page - 1) * limit;
+    const conditions: string[] = ['1=1'];
+    const params: Record<string, any> = {};
+
+    if (curso) {
+      conditions.push('gc.CODIGO_CURSO = :curso');
+      params.curso = curso;
+    }
+
+    if (classe) {
+      conditions.push('gc.CODIGO_CLASSE = :classe');
+      params.classe = classe;
+    }
+
+    if (semestre) {
+      conditions.push('gc.CODIGO_SEMESTRE = :semestre');
+      params.semestre = semestre;
+    }
+
+    if (disciplina) {
+      conditions.push('gc.CODIGO_DISCIPLINA = :disciplina');
+      params.disciplina = disciplina;
+    }
+
+    if (estado === 0 || estado === 1) {
+      conditions.push('gc.STATUS_ = :estado');
+      params.estado = Number(estado);
+    }
+
+    if (search) {
+      conditions.push('UPPER(dd.DESIGNACAO) LIKE UPPER(:search)');
+      params.search = `%${search}%`;
+    }
+
+    const whereClause = conditions.join(' AND ');
+
+    // Sem ROW_NUMBER / dedup aqui de propósito: precisamos ver cada
+    // registo de FK2_TB_GRADE_CURRICULAR individualmente (mesmo que a
+    // mesma disciplina apareça mais de uma vez, ex: I e II semestre,
+    // ou registos duplicados por engano) para poder activar/inactivar
+    // cada um separadamente.
+    const baseFrom = `
+    FROM FK2_TB_GRADE_CURRICULAR gc
+    INNER JOIN FK2_TB_DISCIPLINAS dd ON dd.CODIGO = gc.CODIGO_DISCIPLINA
+    INNER JOIN FK2_TB_CURSOS cc      ON cc.CODIGO = gc.CODIGO_CURSO
+    INNER JOIN FK2_TB_CLASSES cl     ON cl.CODIGO = gc.CODIGO_CLASSE
+    INNER JOIN FK2_TB_SEMESTRES ss   ON ss.CODIGO = gc.CODIGO_SEMESTRE
+    WHERE ${whereClause}
+  `;
+
+    const sql = `
+    SELECT
+      gc.CODIGO             AS codigo,
+      gc.CODIGO_CURSO       AS codigo_curso,
+      cc.DESIGNACAO         AS descricao_curso,
+      gc.CODIGO_DISCIPLINA  AS codigo_disciplina,
+      dd.DESIGNACAO         AS descricao_disciplina,
+      gc.CODIGO_CLASSE      AS codigo_classe,
+      cl.DESIGNACAO         AS descricao_classe,
+      gc.CODIGO_SEMESTRE    AS codigo_semestre,
+      ss.DESIGNACAO         AS designacao_semestre,
+      gc.HORASTOTAIS        AS horas_totais,
+      gc.STATUS_             AS status
+    ${baseFrom}
+    ORDER BY cc.DESIGNACAO ASC, cl.DESIGNACAO ASC, ss.CODIGO ASC, dd.DESIGNACAO ASC
+    OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
+  `;
+
+    const countSql = `
+    SELECT COUNT(*) AS total
+    ${baseFrom}
+  `;
+
+    try {
+      const [records, countResult] = await Promise.all([
+        this.dataSource.query(sql, params as any),
+        this.dataSource.query(countSql, params as any),
+      ]);
+
+      const total = Number(countResult?.[0]?.TOTAL ?? 0);
+
+      return {
+        data: toLowerCaseKeys(records),
+        total,
+        page,
+        limit,
+        totalPages: total > 0 ? Math.ceil(total / limit) : 1,
+      };
+    } catch (error) {
+      console.error('Erro ao buscar grades curriculares:', error);
+      throw new InternalServerErrorException(
+        `Erro ao buscar grades curriculares: ${error.message}`,
+      );
+    }
+  }
+
+  // service — método de toggle (activar/inactivar por CODIGO)
+
+  async toggleStatusGradeCurricular(codigo: number, status: number) {
+    const sql = `
+    UPDATE FK2_TB_GRADE_CURRICULAR
+    SET STATUS_ = :status
+    WHERE CODIGO = :codigo
+  `;
+
+    try {
+      const result = await this.dataSource.query(sql, {
+        status,
+        codigo,
+      } as any);
+
+      // dataSource.query em UPDATE via Oracle não retorna linhas afectadas
+      // de forma consistente entre drivers — confirmamos buscando o registo.
+      const [updated] = await this.dataSource.query(
+        `SELECT CODIGO AS codigo, STATUS_ AS status
+       FROM FK2_TB_GRADE_CURRICULAR
+       WHERE CODIGO = :codigo`,
+        { codigo } as any,
+      );
+
+      if (!updated) {
+        throw new NotFoundException(
+          `Grade curricular com código ${codigo} não encontrada`,
+        );
+      }
+
+      return toLowerCaseKeys([updated])[0];
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      console.error('Erro ao alterar status da grade curricular:', error);
+      throw new InternalServerErrorException(
+        `Erro ao alterar status da grade curricular: ${error.message}`,
       );
     }
   }
@@ -594,19 +767,8 @@ WHERE ${whereClause}
 
     // 2. Verificar se existe plano do curso
     let codigoPlanoCurso: number;
-    try {
-      codigoPlanoCurso = await this.getPlanoCurso(
-        codigoCurso,
-        codigoAnoLectivo,
-      );
 
-      if (!codigoPlanoCurso || codigoPlanoCurso < 0) {
-        throw new NotFoundException('Não foi encontrado plano do curso.');
-      }
-    } catch (error) {
-      if (error instanceof NotFoundException) throw error;
-      throw new NotFoundException('Não foi encontrado plano do curso.');
-    }
+    codigoPlanoCurso = await this.getPlanoCurso(codigoCurso, codigoAnoLectivo);
 
     // 3. Obter grade curricular caso exista
     const gradeResult = await this.dataSource.query(
@@ -897,6 +1059,46 @@ WHERE ${whereClause}
   }
   // ─── Helpers privados ───────────────────────────────────────────────────────
 
+  private async criarPlanoCurso(
+    codigoCurso: number,
+    codigoAnoLectivo: number,
+    codigoUtilizador: number,
+  ): Promise<number> {
+    const resultDescription = await this.dataSource.query(
+      `
+        SELECT
+          (SELECT DESIGNACAO FROM FK2_TB_CURSOS WHERE CODIGO = :CODIGOCURSO) AS CURSO,
+           (SELECT DESIGNACAO FROM FK2_TB_ANO_LECTIVO WHERE CODIGO = :CODIGOANOLECTIVO) AS ANOLECTIVO
+        FROM dual
+        `,
+      { codigoCurso, codigoAnoLectivo } as any,
+    );
+    const description = `Plano de Estudo do Curso de ${resultDescription?.[0]?.CURSO} ${resultDescription?.[0]?.ANOLECTIVO}`;
+
+    const result = await this.dataSource.query(
+      `
+      INSERT INTO FK2_TB_PLANO_CURRICULAR_CURSO
+        (CODIGO_CURSO,DESIGNACAO, CODIGO_ANO_LECTIVO, CODIGO_UTILIZADOR, DATA )
+      VALUES
+        (:codigoCurso,:descricao ,:codigoAnoLectivo, :codigoUtilizador, SYSDATE)
+      RETURNING CODIGO INTO :codigo
+      `,
+      {
+        codigoCurso,
+        descricao: description,
+        codigoAnoLectivo,
+        codigoUtilizador,
+
+        codigo: {
+          dir: oracledb.BIND_OUT,
+          type: oracledb.NUMBER,
+        },
+      } as any,
+    );
+
+    return Number(result?.[0]?.codigo ?? result?.codigo);
+  }
+
   private async ativegrade(codigoGrade: number) {
     await this.dataSource.query(
       `
@@ -1046,23 +1248,32 @@ WHERE ${whereClause}
     codigoCurso: number,
     codigoAnoLectivo: number,
   ): Promise<number> {
-    const result = await this.dataSource.query(
+    const planos = await this.dataSource.query(
       `
-    SELECT CODIGO
-    FROM FK2_TB_PLANO_CURRICULAR_CURSO
-    WHERE CODIGO_CURSO       = :codigoCurso
-      AND CODIGO_ANO_LECTIVO = :codigoAnoLectivo
-    FETCH FIRST 1 ROWS ONLY
+      SELECT CODIGO
+      FROM FK2_TB_PLANO_CURRICULAR_CURSO
+      WHERE CODIGO_CURSO = :codigoCurso
+        AND CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+      FETCH FIRST 1 ROWS ONLY
     `,
       { codigoCurso, codigoAnoLectivo } as any,
     );
 
-    if (!result || result.length === 0) {
-      throw new NotFoundException(
-        `Plano do curso não encontrado para o curso ${codigoCurso} e ano lectivo ${codigoAnoLectivo}.`,
-      );
-    }
+    const planoExistente = planos?.[0];
 
-    return Number(result[0].CODIGO);
+    if (planoExistente) {
+      return Number(planoExistente.CODIGO);
+    }
+    const codigoPlanoCurso = await this.criarPlanoCurso(
+      codigoCurso,
+      codigoAnoLectivo,
+      1,
+    );
+    if (codigoPlanoCurso) {
+      return codigoPlanoCurso;
+    }
+    throw new NotFoundException(
+      `Plano do curso não encontrado para o curso ${codigoCurso} e ano lectivo ${codigoAnoLectivo}.`,
+    );
   }
 }

@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DataSource, DeepPartial } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FilterSuporteDto } from './dto/filter-suporte.dto';
@@ -8,10 +12,9 @@ import { CreateTipoSuporteDto } from './dto/create-tipo-suporte.dto';
 import { CreateRespostaSuporteDto } from './dto/create-resposta-suporte.dto';
 import { Suporte } from './entities/suporte.entity';
 
-
 @Injectable()
 export class SuporteService {
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly dataSource: DataSource) {}
   async list(filter: FilterSuporteDto): Promise<{
     data: any[];
     total: number;
@@ -25,7 +28,7 @@ export class SuporteService {
       search,
       tipo_suporte,
       status,
-      codigo_matricula
+      codigo_matricula,
     } = filter;
 
     const offset = (page - 1) * limit;
@@ -68,7 +71,7 @@ export class SuporteService {
     if (codigo_matricula) {
       whereClause += ` AND m.Codigo = :codigo_matricula`;
       params.codigo_matricula = codigo_matricula;
-      countParams.codigo_matricula= codigo_matricula;
+      countParams.codigo_matricula = codigo_matricula;
     }
 
     const joins = `
@@ -96,7 +99,10 @@ export class SuporteService {
     ${whereClause}
   `;
 
-    const countResult = await this.dataSource.query(countSql, countParams as any);
+    const countResult = await this.dataSource.query(
+      countSql,
+      countParams as any,
+    );
     const total = Number(countResult[0]?.TOTAL ?? 0);
 
     const dataSql = `
@@ -178,16 +184,14 @@ export class SuporteService {
       { id } as any,
     );
 
-
-
     // Como pode haver múltiplas respostas, mas normalmente mostramos a última ou todas
     // Aqui retorno a solicitação + a resposta mais recente (ou array se quiseres todas)
     const solicitacao = result[0]; // a primeira linha já tem os dados principais
 
     // Se quiseres retornar TODAS as respostas (thread completo), podes agrupar:
     const respostas = result
-      .filter(row => row.MENSAGEM_RESPOSTA !== null)
-      .map(row => ({
+      .filter((row) => row.MENSAGEM_RESPOSTA !== null)
+      .map((row) => ({
         resposta_id: row.RESPOSTA_ID,
         mensagem_resposta: row.MENSAGEM_RESPOSTA,
         data_resposta: row.DATA_RESPOSTA,
@@ -208,20 +212,14 @@ export class SuporteService {
 
     return await toLowerCaseKeys(cleanResponse);
   }
-  async listTiposSuporte(
-    filter: FilterTipoSuporteDto,
-  ): Promise<{
+  async listTiposSuporte(filter: FilterTipoSuporteDto): Promise<{
     data: any[];
     total: number;
     page: number;
     limit: number;
     totalPages: number;
   }> {
-    const {
-      page = 1,
-      limit = 25,
-      search,
-    } = filter;
+    const { page = 1, limit = 25, search } = filter;
 
     const offset = (page - 1) * limit;
 
@@ -248,7 +246,10 @@ export class SuporteService {
     ${whereClause}
   `;
 
-    const countResult = await this.dataSource.query(countSql, countParams as any);
+    const countResult = await this.dataSource.query(
+      countSql,
+      countParams as any,
+    );
     const total = Number(countResult[0]?.TOTAL ?? 0);
 
     // Query paginada
@@ -282,7 +283,9 @@ export class SuporteService {
     };
   }
 
-  async createTipoSuporte(dto: CreateTipoSuporteDto): Promise<{ id: number; descricao: string }> {
+  async createTipoSuporte(
+    dto: CreateTipoSuporteDto,
+  ): Promise<{ id: number; descricao: string }> {
     const result = await this.dataSource.query(
       `INSERT INTO FK2_TIPO_SUPORTE (DESCRICAO) 
        VALUES (:descricao)
@@ -318,7 +321,9 @@ export class SuporteService {
     );
 
     if (!result.length) {
-      throw new NotFoundException(`Tipo de suporte com ID ${id} não encontrado`);
+      throw new NotFoundException(
+        `Tipo de suporte com ID ${id} não encontrado`,
+      );
     }
 
     return await toLowerCaseKeys(result[0]);
@@ -342,8 +347,6 @@ export class SuporteService {
       } as any,
     );
 
-
-
     return await toLowerCaseKeys(result[0]);
   }
 
@@ -355,7 +358,9 @@ export class SuporteService {
     );
 
     if (!exists.length) {
-      throw new NotFoundException(`Tipo de suporte com ID ${id} não encontrado`);
+      throw new NotFoundException(
+        `Tipo de suporte com ID ${id} não encontrado`,
+      );
     }
 
     // Verifica se está em uso (opcional mas recomendado)
@@ -370,10 +375,9 @@ export class SuporteService {
       );
     }
 
-    await this.dataSource.query(
-      `DELETE FROM FK2_TIPO_SUPORTE WHERE ID = :id`,
-      { id } as any,
-    );
+    await this.dataSource.query(`DELETE FROM FK2_TIPO_SUPORTE WHERE ID = :id`, {
+      id,
+    } as any);
 
     return { message: `Tipo de suporte com ID ${id} eliminado com sucesso` };
   }
@@ -390,10 +394,11 @@ export class SuporteService {
         fileName1: dto.file_name1 ?? null,
         fileName2: dto.file_name2 ?? null,
         fileName3: dto.file_name3 ?? null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       } as DeepPartial<Suporte>);
 
       await manager.save(resposta);
-
 
       await manager.query(
         `
@@ -401,14 +406,13 @@ export class SuporteService {
   SET STATUS_ = :novoStatus
   WHERE ID = :contactos_id
   `,
-        { novoStatus: 'respondido', contactos_id: dto.contactos_id } as any
+        { novoStatus: 'respondido', contactos_id: dto.contactos_id } as any,
       );
 
       return {
-        mensagem: 'Resposta registada com sucesso e solicitação marcada como respondida',
-
+        mensagem:
+          'Resposta registada com sucesso e solicitação marcada como respondida',
       };
     });
   }
-
 }

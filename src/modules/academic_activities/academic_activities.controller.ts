@@ -22,21 +22,21 @@ import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CreateAcademicActivitiesTermsDto } from './dto/create-academic-activities-terms.dto';
 import { AccessLogHelper } from '../../common/helpers/access-log.helper';
 import { HttpService } from '@nestjs/axios/dist/http.service';
-import { FindPrazosMatricula } from './dto/find-prazos-matricula.dto';
+import { FindEnrollmentRegistrationDeadlinesDTO } from './dto/find-prazos-matricula.dto';
 import { CreateCalendarActivityDto } from './dto/create-calendar-activity.dto';
 import { FindCalendarActivitiesDto } from './dto/find-calendar-activities.dto';
 import { FindAcademicActivityTermsDto } from './dto/find-academic-activity-terms.dto';
 import { UpdateAcademicActivityTermDto } from './dto/update-academic-activity-term.dto';
 
-@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+
 @Controller('academic-activities')
 export class AcademicActivitiesController {
   constructor(
     private readonly academicActivitiesService: AcademicActivitiesService,
     private readonly promptToCreateAndEditService: promptToCreateAndEditService,
     private readonly httpService: HttpService,
-  ) {}
-
+  ) { }
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Post('calendar-activities')
   @ApiOperation({ summary: 'Criar atividade lectiva no calendário académico' })
   @ApiResponse({
@@ -50,7 +50,7 @@ export class AcademicActivitiesController {
   ) {
     return this.academicActivitiesService.createCalendarActivity(dto, req.user);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('calendar-activities')
   @ApiOperation({
     summary: 'Listar atividades lectivas do calendário académico',
@@ -65,7 +65,7 @@ export class AcademicActivitiesController {
   ) {
     return this.academicActivitiesService.findCalendarActivities(query);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Put('calendar-activities/:codigo')
   @ApiOperation({ summary: 'Editar atividade lectiva do calendário académico' })
   @ApiResponse({
@@ -84,7 +84,7 @@ export class AcademicActivitiesController {
       req.user,
     );
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Delete('calendar-activities/:codigo')
   @ApiOperation({
     summary: 'Eliminar atividade lectiva do calendário académico',
@@ -96,7 +96,7 @@ export class AcademicActivitiesController {
   async deleteCalendarActivity(@Param('codigo', ParseIntPipe) codigo: number) {
     return this.academicActivitiesService.deleteCalendarActivity(codigo);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('terms')
   @ApiOperation({ summary: 'Listar prazos académicos' })
   @ApiResponse({
@@ -109,7 +109,7 @@ export class AcademicActivitiesController {
   ) {
     return this.academicActivitiesService.findAcademicActivityTerms(query);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Post('terms')
   @ApiOperation({ summary: 'Criar prazo académico' })
   @ApiResponse({ status: 201, description: 'Prazo criado com sucesso' })
@@ -129,7 +129,7 @@ export class AcademicActivitiesController {
       ip: ip,
     });
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Put('terms/:pkPrazo')
   @ApiOperation({ summary: 'Editar prazo académico' })
   @ApiResponse({
@@ -146,10 +146,10 @@ export class AcademicActivitiesController {
     return this.academicActivitiesService.updateAcademicActivityTerm(
       pkPrazo,
       dto,
-      req.user.sub, // <-- id numérico do utilizador autenticado
+      req.user.sub,
     );
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Delete('terms/:pkPrazo')
   @ApiOperation({ summary: 'Eliminar prazo académico' })
   @ApiResponse({
@@ -166,14 +166,16 @@ export class AcademicActivitiesController {
   remove(@Param('id') id: string) {
     return this.academicActivitiesService.deleteAcademicActivities(+id);
   }
-  @Get('prazos-matricula')
-  async prazosMatricula(@Query() query: FindPrazosMatricula) {
-    return this.academicActivitiesService.prazosMatricula(query);
+  @Get('enrollment-and-registration-deadlines')
+  async enrollmentPeriodStudentsOld(@Query() query: FindEnrollmentRegistrationDeadlinesDTO) {
+    return this.academicActivitiesService.enrollmentPeriodStudentsOld(query);
   }
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('marcacao-prova-prazo')
   async getAllPauta(@Query() query: FindMarcacaoPrazoDTO) {
     return this.academicActivitiesService.findMarcacaoProvaPrazo(query);
   }
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('prompt-to-create-and-edit/schedule')
   @ApiQuery({
     name: 'anoLectivo',
@@ -196,6 +198,7 @@ export class AcademicActivitiesController {
       semestre,
     );
   }
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('prompt-to-create-and-edit/exam')
   @ApiQuery({
     name: 'anoLectivo',
@@ -226,6 +229,7 @@ export class AcademicActivitiesController {
       typeAvaliation,
     );
   }
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('prompt-to-create-and-edit/pauta')
   @ApiQuery({
     name: 'anoLectivo',
@@ -256,6 +260,7 @@ export class AcademicActivitiesController {
       typeAvaliation,
     );
   }
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('prompt-to-create-and-edit/grades')
   @ApiQuery({
     name: 'anoLectivo',
