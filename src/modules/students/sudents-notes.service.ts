@@ -4,6 +4,7 @@ import { EstadoAvaliacaoEnum } from '../assessment/types/types';
 import { FindStudentNoteDTO } from './dto/find-student-notes.dto';
 import { calcularSemestreByAnoLectivo } from '../util/calcular-semestre';
 import { AnoLectivoUtil } from '../util/current-academic-year';
+import { lowercaseKeys } from '../util/lowercase-keys.util';
 
 @Injectable()
 export class StudentNoteService {
@@ -150,7 +151,7 @@ export class StudentNoteService {
 
             WHERE 1=1
                 ---AND ftgca.CODIGO_GRADE_CURRICULAR = :grade
-                AND ftgc.status_ = 1
+                AND ftgca.estado = 1
                AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR <> 5
                 AND ftgca.CODIGO_MATRICULA = :numeroDeMatricula
                 AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo
@@ -911,5 +912,149 @@ export class StudentNoteService {
       [ano],
     );
     return first[0].DATAFIMSEGUNDOSEMESTRE;
+  }
+
+  /**
+   * Retorna as grades curriculares do aluno (para um ano lectivo/matrícula)
+   * que estão duplicadas — isto é, existe mais de uma grade activa com a
+   * mesma disciplina (mesmo nome/CODIGO_DISCIPLINA). Útil para identificar
+   * quais cadeiras repetidas precisam ser desactivadas.
+   */
+
+  async retornarGradesCurricularesDuplicadas(
+    anoLectivo: number,
+    numeroDeMatricula: number,
+    obs: string = '%Migração%',
+  ): Promise<any> {
+    try {
+      const grades = await this.dataSource.query(
+        `
+          SELECT * FROM (
+              SELECT
+                  ftgca.CODIGO                              AS codigo,
+                  ftgca.CODIGO_GRADE_CURRICULAR             AS codigo_grade_curricular,
+                  ftgca.TURMA                               AS turma,
+                  ftgca.CODIGO_CONFIRMACAO                  AS codigo_confirmacao,
+                  ftgca.CODIGO_MATRICULA                    AS codigo_matricula,
+                  ftgca.ESTADO                              AS estado,
+                  ftgca.NOTA                                AS nota,
+                  ftgca.CREATED_AT                          AS created_at,
+                  ftgca.CODIGO_STATUS_GRADE_CURRICULAR      AS codigo_status_grade_curricular,
+                  ftgca.CODIGO_ANO_LECTIVO                  AS codigo_ano_lectivo,
+                  ftgca.EPOCA                               AS epoca,
+                  ftgca.OBSERVACAO                          AS observacao,
+                  ftgca.CODIGO_UTILIZADOR                   AS codigo_utilizador,
+                  ftgca.UPDATED_AT                          AS updated_at,
+                  ftgca.EQUIVALENCIA                        AS equivalencia,
+                  ftgca.REF_HORARIO                         AS ref_horario,
+
+                  ftgc.CODIGO_CURSO                         AS codigo_curso,
+                  ftgc.CODIGO_DISCIPLINA                    AS codigo_disciplina,
+                  ftgc.CODIGO_CLASSE                        AS codigo_classe,
+                  ftgc.CODIGO_SEMESTRE                      AS codigo_semestre,
+                  ftgc.CODIGO                               AS codigo_grade_curricula,
+
+                  dc.DESIGNACAO                             AS disciplina,
+                  cl.DESIGNACAO                             AS classe,
+                  sm.DESIGNACAO                             AS semestre,
+
+                  tm.Codigo                                 AS numero_matricula,
+                  tp2.Nome_Completo                         AS nome_completo,
+                  tc.Designacao                             AS curso,
+
+                  COUNT(*) OVER (
+                      PARTITION BY UPPER(TRIM(dc.DESIGNACAO))
+                  )                                          AS qtd_duplicadas
+
+              FROM FK2_TB_GRADE_CURRICULAR_ALUNO ftgca
+                  LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc
+                      ON ftgc.CODIGO = ftgca.CODIGO_GRADE_CURRICULAR
+                  LEFT JOIN FK2_TB_DISCIPLINAS dc
+                      ON dc.CODIGO = ftgc.CODIGO_DISCIPLINA
+                  LEFT JOIN FK2_TB_CLASSES cl
+                      ON cl.CODIGO = ftgc.CODIGO_CLASSE
+                  LEFT JOIN FK2_TB_SEMESTRES sm
+                      ON sm.CODIGO = ftgc.CODIGO_SEMESTRE
+
+              INNER JOIN FK2_TB_MATRICULAS tm
+                  ON ftgca.CODIGO_MATRICULA = tm.CODIGO
+              INNER JOIN FK2_TB_ADMISSAO ta2
+                  ON ta2.codigo = tm.Codigo_Aluno
+              INNER JOIN FK2_TB_PREINSCRICAO tp2
+                  ON tp2.Codigo = ta2.pre_incricao
+              INNER JOIN FK2_TB_CURSOS tc
+                  ON tc.Codigo = tm.Codigo_Curso
+
+              WHERE 1=1
+                  AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR <> 5
+                  AND ftgca.CODIGO_MATRICULA = :numeroDeMatricula
+                  AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo
+                  AND dc.DESIGNACAO IS NOT NULL
+                  AND (
+                      ftgca.OBSERVACAO IS NULL
+                      OR ftgca.OBSERVACAO NOT LIKE :obs
+                  )
+          )
+          WHERE QTD_DUPLICADAS > 1
+          ORDER BY DISCIPLINA ASC, CODIGO ASC
+      `,
+        {
+          anoLectivo,
+          numeroDeMatricula,
+          obs,
+        } as any,
+      );
+
+      return lowercaseKeys(grades || []);
+    } catch (error: any) {
+      console.error('Erro ao buscar grades curriculares duplicadas:', error);
+      throw new Error(
+        `Falha ao consultar grades curriculares duplicadas: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Actualiza o estado de uma grade curricular do aluno (ex: desactivar
+   * uma das cadeiras duplicadas). Não apaga o registo, apenas altera o
+   * ESTADO (e opcionalmente o CODIGO_STATUS_GRADE_CURRICULAR).
+   */
+  async atualizarEstadoGradeCurricularAluno(
+    codigo: number,
+    novoEstado: number,
+    codigoUtilizador: number,
+    codigoStatusGradeCurricular?: number,
+  ): Promise<any> {
+    try {
+      const result = await this.dataSource.query(
+        `
+          UPDATE FK2_TB_GRADE_CURRICULAR_ALUNO
+             SET ESTADO = :novoEstado,
+                 CODIGO_UTILIZADOR = :codigoUtilizador,
+                 UPDATED_AT = SYSDATE
+                 ${
+                   codigoStatusGradeCurricular !== undefined
+                     ? ', CODIGO_STATUS_GRADE_CURRICULAR = :codigoStatusGradeCurricular'
+                     : ''
+                 }
+           WHERE CODIGO = :codigo
+      `,
+        {
+          novoEstado,
+          codigoUtilizador,
+          codigo,
+          ...(codigoStatusGradeCurricular !== undefined
+            ? { codigoStatusGradeCurricular }
+            : {}),
+        } as any,
+      );
+
+      return result;
+    } catch (error: any) {
+      console.error('Erro ao actualizar estado da grade curricular:', error);
+      throw new Error(
+        `Falha ao actualizar estado da grade curricular: ${error.message}`,
+      );
+    }
   }
 }
