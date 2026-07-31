@@ -34,7 +34,7 @@ interface AulaOrigemRaw {
     REFAULA: string;
     REFSALA: string;
     REFDOCENTE: string;
-    REFTURMAS: string | null;
+
     SALAID: number | null;
     OBS: string | null;
 }
@@ -154,6 +154,10 @@ export class CreateSchedulesImportedService {
         const aulasPorDia = this.agruparAulasPorDia(aulasOrigem);
         const diasOrigem = Object.keys(aulasPorDia).map(Number);
 
+
+        //LOGS
+
+
         // 4. Verificar colisão por dia (só se permitiColisao = false)
         const diasColididos: number[] = [];
         const diasLivres: number[] = [];
@@ -162,7 +166,9 @@ export class CreateSchedulesImportedService {
             diasLivres.push(...diasOrigem);
         } else {
             for (const dia of diasOrigem) {
+
                 const aulasDoDia = aulasPorDia[dia];
+
                 const colidiu = await this.diaColide(aulasDoDia, fkanoLectivoDestino);
                 if (colidiu) {
                     diasColididos.push(dia);
@@ -260,7 +266,7 @@ export class CreateSchedulesImportedService {
           a."REF_AULA"                          AS "REFAULA",
           a."REF_SALA"                          AS "REFSALA",
           a."REF_DOCENTE"                       AS "REFDOCENTE",
-          a."REF_TURMAS_PARTICIPANTES"          AS "REFTURMAS",
+         
           JSON_VALUE(a."REF_SALA", '$.pk' RETURNING NUMBER) AS "SALAID",
           a."OBS"                               AS "OBS"
         FROM "FK2_MGH_TB_AULA" a
@@ -269,6 +275,7 @@ export class CreateSchedulesImportedService {
         `,
             { scheduleId } as any,
         );
+        console.log('Aulas de origem: ROW ', JSON.stringify(result));
 
         return this.unwrapRows<AulaOrigemRaw>(result);
     }
@@ -324,6 +331,8 @@ export class CreateSchedulesImportedService {
             if (!agrupado[dia]) agrupado[dia] = [];
             agrupado[dia].push(aula);
         }
+        console.log('Aulas por dia: ', JSON.stringify(agrupado));
+        console.log('Dias de origem: ', Object.keys(agrupado).map(Number));
         return agrupado;
     }
 
@@ -338,6 +347,8 @@ export class CreateSchedulesImportedService {
      */
     private async diaColide(aulasDoDia: AulaOrigemRaw[], fkanoLectivoDestino: number): Promise<boolean> {
         for (const aula of aulasDoDia) {
+            console.log('Aula222: ', JSON.stringify(aula));
+
             const salaId = aula.SALAID ? Number(aula.SALAID) : null;
 
             const result = await this.dataSource.query(
@@ -351,9 +362,7 @@ export class CreateSchedulesImportedService {
               AND a."ACTIVE_STATE" = 1
               AND (
                     (:salaId IS NOT NULL AND JSON_VALUE(a."REF_SALA", '$.pk' RETURNING NUMBER) = :salaId)
-                 OR (a."REF_TURMAS_PARTICIPANTES" IS NOT NULL
-                     AND :refTurmas IS NOT NULL
-                     AND a."REF_TURMAS_PARTICIPANTES" = :refTurmas)
+                 
               )
               AND TO_DATE(:horaInicio, 'HH24:MI') < a."HORA_TERMINO"
               AND TO_DATE(:horaFim,    'HH24:MI') > a."HORA_INICIO"
@@ -362,11 +371,13 @@ export class CreateSchedulesImportedService {
                     fkanoLectivoDestino,
                     diaSemana: aula.FKDIASEMANA,
                     salaId,
-                    refTurmas: aula.REFTURMAS,
+
                     horaInicio: aula.HORAINICIO,
                     horaFim: aula.HORATERMINO,
                 } as any,
             );
+            console.log('Result: ', JSON.stringify(result));
+
 
             const rows = this.unwrapRows<{ QTD: number }>(result);
             if (Number(rows[0]?.QTD ?? 0) > 0) {
@@ -518,7 +529,7 @@ export class CreateSchedulesImportedService {
                     refAula: aula.REFAULA,
                     refSala: aula.REFSALA,
                     refDocente: aula.REFDOCENTE,
-                    refTurmas: aula.REFTURMAS,
+                    refTurmas: null,
                     obs: aula.OBS,
                     userId,
                 } as any,
