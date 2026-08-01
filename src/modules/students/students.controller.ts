@@ -75,6 +75,7 @@ import { CreateEquivalenceTFCMigration } from './dto/create-equivalence-tfc-migr
 import { HangingRailingsAndToBeMadeService } from './hanging_railings_and_to_be_made.service';
 import { FindPlanPorClasseDTO } from './dto/FindPlanPorClasseDTO';
 import { GetConfirmationDTO } from './dto/get-confirmation.dto';
+import { AtualizarEstadoGradeCurricularDto } from './dto/duplicate-uc.dto';
 //@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @ApiTags('Students')
 @Controller('students')
@@ -581,7 +582,6 @@ export class StudentsController {
     );
   }
 
-
   @Get('confirmation/:codigoMatricula')
   @ApiOperation({ summary: 'Obter confirmação' })
   @ApiResponse({
@@ -591,8 +591,42 @@ export class StudentsController {
   async getConfirmation(
     @Query(ValidationPipe) query: GetConfirmationDTO,
     @Param('codigoMatricula', ParseIntPipe) codigoMatricula: number,
-
   ) {
     return this.studentsService.getConfirmation(codigoMatricula, query);
+  }
+
+  @Get(
+    'matriculas/:numeroDeMatricula/ano-lectivo/:anoLectivo/grades-duplicadas',
+  )
+  @ApiOperation({ summary: 'Obter grades curriculares duplicadas do aluno' })
+  @ApiResponse({
+    status: 200,
+    description: 'Grades curriculares duplicadas obtidas com sucesso',
+  })
+  async getGradesCurricularesDuplicadas(
+    @Param('numeroDeMatricula', ParseIntPipe) numeroDeMatricula: number,
+    @Param('anoLectivo', ParseIntPipe) anoLectivo: number,
+  ) {
+    return this.studentNoteService.retornarGradesCurricularesDuplicadas(
+      anoLectivo,
+      numeroDeMatricula,
+    );
+  }
+
+  @Patch('grade-curricular-aluno/:codigo/estado')
+  @ApiOperation({ summary: 'Actualizar estado da grade curricular do aluno' })
+  @ApiResponse({
+    status: 200,
+    description: 'Estado da grade curricular actualizado com sucesso',
+  })
+  async atualizarEstadoGradeCurricularAluno(
+    @Param('codigo', ParseIntPipe) codigo: number,
+    @Body(ValidationPipe) dto: AtualizarEstadoGradeCurricularDto,
+  ) {
+    return this.studentNoteService.atualizarEstadoGradeCurricularAluno(
+      codigo,
+      dto.estado,
+      dto.codigoUtilizador,
+    );
   }
 }
