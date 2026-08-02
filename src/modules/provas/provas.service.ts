@@ -9,10 +9,11 @@ import { CreateProvaDto } from './dto/create-prova.dto';
 import { UpdateProvaDto } from './dto/update-prova.dto';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { gerarHashExterno } from '../util/hash.util';
+import OracleDB, { CURSOR } from 'oracledb';
 
 @Injectable()
 export class ProvasService {
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly dataSource: DataSource) {}
 
   async findAll(filtros: FilterProvaDto) {
     const {
@@ -28,7 +29,7 @@ export class ProvasService {
     const offset = (page - 1) * limit;
 
     let query = `
-      SELECT P.DATA_REALIZACAO,
+      SELECT TO_CHAR(TRUNC(P.DATA_REALIZACAO), 'YYYY-MM-DD') AS DATA_REALIZACAO,
              P.SENHA_PROVA,
              P.SALA_ID,
              P.TIPO_PROVA_ID,
@@ -47,6 +48,7 @@ export class ProvasService {
              P.PERGUNTAS,
              P.DISCIPLINAS,
              P.CURSOS,
+             P.HORA_INICIO AS inicio,
              P.ID
       FROM FK2_PROVAS P
       JOIN FK2_MCA_TB_UTILIZADOR U ON P.USER_ID = U.PK_UTILIZADOR
@@ -173,9 +175,9 @@ export class ProvasService {
           formatted.DISCIPLINAS = JSON.parse(formatted.DISCIPLINAS);
         } catch {
           if (typeof formatted.DISCIPLINAS === 'string') {
-            formatted.DISCIPLINAS = formatted.DISCIPLINAS
-              .split(',')
-              .map((id) => ({ id: parseInt(id.trim()) }));
+            formatted.DISCIPLINAS = formatted.DISCIPLINAS.split(',').map(
+              (id) => ({ id: parseInt(id.trim()) }),
+            );
           }
         }
       }
@@ -196,7 +198,7 @@ export class ProvasService {
 
   async findOne(id: number) {
     const provaQuery = `
-      SELECT P.DATA_REALIZACAO,
+     SELECT TO_CHAR(TRUNC(P.DATA_REALIZACAO), 'YYYY-MM-DD') AS DATA_REALIZACAO,
              P.SENHA_PROVA,
              P.SALA_ID,
              P.TIPO_PROVA_ID,
@@ -215,6 +217,7 @@ export class ProvasService {
              P.PERGUNTAS,
              P.DISCIPLINAS,
              P.CURSOS,
+             P.HORA_INICIO AS inicio,
              P.ID
       FROM FK2_PROVAS P
       JOIN FK2_MCA_TB_UTILIZADOR U ON P.USER_ID = U.PK_UTILIZADOR
@@ -238,9 +241,9 @@ export class ProvasService {
         : [];
     } catch {
       if (typeof prova.PERGUNTAS === 'string') {
-        perguntasIds = prova.PERGUNTAS
-          .split(',')
-          .map((id) => parseInt(id.trim()));
+        perguntasIds = prova.PERGUNTAS.split(',').map((id) =>
+          parseInt(id.trim()),
+        );
       }
     }
 
@@ -328,9 +331,9 @@ export class ProvasService {
         : [];
     } catch {
       if (typeof prova.DISCIPLINAS === 'string') {
-        disciplinasIds = prova.DISCIPLINAS
-          .split(',')
-          .map((id) => parseInt(id.trim()));
+        disciplinasIds = prova.DISCIPLINAS.split(',').map((id) =>
+          parseInt(id.trim()),
+        );
       }
     }
 
@@ -364,6 +367,7 @@ export class ProvasService {
 
   async create(createProvaDto: CreateProvaDto) {
     let { senhaProva } = createProvaDto;
+    let fim: string | undefined;
     const {
       descricao,
       anoLetivoId,
@@ -373,8 +377,26 @@ export class ProvasService {
       perguntas,
       disciplinas,
       cursos,
+      data,
+      inicio,
+      local,
     } = createProvaDto;
 
+    if (inicio !== undefined || duracao !== undefined) {
+      const inicioEfetivo = inicio;
+      const duracaoEfetiva = duracao;
+
+      if (inicioEfetivo && duracaoEfetiva) {
+        const [h, m] = String(inicioEfetivo).split(':').map(Number);
+        if (!Number.isNaN(h) && !Number.isNaN(m)) {
+          const base = new Date(1970, 0, 1, h, m);
+          base.setMinutes(base.getMinutes() + Number(duracaoEfetiva));
+          fim = `${String(base.getHours()).padStart(2, '0')}:${String(
+            base.getMinutes(),
+          ).padStart(2, '0')}`;
+        }
+      }
+    }
     const anoLetivoExists = await this.dataSource.query(
       `SELECT CODIGO FROM FK2_TB_ANO_LECTIVO WHERE CODIGO = :1`,
       [anoLetivoId],
@@ -395,39 +417,35 @@ export class ProvasService {
       throw new BadRequestException(`Usuário com ID ${userId} não encontrado`);
     }
 
-    //TODO senhaProva = await gerarHashExterno(senhaProva);
+    const senhaHash = await gerarHashExterno(senhaProva);
 
-    const query = `
-      INSERT INTO FK2_PROVAS (
-        DESCRICAO,
-        SENHA_PROVA,
-        ANO_LECTIVO_ID,
-        USER_ID,
-        DURACAO,
-        TEXTO,
-        PERGUNTAS,
-        DISCIPLINAS,
-        CURSOS,
-        STATUS_,
-        CREATED_AT
-      ) VALUES (
-        :1,
-        :2,
-        :3,
-        :4,
-        :5,
-        :6,
-        :7,
-        :8,
-        :9,
-        1,
-        SYSDATE
-      )
-    `;
+    const insertProvaQuery = `
+    INSERT INTO FK2_PROVAS (
+      DESCRICAO,
+      SENHA_PROVA,
+      ANO_LECTIVO_ID,
+      USER_ID,
+      DURACAO,
+      TEXTO,
+      PERGUNTAS,
+      DISCIPLINAS,
+      CURSOS,
+      DATA_REALIZACAO,
+      HORA_INICIO,
+      HORA_FIM,
+      SALA_ID,
+      STATUS_,
+      CREATED_AT
+    ) VALUES (
+      :1, :2, :3, :4, :5, :6, :7, :8, :9,
+      TO_DATE(:10, 'YYYY-MM-DD'), :11, :12, :13, 1, SYSDATE
+    )
+    RETURNING ID INTO :provaId
+  `;
 
-    await this.dataSource.query(query, [
+    const provaResult = await this.dataSource.query(insertProvaQuery, [
       descricao,
-      senhaProva,
+      senhaHash,
       anoLetivoId,
       userId,
       duracao,
@@ -435,7 +453,36 @@ export class ProvasService {
       perguntas ? JSON.stringify(perguntas) : null,
       disciplinas ? JSON.stringify(disciplinas) : null,
       cursos ? JSON.stringify(cursos) : null,
+      data,
+      inicio,
+      fim,
+      local,
+      { dir: OracleDB.BIND_OUT, type: OracleDB.NUMBER },
     ]);
+
+    // formato do retorno depende da versão do driver TypeORM/oracledb —
+    // confirma com console.log(provaResult) se vier em outBinds ou raw
+    const provaId = provaResult?.outBinds
+      ? provaResult.outBinds[0]
+      : provaResult[0]?.[0];
+
+    await this.dataSource.query(
+      `
+      INSERT INTO FK2_TB_HORARIO_PROVA (
+        PROVA_ID,
+        DATA_REALIZACAO,
+        HORA_INICIO,
+        HORA_FIM,
+        USER_ID,
+        ANO_LECTIVO_ID,
+        SALA_ID,
+        CREATED_AT
+      ) VALUES (
+        :1, TO_DATE(:2, 'YYYY-MM-DD'), :3, :4, :5, :6, :7,  SYSDATE
+      )
+    `,
+      [provaId, data, inicio, fim, userId, anoLetivoId, local],
+    );
 
     return {
       message: 'Prova criada com sucesso',
@@ -450,11 +497,14 @@ export class ProvasService {
       perguntas,
       cursos,
       disciplinas,
+      data,
+      inicio,
+      local,
     } = updateProvaDto;
     let { senhaProva } = updateProvaDto;
 
     const provaExists = await this.dataSource.query(
-      `SELECT ID FROM FK2_PROVAS WHERE ID = :1`,
+      `SELECT ID, DURACAO, HORA_INICIO FROM FK2_PROVAS WHERE ID = :1`,
       [id],
     );
 
@@ -475,14 +525,45 @@ export class ProvasService {
       }
     }
 
+    if (data) {
+      const dataInformada = new Date(`${data}T00:00:00`);
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+
+      if (dataInformada < hoje) {
+        throw new BadRequestException(
+          'Não é possível marcar a prova para uma data anterior à atual',
+        );
+      }
+    }
+
+    // recalcula HORA_FIM sempre que inicio e/ou duracao mudarem,
+    // usando o valor atual do banco para o campo que não veio no payload
+    let fim: string | undefined;
+    if (inicio !== undefined || duracao !== undefined) {
+      const inicioEfetivo = inicio ?? provaExists[0].HORA_INICIO;
+      const duracaoEfetiva = duracao ?? provaExists[0].DURACAO;
+
+      if (inicioEfetivo && duracaoEfetiva) {
+        const [h, m] = String(inicioEfetivo).split(':').map(Number);
+        if (!Number.isNaN(h) && !Number.isNaN(m)) {
+          const base = new Date(1970, 0, 1, h, m);
+          base.setMinutes(base.getMinutes() + Number(duracaoEfetiva));
+          fim = `${String(base.getHours()).padStart(2, '0')}:${String(
+            base.getMinutes(),
+          ).padStart(2, '0')}`;
+        }
+      }
+    }
+
     const updates: string[] = [];
     const parameters: any[] = [];
     let paramIndex = 1;
 
     if (senhaProva !== undefined) {
-      // TODO senhaProva = await gerarHashExterno(senhaProva);
+      const senhaHash = await gerarHashExterno(senhaProva);
       updates.push(`SENHA_PROVA = :${paramIndex}`);
-      parameters.push(senhaProva);
+      parameters.push(senhaHash);
       paramIndex++;
     }
 
@@ -522,6 +603,29 @@ export class ProvasService {
       paramIndex++;
     }
 
+    if (data !== undefined) {
+      updates.push(`DATA_REALIZACAO = TO_DATE(:${paramIndex}, 'YYYY-MM-DD')`);
+      parameters.push(data);
+      paramIndex++;
+    }
+
+    if (inicio !== undefined) {
+      updates.push(`HORA_INICIO = :${paramIndex}`);
+      parameters.push(inicio);
+      paramIndex++;
+    }
+
+    if (fim !== undefined) {
+      updates.push(`HORA_FIM = :${paramIndex}`);
+      parameters.push(fim);
+      paramIndex++;
+    }
+    if (local !== undefined) {
+      updates.push(`SALA_ID = :${local}`);
+      parameters.push(local);
+      paramIndex++;
+    }
+
     if (updates.length === 0) {
       throw new BadRequestException(
         'Nenhum campo para atualizar foi fornecido',
@@ -531,14 +635,70 @@ export class ProvasService {
     updates.push(`UPDATED_AT = SYSDATE`);
 
     const query = `
-      UPDATE FK2_PROVAS
-      SET ${updates.join(', ')}
-      WHERE ID = :${paramIndex}
-    `;
+    UPDATE FK2_PROVAS
+    SET ${updates.join(', ')}
+    WHERE ID = :${paramIndex}
+  `;
 
     parameters.push(id);
 
     await this.dataSource.query(query, parameters);
+
+    // mantém FK2_TB_HORARIO_PROVA em sincronia quando algo relevante mudou
+    if (
+      data !== undefined ||
+      inicio !== undefined ||
+      fim !== undefined ||
+      anoLetivoId !== undefined
+    ) {
+      const horarioUpdates: string[] = [];
+      const horarioParams: any[] = [];
+      let horarioIndex = 1;
+
+      if (data !== undefined) {
+        horarioUpdates.push(
+          `DATA_REALIZACAO = TO_DATE(:${horarioIndex}, 'YYYY-MM-DD')`,
+        );
+        horarioParams.push(data);
+        horarioIndex++;
+      }
+
+      if (local !== undefined) {
+        horarioUpdates.push(`SALA_ID = :${local}`);
+        horarioParams.push(local);
+        horarioIndex++;
+      }
+
+      if (inicio !== undefined) {
+        horarioUpdates.push(`HORA_INICIO = :${horarioIndex}`);
+        horarioParams.push(inicio);
+        horarioIndex++;
+      }
+
+      if (fim !== undefined) {
+        horarioUpdates.push(`HORA_FIM = :${horarioIndex}`);
+        horarioParams.push(fim);
+        horarioIndex++;
+      }
+
+      if (anoLetivoId !== undefined) {
+        horarioUpdates.push(`ANO_LECTIVO_ID = :${horarioIndex}`);
+        horarioParams.push(anoLetivoId);
+        horarioIndex++;
+      }
+
+      horarioUpdates.push(`UPDATED_AT = SYSDATE`);
+      horarioParams.push(id);
+
+      await this.dataSource.query(
+        `
+        UPDATE FK2_TB_HORARIO_PROVA
+        SET ${horarioUpdates.join(', ')}
+        WHERE PROVA_ID = :${horarioIndex}
+      `,
+        horarioParams,
+      );
+    }
 
     return {
       message: 'Prova atualizada com sucesso',

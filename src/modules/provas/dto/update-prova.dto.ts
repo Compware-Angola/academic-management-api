@@ -2,11 +2,15 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsDateString,
+  Matches,
   Min,
   IsArray,
   ValidateNested,
+  IsNotEmpty,
+  IsNumber,
 } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { PerguntaProvaDto } from './pergunta-prova.dto';
 import { CursoProvaDto } from './curso-prova.dto';
@@ -29,6 +33,16 @@ export class UpdateProvaDto {
   @IsInt()
   @Min(1)
   anoLetivoId?: number;
+
+  @ApiProperty({
+    description: 'Senha da prova',
+    example: 123456,
+  })
+  @IsOptional()
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  local: number;
 
   @ApiPropertyOptional({
     description: 'Duração da prova em minutos',
@@ -79,4 +93,23 @@ export class UpdateProvaDto {
   @ValidateNested({ each: true })
   @Type(() => DisciplinaProvaDto)
   disciplinas?: DisciplinaProvaDto[];
+
+  @ApiPropertyOptional({
+    description: 'Data de realização da prova',
+    example: '2025-06-15',
+  })
+  @IsOptional()
+  @IsDateString()
+  data?: string;
+
+  @ApiPropertyOptional({
+    description: 'Hora de início da prova (formato HH:mm)',
+    example: '08:00',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+    message: 'inicio deve estar no formato HH:mm',
+  })
+  inicio?: string;
 }
