@@ -413,7 +413,17 @@ export class ExamesDeAcessoService {
     const sqlBase = `
     FROM FK2_TB_PREINSCRICAO
        , FK2_TB_CURSOS
-       , FK2_CANDIDATO_PROVAS
+       , (
+           SELECT cp.* FROM (
+             SELECT c.*, ROW_NUMBER() OVER (
+                      PARTITION BY c.CANDIDATO_ID
+                      ORDER BY c.ID DESC
+                    ) AS RN
+             FROM FK2_CANDIDATO_PROVAS c
+             WHERE c.STATUS_ = 1
+           ) cp
+           WHERE cp.RN = 1
+         ) FK2_CANDIDATO_PROVAS
        , FK2_TB_HORARIO_PROVA
        , FK2_TB_SALAS
        , FK2_TB_ANO_LECTIVO
@@ -648,7 +658,17 @@ export class ExamesDeAcessoService {
        , FK2_TB_PERIODOS
        , FK2_TB_SALAS
        , FK2_TB_FACULDADE
-       , FK2_CANDIDATO_PROVAS
+       , (
+           SELECT cp.* FROM (
+             SELECT c.*, ROW_NUMBER() OVER (
+                      PARTITION BY c.CANDIDATO_ID
+                      ORDER BY c.ID DESC
+                    ) AS RN
+             FROM FK2_CANDIDATO_PROVAS c
+             WHERE c.STATUS_ = 1
+           ) cp
+           WHERE cp.RN = 1
+         ) FK2_CANDIDATO_PROVAS
    WHERE FK2_TB_PREINSCRICAO.CODIGO            = FK2_CANDIDATO_PROVAS.CANDIDATO_ID
      AND FK2_CANDIDATO_PROVAS.HORARIO_PROVA_ID = FK2_TB_HORARIO_PROVA.ID
      AND FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID   = FK2_TB_ANO_LECTIVO.CODIGO
@@ -656,7 +676,6 @@ export class ExamesDeAcessoService {
      AND FK2_TB_HORARIO_PROVA.PERIODO_ID       = FK2_TB_PERIODOS.CODIGO
      AND FK2_TB_HORARIO_PROVA.SALA_ID          = FK2_TB_SALAS.CODIGO
      AND FK2_TB_CURSOS.FACULDADE_ID            = FK2_TB_FACULDADE.CODIGO
-     AND FK2_CANDIDATO_PROVAS.STATUS_          = 1
      ${where}
   `;
 
@@ -712,6 +731,8 @@ export class ExamesDeAcessoService {
       this.dataSource.query(sql, params),
       this.dataSource.query(sqlCount, params.slice(0, -2)),
     ]);
+
+    console.log('Prova do Candidato: ', data);
 
     return this.toLower({
       data,
@@ -943,7 +964,7 @@ export class ExamesDeAcessoService {
            AND FK2_USERS.ANO_LECTIVO_ID                    = FK2_TB_ANO_LECTIVO.CODIGO
            AND FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA       = FK2_TB_CURSOS.CODIGO
            AND FK2_TB_PREINSCRICAO.CODIGO_TURNO            = FK2_TB_PERIODOS.CODIGO
-           AND FK2_TB_PREINSCRICAO.CODIGO             NOT IN (SELECT CANDIDATO_ID FROM FK2_CANDIDATO_PROVAS)
+           AND FK2_TB_PREINSCRICAO.CODIGO NOT IN (SELECT CANDIDATO_ID FROM FK2_CANDIDATO_PROVAS)
            AND FK2_TB_PREINSCRICAO.CODIGO = :1
       `;
 
@@ -957,55 +978,90 @@ export class ExamesDeAcessoService {
 
         const candidate = candidates[0];
 
+        // Trava a linha do candidato para evitar corridas entre chamadas
+        // concorrentes do mesmo pagamento (webhook duplicado, retry, etc.)
+        await manager.query(
+          `SELECT CODIGO FROM FK2_TB_PREINSCRICAO WHERE CODIGO = :1 FOR UPDATE`,
+          [codigoCandidato],
+        );
+
+        // ORDER BY DATA_REALIZACAO ASC = a próxima prova a acontecer para o curso.
+        // Se a intenção for "a mais recentemente cadastrada", troque para
+        // ORDER BY FK2_PROVAS.ID DESC — mas então use exams[0], nunca random.
         const sqlExams = `
-        SELECT FK2_PROVAS.ID
+        SELECT FK2_PROVAS.ID, FK2_PROVAS.DATA_REALIZACAO
           FROM FK2_PROVAS
-         WHERE JSON_EXISTS(cursos, '$[*]?(@ == $curso)' PASSING :1 AS "curso")
-           AND FK2_PROVAS.ANO_LECTIVO_ID = :2
+         WHERE (
+               JSON_EXISTS(cursos, '$[*]?(@.id == $curso)' PASSING :1 AS "curso")
+            OR JSON_EXISTS(cursos, '$[*]?(@ == $curso)' PASSING :2 AS "curso")
+         )
+           AND FK2_PROVAS.ANO_LECTIVO_ID = :3
+           AND TRUNC(FK2_PROVAS.DATA_REALIZACAO) >= TRUNC(SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda') 
+          ORDER BY FK2_PROVAS.ID DESC
       `;
+
         const exams = await manager.query(sqlExams, [
+          String(candidate.CURSO_CANDIDATURA),
           String(candidate.CURSO_CANDIDATURA),
           candidate.ANO_LECTIVO_ID,
         ]);
+
         if (exams.length === 0) {
           throw new NotFoundException(
             'Nenhuma prova encontrada para o curso e ano lectivo do candidato.',
           );
         }
 
-        const randomExam = exams[Math.floor(Math.random() * exams.length)];
+        // Determinístico: pega a primeira do ORDER BY, nunca random.
+        const selectedExam = exams[0];
 
         const sqlSchedules = `
-        SELECT FK2_TB_HORARIO_PROVA.ID
-             , DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1) AS HORA_INICIO
-             , DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_FIM, 4000, 1) AS HORA_FIM
-             , FK2_TB_HORARIO_PROVA.DATA_REALIZACAO
-             , FK2_TB_HORARIO_PROVA.SALA_ID
-             , FK2_TB_HORARIO_PROVA.CURSO_ID
-             , FK2_TB_SALAS.CAPACIDADEEXAMEACESSOPROVA
-          FROM FK2_TB_HORARIO_PROVA
-             , FK2_TB_SALAS
-         WHERE FK2_TB_HORARIO_PROVA.SALA_ID            =  FK2_TB_SALAS.CODIGO
-           AND FK2_TB_SALAS.CAPACIDADEEXAMEACESSOPROVA > 0
-           --AND FK2_TB_HORARIO_PROVA.DATA_REALIZACAO    > TRUNC(SYSDATE) -- DESCOMENTAR PARA PRD
-           AND FK2_TB_HORARIO_PROVA.PERIODO_ID         = :1
-           AND FK2_TB_HORARIO_PROVA.CURSO_ID           = :2
-         ORDER BY FK2_TB_HORARIO_PROVA.DATA_REALIZACAO
-                , TO_NUMBER(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1))
-      `;
+  SELECT FK2_TB_HORARIO_PROVA.ID
+       , DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1) AS HORA_INICIO
+       , DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_FIM, 4000, 1) AS HORA_FIM
+       , FK2_TB_HORARIO_PROVA.DATA_REALIZACAO
+       , FK2_TB_HORARIO_PROVA.SALA_ID
+       , FK2_TB_HORARIO_PROVA.PROVA_ID
+       , FK2_TB_SALAS.CAPACIDADEEXAMEACESSOPROVA
+    FROM FK2_TB_HORARIO_PROVA
+       , FK2_TB_SALAS
+       , FK2_PROVAS
+   WHERE FK2_TB_HORARIO_PROVA.SALA_ID  = FK2_TB_SALAS.CODIGO
+     AND FK2_TB_HORARIO_PROVA.PROVA_ID = FK2_PROVAS.ID
+     AND FK2_TB_SALAS.CAPACIDADEEXAMEACESSOPROVA > 0
+     AND TRUNC(FK2_TB_HORARIO_PROVA.DATA_REALIZACAO) >= TRUNC(SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda')
+     AND (
+           JSON_EXISTS(FK2_PROVAS.CURSOS, '$[*]?(@.id == $curso)' PASSING :1 AS "curso")
+        OR JSON_EXISTS(FK2_PROVAS.CURSOS, '$[*]?(@ == $curso)' PASSING :2 AS "curso")
+       )
+     AND FK2_TB_HORARIO_PROVA.PROVA_ID = :3
+    ORDER BY FK2_TB_HORARIO_PROVA.DATA_REALIZACAO
+          , DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1)
+`;
 
         const schedules = (await manager.query(sqlSchedules, [
-          candidate.CODIGO_TURNO,
-          candidate.CURSO_CANDIDATURA,
+          String(candidate.CURSO_CANDIDATURA),
+          String(candidate.CURSO_CANDIDATURA),
+          selectedExam.ID,
         ])) as any[];
+
+        console.log('Schedules: ', schedules);
 
         let selectedSchedule: any = null;
         for (const schedule of schedules) {
+          // Trava a linha do horário em si, para serializar candidatos concorrentes
+          // tentando o mesmo horário. O Oracle não permite FOR UPDATE sobre COUNT(*),
+          // então o lock precisa ser numa query separada, sobre a tabela "pai".
+          await manager.query(
+            `SELECT ID FROM FK2_TB_HORARIO_PROVA WHERE ID = :1 FOR UPDATE`,
+            [schedule.ID],
+          );
+
           const sqlCount = `
-          SELECT COUNT(*) AS QUANTIDADE_CANDIDATOS
-            FROM FK2_CANDIDATO_PROVAS 
-           WHERE FK2_CANDIDATO_PROVAS.HORARIO_PROVA_ID = :1
-        `;
+            SELECT COUNT(*) AS QUANTIDADE_CANDIDATOS
+              FROM FK2_CANDIDATO_PROVAS
+            WHERE FK2_CANDIDATO_PROVAS.HORARIO_PROVA_ID = :1
+          `;
           const countRes = await manager.query(sqlCount, [schedule.ID]);
           const currentCount = Number(countRes[0].QUANTIDADE_CANDIDATOS);
 
@@ -1023,7 +1079,7 @@ export class ExamesDeAcessoService {
         }
 
         const sqlInsertExame = `
-        INSERT INTO FK2_TB_EXAME_ADMISSAO (CANAL, HORA_INICIO, HORA_FIM, DATA_PROVA, CODIGO_SALA, CODIGO_DISCIPLINA, CODIGO_PREINSCRICAO) 
+        INSERT INTO FK2_TB_EXAME_ADMISSAO (CANAL, HORA_INICIO, HORA_FIM, DATA_PROVA, CODIGO_SALA, CODIGO_DISCIPLINA, CODIGO_PREINSCRICAO)
         VALUES (1, :1, :2, :3, :4, :5, :6)
       `;
         await manager.query(sqlInsertExame, [
@@ -1031,29 +1087,30 @@ export class ExamesDeAcessoService {
           selectedSchedule.HORA_FIM,
           selectedSchedule.DATA_REALIZACAO,
           selectedSchedule.SALA_ID,
-          randomExam.ID,
+          selectedExam.ID,
           codigoCandidato,
         ]);
 
         const sqlInsertCandidatoProva = `
-        INSERT INTO FK2_CANDIDATO_PROVAS (CANDIDATO_ID, STATUS_, CANAL, HORARIO_PROVA_ID, PROVA_ID, CREATED_AT) 
+        INSERT INTO FK2_CANDIDATO_PROVAS (CANDIDATO_ID, STATUS_, CANAL, HORARIO_PROVA_ID, PROVA_ID, CREATED_AT)
         VALUES (:1, 0, 1, :2, :3, SYSDATE)
       `;
         await manager.query(sqlInsertCandidatoProva, [
           codigoCandidato,
           selectedSchedule.ID,
-          randomExam.ID,
+          selectedExam.ID,
         ]);
 
         return {
           message: 'Prova atribuída com sucesso.',
           candidatoId: codigoCandidato,
+          provaId: selectedExam.ID,
+          horarioId: selectedSchedule.ID,
         };
       });
     } catch (error) {
       console.error('Erro completo:', error);
 
-      // Se já tem status HTTP, reaproveita
       if (error?.status) {
         throw new HttpException(error.response || error.message, error.status);
       }

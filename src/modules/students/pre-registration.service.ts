@@ -18,7 +18,7 @@ export class PreRegistrationService {
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly anoLectivoUtil: AnoLectivoUtil,
-  ) { }
+  ) {}
 
   // ─────────────────────────────────────────────
   //  CREATE
@@ -706,87 +706,80 @@ export class PreRegistrationService {
   async getCandidaturaUserData(userId: number): Promise<any> {
     const result = await this.dataSource.query(
       `
-    SELECT
-      us.id                         AS user_id,
-      
-      p.Nome_Completo,
-      p.email                      AS email,
-      p.contactos_telefonicos                   AS telefone,
-      p.bilhete_identidade           AS numero_documento,
-      p.Codigo                      AS codigo_preinscricao,
-      a.data                        AS data_admissao,
-      pr.id                         AS prova_id,
-     TRUNC(hp.data_realizacao) AS data_prova,
-      SUBSTR(TO_CHAR(NUMTODSINTERVAL(
-           TO_NUMBER(DBMS_LOB.SUBSTR(hp.HORA_INICIO, 4000, 1)) / 86400000000000,
-           'DAY'
-         )), 12, 5) AS HORA_INICIO,
-       SUBSTR(TO_CHAR(NUMTODSINTERVAL(
-           TO_NUMBER(DBMS_LOB.SUBSTR(hp.HORA_FIM, 4000, 1)) / 86400000000000,
-           'DAY'
-         )), 12, 5) AS HORA_FIM,
-      tc.STATUS_                    AS status_prova,
-      pr.DESCRICAO                  AS lista_de_provas, 
-      s.DESIGNACAO                   AS sala_de_prova,
-
-
-   CASE
+  SELECT
+  us.id                         AS user_id,
+  p.Nome_Completo,
+  p.email                      AS email,
+  p.contactos_telefonicos                   AS telefone,
+  p.bilhete_identidade           AS numero_documento,
+  p.Codigo                      AS codigo_preinscricao,
+  a.data                        AS data_admissao,
+  pr.id                         AS prova_id,
+  TO_CHAR(TRUNC(hp.data_realizacao), 'YYYY-MM-DD') AS data_prova,
+ SUBSTR(DBMS_LOB.SUBSTR(hp.HORA_INICIO, 4000, 1), 1, 5) AS hora_inicio,
+  SUBSTR(DBMS_LOB.SUBSTR(hp.HORA_FIM, 4000, 1), 1, 5) AS hora_fim,
+  tc.STATUS_                    AS status_prova,
+  pr.DESCRICAO                  AS lista_de_provas,
+  s.DESIGNACAO                   AS sala_de_prova,
+  a.codigo                      AS cod_admissao,
+  CASE
   WHEN p.Codigo    IS NULL                                                    THEN 'SEM_PRE_INSCRICAO'
   WHEN p.CODIGO_TIPO_CANDIDATURA IN (2,3)                                     THEN 'PREINSCRITO_MESTRADO_POS_GRADUACAO'
   WHEN tc.id       IS NULL                                                    THEN 'SEM_ADMISSAO'
-  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) = TRUNC(SYSDATE)        THEN 'DIA_DA_PROVA'
-  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) > TRUNC(SYSDATE)        THEN 'AGUARDANDO_DIA_DA_PROVA'
-  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) < TRUNC(SYSDATE)        THEN 'AGUARDANDO_RESULTADO'
-  WHEN tc.STATUS_  = 1 AND  a.PRE_INCRICAO IS NULL                             THEN 'AGUARDANDO_RESULTADO'
+  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) = TRUNC(SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda')  THEN 'DIA_DA_PROVA'
+  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) > TRUNC(SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda')  THEN 'AGUARDANDO_DIA_DA_PROVA'
+  WHEN tc.STATUS_  = 0 AND TRUNC(hp.data_realizacao) < TRUNC(SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda')  THEN 'AGUARDANDO_RESULTADO'
+  WHEN tc.STATUS_  = 1 AND a.PRE_INCRICAO IS NULL                             THEN 'AGUARDANDO_RESULTADO'
   WHEN a.mediafinal < 10                                                      THEN 'NAO_ADMITIDO'
-  WHEN tc.STATUS_  = 1 AND TRUNC(hp.data_realizacao) > TRUNC(SYSDATE)  AND tc.NOTA < 10       THEN 'NAO_ADMITIDO'
+  WHEN tc.STATUS_  = 1 AND TRUNC(hp.data_realizacao) > TRUNC(SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda') AND tc.NOTA < 10 THEN 'NAO_ADMITIDO'
   WHEN a.mediafinal >= 10 AND m.Codigo IS NULL                                THEN 'ADMITIDO_SEM_MATRICULA'
-  WHEN tc.status_ = 1 AND TRUNC(hp.data_realizacao) < TRUNC(SYSDATE)  AND tc.NOTA >= 10 AND m.Codigo IS NULL       THEN 'ADMITIDO_SEM_MATRICULA'
+  WHEN tc.status_ = 1 AND TRUNC(hp.data_realizacao) < TRUNC(SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda') AND tc.NOTA >= 10 AND m.Codigo IS NULL THEN 'ADMITIDO_SEM_MATRICULA'
   WHEN a.mediafinal >= 10 AND m.Codigo IS NOT NULL                            THEN 'ALUNO_MATRICULADO'
-  ELSE                                                                             'ALUNO_MATRICULADO'
+  ELSE                                                                             'SEM_ADMISSAO'
 END AS estado_aluno
 
-    FROM fk2_users us
+FROM fk2_users us
 
-      LEFT JOIN (
-        SELECT * FROM (
-          SELECT p.*, ROW_NUMBER() OVER (PARTITION BY p.user_id ORDER BY p.Codigo DESC) AS rn
-          FROM fk2_tb_preinscricao p
-        ) WHERE rn = 1
-      ) p ON p.user_id = us.id
+  LEFT JOIN (
+    SELECT * FROM (
+      SELECT p.*, ROW_NUMBER() OVER (PARTITION BY p.user_id ORDER BY p.Codigo DESC) AS rn
+      FROM fk2_tb_preinscricao p
+    ) WHERE rn = 1
+  ) p ON p.user_id = us.id
 
-      LEFT JOIN (
-        SELECT * FROM (
-          SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.pre_incricao ORDER BY a.codigo DESC) AS rn
-          FROM fk2_tb_admissao a
-        ) WHERE rn = 1
-      ) a ON a.pre_incricao = p.Codigo
+  LEFT JOIN (
+    SELECT * FROM (
+      SELECT a.*, ROW_NUMBER() OVER (PARTITION BY a.pre_incricao ORDER BY a.codigo DESC) AS rn
+      FROM fk2_tb_admissao a
+    ) WHERE rn = 1
+  ) a ON a.pre_incricao = p.Codigo
 
-      LEFT JOIN (
-        SELECT * FROM (
-          SELECT m.*, ROW_NUMBER() OVER (PARTITION BY m.Codigo_Aluno ORDER BY m.Codigo DESC) AS rn
-          FROM fk2_tb_matriculas m
-        ) WHERE rn = 1
-      ) m ON m.Codigo_Aluno = a.codigo
+  LEFT JOIN (
+    SELECT * FROM (
+      SELECT m.*, ROW_NUMBER() OVER (PARTITION BY m.Codigo_Aluno ORDER BY m.Codigo DESC) AS rn
+      FROM fk2_tb_matriculas m
+    ) WHERE rn = 1
+  ) m ON m.Codigo_Aluno = a.codigo
 
-      LEFT JOIN (
-        SELECT * FROM (
-          SELECT tc.*, ROW_NUMBER() OVER (PARTITION BY tc.candidato_id ORDER BY tc.id DESC) AS rn
-          FROM fk2_candidato_provas tc
-        ) WHERE rn = 1
-      ) tc ON tc.candidato_id = p.Codigo
+  LEFT JOIN (
+    SELECT * FROM (
+      SELECT tc.*, ROW_NUMBER() OVER (PARTITION BY tc.candidato_id ORDER BY tc.id DESC) AS rn
+      FROM fk2_candidato_provas tc
+    ) WHERE rn = 1
+  ) tc ON tc.candidato_id = p.Codigo
 
-      LEFT JOIN (
-        SELECT * FROM (
-          SELECT hp.*, ROW_NUMBER() OVER (PARTITION BY hp.id ORDER BY hp.id DESC) AS rn
-          FROM FK2_TB_HORARIO_PROVA hp
-        ) WHERE rn = 1
-      ) hp ON hp.id = tc.HORARIO_PROVA_ID
+  LEFT JOIN fk2_provas pr ON pr.id = tc.prova_id
 
-      LEFT JOIN fk2_provas pr ON pr.id = tc.prova_id
-      LEFT JOIN fk2_tb_salas s on s.codigo = hp.sala_id
+  LEFT JOIN (
+    SELECT * FROM (
+      SELECT hp.*, ROW_NUMBER() OVER (PARTITION BY hp.PROVA_ID ORDER BY hp.ID DESC) AS rn
+      FROM FK2_TB_HORARIO_PROVA hp
+    ) WHERE rn = 1
+  ) hp ON hp.PROVA_ID = pr.id
 
-    WHERE us.id = :userId
+  LEFT JOIN fk2_tb_salas s on s.codigo = hp.sala_id
+
+WHERE us.id = :userId
   
     `,
       { userId } as any,
@@ -798,10 +791,10 @@ END AS estado_aluno
     const data = result.map((row: any) => {
       const listaProvas = row.LISTA_DE_PROVAS
         ? row.LISTA_DE_PROVAS.replace(/^Prova de\s*/i, '')
-          .split(/<br>/i)[0]
-          .split(',')
-          .map((s: string) => s.trim())
-          .filter((s: string) => s.length > 0)
+            .split(/<br>/i)[0]
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter((s: string) => s.length > 0)
         : [];
       console.log({ row, listaProvas });
       return {
