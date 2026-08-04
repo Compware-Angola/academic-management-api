@@ -719,7 +719,15 @@ export class PreRegistrationService {
  SUBSTR(DBMS_LOB.SUBSTR(hp.HORA_INICIO, 4000, 1), 1, 5) AS hora_inicio,
   SUBSTR(DBMS_LOB.SUBSTR(hp.HORA_FIM, 4000, 1), 1, 5) AS hora_fim,
   tc.STATUS_                    AS status_prova,
-  pr.DESCRICAO                  AS lista_de_provas,
+  pr.DESCRICAO                  AS descricao_prova,
+  (
+    SELECT LISTAGG(da.DESIGNACAO, ', ') WITHIN GROUP (ORDER BY jt.id)
+    FROM JSON_TABLE(
+      pr.DISCIPLINAS, '$[*]'
+      COLUMNS (id NUMBER PATH '$.id')
+    ) jt
+    JOIN FK2_DISCIPLINA_ADMISSAO da ON da.ID = jt.id
+  )                              AS lista_de_provas,
   s.DESIGNACAO                   AS sala_de_prova,
   a.codigo                      AS cod_admissao,
   CASE
