@@ -16,6 +16,7 @@ import { GrauAcademicoService } from './services/grau-academico.service';
 import { DocenteDropDownService } from './services/docente.service';
 import { GradeCurricularService } from './services/gradecurricular.service';
 import { AnoCurriculareService } from './services/ano-corricular.service';
+import { HorarioVerInscricaoServiceDropDown } from './services/horario-ver-inscricao.service';
 
 @Module({
   controllers: [DropdownFiltersController],
@@ -34,7 +35,8 @@ import { AnoCurriculareService } from './services/ano-corricular.service';
     GrauAcademicoService,
     DocenteDropDownService,
     GradeCurricularService,
-    AnoCurriculareService
+    AnoCurriculareService,
+    HorarioVerInscricaoServiceDropDown
   ],
 })
 export class DropdownFiltersModule {}
