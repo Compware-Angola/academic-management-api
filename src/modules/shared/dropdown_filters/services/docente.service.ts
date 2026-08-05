@@ -48,7 +48,7 @@ export class DocenteDropDownService {
     const sqlDocentes = `
       select
           td.codigo                 as codigo,
-          tu.pk_utilizador          as codigoUtilizador,
+          tu.pk_utilizador          as codigo_utilizador,
           tu.email                  as email,
           tu.username               as username,
           tu.nome                   as nome,
