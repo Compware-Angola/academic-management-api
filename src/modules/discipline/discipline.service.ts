@@ -19,7 +19,7 @@ import { FindGradeCurricularAdminDto } from './dto/find-grade-curricular-admin.d
 
 @Injectable()
 export class DisciplineService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
   async findGradeCurricularAluno({
     matriculaId,
     semestre,
@@ -901,140 +901,105 @@ export class DisciplineService {
   async adicionarUnidadeCurricularNoDepartamento(
     dto: CreateUnidadeCurricularDepartamentoDto,
   ) {
-    const {
-      codigoDisciplina,
-      codigoAnoLectivo,
-      codigoSemestre,
-      codigoClasse,
-      codigoDepartamento,
-      codigoUtilizador,
-      cursos,
-    } = dto;
-
-    // 1. Verificar se a disciplina existe
-    const disciplinaResult = await this.dataSource.query(
-      `SELECT COUNT(*) AS total FROM FK2_TB_DISCIPLINAS WHERE CODIGO = :codigoDisciplina`,
-      { codigoDisciplina } as any,
-    );
-
-    if (Number(disciplinaResult?.[0]?.TOTAL) === 0) {
-      throw new NotFoundException('Não foi encontrada a disciplina.');
-    }
+    const { disciplinas, codigoDepartamento, codigoClasse } = dto;
 
     const resultados: {
-      codigoCurso: number;
+      codigoDisciplina: number;
       status: string;
       mensagem: string;
     }[] = [];
 
-    // 2. Iterar sobre os cursos
-    for (const { codigoCurso } of cursos) {
+    for (const { codigoDisciplina } of disciplinas) {
       const resultado = {
-        codigoCurso,
+        codigoDisciplina,
         status: 'sucesso',
         mensagem: '',
       };
-
       try {
-        // 2a. Verificar se a disciplina já está no plano do curso
-        const existPlanoResult = await this.dataSource.query(
+        // Verifica se a disciplina existe
+        const disciplinaResult = await this.dataSource.query(
           `
-        SELECT gc.CODIGO
-        FROM FK2_TB_PLANO_CURRICULAR_GRADE p
-        JOIN FK2_TB_PLANO_CURRICULAR_CURSO pc ON pc.CODIGO = p.CODIGO_PLANO_CURRICULAR_CURSO
-        JOIN FK2_TB_CURSOS c                  ON c.CODIGO  = pc.CODIGO_CURSO
-        JOIN FK2_TB_GRADE_CURRICULAR gc       ON gc.CODIGO = p.CODIGO_GRADE_CURRICULAR
-        JOIN FK2_TB_DISCIPLINAS d             ON d.CODIGO  = gc.CODIGO_DISCIPLINA
-        JOIN FK2_TB_ANO_LECTIVO al            ON al.CODIGO = pc.CODIGO_ANO_LECTIVO
-        WHERE d.CODIGO  = :codigoDisciplina
-          AND al.CODIGO = :codigoAnoLectivo
-          AND c.CODIGO  = :codigoCurso
-        FETCH FIRST 1 ROWS ONLY
+        SELECT COUNT(*) TOTAL
+        FROM FK2_TB_DISCIPLINAS
+        WHERE CODIGO = :codigoDisciplina
         `,
-          { codigoDisciplina, codigoAnoLectivo, codigoCurso } as any,
+          { codigoDisciplina } as any,
         );
-
-        if (existPlanoResult?.length > 0) {
-          // Já está no plano — reativar por precaução
-          const codigoGradeExistente = Number(existPlanoResult[0].CODIGO);
-
-          await this.ativegrade(codigoGradeExistente);
-
-          resultado.status = 'ignorado';
-          resultado.mensagem =
-            'Esta grade já está vinculada ao plano do curso. Reativada por precaução.';
-          resultados.push(resultado);
-          continue;
+        if (Number(disciplinaResult?.[0]?.TOTAL) === 0) {
+          throw new NotFoundException(
+            `Disciplina ${codigoDisciplina} não encontrada.`,
+          );
         }
-
-        // 2b. Verificar se já existe no departamento
-        const existDeptResult = await this.dataSource.query(
+        // Verifica se já existe no departamento
+        const existResult = await this.dataSource.query(
           `
-        SELECT COUNT(*) AS total
-        FROM FK2_TB_GRADE_CURRICULAR g
-        WHERE g.FK_DEPARTAMENTO   = :codigoDepartamento
-          AND g.CODIGO_CLASSE     = :codigoClasse
-          AND g.CODIGO_CURSO      = :codigoCurso
-          AND g.CODIGO_DISCIPLINA = :codigoDisciplina
-          AND g.CODIGO_SEMESTRE   = :codigoSemestre
+        SELECT COUNT(*) TOTAL
+        FROM FK2_TB_GRADE_CURRICULAR
+        WHERE FK_DEPARTAMENTO = :codigoDepartamento
+          AND CODIGO_DISCIPLINA = :codigoDisciplina
+          AND CODIGO_CLASSE = :codigoClasse
         `,
           {
             codigoDepartamento,
-            codigoClasse,
-            codigoCurso,
             codigoDisciplina,
-            codigoSemestre,
+            codigoClasse,
           } as any,
         );
 
-        const existeNoDept = Number(existDeptResult?.[0]?.TOTAL) > 0;
+        const existe = Number(existResult?.[0]?.TOTAL) > 0;
 
-        if (existeNoDept) {
-          // 2c. Já existe no dept — reactivar (status = 1)
+        if (existe) {
+          // Reactiva o registo
           await this.dataSource.query(
             `
           UPDATE FK2_TB_GRADE_CURRICULAR
-          SET STATUS_ = 1
-          WHERE FK_DEPARTAMENTO   = :codigoDepartamento
-            AND CODIGO_CLASSE     = :codigoClasse
-            AND CODIGO_CURSO      = :codigoCurso
-            AND CODIGO_DISCIPLINA = :codigoDisciplina
-            AND CODIGO_SEMESTRE   = :codigoSemestre
+             SET STATUS_ = 1
+           WHERE FK_DEPARTAMENTO = :codigoDepartamento
+             AND CODIGO_DISCIPLINA = :codigoDisciplina
+             AND CODIGO_CLASSE = :codigoClasse
           `,
             {
               codigoDepartamento,
-              codigoClasse,
-              codigoCurso,
               codigoDisciplina,
-              codigoSemestre,
+              codigoClasse,
             } as any,
           );
-          resultado.mensagem = 'Grade reactivada no departamento.';
+
+          resultado.mensagem =
+            'Disciplina reactivada no departamento.';
         } else {
-          // 2d. Não existe — criar grade curricular com departamento
-          const codigoGrade = await this.criarGradeCurricular({
-            codigoDisciplina,
-            codigoAnoLectivo,
-            codigoClasse,
-            codigoCurso,
-            codigoUtilizador,
-            codigoSemestre,
-            departamento: codigoDepartamento,
-          });
-
-          // Pegar id do plano do curso
-          const codigoPlanoCurso = await this.getPlanoCurso(
-            codigoCurso,
-            codigoAnoLectivo,
+          // Insere apenas no departamento
+          await this.dataSource.query(
+            `
+          INSERT INTO FK2_TB_GRADE_CURRICULAR
+          (
+              FK_DEPARTAMENTO,
+              CODIGO_DISCIPLINA,
+              TYPE,
+              DATA_REGISTO,
+              STATUS_,
+              CODIGO_CLASSE
+              
+          )
+          VALUES
+          (
+              :codigoDepartamento,
+              :codigoDisciplina,
+              'DEPARTAMENTO',
+              SYSDATE,
+              1,
+              :codigoClasse
+          )
+          `,
+            {
+              codigoDepartamento,
+              codigoDisciplina,
+              codigoClasse,
+            } as any,
           );
 
-          // Adicionar no plano
-          await this.adicionarPlano(
-            codigoUtilizador,
-            codigoGrade,
-            codigoPlanoCurso,
-          );
-          resultado.mensagem = 'Grade criada no departamento.';
+          resultado.mensagem =
+            'Disciplina adicionada ao departamento.';
         }
       } catch (error) {
         resultado.status = 'erro';
@@ -1044,16 +1009,11 @@ export class DisciplineService {
       resultados.push(resultado);
     }
 
-    const comSucesso = resultados.filter((r) => r.status === 'sucesso');
-    const ignorados = resultados.filter((r) => r.status === 'ignorado');
-    const comErro = resultados.filter((r) => r.status === 'erro');
-
     return {
       message: 'Processamento concluído.',
       total: resultados.length,
-      sucesso: comSucesso.length,
-      ignorados: ignorados.length,
-      erros: comErro.length,
+      sucesso: resultados.filter((x) => x.status === 'sucesso').length,
+      erros: resultados.filter((x) => x.status === 'erro').length,
       detalhes: resultados,
     };
   }
