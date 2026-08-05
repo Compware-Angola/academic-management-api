@@ -2,10 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { FindCandidatesDto } from '../dto/candidates.dto';
 import { PaginatedResult } from '../types/query.builder';
-import { buildCandidateDocumentsQuery, buildCountQuery, buildDataQuery, buildOrderClause, buildWhereClause } from '../query-builder/candidates.query-builder';
+import {
+  buildCandidateDocumentsQuery,
+  buildCountQuery,
+  buildDataQuery,
+  buildOrderClause,
+  buildWhereClause,
+} from '../query-builder/candidates.query-builder';
 import { toLowerCaseKeys } from 'src/modules/util/toLowerCaseKeys';
-
-
 
 @Injectable()
 export class CandidatesService {
@@ -15,7 +19,6 @@ export class CandidatesService {
   ): Promise<PaginatedResult<any>> {
     const { limit = 10, page = 1, sortBy, sortOrder } = filters;
     const offset = (page - 1) * limit;
-
     const { clauses, params } = buildWhereClause(filters);
     const whereClause = clauses.length > 0 ? clauses.join(' AND ') : '1=1';
     const orderClause = buildOrderClause(sortBy, sortOrder);
@@ -31,7 +34,7 @@ export class CandidatesService {
 
     const total = Number(countResult[0]?.TOTAL ?? 0);
     const totalPages = Math.ceil(total / limit);
-
+    console.log(rows);
     return {
       data: toLowerCaseKeys(rows),
       total,
@@ -40,16 +43,14 @@ export class CandidatesService {
       totalPages,
     };
   }
-  async findCandidateDocuments(
-    id: number,
-  ): Promise<PaginatedResult<any>> {
+  async findCandidateDocuments(id: number): Promise<PaginatedResult<any>> {
     const rows = await this.dataSource.query(buildCandidateDocumentsQuery(), {
       id,
     } as any);
     return toLowerCaseKeys(rows);
   }
 
-   async reject(candidateId: number, reason: string) {
+  async reject(candidateId: number, reason: string) {
     const candidate = await this.dataSource.query(
       `
       SELECT CODIGO
@@ -64,7 +65,6 @@ export class CandidatesService {
     }
 
     await this.dataSource.transaction(async (manager) => {
-
       await manager.query(
         `
         DELETE FROM FK2_TB_REJEICAO_CANDIDATURA_ALUNO

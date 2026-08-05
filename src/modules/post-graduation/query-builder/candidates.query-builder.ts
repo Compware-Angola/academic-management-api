@@ -2,8 +2,6 @@ import { FindCandidatesDto } from '../dto/candidates.dto';
 import { CandidateStatus, PaymentStatus, SortBy, SortOrder } from '../enums';
 import { QueryConditions } from '../types/query.builder';
 
-
-
 // ─── ordenação ────────────────────────────────────────────────────────────────
 
 const SORT_COLUMN: Record<SortBy, string> = {
@@ -30,7 +28,11 @@ const PAYMENT_SUBQUERY = `
       1 AS existe_pagamento
     FROM FK2_TB_PAGAMENTOS p
     INNER JOIN FK2_FACTURA f ON f.CODIGO = p.CODIGO_FACTURA
-    WHERE f.CODIGO_DESCRICAO = 9
+    INNER JOIN FK2_FACTURA_ITEMS fi ON fi.CODIGOFACTURA = f.CODIGO
+    INNER JOIN FK2_TB_TIPO_SERVICOS ts ON fi.CODIGOPRODUTO = ts.CODIGO
+    WHERE ts.SIGLA = 'TdIMeP'
+    
+    
   ) pag
     ON pag.CODIGO_PREINSCRICAO = tp.CODIGO
    AND pag.ANOLECTIVO          = tp.ANOLECTIVO
@@ -142,7 +144,8 @@ export function buildDataQuery(
       curso_candidatura,
       estado,
       pagamento_realizado,
-      ano_lectivo
+      ano_lectivo,
+      cod_ano_lectivo
     FROM (
       SELECT
         tp.CODIGO                AS codigo_preinscricao,
@@ -155,6 +158,7 @@ export function buildDataQuery(
         tc.DESIGNACAO            AS candidatura,
         tcurso.DESIGNACAO        AS curso_candidatura,
         alu.DESIGNACAO            AS ano_lectivo,
+        tp.ANOLECTIVO            AS cod_ano_lectivo,
         CASE
           WHEN trca.PK_REJEICAO_CANDIDATURA IS NOT NULL THEN 'Rejeitado'
           WHEN ta.CODIGO IS NOT NULL                    THEN 'Admitido'
@@ -180,7 +184,7 @@ export function buildCountQuery(whereClause: string): string {
   `;
 }
 
-export const buildCandidateDocumentsQuery = ()=> {
+export const buildCandidateDocumentsQuery = () => {
   return `
   SELECT 
     tbda.NOME_ARQUIVO, tbdn.DESCRICAO
@@ -188,5 +192,5 @@ export const buildCandidateDocumentsQuery = ()=> {
         INNER JOIN FK2_TB_DOCUMENTOS_NECESSARIOS tbdn
             ON tbdn.CODIGO = tbda.TIPO_DOCUMENTO_ID
         WHERE  CANDIDATO_ID = :id
-  `
-}
+  `;
+};
