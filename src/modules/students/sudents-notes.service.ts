@@ -5,6 +5,10 @@ import { FindStudentNoteDTO } from './dto/find-student-notes.dto';
 import { calcularSemestreByAnoLectivo } from '../util/calcular-semestre';
 import { AnoLectivoUtil } from '../util/current-academic-year';
 import { lowercaseKeys } from '../util/lowercase-keys.util';
+import {
+  FindCurriculumParams,
+  StudentCurriculumGradeRow,
+} from './dto/find-student-curriculum.dto';
 
 @Injectable()
 export class StudentNoteService {
@@ -20,10 +24,18 @@ export class StudentNoteService {
   }
 
   async findAll(dto: FindStudentNoteDTO) {
-    const { anoLectivo, codigoMatricula, page = 1, limit = 20 } = dto;
+    const {
+      anoLectivo,
+      codigoMatricula,
+      isPortal = true,
+      page = 1,
+      limit = 20,
+    } = dto;
+
     const pautas = await this.carregarPautaHorario(
       anoLectivo,
       codigoMatricula,
+      isPortal,
       page,
       limit,
     );
@@ -35,6 +47,7 @@ export class StudentNoteService {
   private async carregarPautaHorario(
     anoLectivo: number,
     codigoMatricula: number,
+    isPortal: boolean,
     page: number,
     limit: number,
   ): Promise<any[]> {
@@ -48,6 +61,7 @@ export class StudentNoteService {
       try {
         const pautaDoAluno = await this.processarNotasHorario(
           codigoMatricula,
+          isPortal,
           grades,
         );
 
@@ -213,6 +227,7 @@ export class StudentNoteService {
 
   private async processarNotasHorario(
     codigoMatricula: number,
+    isPortal: boolean,
     gradeAluno: any,
   ): Promise<any> {
     let media = 0;
@@ -530,42 +545,64 @@ export class StudentNoteService {
 
         // Recurso
         if (resultado === EstadoAvaliacaoEnum.RECURSO) {
-          if (!temNota(notaRec)) {
-            resultado = EstadoAvaliacaoEnum.REPROVADO;
-            descricao =
-              'O docente não fez o lançamento da nota do recurso para o estudante!';
-          } else {
-            if (hasPratica) {
-              if (notaRec!.NOTA! >= 10) {
-                media = notaRec!.NOTA!;
-                resultado = EstadoAvaliacaoEnum.AGUARDA_PRATICA;
-                descricao = `A nota do Recurso (${notaRec!.NOTA!}) suficiente para aprovação. Aguardar nota da Prática!`;
-              } else {
-                media = notaRec!.NOTA!;
-                resultado = EstadoAvaliacaoEnum.REPROVADO;
-                descricao = `A nota do Recurso (${notaRec!.NOTA!}) é insuficiente para aprovação directa!`;
-              }
-            } else if (hasOral) {
-              if (notaRec!.NOTA! >= 8) {
-                media = notaRec!.NOTA!;
-                resultado = EstadoAvaliacaoEnum.AGUARDA_ORAL_RECURSO;
-                descricao = `A nota do Recurso (${notaRec!.NOTA!}) suficiente para aprovação. Aguardar nota da Prova Oral de Recurso!`;
-              } else {
-                resultado = EstadoAvaliacaoEnum.REPROVADO;
-                descricao = `A nota do Recurso (${notaRec!.NOTA!}) é insuficiente para aprovação directa!`;
-              }
+          let bloqueado = false;
+
+          if (isPortal) {
+            const pg = await this.pagamentoRecursoRegularizado(
+              codigoMatricula,
+              gradeAluno.CODIGO,
+              7,
+              gradeAluno.CODIGO_ANO_LECTIVO,
+            );
+            console.log('PG', pg);
+
+            if (!pg) {
+              bloqueado = true;
+              resultado = EstadoAvaliacaoEnum.NOTA_BLOQUEADA;
+              descricao =
+                'O estudante não efectuou o pagamento da Inscrição de Recurso. Nota bloqueada até regularização do pagamento!';
+            }
+          }
+
+          if (!bloqueado) {
+            if (!temNota(notaRec)) {
+              resultado = EstadoAvaliacaoEnum.REPROVADO;
+              descricao =
+                'O docente não fez o lançamento da nota do recurso para o estudante!';
             } else {
-              media = notaRec!.NOTA!;
-              if (notaRec!.NOTA! >= 10) {
-                resultado = EstadoAvaliacaoEnum.APROVADO;
-                descricao =
-                  'A nota do Recurso é suficiente para aprovação. OBS: A nota do Recurso é seca para esta avaliação!';
+              if (hasPratica) {
+                if (notaRec!.NOTA! >= 10) {
+                  media = notaRec!.NOTA!;
+                  resultado = EstadoAvaliacaoEnum.AGUARDA_PRATICA;
+                  descricao = `A nota do Recurso (${notaRec!.NOTA!}) suficiente para aprovação. Aguardar nota da Prática!`;
+                } else {
+                  media = notaRec!.NOTA!;
+                  resultado = EstadoAvaliacaoEnum.REPROVADO;
+                  descricao = `A nota do Recurso (${notaRec!.NOTA!}) é insuficiente para aprovação directa!`;
+                }
+              } else if (hasOral) {
+                if (notaRec!.NOTA! >= 8) {
+                  media = notaRec!.NOTA!;
+                  resultado = EstadoAvaliacaoEnum.AGUARDA_ORAL_RECURSO;
+                  descricao = `A nota do Recurso (${notaRec!.NOTA!}) suficiente para aprovação. Aguardar nota da Prova Oral de Recurso!`;
+                } else {
+                  resultado = EstadoAvaliacaoEnum.REPROVADO;
+                  descricao = `A nota do Recurso (${notaRec!.NOTA!}) é insuficiente para aprovação directa!`;
+                }
               } else {
-                resultado = EstadoAvaliacaoEnum.REPROVADO;
-                descricao = `A nota do Recurso (${notaRec!.NOTA!}) é insuficiente para aprovação directa!`;
+                media = notaRec!.NOTA!;
+                if (notaRec!.NOTA! >= 10) {
+                  resultado = EstadoAvaliacaoEnum.APROVADO;
+                  descricao =
+                    'A nota do Recurso é suficiente para aprovação. OBS: A nota do Recurso é seca para esta avaliação!';
+                } else {
+                  resultado = EstadoAvaliacaoEnum.REPROVADO;
+                  descricao = `A nota do Recurso (${notaRec!.NOTA!}) é insuficiente para aprovação directa!`;
+                }
               }
             }
           }
+
           pauta.obs.push(descricao);
           console.log(descricao);
         }
@@ -729,7 +766,8 @@ export class StudentNoteService {
       // Regra final: tudo que não for APROVADO ou PENDENTE vira REPROVADO
       if (
         pauta.resultado !== EstadoAvaliacaoEnum.APROVADO &&
-        pauta.resultado !== EstadoAvaliacaoEnum.PENDENTE
+        pauta.resultado !== EstadoAvaliacaoEnum.PENDENTE &&
+        pauta.resultado !== EstadoAvaliacaoEnum.NOTA_BLOQUEADA
       ) {
         pauta.resultado = EstadoAvaliacaoEnum.REPROVADO;
       }
@@ -738,7 +776,10 @@ export class StudentNoteService {
       pauta.nota1f = nota1f?.NOTA?.toString() ?? '';
       pauta.nota2f = nota2f?.NOTA?.toString() ?? '';
       pauta.notaEx = notaEx?.NOTA?.toString() ?? '';
-      pauta.notaRec = notaRec?.NOTA?.toString() ?? '';
+      pauta.notaRec =
+        isPortal && pauta.resultado === EstadoAvaliacaoEnum.NOTA_BLOQUEADA
+          ? '-'
+          : notaRec?.NOTA?.toString();
       pauta.notaPra = notaPra?.NOTA?.toString() ?? '';
       pauta.notaOr = notaOr?.NOTA?.toString() ?? '';
       pauta.notaOrRec = notaOrRec?.NOTA?.toString() ?? '';
@@ -1056,5 +1097,195 @@ export class StudentNoteService {
         `Falha ao actualizar estado da grade curricular: ${error.message}`,
       );
     }
+  }
+
+  private async pagamentoRecursoRegularizado(
+    codigoMatricula: number,
+    codigoGradeAluno: number,
+    codigoTipoAvaliacao: number,
+    codigoAnoLectivo: number,
+  ): Promise<boolean> {
+    const result = await this.dataSource.query(
+      `
+    SELECT COUNT(*) AS TOTAL
+    FROM FK2_TB_HISTORICO_INSCRICOES_AVALIACOES ha
+    INNER JOIN FK2_FACTURA ft ON ft.CODIGO = ha.CODIGO_FACTURA
+    WHERE ha.CODIGO_MATRICULA     = :matricula
+      AND ha.CODIGO_GRADE_ALUNO    = :grade
+      AND ha.CODIGO_TIPO_AVALIACAO = :tipo
+      AND ha.CODIGO_ANO_LECTIVO    = :ano
+      AND ft.ESTADO = 1
+    `,
+      {
+        matricula: codigoMatricula,
+        grade: codigoGradeAluno,
+        tipo: codigoTipoAvaliacao,
+        ano: codigoAnoLectivo,
+      } as any,
+    );
+
+    const total = Number(result[0]?.TOTAL ?? result[0]?.total ?? 0);
+    console.log('TOtal', total);
+    return total > 0;
+  }
+
+  // async findCurriculum(params: FindCurriculumParams) {
+  //   const { academicYearCode, enrollmentCode, semester } = params;
+  //   const semesterFilter = semester ? 'AND g.CODIGO_SEMESTRE = :semester' : '';
+
+  //   const sql = `
+  //   SELECT DISTINCT
+  //     d."DESIGNACAO"              AS "disciplina",
+  //     s."DESIGNACAO"              AS "semestre",
+  //     c."DESIGNACAO"              AS "classe",
+  //     NVL(al."NOTA", 0)           AS "nota",
+  //     st."DESIGNACAO"             AS "estado",
+  //     dur."DESIGNACAO"            AS "duracaoDisciplina",
+  //     d."CODIGO"                  AS "CodigoDisciplina",
+  //     g."CODIGO"                  AS "CodigoGrade",
+  //     NVL(g."VALOR_INSCRICAO", 0) AS "ValorInscricao",
+  //     aaa."DESIGNACAO"            AS "ano_lectivo"
+  //   FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
+  //   INNER JOIN FK2_TB_GRADE_CURRICULAR g
+  //     ON al."CODIGO_GRADE_CURRICULAR" = g."CODIGO"
+  //   INNER JOIN FK2_TB_DISCIPLINAS d
+  //     ON d."CODIGO" = g."CODIGO_DISCIPLINA"
+  //   INNER JOIN FK2_TB_CLASSES c
+  //     ON c."CODIGO" = g."CODIGO_CLASSE"
+  //   INNER JOIN FK2_TB_DURACAO dur
+  //     ON dur."CODIGO" = d."DURACAO"
+  //   INNER JOIN FK2_TB_SEMESTRES s
+  //     ON g."CODIGO_SEMESTRE" = s."CODIGO"
+  //   INNER JOIN FK2_TB_STATUS_GRADE_CURRICULAR st
+  //     ON st."CODIGO" = al."CODIGO_STATUS_GRADE_CURRICULAR"
+  //   INNER JOIN FK2_TB_CONFIRMACOES ccc
+  //     ON ccc."CODIGO" = al."CODIGO_CONFIRMACAO"
+  //   INNER JOIN FK2_TB_ANO_LECTIVO aaa
+  //     ON aaa."CODIGO" = ccc."CODIGO_ANO_LECTIVO"
+  //   WHERE g."STATUS_" = 1
+  //     AND al."CODIGO_MATRICULA" = :enrollmentCode
+  //     AND al."CODIGO_STATUS_GRADE_CURRICULAR" <> 5
+  //     ${semesterFilter}
+  //     AND ccc."CODIGO_ANO_LECTIVO" = :academicYearCode
+  //     AND c."CODIGO" IS NOT NULL
+  // `;
+
+  //   const bindParams = {
+  //     enrollmentCode,
+  //     academicYearCode,
+  //     ...(semester ? { semester } : {}),
+  //   };
+
+  //   const grades: StudentCurriculumGradeRow[] = await this.dataSource.query(
+  //     sql,
+  //     bindParams as any,
+  //   );
+
+  //   return { grades };
+  // }
+
+  // Ajusta para o código real do tipo de avaliação "Recurso" na tua BD
+  private readonly CODIGO_TIPO_AVALIACAO_RECURSO = 7;
+
+  private async statusPagamentoRecurso(
+    codigoMatricula: number,
+    codigoGradeAluno: number,
+    codigoTipoAvaliacao: number,
+    codigoAnoLectivo: number,
+  ): Promise<{ temInscricao: boolean; pago: boolean }> {
+    const result = await this.dataSource.query(
+      `
+    SELECT
+      COUNT(*) AS TOTAL,
+      SUM(CASE WHEN ft.ESTADO = 1 THEN 1 ELSE 0 END) AS PAGOS
+    FROM FK2_TB_HISTORICO_INSCRICOES_AVALIACOES ha
+    INNER JOIN FK2_FACTURA ft ON ft.CODIGO = ha.CODIGO_FACTURA
+    WHERE ha.CODIGO_MATRICULA     = :matricula
+      AND ha.CODIGO_GRADE_ALUNO    = :grade
+      AND ha.CODIGO_TIPO_AVALIACAO = :tipo
+      AND ha.CODIGO_ANO_LECTIVO    = :ano
+    `,
+      {
+        matricula: codigoMatricula,
+        grade: codigoGradeAluno,
+        tipo: codigoTipoAvaliacao,
+        ano: codigoAnoLectivo,
+      } as any,
+    );
+
+    const total = Number(result[0]?.TOTAL ?? result[0]?.total ?? 0);
+    const pagos = Number(result[0]?.PAGOS ?? result[0]?.pagos ?? 0);
+
+    return { temInscricao: total > 0, pago: pagos > 0 };
+  }
+
+  async findCurriculum(params: FindCurriculumParams) {
+    const { academicYearCode, enrollmentCode, semester } = params;
+    const semesterFilter = semester ? 'AND g.CODIGO_SEMESTRE = :semester' : '';
+
+    const sql = `
+    SELECT DISTINCT
+      d."DESIGNACAO"              AS "disciplina",
+      s."DESIGNACAO"              AS "semestre",
+      c."DESIGNACAO"              AS "classe",
+      NVL(al."NOTA", 0)           AS "nota",
+      st."DESIGNACAO"             AS "estado",
+      dur."DESIGNACAO"            AS "duracaoDisciplina",
+      d."CODIGO"                  AS "CodigoDisciplina",
+      g."CODIGO"                  AS "CodigoGrade",
+      al."CODIGO"                 AS "CodigoGradeAluno",
+      NVL(g."VALOR_INSCRICAO", 0) AS "ValorInscricao",
+      aaa."DESIGNACAO"            AS "ano_lectivo"
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
+    INNER JOIN FK2_TB_GRADE_CURRICULAR g
+      ON al."CODIGO_GRADE_CURRICULAR" = g."CODIGO"
+    INNER JOIN FK2_TB_DISCIPLINAS d
+      ON d."CODIGO" = g."CODIGO_DISCIPLINA"
+    INNER JOIN FK2_TB_CLASSES c
+      ON c."CODIGO" = g."CODIGO_CLASSE"
+    INNER JOIN FK2_TB_DURACAO dur
+      ON dur."CODIGO" = d."DURACAO"
+    INNER JOIN FK2_TB_SEMESTRES s
+      ON g."CODIGO_SEMESTRE" = s."CODIGO"
+    INNER JOIN FK2_TB_STATUS_GRADE_CURRICULAR st
+      ON st."CODIGO" = al."CODIGO_STATUS_GRADE_CURRICULAR"
+    INNER JOIN FK2_TB_CONFIRMACOES ccc
+      ON ccc."CODIGO" = al."CODIGO_CONFIRMACAO"
+    INNER JOIN FK2_TB_ANO_LECTIVO aaa
+      ON aaa."CODIGO" = ccc."CODIGO_ANO_LECTIVO"
+    WHERE g."STATUS_" = 1
+      AND al."CODIGO_MATRICULA" = :enrollmentCode
+      AND al."CODIGO_STATUS_GRADE_CURRICULAR" <> 5
+      ${semesterFilter}
+      AND ccc."CODIGO_ANO_LECTIVO" = :academicYearCode
+      AND c."CODIGO" IS NOT NULL
+  `;
+
+    const bindParams = {
+      enrollmentCode,
+      academicYearCode,
+      ...(semester ? { semester } : {}),
+    };
+
+    const rows: (StudentCurriculumGradeRow & { CodigoGradeAluno: number })[] =
+      await this.dataSource.query(sql, bindParams as any);
+
+    const grades = await Promise.all(
+      rows.map(async (row) => {
+        const { temInscricao, pago } = await this.statusPagamentoRecurso(
+          enrollmentCode,
+          row.CodigoGradeAluno,
+          this.CODIGO_TIPO_AVALIACAO_RECURSO,
+          academicYearCode,
+        );
+
+        return {
+          ...row,
+          nota: temInscricao && !pago ? '-' : row.nota,
+        };
+      }),
+    );
+
+    return { grades };
   }
 }

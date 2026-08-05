@@ -1,6 +1,6 @@
 // src/horarios/dto/listar-horarios.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsInt,
   IsOptional,
@@ -8,6 +8,7 @@ import {
   IsNumber,
   IsPositive,
   Max,
+  IsBoolean,
 } from 'class-validator';
 
 export class FindStudentNoteDTO {
@@ -30,6 +31,19 @@ export class FindStudentNoteDTO {
   @IsInt()
   @Type(() => Number)
   codigoMatricula: number;
+
+  @ApiPropertyOptional({
+    description: 'Origem da requisição',
+    example: false,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    return Number(value) === 1;
+  })
+  isPortal?: boolean;
 
   @ApiPropertyOptional({
     description: 'Número da página',
