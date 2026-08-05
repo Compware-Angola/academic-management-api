@@ -35,7 +35,7 @@ export class StudentsService {
     private readonly dataSource: DataSource,
     private readonly anoLectivoUtil: AnoLectivoUtil,
     private readonly planStudent: StudentsResultPlanService,
-  ) {}
+  ) { }
 
   async getProfileEstatistic(
     codigoMatricula: number,
@@ -639,15 +639,14 @@ export class StudentsService {
             AND tm.CODIGO_CURSO = tgc.CODIGO_CURSO
         )
       ) = 1
-      ${
-        search && search.trim()
-          ? `
+      ${search && search.trim()
+        ? `
         AND (
           UPPER(tp.NOME_COMPLETO) LIKE :search
           OR UPPER(NVL(tp.BILHETE_IDENTIDADE, '-')) LIKE :search
         )
       `
-          : ``
+        : ``
       }
     ) q
   ) t
@@ -708,8 +707,7 @@ export class StudentsService {
           AND tm.CODIGO_CURSO = tgc.CODIGO_CURSO
       )
     ) = 1
-    ${
-      search && search.trim()
+    ${search && search.trim()
         ? `
       AND (
         UPPER(tp.NOME_COMPLETO) LIKE :search
@@ -717,7 +715,7 @@ export class StudentsService {
       )
     `
         : ``
-    }
+      }
   )
 `;
 
@@ -2006,7 +2004,8 @@ WHERE M."CODIGO" = :codigoMatricula`;
       SELECT
         al.codigo as codigo_grade_curricular_aluno,
         al.REF_HORARIO as ref_horario,
-        al.CODIGO_STATUS_GRADE_CURRICULAR as codigo_status_grade_curricular
+        al.CODIGO_STATUS_GRADE_CURRICULAR as codigo_status_grade_curricular,
+        al.CODIGO_GRADE_CURRICULAR as codigo_grade_curricular
       FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
       WHERE al.CODIGO = :1
 
@@ -2028,7 +2027,8 @@ WHERE M."CODIGO" = :codigoMatricula`;
         `
       SELECT
         hr.pk_horario as pk,
-        hr.designacao as designacao
+        hr.designacao as designacao,
+        hr.FK_GRADE_CURRICULAR as codigo_grade_curricular
       FROM FK2_MGH_TB_HORARIO hr
       WHERE hr.pk_horario = :1
       `,
@@ -2069,6 +2069,16 @@ WHERE M."CODIGO" = :codigoMatricula`;
     `,
       [REF_HORARIO, gradeCurricularID],
     );
+    if ((gradeCurricular.codigo_grade_curricular != horario.codigo_grade_curricular) && horario.codigo_grade_curricular !== null) {
+      await this.dataSource.query(
+        `
+    UPDATE FK2_TB_GRADE_CURRICULAR_ALUNO
+    SET CODIGO_GRADE_CURRICULAR = :1
+    WHERE CODIGO = :2
+    `,
+        [horario.codigo_grade_curricular, gradeCurricularID],
+      );
+    }
 
     return {
       message: 'Horário da grade curricular atualizado com sucesso',
@@ -2460,9 +2470,9 @@ WHERE M."CODIGO" = :codigoMatricula`;
       const refUtilizador =
         usuarioLogado?.sub || usuarioLogado?.name
           ? JSON.stringify({
-              pk: usuarioLogado?.sub ?? null,
-              desc: usuarioLogado?.name ?? null,
-            })
+            pk: usuarioLogado?.sub ?? null,
+            desc: usuarioLogado?.name ?? null,
+          })
           : null;
 
       // Verifica se já existe conclusão para esta matrícula
