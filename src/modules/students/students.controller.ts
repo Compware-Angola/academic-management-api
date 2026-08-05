@@ -76,6 +76,7 @@ import { HangingRailingsAndToBeMadeService } from './hanging_railings_and_to_be_
 import { FindPlanPorClasseDTO } from './dto/FindPlanPorClasseDTO';
 import { GetConfirmationDTO } from './dto/get-confirmation.dto';
 import { AtualizarEstadoGradeCurricularDto } from './dto/duplicate-uc.dto';
+import { FindStudentCurriculumQueryDTO } from './dto/find-student-curriculum.dto';
 //@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @ApiTags('Students')
 @Controller('students')
@@ -295,6 +296,17 @@ export class StudentsController {
   })
   findStudentNotes(@Query(ValidationPipe) query: FindStudentNoteDTO) {
     return this.studentNoteService.findAll(query);
+  }
+
+  @Get('curriculum-plan-student')
+  findStudentCurriculum(
+    @Query(ValidationPipe) query: FindStudentCurriculumQueryDTO,
+  ) {
+    return this.studentNoteService.findCurriculum({
+      academicYearCode: query.academicYearCode,
+      enrollmentCode: query.enrollmentCode,
+      semester: query.semestre,
+    });
   }
 
   @Post('/enrollment/uc')
