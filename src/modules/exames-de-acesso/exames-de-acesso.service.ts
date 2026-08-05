@@ -837,21 +837,34 @@ export class ExamesDeAcessoService {
          ${where}
       `;
 
+    const formatHorarioProva = (column: string) => {
+      const rawValue = `TRIM(DBMS_LOB.SUBSTR(${column}, 4000, 1))`;
+
+      return `
+        CASE
+          WHEN REGEXP_LIKE(${rawValue}, '^[[:digit:]]{1,2}:[[:digit:]]{2}')
+            THEN SUBSTR(${rawValue}, 1, 5)
+          WHEN REGEXP_LIKE(${rawValue}, '^[[:digit:]]+$')
+            THEN SUBSTR(TO_CHAR(NUMTODSINTERVAL(
+              TO_NUMBER(${rawValue}) / 86400000000000,
+              'DAY'
+            )), 12, 5)
+          ELSE NULL
+        END
+      `;
+    };
+
     const selectProva =
       filtros.filtroProva === 'com_prova'
         ? `
          -- CORREÇÃO: MAX() nas colunas de prova garante um único registo
          -- por candidato quando existe mais do que uma entrada em FK2_CANDIDATO_PROVAS
          -- ou FK2_TB_HORARIO_PROVA, eliminando duplicação de linhas.
+         -- As horas podem vir como número, HH:MI ou valor inválido; por isso
+         -- são normalizadas antes de qualquer conversão numérica.
          , MAX(FK2_CANDIDATO_PROVAS.CANDIDATO_ID) AS CANDIDATO_PROVA_CODIGO
-         , MAX(SUBSTR(TO_CHAR(NUMTODSINTERVAL(
-             TO_NUMBER(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1)) / 86400000000000,
-             'DAY'
-           )), 12, 5)) AS HORA_INICIO
-         , MAX(SUBSTR(TO_CHAR(NUMTODSINTERVAL(
-             TO_NUMBER(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_FIM, 4000, 1)) / 86400000000000,
-             'DAY'
-           )), 12, 5)) AS HORA_FIM
+         , MAX(${formatHorarioProva('FK2_TB_HORARIO_PROVA.HORA_INICIO')}) AS HORA_INICIO
+         , MAX(${formatHorarioProva('FK2_TB_HORARIO_PROVA.HORA_FIM')}) AS HORA_FIM
          , MAX(FK2_CANDIDATO_PROVAS.STATUS_) AS STATUS_PROVA
          `
         : `
