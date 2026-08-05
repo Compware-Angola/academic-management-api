@@ -27,6 +27,7 @@ export class PreRegistrationService {
     await this.assertUniqueBI(dto.bilheteIdentidade);
     await this.assertUniqueEmail(dto.email);
 
+    console.log('Dados da Candidatura: ', dto);
     const anoLectivo = (await this.anoLectivoUtil.getAnoAtualId()) ?? null;
 
     const result = await this.dataSource.query(
