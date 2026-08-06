@@ -481,25 +481,30 @@ export class ExamesDeAcessoService {
       totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
     });
   }
-
   async buscaProvaHorarios(filtros: FilterProvaHoraDto) {
     const condicoes: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
 
-    // obrigatório
     if (filtros.codigoAnoLetivo) {
-      condicoes.push(`FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID = :${paramIndex++}`);
+      condicoes.push(`H.ANO_LECTIVO_ID = :${paramIndex++}`);
       params.push(filtros.codigoAnoLetivo);
     }
 
     if (filtros.codigoCurso) {
-      condicoes.push(`FK2_TB_HORARIO_PROVA.CURSO_ID = :${paramIndex++}`);
+      condicoes.push(`
+      EXISTS (
+        SELECT 1
+          FROM FK2_PROVAS PR2
+         WHERE PR2.ID = H.PROVA_ID
+           AND JSON_EXISTS(PR2.CURSOS, '$[*]?(@ == $cc)' PASSING :${paramIndex++} AS "cc")
+      )
+    `);
       params.push(filtros.codigoCurso);
     }
 
     if (filtros.codigoTurno) {
-      condicoes.push(`FK2_TB_HORARIO_PROVA.PERIODO_ID = :${paramIndex++}`);
+      condicoes.push(`H.PERIODO_ID = :${paramIndex++}`);
       params.push(filtros.codigoTurno);
     }
 
@@ -509,52 +514,84 @@ export class ExamesDeAcessoService {
     const limit = filtros.limit ?? 10;
     const offset = (page - 1) * limit;
 
+    const sqlAgrupado = `
+    SELECT H.PROVA_ID
+         , H.ANO_LECTIVO_ID          AS CODIGO_ANO_LECTIVO
+         , AL.DESIGNACAO             AS ANO_LECTIVO
+         , H.PERIODO_ID              AS CODIGO_PERIODO
+         , P.DESIGNACAO              AS PERIODO
+         , H.SALA_ID                 AS CODIGO_SALA
+         , S.DESIGNACAO              AS SALA
+         , S.CAPACIDADE              AS CAPACIDADE_SALA
+         , TO_CHAR(H.DATA_REALIZACAO, 'DD/MM/YYYY') AS DATA_REALIZACAO
+         , fn_formatar_hora(DBMS_LOB.SUBSTR(H.HORA_INICIO, 4000, 1)) AS HORA_INICIO
+         , fn_formatar_hora(DBMS_LOB.SUBSTR(H.HORA_FIM, 4000, 1))    AS HORA_FIM
+         , (
+             SELECT JSON_ARRAYAGG(
+                      JSON_OBJECT(
+                        'codigo'     VALUE C.CODIGO,
+                        'designacao' VALUE C.DESIGNACAO
+                      )
+                      RETURNING CLOB
+                    )
+               FROM FK2_PROVAS PR2
+               JOIN JSON_TABLE(
+                      PR2.CURSOS, '$[*]'
+                      COLUMNS (CURSO_ID NUMBER PATH '$')
+                    ) JT ON 1 = 1
+               JOIN FK2_TB_CURSOS C ON C.CODIGO = JT.CURSO_ID
+              WHERE PR2.ID = H.PROVA_ID
+           ) AS CURSOS
+         , SUM(
+             (SELECT COUNT(*)
+                FROM FK2_CANDIDATO_PROVAS CP
+               WHERE CP.HORARIO_PROVA_ID = H.ID)
+           ) AS QUANTIDADE_ALUNOS
+      FROM FK2_TB_HORARIO_PROVA H
+      LEFT JOIN FK2_TB_ANO_LECTIVO AL ON H.ANO_LECTIVO_ID = AL.CODIGO
+      LEFT JOIN FK2_TB_PERIODOS    P  ON H.PERIODO_ID     = P.CODIGO
+      LEFT JOIN FK2_TB_SALAS       S  ON H.SALA_ID        = S.CODIGO
+     WHERE 1 = 1
+       ${where}
+     GROUP BY H.PROVA_ID
+         , H.ANO_LECTIVO_ID, AL.DESIGNACAO
+         , H.PERIODO_ID, P.DESIGNACAO
+         , H.SALA_ID, S.DESIGNACAO, S.CAPACIDADE
+         , H.DATA_REALIZACAO
+         , DBMS_LOB.SUBSTR(H.HORA_INICIO, 4000, 1)
+         , DBMS_LOB.SUBSTR(H.HORA_FIM, 4000, 1)
+  `;
+
     const offsetIndex = paramIndex++;
     const limitIndex = paramIndex++;
-    params.push(offset, limit);
-
-    const sqlBase = `
-    FROM FK2_TB_HORARIO_PROVA
-    LEFT JOIN FK2_TB_ANO_LECTIVO ON FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID = FK2_TB_ANO_LECTIVO.CODIGO
-    LEFT JOIN FK2_TB_CURSOS      ON FK2_TB_HORARIO_PROVA.CURSO_ID       = FK2_TB_CURSOS.CODIGO
-    LEFT JOIN FK2_TB_PERIODOS    ON FK2_TB_HORARIO_PROVA.PERIODO_ID     = FK2_TB_PERIODOS.CODIGO
-    LEFT JOIN FK2_TB_SALAS       ON FK2_TB_HORARIO_PROVA.SALA_ID        = FK2_TB_SALAS.CODIGO
-   WHERE 1 = 1
-     ${where}
-  `;
 
     const sql = `
-  SELECT FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID AS CODIGO_ANO_LECTIVO
-       , FK2_TB_ANO_LECTIVO.DESIGNACAO AS ANO_LECTIVO
-       , FK2_TB_HORARIO_PROVA.CURSO_ID AS CODIGO_CURSO
-       , FK2_TB_CURSOS.DESIGNACAO AS CURSO
-       , FK2_TB_HORARIO_PROVA.PERIODO_ID AS CODIGO_PERIODO
-       , FK2_TB_PERIODOS.DESIGNACAO AS PERIODO
-       , FK2_TB_HORARIO_PROVA.SALA_ID AS CODIGO_SALA
-       , FK2_TB_SALAS.DESIGNACAO AS SALA
-       , FK2_TB_SALAS.CAPACIDADE AS CAPACIDADE_SALA
-       , TO_CHAR(FK2_TB_HORARIO_PROVA.DATA_REALIZACAO, 'DD/MM/YYYY') AS DATA_REALIZACAO
-       , fn_formatar_hora(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1)) AS HORA_INICIO
-       , fn_formatar_hora(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_FIM, 4000, 1)) AS HORA_FIM
-       , (SELECT COUNT(*)
-            FROM FK2_CANDIDATO_PROVAS
-           WHERE FK2_CANDIDATO_PROVAS.HORARIO_PROVA_ID = FK2_TB_HORARIO_PROVA.ID) AS QUANTIDADE_ALUNOS
-  ${sqlBase}
-  ORDER BY FK2_TB_HORARIO_PROVA.DATA_REALIZACAO
-         , fn_formatar_hora(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO,4000,1))
-  OFFSET :${offsetIndex} ROWS
-  FETCH NEXT :${limitIndex} ROWS ONLY
+    ${sqlAgrupado}
+    ORDER BY DATA_REALIZACAO
+           , HORA_INICIO
+    OFFSET :${offsetIndex} ROWS
+    FETCH NEXT :${limitIndex} ROWS ONLY
   `;
 
-    const sqlCount = `SELECT COUNT(*) AS TOTAL ${sqlBase}`;
+    const sqlCount = `
+    SELECT COUNT(*) AS TOTAL
+      FROM (${sqlAgrupado})
+  `;
+
+    const paramsPage = [...params, offset, limit];
 
     const [data, total] = await Promise.all([
-      this.dataSource.query(sql, params),
-      this.dataSource.query(sqlCount, params.slice(0, -2)),
+      this.dataSource.query(sql, paramsPage),
+      this.dataSource.query(sqlCount, params),
     ]);
 
+    const dataParsed = data.map((row: any) => ({
+      ...row,
+      CURSOS: row.CURSOS ? JSON.parse(row.CURSOS) : [],
+    }));
+
     return this.toLower({
-      data,
+      data: dataParsed,
       total: Number(total[0].TOTAL),
       page,
       limit,
