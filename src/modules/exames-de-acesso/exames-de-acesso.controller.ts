@@ -30,6 +30,7 @@ import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
 import { AccessLogHelper } from '../../common/helpers/access-log.helper';
 import { ApiKeyGuard } from '../../common/guard/api-key.guard';
 import { FilterEstatisticaCursosDto } from './dto/filter-estatistica-cursos.dto';
+import { CorrigirProvasFilterDto } from './dto/corrigir-provas-filter.dto';
 
 @Controller('exames-de-acesso')
 @ApiTags('Exames de acesso')
@@ -263,10 +264,8 @@ export class ExamesDeAcessoController {
   }
 
   @Post('corrigir-provas')
-  @ApiOperation({ summary: 'Corrige provas automaticamente para o canal 13' })
-  @ApiResponse({ status: 200, description: 'Provas corrigidas com sucesso' })
-  corrigirProvas() {
-    return this.examesAcessoService.corrigirTodasAsProvas();
+  async corrigirProvas(@Body() filtros: CorrigirProvasFilterDto) {
+    return this.examesAcessoService.corrigirTodasAsProvas(filtros);
   }
 
   @Get('estatistica/cursos')
