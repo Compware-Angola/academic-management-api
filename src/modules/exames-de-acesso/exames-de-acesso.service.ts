@@ -29,7 +29,7 @@ export class ExamesDeAcessoService {
     private readonly dataSource: DataSource,
     @InjectQueue('results_final_exam')
     private readonly resultsFinalExamQueue: Queue,
-  ) {}
+  ) { }
 
   async buscaCandidatos(filtros: FilterCandidatoDto) {
     const condicoes: string[] = [
@@ -93,7 +93,7 @@ export class ExamesDeAcessoService {
            , FK2_TB_PREINSCRICAO.NOME_COMPLETO                 NOME
            , FK2_TB_PREINSCRICAO.CONTACTOS_TELEFONICOS         CONTATO
            , FK2_TB_PREINSCRICAO.CONTACTO_DE_EMERGENCIA        CONTATO_EMERGENCIA
-           , FK2_TB_PREINSCRICAO.TENTOU_UNIVERSIDADE_PUBLICA   TENTOU_UNIVERSIDADE_PUBLICA 
+           , FK2_TB_PREINSCRICAO.TENTOU_UNIVERSIDADE_PUBLICA   TENTOU_UNIVERSIDADE_PUBLICA
            , FK2_TB_PREINSCRICAO.DOC_UNIVERSIDADE_VALIDO       DOC_UNIVERSIDADE_VALIDO
            , FK2_TB_PREINSCRICAO.EMAIL
            , FK2_TB_PREINSCRICAO.MORADA_COMPLETA
@@ -385,15 +385,27 @@ export class ExamesDeAcessoService {
       params.push(filtros.dataRealizacao);
     }
 
+    // if (filtros.horaInicio) {
+    //   const [hh, mm, ss] = filtros.horaInicio.split(':').map(Number);
+    //   const nanos = hh * 3600000000000 + mm * 60000000000 + ss * 1000000000;
+    //   condicoes.push(
+    //     `TO_NUMBER(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1)) = :${paramIndex++}`,
+    //   );
+    //   params.push(nanos);
+    // }
     if (filtros.horaInicio) {
-      const [hh, mm, ss] = filtros.horaInicio.split(':').map(Number);
-      const nanos = hh * 3600000000000 + mm * 60000000000 + ss * 1000000000;
-      condicoes.push(
-        `fn_formatar_hora(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO,4000,1)) = :${paramIndex++}`,
-      );
-      params.push(nanos);
-    }
+      condicoes.push(`
+    fn_formatar_hora(
+      DBMS_LOB.SUBSTR(
+        FK2_TB_HORARIO_PROVA.HORA_INICIO,
+        4000,
+        1
+      )
+    ) = :${paramIndex++}
+  `);
 
+      params.push(filtros.horaInicio.substring(0, 5));
+    }
     if (filtros.codigoAnoLetivo) {
       condicoes.push(`FK2_TB_HORARIO_PROVA.ANO_LECTIVO_ID = :${paramIndex++}`);
       params.push(filtros.codigoAnoLetivo);
@@ -819,12 +831,31 @@ export class ExamesDeAcessoService {
          ${where}
       `;
 
+    const formatHorarioProva = (column: string) => {
+      const rawValue = `TRIM(DBMS_LOB.SUBSTR(${column}, 4000, 1))`;
+
+      return `
+        CASE
+          WHEN REGEXP_LIKE(${rawValue}, '^[[:digit:]]{1,2}:[[:digit:]]{2}')
+            THEN SUBSTR(${rawValue}, 1, 5)
+          WHEN REGEXP_LIKE(${rawValue}, '^[[:digit:]]+$')
+            THEN SUBSTR(TO_CHAR(NUMTODSINTERVAL(
+              TO_NUMBER(${rawValue}) / 86400000000000,
+              'DAY'
+            )), 12, 5)
+          ELSE NULL
+        END
+      `;
+    };
+
     const selectProva =
       filtros.filtroProva === 'com_prova'
         ? `
          -- CORREÇÃO: MAX() nas colunas de prova garante um único registo
          -- por candidato quando existe mais do que uma entrada em FK2_CANDIDATO_PROVAS
          -- ou FK2_TB_HORARIO_PROVA, eliminando duplicação de linhas.
+         -- As horas podem vir como número, HH:MI ou valor inválido; por isso
+         -- são normalizadas antes de qualquer conversão numérica.
          , MAX(FK2_CANDIDATO_PROVAS.CANDIDATO_ID) AS CANDIDATO_PROVA_CODIGO
       , MAX(
           fn_formatar_hora(
@@ -981,7 +1012,7 @@ export class ExamesDeAcessoService {
             OR JSON_EXISTS(cursos, '$[*]?(@ == $curso)' PASSING :2 AS "curso")
          )
            AND FK2_PROVAS.ANO_LECTIVO_ID = :3
-           AND TRUNC(FK2_PROVAS.DATA_REALIZACAO) >= TRUNC(SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda') 
+           AND TRUNC(FK2_PROVAS.DATA_REALIZACAO) >= TRUNC(SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda')
           ORDER BY FK2_PROVAS.ID DESC
       `;
 
@@ -1146,7 +1177,7 @@ export class ExamesDeAcessoService {
       }
 
       const sqlInsertAdmissao = `
-        INSERT INTO FK2_TB_ADMISSAO (PRE_INCRICAO, MEDIAFINAL, DATA, RESULTADO, CANAL, POLO_ID) 
+        INSERT INTO FK2_TB_ADMISSAO (PRE_INCRICAO, MEDIAFINAL, DATA, RESULTADO, CANAL, POLO_ID)
         VALUES (:candidatoId, :nota, SYSDATE, 'Admitido(a)', 1, 1)
         RETURNING CODIGO INTO :outId
       `;
@@ -1160,7 +1191,7 @@ export class ExamesDeAcessoService {
       const codigoAdmissao = resAdmissao.outId[0];
 
       const sqlInsertHistorico = `
-        INSERT INTO FK2_TB_ADMISSAO_HISTORICO (FK_ADMISSAO, LOCAL_EXAME, CREATED_BY, CREATED_AT) 
+        INSERT INTO FK2_TB_ADMISSAO_HISTORICO (FK_ADMISSAO, LOCAL_EXAME, CREATED_BY, CREATED_AT)
         VALUES (:1, 'Universidade Pública', 1, SYSDATE)
       `;
       await manager.query(sqlInsertHistorico, [codigoAdmissao]);
@@ -1216,14 +1247,14 @@ export class ExamesDeAcessoService {
       }
 
       const sqlInsertAdmissao = `
-        INSERT INTO FK2_TB_ADMISSAO (PRE_INCRICAO, MEDIAFINAL, DATA, RESULTADO, CANAL, POLO_ID) 
+        INSERT INTO FK2_TB_ADMISSAO (PRE_INCRICAO, MEDIAFINAL, DATA, RESULTADO, CANAL, POLO_ID)
         VALUES (:1, :2, SYSDATE, 'Admitido(a)', 1, 1)
       `;
       await manager.query(sqlInsertAdmissao, [codigoCandidato, nota]);
       const sqlGetAdmissao = `
-        SELECT CODIGO FROM FK2_TB_ADMISSAO 
-        WHERE PRE_INCRICAO = :1 
-        ORDER BY DATA DESC 
+        SELECT CODIGO FROM FK2_TB_ADMISSAO
+        WHERE PRE_INCRICAO = :1
+        ORDER BY DATA DESC
         FETCH FIRST 1 ROWS ONLY
       `;
       const admissaoResult = await manager.query(sqlGetAdmissao, [
@@ -1275,7 +1306,7 @@ export class ExamesDeAcessoService {
 
       if (media >= 10) {
         const sqlInsertAdmissao = `
-          INSERT INTO FK2_TB_ADMISSAO (PRE_INCRICAO, MEDIAFINAL, DATA, RESULTADO, CANAL, POLO_ID) 
+          INSERT INTO FK2_TB_ADMISSAO (PRE_INCRICAO, MEDIAFINAL, DATA, RESULTADO, CANAL, POLO_ID)
           VALUES (:candidatoId, :nota, SYSDATE, 'Admitido(a)', 1, 1)
           RETURNING CODIGO INTO :outId
         `;
@@ -1289,7 +1320,7 @@ export class ExamesDeAcessoService {
         const codigoAdmissao = resAdmissao.outId[0];
 
         const sqlInsertHistorico = `
-          INSERT INTO FK2_TB_ADMISSAO_HISTORICO (FK_ADMISSAO, LOCAL_EXAME, CREATED_BY, CREATED_AT) 
+          INSERT INTO FK2_TB_ADMISSAO_HISTORICO (FK_ADMISSAO, LOCAL_EXAME, CREATED_BY, CREATED_AT)
           VALUES (:1, 'Universidade Metódista de Angola', 1, SYSDATE)
         `;
         await manager.query(sqlInsertHistorico, [codigoAdmissao]);
@@ -1331,7 +1362,7 @@ export class ExamesDeAcessoService {
            , FK2_TB_CURSOS.DESIGNACAO AS CURSO
            , FK2_TB_HORARIO_PROVA.PERIODO_ID AS CODIGO_PERIODO
            , FK2_TB_PERIODOS.DESIGNACAO AS PERIODO
-           , FK2_TB_CURSOS.FACULDADE_ID AS CODIGO_FACULDADE 
+           , FK2_TB_CURSOS.FACULDADE_ID AS CODIGO_FACULDADE
            , FK2_TB_FACULDADE.DESIGNACAO AS FACULDADE
            , FK2_PROVAS.DESCRICAO AS LISTA_DE_PROVAS
         FROM FK2_TB_PREINSCRICAO
@@ -1398,10 +1429,10 @@ export class ExamesDeAcessoService {
     const data = rows.map((row: any) => {
       const listaProvas = row.LISTA_DE_PROVAS
         ? row.LISTA_DE_PROVAS.replace(/^Prova de\\s*/i, '')
-            .split(/<br>/i)[0]
-            .split(',')
-            .map((s: string) => s.trim())
-            .filter((s: string) => s.length > 0)
+          .split(/<br>/i)[0]
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0)
         : [];
 
       return {
@@ -1424,7 +1455,7 @@ export class ExamesDeAcessoService {
          SET STATUS_     = 0
            , NOTA        = 0
            , TEMPO       = NULL
-           , PROVAFEITA  = NULL  
+           , PROVAFEITA  = NULL
        WHERE CANDIDATO_ID = :1
     `;
     const result = await this.dataSource.query(sql, [codigoCandidato]);
@@ -1526,7 +1557,7 @@ export class ExamesDeAcessoService {
            , CASE
               WHEN P.DATA_NASCIMENTO IS NULL THEN NULL
               ELSE TRUNC(MONTHS_BETWEEN(SYSDATE, P.DATA_NASCIMENTO) / 12)
-             END AS IDADE 
+             END AS IDADE
            , C.DESIGNACAO                                 CURSO
            , CASE WHEN M.CODIGO_ALUNO IS NOT NULL THEN 'SIM' ELSE 'NÃO' END AS MATRICULADO
            , CASE WHEN AH.FK_ADMISSAO IS NOT NULL THEN 'UNIVERSIDADE PÚBLICA' ELSE 'UMA' END AS LOCAL_ADMISSAO
@@ -1728,7 +1759,7 @@ export class ExamesDeAcessoService {
     params.push(offset, limit);
 
     const sqlInner = `
-  SELECT TO_CHAR(TRUNC(${dateCase}), 'DD/MM/YYYY') AS DATA,
+  SELECT NVL(TO_CHAR(TRUNC(${dateCase}), 'DD/MM/YYYY'), 'unknown') AS DATA,
          SUM(CASE WHEN P.Codigo_Turno = 1 THEN 1 ELSE 0 END) AS qt_manha,
          SUM(CASE WHEN P.Codigo_Turno = 2 THEN 1 ELSE 0 END) AS qt_tarde,
          SUM(CASE WHEN P.Codigo_Turno = 3 THEN 1 ELSE 0 END) AS qt_noite,
@@ -1874,9 +1905,9 @@ export class ExamesDeAcessoService {
   async corrigirProvas() {
     return await this.dataSource.transaction(async (manager) => {
       const sqlSelect = `
-        SELECT CANDIDATO_ID 
-          FROM FK2_CANDIDATO_PROVAS 
-         WHERE CANAL = 13 
+        SELECT CANDIDATO_ID
+          FROM FK2_CANDIDATO_PROVAS
+         WHERE CANAL = 13
            AND NOTA < 10
       `;
       const candidates = await manager.query(sqlSelect);
@@ -1902,7 +1933,7 @@ export class ExamesDeAcessoService {
           }
 
           const sqlInsertAdmissao = `
-            INSERT INTO FK2_TB_ADMISSAO (PRE_INCRICAO, MEDIAFINAL, DATA, RESULTADO, CANAL, POLO_ID) 
+            INSERT INTO FK2_TB_ADMISSAO (PRE_INCRICAO, MEDIAFINAL, DATA, RESULTADO, CANAL, POLO_ID)
             VALUES (:1, 10, SYSDATE, 'LISTA DE RESULTADOS FINAIS - Admitido(a)', 1, 1)
           `;
           await manager.query(sqlInsertAdmissao, [candidatoId]);

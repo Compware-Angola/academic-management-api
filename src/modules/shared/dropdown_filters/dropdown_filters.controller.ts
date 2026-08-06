@@ -28,6 +28,8 @@ import { DocenteDropDownService } from './services/docente.service';
 import { FindDocentesDTO } from 'src/modules/academic_activities/dto/find-docente.dto';
 import { FindUnidadesCurricularesDTO } from './dto/find-unidades-curriculares.dto';
 import { GradeCurricularService } from './services/gradecurricular.service';
+import { HorarioVerInscricaoServiceDropDown } from './services/horario-ver-inscricao.service';
+import { FindHorarioVerInscricaoDTO } from './dto/find-horario-ver-inscricao.dto';
 
 @ApiTags('DROPDOWN-FILTERS')
 @Controller('dropdown-filters')
@@ -49,6 +51,7 @@ export class DropdownFiltersController {
 
     private readonly docenteDropDownService: DocenteDropDownService,
     private readonly gradeCurricularService: GradeCurricularService,
+    private readonly horarioVerInscricaoServiceDropDown: HorarioVerInscricaoServiceDropDown,
   ) {}
 
   @Get('escalao')
@@ -127,5 +130,9 @@ export class DropdownFiltersController {
   @Get('grade-curricular')
   async findGradeCurricular(@Query() query: FindUnidadesCurricularesDTO) {
     return this.gradeCurricularService.findUnidadesCurriculares(query);
+  }
+  @Get('horario-ver-inscricao')
+  async findHorarioVerInscricao(@Query() query: FindHorarioVerInscricaoDTO) {
+    return this.horarioVerInscricaoServiceDropDown.findHorarioVerInscricao(query);
   }
 }

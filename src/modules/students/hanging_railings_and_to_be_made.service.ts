@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FindPlanPorClasseDTO } from './dto/FindPlanPorClasseDTO';
+import { GetGradePosGraduacaoDto } from './dto/get-grade-pos-graduacao';
 
 export interface FindGradeCursoDTO {
   codigoMatricula: number;
@@ -21,6 +22,15 @@ export interface FindGradeCursoReturnDTO {
   classe: string;
   codigo_grade_aluno?: number;
   existe_no_plano_atual: boolean;
+}
+export interface FindGradeCursoReturnPosDTO {
+  codigo: number;
+  semestre: string;
+  disciplina: string;
+  duracao: string;
+
+  codigo_disciplina: number;
+
 }
 
 export interface FindMatriculaDetails {
@@ -551,5 +561,56 @@ export class HangingRailingsAndToBeMadeService {
     }
 
     return Array.from(map.values());
+  }
+
+  async findHangingRailingsAndToBeMadePos(
+    query: GetGradePosGraduacaoDto,
+  ): Promise<FindGradeCursoReturnPosDTO[]> {
+    const preInscricao = await this.getPreInscricaoDetails(query.codigoPreInscricao);
+    if (!preInscricao?.codigo_curso) {
+      throw new BadRequestException('Curso não encontrado');
+    }
+
+    const sql = `
+      SELECT
+        g.CODIGO,
+        s.DESIGNACAO   AS SEMESTRE,
+        d.DESIGNACAO   AS DISCIPLINA,
+        dur.DESIGNACAO AS DURACAO,
+        g.CODIGO_DISCIPLINA
+      FROM FK2_TB_GRADE_CURRICULAR g
+      INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pg
+        ON pg.CODIGO_GRADE_CURRICULAR = g.CODIGO
+      INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pgc
+        ON pgc.CODIGO = pg.CODIGO_PLANO_CURRICULAR_CURSO
+      INNER JOIN FK2_TB_DISCIPLINAS d
+        ON d.CODIGO = g.CODIGO_DISCIPLINA
+      INNER JOIN FK2_TB_CLASSES cl
+        ON cl.CODIGO = g.CODIGO_CLASSE
+      INNER JOIN FK2_TB_SEMESTRES s
+        ON s.CODIGO = g.CODIGO_SEMESTRE
+      INNER JOIN FK2_TB_DURACAO dur
+        ON dur.CODIGO = d.DURACAO
+      WHERE g.CODIGO_CURSO         = :codigoCurso
+        AND g.STATUS_              = 1
+        AND d.STATUS_              = 1
+      
+        AND pgc.CODIGO_ANO_LECTIVO = :codigoCiclo
+      ORDER BY g.CODIGO_DISCIPLINA ASC
+    `;
+
+    const result = await this.dataSource.query(sql, {
+      codigoCurso: preInscricao.codigo_curso,
+      codigoCiclo: query.codigoCiclo,
+    } as any);
+
+    if (!result?.length) return [];
+
+    const rows = toLowerCaseKeys(result) as any[];
+
+    return rows.map((row) => ({
+      ...row,
+      preInscricao
+    }));
   }
 }
