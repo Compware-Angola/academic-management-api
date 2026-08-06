@@ -53,6 +53,15 @@ export class UpdateProvaDto {
   @Min(1)
   duracao?: number;
 
+  @ApiProperty({
+    description: 'Perido de realização',
+    example: 'diuro/pos laboral',
+  })
+  @IsNotEmpty()
+  @IsNumber()
+  @IsOptional()
+  periodo_id: number;
+
   @ApiPropertyOptional({
     description: 'Descrição da prova',
     example: 'Prova de Teologia - 1º Semestre',

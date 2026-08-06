@@ -10,4 +10,5 @@ export enum EstadoAvaliacaoEnum {
   AGUARDA_ORAL_EXAME_ESPECIAL = 'Aguarda Nota da Oral Exame Especial',
   PENDENTE = 'Sem Avaliações',
   AGUARDA_RESULTADO = 'Aguarde Resultado',
+  NOTA_BLOQUEADA = 'nota_bloqueada',
 }

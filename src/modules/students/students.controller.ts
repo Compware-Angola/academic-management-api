@@ -76,6 +76,8 @@ import { HangingRailingsAndToBeMadeService } from './hanging_railings_and_to_be_
 import { FindPlanPorClasseDTO } from './dto/FindPlanPorClasseDTO';
 import { GetConfirmationDTO } from './dto/get-confirmation.dto';
 import { AtualizarEstadoGradeCurricularDto } from './dto/duplicate-uc.dto';
+import { FindStudentCurriculumQueryDTO } from './dto/find-student-curriculum.dto';
+import { GetGradePosGraduacaoDto } from './dto/get-grade-pos-graduacao';
 //@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @ApiTags('Students')
 @Controller('students')
@@ -91,7 +93,7 @@ export class StudentsController {
     private readonly equivalenceTFMigration: EquivalenceTFCMigration,
     private readonly hangingRailingsAndToBeMadeService: HangingRailingsAndToBeMadeService,
     private httpService: HttpService,
-  ) {}
+  ) { }
   private log(req: any, descricao: string) {
     const user = req.user;
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
@@ -295,6 +297,17 @@ export class StudentsController {
   })
   findStudentNotes(@Query(ValidationPipe) query: FindStudentNoteDTO) {
     return this.studentNoteService.findAll(query);
+  }
+
+  @Get('curriculum-plan-student')
+  findStudentCurriculum(
+    @Query(ValidationPipe) query: FindStudentCurriculumQueryDTO,
+  ) {
+    return this.studentNoteService.findCurriculum({
+      academicYearCode: query.academicYearCode,
+      enrollmentCode: query.enrollmentCode,
+      semester: query.semestre,
+    });
   }
 
   @Post('/enrollment/uc')
@@ -579,6 +592,20 @@ export class StudentsController {
   ) {
     return this.hangingRailingsAndToBeMadeService.findHangingRailingsAndToBeMade(
       query,
+    );
+  }
+
+  @Get('hanging-railings-and-to-be-made/pos')
+  @ApiOperation({ summary: 'Obter grades curriculares do aluno' })
+  @ApiResponse({
+    status: 200,
+    description: 'Grades curriculares obtidas com sucesso',
+  })
+  async findHangingRailingsAndToBeMadePos(
+    @Query(ValidationPipe) query: GetGradePosGraduacaoDto,
+  ) {
+    return this.hangingRailingsAndToBeMadeService.findHangingRailingsAndToBeMadePos(
+      query
     );
   }
 
