@@ -22,6 +22,7 @@ import { FilterEstatisticaCursosDto } from './dto/filter-estatistica-cursos.dto'
 import { gerarHashExterno } from '../util/hash.util';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { CorrigirProvasFilterDto } from './dto/corrigir-provas-filter.dto';
 
 @Injectable()
 export class ExamesDeAcessoService {
@@ -29,7 +30,7 @@ export class ExamesDeAcessoService {
     private readonly dataSource: DataSource,
     @InjectQueue('results_final_exam')
     private readonly resultsFinalExamQueue: Queue,
-  ) { }
+  ) {}
 
   async buscaCandidatos(filtros: FilterCandidatoDto) {
     const condicoes: string[] = [
@@ -1472,10 +1473,10 @@ END AS RESULTADO
     const data = rows.map((row: any) => {
       const listaProvas = row.LISTA_DE_PROVAS
         ? row.LISTA_DE_PROVAS.replace(/^Prova de\\s*/i, '')
-          .split(/<br>/i)[0]
-          .split(',')
-          .map((s: string) => s.trim())
-          .filter((s: string) => s.length > 0)
+            .split(/<br>/i)[0]
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter((s: string) => s.length > 0)
         : [];
 
       return {
@@ -1717,7 +1718,7 @@ END AS RESULTADO
            , HP.SALA_ID CODIGO_SALA
            , S.DESIGNACAO SALA
            , CP.NOTA
-           , CP.STATUS_ RESULTADO
+           , A.MEDIAFINAL RESULTADO
            , TO_CHAR(HP.DATA_REALIZACAO, 'DD/MM/YYYY') DATA_REALIZACAO
       ${sqlBase}
       ORDER BY NOME
@@ -1894,9 +1895,7 @@ END
     }
 
     const extraWhere =
-      condicoes.length > 0
-        ? condicoes.map((c) => ` AND ${c}`).join('')
-        : '';
+      condicoes.length > 0 ? condicoes.map((c) => ` AND ${c}`).join('') : '';
 
     const page = filtros.page ?? 1;
     const limit = filtros.limit ?? 10;
@@ -2023,8 +2022,8 @@ FROM (${sqlInner})
     });
   }
 
-  async corrigirTodasAsProvas() {
-    return await this.queueProcessFinalResult();
+  async corrigirTodasAsProvas(filtros: CorrigirProvasFilterDto = {}) {
+    return await this.queueProcessFinalResult(filtros);
   }
 
   async buscaEstatisticaCursos(filtros: FilterEstatisticaCursosDto) {
@@ -2189,13 +2188,12 @@ FROM (${sqlInner})
     return data;
   }
 
-  async queueProcessFinalResult(): Promise<{
-    message: string;
-    taskId: string | undefined;
-  }> {
+  async queueProcessFinalResult(
+    filtros: CorrigirProvasFilterDto,
+  ): Promise<{ message: string; taskId: string | undefined }> {
     const job = await this.resultsFinalExamQueue.add(
       'processResultsFinalExam',
-      {},
+      { filtros },
       {
         removeOnComplete: true,
         removeOnFail: false,
@@ -2204,7 +2202,7 @@ FROM (${sqlInner})
       },
     );
     return {
-      message: 'Processamento iniciado: Calculo da NotaFinal Dos Candidatos',
+      message: 'Processamento iniciado: Cálculo da Nota Final dos Candidatos',
       taskId: job.id,
     };
   }
