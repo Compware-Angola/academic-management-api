@@ -1809,14 +1809,14 @@ END AS RESULTADO
 
   async buscaEstatisticaPorDia(filtros: FilterEstatisticaCandidatosDto) {
     const dateCase = `
-    CASE
-        WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{2}-\\d{2}-\\d{4}')
-            THEN TO_DATE(P.DATA_PREESCRINCAO, 'DD-MM-YYYY HH24:MI')
-        WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{4}-\\d{2}-\\d{2}')
-            THEN TO_DATE(P.DATA_PREESCRINCAO, 'YYYY-MM-DD HH24:MI:SS')
-        ELSE NULL
-    END
-  `;
+CASE
+    WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{2}-\\d{2}-\\d{4}')
+        THEN TO_DATE(P.DATA_PREESCRINCAO, 'DD-MM-YYYY HH24:MI')
+    WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{4}-\\d{2}-\\d{2}')
+        THEN TO_DATE(P.DATA_PREESCRINCAO, 'YYYY-MM-DD HH24:MI:SS')
+    ELSE NULL
+END
+`;
 
     const condicoes: string[] = [];
     const params: any[] = [];
@@ -1857,7 +1857,9 @@ END AS RESULTADO
     }
 
     const extraWhere =
-      condicoes.length > 0 ? condicoes.map((c) => ` AND ${c}`).join('') : '';
+      condicoes.length > 0
+        ? condicoes.map((c) => ` AND ${c}`).join('')
+        : '';
 
     const page = filtros.page ?? 1;
     const limit = filtros.limit ?? 10;
@@ -1865,33 +1867,52 @@ END AS RESULTADO
 
     const offsetIndex = paramIndex++;
     const limitIndex = paramIndex++;
+
     params.push(offset, limit);
 
-    // 👇 acrescenta os joins de CURSOS e FACULDADE, iguais ao outro método
     const sqlInner = `
-  SELECT TO_CHAR(TRUNC(${dateCase}), 'DD/MM/YYYY') AS DATA,
-         COUNT(*) AS SUBTOTAL,
-         TRUNC(${dateCase}) AS DATA_TRUNC
-    FROM FK2_TB_PREINSCRICAO P
-       , FK2_USERS U
-       , FK2_TB_CURSOS C
-       , FK2_TB_FACULDADE F
-   WHERE P.USER_ID           = U.ID
-     AND P.CURSO_CANDIDATURA = C.CODIGO
-     AND C.FACULDADE_ID      = F.CODIGO
-     ${extraWhere}
-   GROUP BY TRUNC(${dateCase})
-  `;
+SELECT 
+    NVL(
+        TO_CHAR(TRUNC(${dateCase}), 'DD/MM/YYYY'),
+        'N/A'
+    ) AS DATA,
+    COUNT(*) AS SUBTOTAL,
+    TRUNC(${dateCase}) AS DATA_TRUNC
+
+FROM FK2_TB_PREINSCRICAO P
+   , FK2_USERS U
+   , FK2_TB_CURSOS C
+   , FK2_TB_FACULDADE F
+
+WHERE P.USER_ID           = U.ID
+  AND P.CURSO_CANDIDATURA = C.CODIGO
+  AND C.FACULDADE_ID      = F.CODIGO
+  ${extraWhere}
+
+GROUP BY TRUNC(${dateCase})
+`;
 
     const sql = `
-  SELECT DATA, SUBTOTAL
-    FROM (${sqlInner})
-   ORDER BY DATA_TRUNC ASC
-  OFFSET :${offsetIndex} ROWS
-  FETCH NEXT :${limitIndex} ROWS ONLY
-  `;
+SELECT 
+    DATA,
+    SUBTOTAL
 
-    const sqlCount = `SELECT COUNT(*) AS TOTAL, SUM(SUBTOTAL) AS TOTAL_CANDIDATOS FROM (${sqlInner})`;
+FROM (${sqlInner})
+
+ORDER BY 
+    DATA_TRUNC ASC
+
+OFFSET :${offsetIndex} ROWS
+FETCH NEXT :${limitIndex} ROWS ONLY
+`;
+
+    const sqlCount = `
+SELECT 
+    COUNT(*) AS TOTAL,
+    SUM(SUBTOTAL) AS TOTAL_CANDIDATOS
+
+FROM (${sqlInner})
+`;
 
     const [data, counts] = await Promise.all([
       this.dataSource.query(sql, params),
@@ -1907,7 +1928,6 @@ END AS RESULTADO
       totalPages: Math.ceil(Number(counts[0].TOTAL) / limit),
     });
   }
-
   async corrigirProvas() {
     return await this.dataSource.transaction(async (manager) => {
       const sqlSelect = `

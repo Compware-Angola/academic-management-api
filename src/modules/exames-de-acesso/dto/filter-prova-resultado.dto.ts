@@ -45,10 +45,10 @@ export class FilterProvaResultadoDto {
   @Type(() => Number)
   codigoSala?: number;
 
-  @ApiPropertyOptional({ description: '0 = Reprovado, 1 = Aprovado' })
+  @ApiPropertyOptional({ description: '0 = Reprovado, 1 = Aprovado, 3 = Aguardando' })
   @IsOptional()
   @IsNumber()
-  @IsIn([0, 1])
+  @IsIn([0, 1, 3])
   @Type(() => Number)
   resultado?: number;
 
