@@ -19,7 +19,7 @@ export class NoteReleaseService {
     private readonly finalAverageQueue: Queue,
     private readonly dataSource: DataSource,
     private readonly promptToCreateAndEditService: promptToCreateAndEditService,
-  ) { }
+  ) {}
 
   async findstudents(filters: StudentFiltersDto) {
     let {
@@ -34,7 +34,6 @@ export class NoteReleaseService {
       limit = 10,
     } = filters;
     search = search?.trim();
-
     const offset = (page - 1) * limit;
     const realLimit = limit + 1;
 
@@ -105,7 +104,6 @@ export class NoteReleaseService {
       turno,
       search,
     } = filters;
-
     const baseWhere = `
    -- MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
      GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
@@ -133,6 +131,18 @@ export class NoteReleaseService {
         )`
         : '';
 
+    const recursoFilter =
+      tipoAvaliacao === 7
+        ? `   AND EXISTS (
+            SELECT 1
+            FROM FK2_FACTURA FAT
+            WHERE FAT.CODIGOMATRICULA = MAT.CODIGO
+              AND FAT.ANO_LECTIVO = :anoLectivoId
+              AND UPPER(FAT.DESCRICAO) LIKE UPPER('Inscrição de Recurso%')
+              AND FAT.CODIGO_DESCRICAO =  6 
+        )`
+        : '';
+
     const joinType = tipoAvaliacao === 1 ? 'LEFT' : 'INNER';
 
     const query = `
@@ -152,6 +162,7 @@ export class NoteReleaseService {
     ${joinType} JOIN FK2_TB_GRADE_CURRICULAR GC ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
     WHERE ${baseWhere}
     ${exameExtraFilter}
+    ${recursoFilter}
   `;
 
     const result = await this.dataSource.query(query, {
@@ -302,8 +313,6 @@ export class NoteReleaseService {
             refUtilizador: JSON.stringify(refUtilizador),
           } as any,
         );
-
-
       }
       await this.queueFinalAverage(gradeCurricularAluno);
     }
@@ -422,6 +431,14 @@ export class NoteReleaseService {
         AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
         AND GC.CODIGO_CLASSE = :classe
         AND PRE.CODIGO_TURNO = :turno
+        AND EXISTS (
+            SELECT 1
+            FROM FK2_FACTURA FAT
+            WHERE FAT.CODIGOMATRICULA = MAT.CODIGO
+              AND FAT.ANO_LECTIVO = :anoLectivoId
+              AND UPPER(FAT.DESCRICAO) LIKE UPPER('Inscrição de Recurso%')
+              AND FAT.CODIGO_DESCRICAO =  6 
+        )
         AND (
             :search IS NULL
             OR UPPER(PRE.NOME_COMPLETO) LIKE UPPER(:search)
@@ -524,8 +541,6 @@ export class NoteReleaseService {
   async queueFinalAverage(
     codigoGradeAluno: number,
   ): Promise<{ message: string; taskId: string | undefined }> {
-
-
     const job = await this.finalAverageQueue.add(
       'processFinalAverage',
       {

@@ -119,6 +119,15 @@ export class CreateProvaDto {
   data: string;
 
   @ApiProperty({
+    description: 'Perido de realização',
+    example: 'diuro/pos laboral',
+  })
+  @IsNotEmpty()
+  @IsNumber()
+  @IsOptional()
+  periodo_id: number;
+
+  @ApiProperty({
     description: 'Hora de início da prova (formato HH:mm)',
     example: '08:00',
   })

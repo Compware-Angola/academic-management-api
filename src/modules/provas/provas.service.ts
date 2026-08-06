@@ -380,6 +380,7 @@ export class ProvasService {
       data,
       inicio,
       local,
+      periodo_id = 5,
     } = createProvaDto;
 
     if (inicio !== undefined || duracao !== undefined) {
@@ -434,11 +435,12 @@ export class ProvasService {
       HORA_INICIO,
       HORA_FIM,
       SALA_ID,
+      PERIODO_ID,
       STATUS_,
       CREATED_AT
     ) VALUES (
       :1, :2, :3, :4, :5, :6, :7, :8, :9,
-      TO_DATE(:10, 'YYYY-MM-DD'), :11, :12, :13, 1, SYSDATE
+      TO_DATE(:10, 'YYYY-MM-DD'), :11, :12, :13, :14, 1, SYSDATE
     )
     RETURNING ID INTO :provaId
   `;
@@ -457,6 +459,7 @@ export class ProvasService {
       inicio,
       fim,
       local,
+      periodo_id,
       { dir: OracleDB.BIND_OUT, type: OracleDB.NUMBER },
     ]);
 
@@ -476,12 +479,13 @@ export class ProvasService {
         USER_ID,
         ANO_LECTIVO_ID,
         SALA_ID,
+        PERIODO_ID,
         CREATED_AT
       ) VALUES (
-        :1, TO_DATE(:2, 'YYYY-MM-DD'), :3, :4, :5, :6, :7,  SYSDATE
+        :1, TO_DATE(:2, 'YYYY-MM-DD'), :3, :4, :5, :6, :7, :8, SYSDATE
       )
     `,
-      [provaId, data, inicio, fim, userId, anoLetivoId, local],
+      [provaId, data, inicio, fim, userId, anoLetivoId, local, periodo_id],
     );
 
     return {
@@ -500,6 +504,7 @@ export class ProvasService {
       data,
       inicio,
       local,
+      periodo_id,
     } = updateProvaDto;
     let { senhaProva } = updateProvaDto;
 
@@ -621,8 +626,14 @@ export class ProvasService {
       paramIndex++;
     }
     if (local !== undefined) {
-      updates.push(`SALA_ID = :${local}`);
+      updates.push(`SALA_ID = :${paramIndex}`);
       parameters.push(local);
+      paramIndex++;
+    }
+
+    if (periodo_id !== undefined) {
+      updates.push(`PERIODO_ID = :${paramIndex}`);
+      parameters.push(periodo_id);
       paramIndex++;
     }
 
@@ -678,6 +689,12 @@ export class ProvasService {
       if (fim !== undefined) {
         horarioUpdates.push(`HORA_FIM = :${horarioIndex}`);
         horarioParams.push(fim);
+        horarioIndex++;
+      }
+
+      if (periodo_id !== undefined) {
+        horarioUpdates.push(`PERIODO_ID = :${horarioIndex}`);
+        horarioParams.push(periodo_id);
         horarioIndex++;
       }
 
