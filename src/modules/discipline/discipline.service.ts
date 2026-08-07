@@ -1012,7 +1012,7 @@ export class DisciplineService {
     dto: CreateUCTroncoComumPlanoCursoDto,
     codigoUtilizador: number,
   ) {
-    const { anoLetivo, codigoSemestre, codigoGrade, codigoCursos } = dto;
+    const { anoLetivo, codigoSemestre, codigoGrade, cursos } = dto;
 
     const gradeCurricular = await this.dataSource.query(
       `
@@ -1031,7 +1031,7 @@ export class DisciplineService {
     const nomeDisciplina = gradeCurricular[0].NOME_DISCIPLINA;
 
     // Busca os nomes de todos os cursos em lote (evita N+1 queries)
-    const codigosCursos = codigoCursos.map((c) => c.codigoCurso);
+    const codigosCursos = cursos.map((c) => c.codigoCurso);
     const nomesCursos = await this.buscarNomesCursos(codigosCursos);
     const cursosComSucesso: {
       codigoCurso: number;
@@ -1048,7 +1048,7 @@ export class DisciplineService {
       motivo: string;
     }[] = [];
 
-    for (const cursoItem of codigoCursos) {
+    for (const cursoItem of cursos) {
       const codigoCurso = cursoItem.codigoCurso;
       const codigoClasse = cursoItem.codigoClasse;
       const nomeCurso = nomesCursos.get(codigoCurso) ?? null;
@@ -1156,7 +1156,7 @@ export class DisciplineService {
           : 'Processamento concluído com falhas parciais.',
       codigoGrade,
       nomeDisciplina,
-      totalCursos: codigoCursos.length,
+      totalCursos: cursos.length,
       totalSucesso: cursosComSucesso.length,
       totalErros: cursosComErro.length,
       sucesso: cursosComSucesso,

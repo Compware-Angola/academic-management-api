@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty } from 'class-validator';
-
+import { IsArray, IsInt, IsNotEmpty, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CursosDoPlanoCursoDto {
     @ApiProperty({
@@ -8,6 +8,7 @@ export class CursosDoPlanoCursoDto {
         example: 1,
     })
     @IsNotEmpty()
+    @IsInt()
     codigoCurso: number;
 
     @ApiProperty({
@@ -15,18 +16,17 @@ export class CursosDoPlanoCursoDto {
         example: 1,
     })
     @IsNotEmpty()
+    @IsInt()
     codigoClasse: number;
 }
 
 export class CreateUCTroncoComumPlanoCursoDto {
-
-
-
     @ApiProperty({
         description: 'Codigo do Ano Letivo',
         example: 2025,
     })
     @IsNotEmpty()
+    @IsInt()
     anoLetivo: number;
 
     @ApiProperty({
@@ -34,6 +34,7 @@ export class CreateUCTroncoComumPlanoCursoDto {
         example: 1,
     })
     @IsNotEmpty()
+    @IsInt()
     codigoSemestre: number;
 
     @ApiProperty({
@@ -41,15 +42,22 @@ export class CreateUCTroncoComumPlanoCursoDto {
         example: 1,
     })
     @IsNotEmpty()
+    @IsInt()
     codigoGrade: number;
-
 
     @ApiProperty({
         description: 'Array dos cursos',
         isArray: true,
         type: CursosDoPlanoCursoDto,
-        example: [{ codigoCurso: 1 }, { codigoCurso: 2 }, { codigoCurso: 3 }],
+        example: [
+            { codigoCurso: 1, codigoClasse: 1 },
+            { codigoCurso: 2, codigoClasse: 1 },
+            { codigoCurso: 3, codigoClasse: 2 },
+        ],
     })
+    @IsArray()
     @IsNotEmpty()
-    codigoCursos: CursosDoPlanoCursoDto[];
+    @ValidateNested({ each: true })
+    @Type(() => CursosDoPlanoCursoDto)
+    cursos: CursosDoPlanoCursoDto[];
 }
