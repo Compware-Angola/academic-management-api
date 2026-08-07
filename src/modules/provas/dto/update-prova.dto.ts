@@ -60,7 +60,7 @@ export class UpdateProvaDto {
   @IsNotEmpty()
   @IsNumber()
   @IsOptional()
-  periodo_id: number;
+  periodo_id?: number;
 
   @ApiPropertyOptional({
     description: 'Descrição da prova',
