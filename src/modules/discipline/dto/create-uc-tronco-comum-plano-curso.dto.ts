@@ -4,6 +4,13 @@ import { Type } from 'class-transformer';
 
 export class CursosDoPlanoCursoDto {
     @ApiProperty({
+        description: 'Codigo do Semestre',
+        example: 1,
+    })
+    @IsNotEmpty()
+    @IsInt()
+    codigoSemestre: number;
+    @ApiProperty({
         description: 'Codigo do Curso',
         example: 1,
     })
@@ -29,13 +36,7 @@ export class CreateUCTroncoComumPlanoCursoDto {
     @IsInt()
     anoLetivo: number;
 
-    @ApiProperty({
-        description: 'Codigo do Semestre',
-        example: 1,
-    })
-    @IsNotEmpty()
-    @IsInt()
-    codigoSemestre: number;
+
 
     @ApiProperty({
         description: 'Codigo da Grade',
@@ -50,9 +51,9 @@ export class CreateUCTroncoComumPlanoCursoDto {
         isArray: true,
         type: CursosDoPlanoCursoDto,
         example: [
-            { codigoCurso: 1, codigoClasse: 1 },
-            { codigoCurso: 2, codigoClasse: 1 },
-            { codigoCurso: 3, codigoClasse: 2 },
+            { codigoSemestre: 1, codigoCurso: 1, codigoClasse: 1 },
+            { codigoSemestre: 1, codigoCurso: 2, codigoClasse: 1 },
+            { codigoSemestre: 2, codigoCurso: 3, codigoClasse: 2 },
         ],
     })
     @IsArray()
