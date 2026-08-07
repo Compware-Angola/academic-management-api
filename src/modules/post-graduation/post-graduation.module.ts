@@ -15,6 +15,7 @@ import { GuidanceResearchManagementController } from './controllers/guidance-res
 import { GuidanceResearchManagementService } from './services/guidance-research-management.service';
 import { BullModule } from '@nestjs/bullmq';
 import { HttpModule } from '@nestjs/axios';
+import { CandidateDecisionService } from './services/candidate-decision.service';
 
 @Module({
   controllers: [
@@ -42,6 +43,7 @@ import { HttpModule } from '@nestjs/axios';
     PostGraduationFinalResultsService,
     CandidatesService,
     GuidanceResearchManagementService,
+    CandidateDecisionService,
   ],
   exports: [],
 })

@@ -18,7 +18,7 @@ export class PreRegistrationService {
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly anoLectivoUtil: AnoLectivoUtil,
-  ) {}
+  ) { }
 
   // ─────────────────────────────────────────────
   //  CREATE
@@ -27,6 +27,7 @@ export class PreRegistrationService {
     await this.assertUniqueBI(dto.bilheteIdentidade);
     await this.assertUniqueEmail(dto.email);
 
+    console.log('Dados da Candidatura: ', dto);
     const anoLectivo = (await this.anoLectivoUtil.getAnoAtualId()) ?? null;
 
     const result = await this.dataSource.query(
@@ -66,7 +67,8 @@ export class PreRegistrationService {
             INQUERITO,
             CREATED_AT,
             UPDATED_AT,
-            CODIGO_FACULDADE
+            CODIGO_FACULDADE,
+            DATA_PREESCRINCAO
         ) VALUES (
             :cursoCandidatura,
             :tentou_universidade_publica,
@@ -103,7 +105,8 @@ export class PreRegistrationService {
             :inquerito,
             SYSDATE,
             SYSDATE,
-            :codigoFaculdade
+            :codigoFaculdade,
+            SYSDATE
         )
         RETURNING CODIGO INTO :outId
         `,
@@ -799,10 +802,10 @@ WHERE us.id = :userId
     const data = result.map((row: any) => {
       const listaProvas = row.LISTA_DE_PROVAS
         ? row.LISTA_DE_PROVAS.replace(/^Prova de\s*/i, '')
-            .split(/<br>/i)[0]
-            .split(',')
-            .map((s: string) => s.trim())
-            .filter((s: string) => s.length > 0)
+          .split(/<br>/i)[0]
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0)
         : [];
       console.log({ row, listaProvas });
       return {
