@@ -9,9 +9,6 @@ export class CursosDoPlanoCursoDto {
     })
     @IsNotEmpty()
     codigoCurso: number;
-}
-
-export class CreateUCTroncoComumPlanoCursoDto {
 
     @ApiProperty({
         description: 'Codigo da Classe',
@@ -19,6 +16,11 @@ export class CreateUCTroncoComumPlanoCursoDto {
     })
     @IsNotEmpty()
     codigoClasse: number;
+}
+
+export class CreateUCTroncoComumPlanoCursoDto {
+
+
 
     @ApiProperty({
         description: 'Codigo do Ano Letivo',

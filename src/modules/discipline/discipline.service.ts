@@ -1012,7 +1012,7 @@ export class DisciplineService {
     dto: CreateUCTroncoComumPlanoCursoDto,
     codigoUtilizador: number,
   ) {
-    const { codigoClasse, anoLetivo, codigoSemestre, codigoGrade, codigoCursos } = dto;
+    const { anoLetivo, codigoSemestre, codigoGrade, codigoCursos } = dto;
 
     const gradeCurricular = await this.dataSource.query(
       `
@@ -1051,6 +1051,7 @@ export class DisciplineService {
 
     for (const cursoItem of codigoCursos) {
       const codigoCurso = cursoItem.codigoCurso;
+      const codigoClasse = cursoItem.codigoClasse;
       const nomeCurso = nomesCursos.get(codigoCurso) ?? null;
 
       try {
