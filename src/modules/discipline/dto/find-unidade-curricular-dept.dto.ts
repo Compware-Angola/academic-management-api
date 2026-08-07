@@ -1,9 +1,9 @@
 // src/disciplinas/dto/find-disciplinas.dto.ts
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsPositive, IsString, Max, Min } from 'class-validator';
 export class FindUnidadeCurricularDeptDto {
-  @ApiPropertyOptional({ example: 1, description: 'Filtrar por departamento' })
+  @ApiProperty({ example: 1, description: 'Filtrar por departamento', required: true })
   @IsInt()
   @IsPositive()
   @Type(() => Number)
