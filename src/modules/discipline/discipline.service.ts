@@ -1033,7 +1033,6 @@ export class DisciplineService {
     // Busca os nomes de todos os cursos em lote (evita N+1 queries)
     const codigosCursos = codigoCursos.map((c) => c.codigoCurso);
     const nomesCursos = await this.buscarNomesCursos(codigosCursos);
-
     const cursosComSucesso: {
       codigoCurso: number;
       nomeCurso: string | null;
