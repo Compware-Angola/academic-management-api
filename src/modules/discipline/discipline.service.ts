@@ -649,9 +649,8 @@ export class DisciplineService {
   async listarUnidadeCurricularDept(dto: FindUnidadeCurricularDeptDto) {
     const {
       departamento,
-      classe,
-      semestre,
-      estado = 1,
+
+
       search,
       page = 1,
       limit = 25,
@@ -660,32 +659,27 @@ export class DisciplineService {
     const offset = (page - 1) * limit;
     const conditions: string[] = ['1=1'];
     const params: Record<string, any> = {};
+    const type = "DEPARTAMENTO"
 
+    if (!departamento) {
+      throw new BadRequestException("Departamento é obrigatório")
+    }
+
+    if (type) {
+      conditions.push("gc.TYPE = :type")
+      params.type = type
+    }
     if (departamento) {
-      conditions.push('gc.FK_DEPARTAMENTO = :departamento');
+      conditions.push('gc.CODIGO_CURSO = :departamento');
       params.departamento = departamento;
     }
 
-    if (classe) {
-      conditions.push('gc.CODIGO_CLASSE = :classe');
-      params.classe = classe;
-    }
-
-    if (semestre) {
-      conditions.push('gc.CODIGO_SEMESTRE = :semestre');
-      params.semestre = semestre;
-    }
 
     if (search) {
       conditions.push('UPPER(dic.DESIGNACAO) LIKE UPPER(:search)');
       params.search = `%${search}%`;
     }
-    if (estado !== undefined && estado !== null) {
-      console.log(estado, 'ppp');
 
-      conditions.push('gc.STATUS_ = :estado');
-      params.estado = estado;
-    }
 
     const whereClause = 'WHERE ' + conditions.join(' AND ');
 
@@ -694,16 +688,12 @@ export class DisciplineService {
       gc.CODIGO                     AS codigo_grade,
       gc.CODIGO_DISCIPLINA          AS codigo_disciplina,
       dic.DESIGNACAO                AS unidade_curricular,
-      cc.CODIGO                     AS codigo_classe,
-      cc.DESIGNACAO                 AS ano_curricular,
-      ss.CODIGO                     AS codigo_semestre,
-      ss.DESIGNACAO                 AS semestre,
-      gc.FK_DEPARTAMENTO            AS codigo_departamento,
+
+      gc.CODIGO_CURSO              AS codigo_departamento,
       gc.STATUS_                    AS status
     FROM FK2_TB_GRADE_CURRICULAR gc
     INNER JOIN FK2_TB_DISCIPLINAS dic ON dic.CODIGO = gc.CODIGO_DISCIPLINA
-    INNER JOIN FK2_TB_CLASSES cc      ON cc.CODIGO  = gc.CODIGO_CLASSE
-    INNER JOIN FK2_TB_SEMESTRES ss    ON ss.CODIGO  = gc.CODIGO_SEMESTRE
+
     ${whereClause}
     ORDER BY dic.DESIGNACAO ASC
     OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY
@@ -713,8 +703,6 @@ export class DisciplineService {
     SELECT COUNT(*) AS total
     FROM FK2_TB_GRADE_CURRICULAR gc
     INNER JOIN FK2_TB_DISCIPLINAS dic ON dic.CODIGO = gc.CODIGO_DISCIPLINA
-    INNER JOIN FK2_TB_CLASSES cc      ON cc.CODIGO  = gc.CODIGO_CLASSE
-    INNER JOIN FK2_TB_SEMESTRES ss    ON ss.CODIGO  = gc.CODIGO_SEMESTRE
     ${whereClause}
   `;
 
@@ -931,15 +919,15 @@ export class DisciplineService {
             `Disciplina ${codigoDisciplina} não encontrada.`,
           );
         }
-        // Verifica se já existe no departamento
         const existResult = await this.dataSource.query(
           `
-        SELECT COUNT(*) TOTAL
-        FROM FK2_TB_GRADE_CURRICULAR
-        WHERE FK_DEPARTAMENTO = :codigoDepartamento
-          AND CODIGO_DISCIPLINA = :codigoDisciplina
-          AND CODIGO_CLASSE = :codigoClasse
-        `,
+  SELECT CODIGO
+  FROM FK2_TB_GRADE_CURRICULAR
+  WHERE CODIGO_CURSO = :codigoDepartamento
+    AND CODIGO_DISCIPLINA = :codigoDisciplina
+    AND CODIGO_CLASSE = :codigoClasse
+  FETCH FIRST 1 ROWS ONLY
+  `,
           {
             codigoDepartamento,
             codigoDisciplina,
@@ -947,7 +935,9 @@ export class DisciplineService {
           } as any,
         );
 
-        const existe = Number(existResult?.[0]?.TOTAL) > 0;
+        const registro = existResult?.[0];
+        const existe = !!registro;
+        const codigoGradeCurricular = registro?.CODIGO;
 
         if (existe) {
           // Reactiva o registo
@@ -956,14 +946,10 @@ export class DisciplineService {
           UPDATE FK2_TB_GRADE_CURRICULAR
              SET STATUS_ = 1,
              TYPE = 'DEPARTAMENTO' 
-           WHERE FK_DEPARTAMENTO = :codigoDepartamento
-             AND CODIGO_DISCIPLINA = :codigoDisciplina
-             AND CODIGO_CLASSE = :codigoClasse
+           WHERE CODIGO = :codigo
           `,
             {
-              codigoDepartamento,
-              codigoDisciplina,
-              codigoClasse,
+              codigo: codigoGradeCurricular,
             } as any,
           );
 
@@ -975,6 +961,7 @@ export class DisciplineService {
             `
           INSERT INTO FK2_TB_GRADE_CURRICULAR
           (
+              CODIGO_CURSO,
               FK_DEPARTAMENTO,
               CODIGO_DISCIPLINA,
               TYPE,
@@ -985,6 +972,7 @@ export class DisciplineService {
           )
           VALUES
           (
+               :codigoCurso,
               :codigoDepartamento,
               :codigoDisciplina,
               'DEPARTAMENTO',
@@ -994,6 +982,7 @@ export class DisciplineService {
           )
           `,
             {
+              codigoCurso: codigoDepartamento,
               codigoDepartamento,
               codigoDisciplina,
               codigoClasse,

@@ -95,7 +95,7 @@ export class DisciplineController {
     @Query(ValidationPipe) query: FindDisciplinaAlunoDTO,
     @Req() req: any,
   ) {
-    console.log('chegou aqui', query);
+
     return this.disciplineService.findGradeCurricularAluno(query);
   }
 
