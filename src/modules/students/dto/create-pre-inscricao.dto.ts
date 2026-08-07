@@ -312,9 +312,9 @@ export class CreatePreRegistrationDto {
     message: 'O campo inquérito deve ter no máximo 600 caracteres',
   })
   inquerito?: string;
-
-  @ApiPropertyOptional({ example: 2026 })
-  @IsOptional()
+  @ApiProperty({ example: 2026, required: true })
+  @Type(() => Number)
+  @IsNotEmpty()
   @IsNumber()
-  anoLectivoId?: number;
+  anoLectivoId: number;
 }
