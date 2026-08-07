@@ -27,8 +27,9 @@ export class PreRegistrationService {
     await this.assertUniqueBI(dto.bilheteIdentidade);
     await this.assertUniqueEmail(dto.email);
 
-    console.log('Dados da Candidatura: ', dto);
-    const anoLectivo = (await this.anoLectivoUtil.getAnoAtualId()) ?? null;
+    if (!dto.anoLectivoId) {
+      throw new ConflictException("O Ano Lectivo eobrigatorio!")
+    }
 
     const result = await this.dataSource.query(
       `
@@ -140,7 +141,7 @@ export class PreRegistrationService {
         userId: userId ?? null,
         codigoTipoCandidatura: dto.codigoTipoCandidatura ?? null,
         codigoTurno: dto.codigoTurno ?? null,
-        anoLectivo: dto.anoLectivoId ? dto.anoLectivoId : anoLectivo,
+        anoLectivo: dto.anoLectivoId,
         codigoNacionalidade: dto.codigoNacionalidade ?? null,
         inquerito: dto.inquerito ?? null,
         outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },

@@ -633,18 +633,24 @@ export class AcademicCalendarService {
   async findMonthlyFeesByAcademicYear(anolectivo: number) {
     const result = await this.dataSource.query(
       `
-        SELECT
-          MT.DESIGNACAO AS DESIGNACAO,
-          MT.PRESTACAO AS PRESTACAO,
-          TO_CHAR(MT.DATA_LIMITE, 'YYYY-MM-DD"T"HH24:MI:SS') AS DATA_LIMITE,
-          TS.DESIGNACAO AS SEMESTRE
-        FROM FK2_MES_TEMP MT
-        INNER JOIN FK2_MCAL_TB_SEMESTRE TS
-          ON TS.PK_SEMESTRE = MT.SEMESTRE
-        WHERE MT.ANO_LECTIVO = :1
-           AND MT.ACTIVO = 1
-        ORDER BY MT.DATA_LIMITE, MT.DESIGNACAO
-      `,
+      SELECT
+        MT.DESIGNACAO AS DESIGNACAO,
+        MT.PRESTACAO AS PRESTACAO,
+        TO_CHAR(MT.DATA_LIMITE, 'YYYY-MM-DD"T"HH24:MI:SS') AS DATA_LIMITE,
+        TS.DESIGNACAO AS SEMESTRE
+      FROM FK2_MES_TEMP MT
+      INNER JOIN FK2_MCAL_TB_SEMESTRE TS
+        ON TS.PK_SEMESTRE = MT.SEMESTRE
+      INNER JOIN FK2_TB_ANO_LECTIVO AL
+        ON AL.CODIGO = MT.ANO_LECTIVO
+      WHERE MT.ANO_LECTIVO = :1
+        AND (
+          (AL.CODIGO_TIPO_CANDIDATURA = 1 AND MT.ACTIVO = 1)
+          OR
+          (AL.CODIGO_TIPO_CANDIDATURA <> 1 AND MT.ACTIVO_POSGRADUACAO = 1)
+        )
+      ORDER BY MT.DATA_LIMITE, MT.DESIGNACAO
+    `,
       [anolectivo],
     );
 
