@@ -16,6 +16,7 @@ import { CreateUnidadeCurricularDto } from './dto/create-unidade-curricular.plan
 import { CreateUnidadeCurricularDepartamentoDto } from './dto/create-unidade-curricular-departamento.dto';
 import { FindUnidadeCurricularDeptDto } from './dto/find-unidade-curricular-dept.dto';
 import { FindGradeCurricularAdminDto } from './dto/find-grade-curricular-admin.dto';
+import { CreateUCTroncoComumPlanoCursoDto } from './dto/create-uc-tronco-comum-plano-curso.dto';
 
 @Injectable()
 export class DisciplineService {
@@ -953,7 +954,8 @@ export class DisciplineService {
           await this.dataSource.query(
             `
           UPDATE FK2_TB_GRADE_CURRICULAR
-             SET STATUS_ = 1
+             SET STATUS_ = 1,
+             TYPE = 'DEPARTAMENTO' 
            WHERE FK_DEPARTAMENTO = :codigoDepartamento
              AND CODIGO_DISCIPLINA = :codigoDisciplina
              AND CODIGO_CLASSE = :codigoClasse
@@ -1017,6 +1019,188 @@ export class DisciplineService {
       detalhes: resultados,
     };
   }
+  async adicionarUcDoDepartamentoParaPlanoCurso(
+    dto: CreateUCTroncoComumPlanoCursoDto,
+    codigoUtilizador: number,
+  ) {
+    const { codigoClasse, anoLetivo, codigoSemestre, codigoGrade, codigoCursos } = dto;
+
+    const gradeCurricular = await this.dataSource.query(
+      `
+    SELECT g.CODIGO, d.DESIGNACAO AS NOME_DISCIPLINA
+    FROM FK2_TB_GRADE_CURRICULAR g
+    JOIN FK2_TB_DISCIPLINAS d ON d.CODIGO = g.CODIGO_DISCIPLINA
+    WHERE g.CODIGO = :codigoGrade
+    `,
+      { codigoGrade } as any,
+    );
+
+    if (gradeCurricular.length === 0) {
+      throw new NotFoundException(`Grade ${codigoGrade} não encontrada.`);
+    }
+
+    const nomeDisciplina = gradeCurricular[0].NOME_DISCIPLINA;
+
+    // Busca os nomes de todos os cursos em lote (evita N+1 queries)
+    const codigosCursos = codigoCursos.map((c) => c.codigoCurso);
+    const nomesCursos = await this.buscarNomesCursos(codigosCursos);
+
+    const cursosComSucesso: {
+      codigoCurso: number;
+      nomeCurso: string | null;
+      codigoGrade: number;
+      nomeDisciplina: string | null;
+      codigoPlanoCurso: number;
+    }[] = [];
+    const cursosComErro: {
+      codigoCurso: number;
+      nomeCurso: string | null;
+      codigoGrade: number;
+      nomeDisciplina: string | null;
+      motivo: string;
+    }[] = [];
+
+    for (const cursoItem of codigoCursos) {
+      const codigoCurso = cursoItem.codigoCurso;
+      const nomeCurso = nomesCursos.get(codigoCurso) ?? null;
+
+      try {
+        // 1. Verifica se o curso já tem plano curricular neste ano letivo
+        const planoCursoExistente = await this.dataSource.query(
+          `
+        SELECT * FROM FK2_TB_PLANO_CURRICULAR_CURSO
+        WHERE CODIGO_CURSO = :codigoCurso AND CODIGO_ANO_LECTIVO = :anoLetivo
+        `,
+          { codigoCurso, anoLetivo } as any,
+        );
+
+        let codigoPlanoCurso: number;
+
+        if (!planoCursoExistente.length) {
+          const novoPlanoCurso = await this.criarPlanoCurso(codigoCurso, anoLetivo, codigoUtilizador);
+          codigoPlanoCurso = novoPlanoCurso?.[0]?.CODIGO ?? novoPlanoCurso;
+        } else {
+          codigoPlanoCurso = planoCursoExistente[0].CODIGO;
+        }
+
+        if (!codigoPlanoCurso) {
+          throw new Error('Não foi possível obter o código do plano de curso.');
+        }
+
+        // 2. Verifica se a grade curricular já está associada a este plano de curso
+        const gradeJaAssociadaAoPlano = await this.dataSource.query(
+          `
+        SELECT COUNT(*) AS TOTAL
+        FROM FK2_TB_PLANO_CURRICULAR_GRADE plano
+        JOIN FK2_TB_GRADE_CURRICULAR grade ON grade.CODIGO = plano.CODIGO_GRADE_CURRICULAR
+        WHERE plano.CODIGO_PLANO_CURRICULAR_CURSO = :codigoPlanoCurso
+          AND grade.CODIGO = :codigoGrade
+        `,
+          { codigoPlanoCurso, codigoGrade } as any,
+        );
+
+        if (Number(gradeJaAssociadaAoPlano?.[0]?.TOTAL) > 0) {
+          await this.ativegrade(codigoGrade);
+        } else {
+          await this.adicionarPlano(codigoUtilizador, codigoGrade, codigoPlanoCurso);
+        }
+
+        // 3. Verifica se a combinação já existe na tabela de controlo antes de inserir
+        const combinacaoJaExiste = await this.dataSource.query(
+          `
+        SELECT COUNT(*) AS TOTAL
+        FROM FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE
+        WHERE CODIGO_PLANO_CURRICULAR_CURSO = :codigoPlanoCurso
+          AND CODIGO_CLASSE = :codigoClasse
+          AND CODIGO_GRADE_CURRICULAR = :codigoGrade
+          AND CODIGO_SEMESTRE = :codigoSemestre
+        `,
+          { codigoPlanoCurso, codigoClasse, codigoGrade, codigoSemestre } as any,
+        );
+
+        if (Number(combinacaoJaExiste?.[0]?.TOTAL) > 0) {
+          // Não interrompe o loop: regista como erro e segue para o próximo curso
+          cursosComErro.push({
+            codigoCurso,
+            nomeCurso,
+            codigoGrade,
+            nomeDisciplina,
+            motivo:
+              'A disciplina já está associada a este plano de curso para a classe/semestre indicados.',
+          });
+          continue;
+        }
+
+        // Regista a associação grade/semestre/classe na tabela de controlo
+        await this.dataSource.query(
+          `
+        INSERT INTO FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE
+          (CODIGO_PLANO_CURRICULAR_CURSO, CODIGO_CLASSE, CODIGO_GRADE_CURRICULAR, CODIGO_SEMESTRE)
+        VALUES
+          (:codigoPlanoCurso, :codigoClasse, :codigoGrade, :codigoSemestre)
+        `,
+          { codigoPlanoCurso, codigoClasse, codigoGrade, codigoSemestre } as any,
+        );
+
+        cursosComSucesso.push({
+          codigoCurso,
+          nomeCurso,
+          codigoGrade,
+          nomeDisciplina,
+          codigoPlanoCurso,
+        });
+      } catch (error) {
+        cursosComErro.push({
+          codigoCurso,
+          nomeCurso,
+          codigoGrade,
+          nomeDisciplina,
+          motivo: error?.message ?? 'Erro desconhecido ao processar o curso.',
+        });
+      }
+    }
+
+    return {
+      message:
+        cursosComErro.length === 0
+          ? `Disciplina "${nomeDisciplina}" adicionada ao plano de curso com sucesso para todos os cursos.`
+          : 'Processamento concluído com falhas parciais.',
+      codigoGrade,
+      nomeDisciplina,
+      totalCursos: codigoCursos.length,
+      totalSucesso: cursosComSucesso.length,
+      totalErros: cursosComErro.length,
+      sucesso: cursosComSucesso,
+      erros: cursosComErro,
+    };
+  }
+
+  private async buscarNomesCursos(
+    codigos: number[],
+  ): Promise<Map<number, string>> {
+    if (!codigos.length) return new Map();
+
+    const placeholders = codigos.map((_, idx) => `:codigo${idx}`).join(', ');
+    const params: Record<string, any> = {};
+    codigos.forEach((codigo, idx) => {
+      params[`codigo${idx}`] = codigo;
+    });
+
+    // ⚠️ Confirme o nome real da tabela/coluna de cursos
+    const rows = await this.dataSource.query(
+      `
+    SELECT CODIGO, DESIGNACAO as NOME
+    FROM FK2_TB_CURSOS
+    WHERE CODIGO IN (${placeholders})
+    `,
+      params as any,
+    );
+
+    return new Map(
+      (rows ?? []).map((r: any) => [Number(r.CODIGO), String(r.NOME)]),
+    );
+  }
+
   // ─── Helpers privados ───────────────────────────────────────────────────────
 
   private async criarPlanoCurso(

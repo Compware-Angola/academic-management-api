@@ -29,6 +29,7 @@ import { CreatePlanoGradeCurricularEmMassaDto } from './dto/create-plano-grade-c
 import { ConfigurationPlaneService } from './configuration-plane.service';
 import { ToggleStatusGradeCurricularDto } from './dto/toggle-status-grade-curricular.dto';
 import { FindGradeCurricularAdminDto } from './dto/find-grade-curricular-admin.dto';
+import { CreateUCTroncoComumPlanoCursoDto } from './dto/create-uc-tronco-comum-plano-curso.dto';
 
 @ApiTags('DISCIPLINAS')
 @Controller('discipline')
@@ -36,7 +37,7 @@ export class DisciplineController {
   constructor(
     private readonly disciplineService: DisciplineService,
     private readonly configurationPlaneService: ConfigurationPlaneService,
-  ) {}
+  ) { }
 
   @Post()
   @ApiOperation({
@@ -177,6 +178,19 @@ export class DisciplineController {
     @Body() dto: CreateUnidadeCurricularDepartamentoDto,
   ) {
     return this.disciplineService.adicionarUnidadeCurricularNoDepartamento(dto);
+  }
+
+  @Post('tronco-comum')
+  @ApiOperation({
+    summary: 'add uc no tronco comum',
+    description: 'Adiciona UC ao tronco comum.',
+  })
+  @HttpCode(HttpStatus.CREATED)
+  async adicionarUnidadeCurricularNoTroncoComum(
+    @Body() dto: CreateUCTroncoComumPlanoCursoDto,
+  ) {
+    const codigoUtilizador = 1;
+    return this.disciplineService.adicionarUcDoDepartamentoParaPlanoCurso(dto, codigoUtilizador);
   }
   @Get('departamento')
   @ApiOperation({
