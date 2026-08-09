@@ -13,7 +13,9 @@ async findEstudantes(estudanteDto: EstudanteDTO) {
       search, estadoMatricula, anoCurricular, estadoAprovacao 
     } = estudanteDto;
     
-    const offset = (page - 1) * limit;
+    const safePage = Number(page) > 0 ? Number(page) : 1;
+    const safeLimit = Number(limit) > 0 ? Number(limit) : 10;
+    const offset = (safePage - 1) * safeLimit;
 
     // 1. QUERY PRINCIPAL OTIMIZADA
     // Trazemos contadores e classe calculada em uma única viagem ao Oracle
@@ -62,8 +64,15 @@ async findEstudantes(estudanteDto: EstudanteDTO) {
     if (genero && genero.toLowerCase() !== "todos") baseQuery.andWhere("UPPER(TP.SEXO) = :genero", { genero: genero.toUpperCase() });
     if (search) baseQuery.andWhere("UPPER(TP.Nome_Completo) LIKE UPPER(:search)", { search: `%${search}%` });
 
-    // 2. BUSCA E PROCESSAMENTO
-    const rawResults = await baseQuery.orderBy("TP.Nome_Completo", "ASC").getRawMany();
+    // 2. BUSCA PAGINADA E PROCESSAMENTO
+    // A paginação precisa acontecer antes do cálculo de estado da matrícula.
+    // Sem isso, a API processa todos os estudantes encontrados para devolver
+    // apenas a página solicitada, gerando muitas queries auxiliares.
+    const rawResults = await baseQuery
+      .orderBy("TP.Nome_Completo", "ASC")
+      .offset(offset)
+      .limit(safeLimit)
+      .getRawMany();
 
     // Processamento em paralelo para evitar gargalos de I/O
     const promessas = rawResults.map(async (raw) => {
@@ -113,8 +122,7 @@ async findEstudantes(estudanteDto: EstudanteDTO) {
 
     const resultadosFiltrados = (await Promise.all(promessas)).filter(res => res !== null);
 
-    // 3. PAGINAÇÃO MANUAL (Necessária devido aos filtros de código)
-    return resultadosFiltrados.slice(offset, offset + limit);
+    return resultadosFiltrados;
   }
 
   // --- LÓGICA DE ESTADO (FINANCEIRO / ACADÉMICO) ---
@@ -122,9 +130,13 @@ async findEstudantes(estudanteDto: EstudanteDTO) {
   private async estadoMatricula(matriculaEstudante: number) {
     const dataActual = new Date();
     const anoLectivo = await this.anoLectivoActual();
+    if (!anoLectivo) return await this.matriculaSituacaoBySigla("IN");
+
     const estadoMatriculaStr = await this.obterStatusMatricula(matriculaEstudante);
     const dadosMesCorrente = await this.buscarMesCorrente(dataActual);
-    const anoAnterior = await this.obterAnoLectivoAnterior(anoLectivo.ordem);
+    const anoAnterior = anoLectivo.ordem
+      ? await this.obterAnoLectivoAnterior(anoLectivo.ordem)
+      : null;
 
     if (estadoMatriculaStr?.toUpperCase() === "DIPLOMADO") return await this.matriculaSituacaoBySigla("E");
 
@@ -132,8 +144,12 @@ async findEstudantes(estudanteDto: EstudanteDTO) {
       const mesTemp = await this.buscarUltimaParcelaPagaMesTemp(matriculaEstudante, anoLectivo.codigo);
       if (mesTemp) {
         if (mesTemp.prestacao < 4 && new Date(mesTemp.datalimite) < dataActual) return await this.matriculaSituacaoBySigla("IDAC");
-        if (await this.seTemIsencao(matriculaEstudante, anoAnterior.codigo, dadosMesCorrente?.nPrestacao) > 0) return await this.matriculaSituacaoBySigla("AI");
-        if (await this.findBolsa100p(matriculaEstudante, anoAnterior.codigo)) return await this.matriculaSituacaoBySigla("AI");
+        if (
+          anoAnterior?.codigo &&
+          dadosMesCorrente?.nPrestacao &&
+          await this.seTemIsencao(matriculaEstudante, anoAnterior.codigo, dadosMesCorrente.nPrestacao) > 0
+        ) return await this.matriculaSituacaoBySigla("AI");
+        if (anoAnterior?.codigo && await this.findBolsa100p(matriculaEstudante, anoAnterior.codigo)) return await this.matriculaSituacaoBySigla("AI");
       }
       return await this.matriculaSituacaoBySigla("IDAA");
     }
@@ -141,7 +157,7 @@ async findEstudantes(estudanteDto: EstudanteDTO) {
     const tipoCandidatura = await this.obterTipoCandidatura(matriculaEstudante);
     if (tipoCandidatura === 1 && await this.temConfirmacao(matriculaEstudante, anoLectivo.codigo)) {
       const mesTemp = await this.buscarUltimaParcelaPagaMesTemp(matriculaEstudante, anoLectivo.codigo);
-      if (mesTemp && mesTemp.prestacao >= dadosMesCorrente?.nPrestacao) return await this.matriculaSituacaoBySigla("AR");
+      if (mesTemp && dadosMesCorrente?.nPrestacao && mesTemp.prestacao >= dadosMesCorrente.nPrestacao) return await this.matriculaSituacaoBySigla("AR");
       return await this.matriculaSituacaoBySigla("AI");
     }
 
@@ -249,7 +265,6 @@ async findEstudantes(estudanteDto: EstudanteDTO) {
   }
 
 }
-
 
 
 
