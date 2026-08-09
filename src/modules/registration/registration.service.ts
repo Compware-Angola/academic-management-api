@@ -184,7 +184,7 @@ export class RegistrationService {
       limit = 10,
       page = 1,
     } = filters;
-    console.log('FIltros Aplicados: ', filters);
+
     const offset = (page - 1) * limit;
 
     const conditions: string[] = [];
@@ -205,7 +205,7 @@ export class RegistrationService {
 
     const sql = `
     SELECT DISTINCT
-        tm.CODIGO                         AS codigo,
+        tm.CODIGO                        AS codigo,
         tp.NOME_COMPLETO                 AS nomeCompleto,
         tc.DESIGNACAO                    AS curso,
         fn_tipo_estudante(fb.codigo, i.renuncia, fb.CODIGO_TIPO_BOLSA) as tipo
@@ -217,15 +217,18 @@ export class RegistrationService {
     INNER JOIN FK2_TB_CURSOS tc
         ON tc.CODIGO = tm.CODIGO_CURSO
 
-    -- JOIN opcional caso uses anoCurricular/semestre
+    -- grade curricular de referência (lookup pelo parâmetro :grade)
     LEFT JOIN FK2_TB_GRADE_CURRICULAR tgc
         ON tgc.codigo = :grade
-    -- JOIN fake só para reaproveitar filtros no WHERE
-    LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca_filter
-        ON 1 = 1
+
+    -- CORRIGIDO: agora correlacionado ao aluno (tm.CODIGO), não é mais um join "solto"
+    INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca_filter
+        ON tgca_filter.CODIGO_MATRICULA = tm.CODIGO
+       AND tgca_filter.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+       AND tgca_filter.CODIGO_GRADE_CURRICULAR = :grade
 
     ---BOLSEIROS [TIPOS DE ESTUDANTES]
-     LEFT JOIN fk2_tb_bolseiros fb
+    LEFT JOIN fk2_tb_bolseiros fb
         ON  fb.CODIGO_MATRICULA  = tm.CODIGO
         AND fb.CODIGO_ANOLECTIVO = :codigoAnoLectivo
         AND fb.SEMESTRE          = tgc.CODIGO_SEMESTRE
@@ -238,13 +241,10 @@ export class RegistrationService {
     AND NOT EXISTS (
         SELECT 1
         FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
-        INNER JOIN FK2_TB_MATRICULAS tm2
-            ON tgca.CODIGO_MATRICULA = tm2.CODIGO
-        WHERE
-            tm2.CODIGO = tm.CODIGO
-            AND tgca.CODIGO_STATUS_GRADE_CURRICULAR = 2
-            AND tgca.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
-            AND tgca.CODIGO_GRADE_CURRICULAR = :grade
+        WHERE tgca.CODIGO_MATRICULA = tm.CODIGO
+          AND tgca.CODIGO_STATUS_GRADE_CURRICULAR = 2
+          AND tgca.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+          AND tgca.CODIGO_GRADE_CURRICULAR = :grade
     )
     ORDER BY tm.CODIGO
     OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
@@ -267,19 +267,19 @@ export class RegistrationService {
         ON tc.CODIGO = tm.CODIGO_CURSO
     LEFT JOIN FK2_TB_GRADE_CURRICULAR tgc
         ON tgc.codigo = :grade
-    LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca_filter
-        ON 1 = 1
+    -- mesmo join corrigido, agora idêntico ao da query principal
+    INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca_filter
+        ON tgca_filter.CODIGO_MATRICULA = tm.CODIGO
+       AND tgca_filter.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+       AND tgca_filter.CODIGO_GRADE_CURRICULAR = :grade
     WHERE ${whereClause}
     AND NOT EXISTS (
         SELECT 1
         FROM FK2_TB_GRADE_CURRICULAR_ALUNO tgca
-        INNER JOIN FK2_TB_MATRICULAS tm2
-            ON tgca.CODIGO_MATRICULA = tm2.CODIGO
-        WHERE
-            tm2.CODIGO = tm.CODIGO
-            AND tgca.CODIGO_STATUS_GRADE_CURRICULAR = 2
-            AND tgca.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
-            AND tgca.CODIGO_GRADE_CURRICULAR = :grade
+        WHERE tgca.CODIGO_MATRICULA = tm.CODIGO
+          AND tgca.CODIGO_STATUS_GRADE_CURRICULAR = 2
+          AND tgca.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+          AND tgca.CODIGO_GRADE_CURRICULAR = :grade
     )
   `;
 
