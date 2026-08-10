@@ -378,6 +378,26 @@ export class HangingRailingsAndToBeMadeService {
     };
   }
 
+  /**
+   * NOTA (tronco comum): o filtro por curso é feito por
+   * pgc.CODIGO_CURSO (curso do PLANO CURRICULAR onde a grade foi
+   * associada), e não por g.CODIGO_CURSO (curso "dono" original da
+   * grade curricular). Isto é o que permite que disciplinas de tronco
+   * comum, adicionadas a este curso via
+   * adicionarUcDoDepartamentoParaPlanoCurso, apareçam aqui mesmo sendo
+   * originárias de outro departamento/curso.
+   *
+   * NOTA (classe/semestre por plano): a classe e o semestre usados NÃO
+   * são lidos diretamente de g.CODIGO_CLASSE/g.CODIGO_SEMESTRE, mas sim
+   * de FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE (pgs), que é a tabela que
+   * regista a classe/semestre específicos desta disciplina DENTRO DESTE
+   * plano de curso (é o que adicionarUcDoDepartamentoParaPlanoCurso
+   * grava). Isto é necessário porque uma UC de tronco comum pode estar
+   * na classe/semestre X no curso de origem, mas ter sido adicionada
+   * na classe/semestre Y a este curso — e é o Y que deve valer aqui.
+   * Fazemos COALESCE(pgs.*, g.*) para não quebrar disciplinas nativas
+   * que porventura não tenham registo em pgs.
+   */
   private async findGradeCurso(
     params: FindGradeCursoDTO,
   ): Promise<FindGradeCursoReturnDTO[]> {
@@ -386,9 +406,12 @@ export class HangingRailingsAndToBeMadeService {
     const sql = `
       WITH grade_base AS (
         -- Histórico: todas as grades já vinculadas a QUALQUER plano deste
-        -- curso (independente do ano lectivo). É aqui que descobrimos o que
-        -- o aluno deixou/tem pendente, com a classe/semestre em que a
-        -- disciplina foi originalmente cursada.
+        -- curso (independente do ano lectivo), incluindo disciplinas de
+        -- tronco comum vinculadas via plano curricular (pgc.CODIGO_CURSO).
+        -- É aqui que descobrimos o que o aluno deixou/tem pendente, com a
+        -- classe/semestre em que a disciplina fica DENTRO DESTE PLANO
+        -- (via pgs, com fallback para a classe/semestre original da
+        -- grade caso não haja registo em pgs).
         -- Filtrado pelo semestre informado (aluno antigo sempre indica o
         -- semestre que quer consultar).
         SELECT
@@ -397,30 +420,34 @@ export class HangingRailingsAndToBeMadeService {
           s.DESIGNACAO   AS SEMESTRE,
           d.DESIGNACAO   AS DISCIPLINA,
           dur.DESIGNACAO AS DURACAO,
-          g.CODIGO_CLASSE,
+          COALESCE(pgs.CODIGO_CLASSE, g.CODIGO_CLASSE) AS CODIGO_CLASSE,
           cl.DESIGNACAO  AS CLASSE
         FROM FK2_TB_GRADE_CURRICULAR g
         INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pg
           ON pg.CODIGO_GRADE_CURRICULAR = g.CODIGO
         INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pgc
           ON pgc.CODIGO = pg.CODIGO_PLANO_CURRICULAR_CURSO
+        LEFT JOIN FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pgs
+          ON pgs.CODIGO_PLANO_CURRICULAR_CURSO = pgc.CODIGO
+          AND pgs.CODIGO_GRADE_CURRICULAR      = g.CODIGO
         INNER JOIN FK2_TB_DISCIPLINAS d
           ON d.CODIGO = g.CODIGO_DISCIPLINA
         INNER JOIN FK2_TB_CLASSES cl
-          ON cl.CODIGO = g.CODIGO_CLASSE
+          ON cl.CODIGO = COALESCE(pgs.CODIGO_CLASSE, g.CODIGO_CLASSE)
         INNER JOIN FK2_TB_SEMESTRES s
-          ON s.CODIGO = g.CODIGO_SEMESTRE
+          ON s.CODIGO = COALESCE(pgs.CODIGO_SEMESTRE, g.CODIGO_SEMESTRE)
         INNER JOIN FK2_TB_DURACAO dur
           ON dur.CODIGO = d.DURACAO
-        WHERE g.CODIGO_CURSO      = :codigoCurso
-          AND g.STATUS_           = 1
-          AND d.STATUS_           = 1
-          AND g.CODIGO_SEMESTRE   = :codigoSemestre
+        WHERE pgc.CODIGO_CURSO  = :codigoCurso
+          AND g.STATUS_         = 1
+          AND d.STATUS_         = 1
+          AND COALESCE(pgs.CODIGO_SEMESTRE, g.CODIGO_SEMESTRE) = :codigoSemestre
       ),
       grade_atual AS (
         -- Mapeamento disciplina -> CODIGO da grade curricular no plano do
-        -- ANO LECTIVO informado por parâmetro. Usado para "apontar" a
-        -- disciplina pendente para a grade correta na hora de reinscrever.
+        -- ANO LECTIVO informado por parâmetro (também via pgc.CODIGO_CURSO,
+        -- para incluir tronco comum). Usado para "apontar" a disciplina
+        -- pendente para a grade correta na hora de reinscrever.
         SELECT
           g.CODIGO,
           g.CODIGO_DISCIPLINA
@@ -429,7 +456,7 @@ export class HangingRailingsAndToBeMadeService {
           ON pg.CODIGO_GRADE_CURRICULAR = g.CODIGO
         INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pgc
           ON pgc.CODIGO = pg.CODIGO_PLANO_CURRICULAR_CURSO
-        WHERE g.CODIGO_CURSO         = :codigoCurso
+        WHERE pgc.CODIGO_CURSO       = :codigoCurso
           AND g.STATUS_              = 1
           AND pgc.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
       ),
@@ -486,6 +513,11 @@ export class HangingRailingsAndToBeMadeService {
   /**
    * Busca as disciplinas da classe 1 do plano curricular ATUAL do curso,
    * para aluno novo (sem histórico e sem notas lançadas).
+   *
+   * NOTA (tronco comum): filtro por pgc.CODIGO_CURSO em vez de
+   * g.CODIGO_CURSO, pelo mesmo motivo explicado em findGradeCurso — para
+   * incluir disciplinas de tronco comum já associadas ao plano curricular
+   * deste curso.
    */
   private async findGradeCursoNovo(
     codigoCurso: number,
@@ -499,7 +531,7 @@ export class HangingRailingsAndToBeMadeService {
         dur.DESIGNACAO AS DURACAO,
         CAST(NULL AS NUMBER)  AS NOTA,
         g.CODIGO_DISCIPLINA,
-        g.CODIGO_CLASSE,
+        COALESCE(pgs.CODIGO_CLASSE, g.CODIGO_CLASSE) AS CODIGO_CLASSE,
         cl.DESIGNACAO  AS CLASSE,
         CAST(NULL AS NUMBER)  AS CODIGO_GRADE_ALUNO,
         1 AS EXISTE_NO_PLANO_ATUAL
@@ -508,18 +540,21 @@ export class HangingRailingsAndToBeMadeService {
         ON pg.CODIGO_GRADE_CURRICULAR = g.CODIGO
       INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pgc
         ON pgc.CODIGO = pg.CODIGO_PLANO_CURRICULAR_CURSO
+      LEFT JOIN FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pgs
+        ON pgs.CODIGO_PLANO_CURRICULAR_CURSO = pgc.CODIGO
+        AND pgs.CODIGO_GRADE_CURRICULAR      = g.CODIGO
       INNER JOIN FK2_TB_DISCIPLINAS d
         ON d.CODIGO = g.CODIGO_DISCIPLINA
       INNER JOIN FK2_TB_CLASSES cl
-        ON cl.CODIGO = g.CODIGO_CLASSE
+        ON cl.CODIGO = COALESCE(pgs.CODIGO_CLASSE, g.CODIGO_CLASSE)
       INNER JOIN FK2_TB_SEMESTRES s
-        ON s.CODIGO = g.CODIGO_SEMESTRE
+        ON s.CODIGO = COALESCE(pgs.CODIGO_SEMESTRE, g.CODIGO_SEMESTRE)
       INNER JOIN FK2_TB_DURACAO dur
         ON dur.CODIGO = d.DURACAO
-      WHERE g.CODIGO_CURSO         = :codigoCurso
-        AND g.STATUS_              = 1
-        AND d.STATUS_              = 1
-        AND g.CODIGO_CLASSE        = 1
+      WHERE pgc.CODIGO_CURSO  = :codigoCurso
+        AND g.STATUS_         = 1
+        AND d.STATUS_         = 1
+        AND COALESCE(pgs.CODIGO_CLASSE, g.CODIGO_CLASSE) = 1
         AND pgc.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
       ORDER BY g.CODIGO_DISCIPLINA ASC
     `;

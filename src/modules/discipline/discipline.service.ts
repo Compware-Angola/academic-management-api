@@ -1012,7 +1012,17 @@ export class DisciplineService {
     dto: CreateUCTroncoComumPlanoCursoDto,
     codigoUtilizador: number,
   ) {
-    const { anoLetivo, codigoGrade, cursos } = dto;
+    const { anoLetivo, codigoGrade, cursos: cursosOriginais } = dto;
+
+    // Remove duplicados exatos (mesmo curso + classe + semestre) do payload,
+    // mantendo a primeira ocorrência
+    const chavesVistas = new Set<string>();
+    const cursos = cursosOriginais.filter((c) => {
+      const chave = `${c.codigoCurso}-${c.codigoClasse}-${c.codigoSemestre}`;
+      if (chavesVistas.has(chave)) return false;
+      chavesVistas.add(chave);
+      return true;
+    });
 
     const gradeCurricular = await this.dataSource.query(
       `
@@ -1140,12 +1150,25 @@ export class DisciplineService {
           codigoPlanoCurso,
         });
       } catch (error) {
+        // ORA-00001: violação de constraint única (UK_PCGS)
+        // Cobre o caso de concorrência: dois pedidos a tentar inserir a mesma
+        // combinação CODIGO_PLANO_CURRICULAR_CURSO + CODIGO_CLASSE +
+        // CODIGO_GRADE_CURRICULAR + CODIGO_SEMESTRE ao mesmo tempo.
+        const mensagemErro = error?.message ?? '';
+        const codigoOracle = error?.code ?? error?.errorNum ?? null;
+        const isDuplicidade =
+          codigoOracle === 1 ||
+          mensagemErro.includes('ORA-00001') ||
+          mensagemErro.includes('UK_PCGS');
+
         cursosComErro.push({
           codigoCurso,
           nomeCurso,
           codigoGrade,
           nomeDisciplina,
-          motivo: error?.message ?? 'Erro desconhecido ao processar o curso.',
+          motivo: isDuplicidade
+            ? 'A disciplina já está associada a este plano de curso para a classe/semestre indicados.'
+            : mensagemErro || 'Erro desconhecido ao processar o curso.',
         });
       }
     }
