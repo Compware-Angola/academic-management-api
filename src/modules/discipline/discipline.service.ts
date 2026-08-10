@@ -35,15 +35,90 @@ export class DisciplineService {
       ignorarEliminados === 1
         ? `AND al.codigo_status_grade_curricular != 5`
         : '';
+
+    /**
+     * NOTA (tronco comum): a condição original só considerava a disciplina
+     * "pertencente" ao aluno se g.CODIGO_CURSO fosse igual ao curso da
+     * matrícula, ou se fosse o curso "base" de uma especialidade. Isto
+     * exclui disciplinas de tronco comum, cuja FK2_TB_GRADE_CURRICULAR
+     * continua com CODIGO_CURSO do departamento de origem, mesmo depois
+     * de vinculada ao plano curricular do curso do aluno via
+     * adicionarUcDoDepartamentoParaPlanoCurso.
+     *
+     * O EXISTS abaixo cobre esse caso: considera a disciplina válida
+     * também se existir um vínculo em FK2_TB_PLANO_CURRICULAR_GRADE /
+     * FK2_TB_PLANO_CURRICULAR_CURSO ligando essa grade ao plano
+     * curricular do curso do aluno (ou do seu curso base, em caso de
+     * especialidade).
+     */
+    const filtroTroncoComum = `
+  OR EXISTS (
+    SELECT 1
+    FROM FK2_TB_PLANO_CURRICULAR_GRADE pg2
+    INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pgc2
+      ON pgc2.CODIGO = pg2.CODIGO_PLANO_CURRICULAR_CURSO
+    WHERE pg2.CODIGO_GRADE_CURRICULAR = g.codigo
+      AND (
+        pgc2.CODIGO_CURSO = mat.CODIGO_CURSO
+        OR pgc2.CODIGO_CURSO IN (
+             SELECT CODIGO_CURSO
+             FROM FK2_TB_CURSO_ESPECIALIDADE
+             WHERE CODIGO_CURSO_ESPECIALIDADE = mat.CODIGO_CURSO
+           )
+      )
+  )
+`;
+
+    /**
+     * Classe/semestre "efetivos" da disciplina para o aluno: se a grade
+     * estiver vinculada ao plano curricular do curso do aluno através de
+     * FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE (caso de tronco comum),
+     * usa-se a classe/semestre gravados ali; caso contrário (disciplina
+     * nativa, sem registo nessa tabela), cai-se para a classe/semestre
+     * da própria grade curricular (g.codigo_classe / g.codigo_semestre).
+     * Implementado como subqueries escalares para poder ser reutilizado
+     * tanto no SELECT/JOIN principal como no filtro (baseWhere), que é
+     * também usado na query de contagem sem os LEFT JOINs extra.
+     */
+    const classeEfetivaSubquery = `
+      COALESCE(
+        (SELECT pgs.CODIGO_CLASSE
+           FROM FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pgs
+           INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pgc3
+             ON pgc3.CODIGO = pgs.CODIGO_PLANO_CURRICULAR_CURSO
+          WHERE pgs.CODIGO_GRADE_CURRICULAR = g.codigo
+            AND pgc3.CODIGO_CURSO = mat.CODIGO_CURSO
+          FETCH FIRST 1 ROWS ONLY),
+        g.codigo_classe
+      )
+    `;
+
+    const semestreEfetivoSubquery = `
+      COALESCE(
+        (SELECT pgs.CODIGO_SEMESTRE
+           FROM FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pgs
+           INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pgc3
+             ON pgc3.CODIGO = pgs.CODIGO_PLANO_CURRICULAR_CURSO
+          WHERE pgs.CODIGO_GRADE_CURRICULAR = g.codigo
+            AND pgc3.CODIGO_CURSO = mat.CODIGO_CURSO
+          FETCH FIRST 1 ROWS ONLY),
+        g.codigo_semestre
+      )
+    `;
+
     const baseWhere = `
   al.codigo_matricula = ${matriculaId}
   --AND g.status_ = 1
   AND al.estado != 3
-  AND (mat.CODIGO_CURSO = g.CODIGO_CURSO or g.CODIGO_CURSO in (select CODIGO_CURSO from FK2_TB_CURSO_ESPECIALIDADE WHERE CODIGO_CURSO_ESPECIALIDADE = mat.CODIGO_CURSO))
+  AND (
+    mat.CODIGO_CURSO = g.CODIGO_CURSO
+    OR g.CODIGO_CURSO in (select CODIGO_CURSO from FK2_TB_CURSO_ESPECIALIDADE WHERE CODIGO_CURSO_ESPECIALIDADE = mat.CODIGO_CURSO)
+    ${filtroTroncoComum}
+  )
   AND al.codigo_ano_lectivo = ${anoLectivo}
   ${filtroEliminados}
-  ${semestre ? `AND s.codigo = ${semestre}` : ''}
-  ${classes ? `AND g.codigo_classe = ${classes}` : ''}
+  ${semestre ? `AND ${semestreEfetivoSubquery} = ${semestre}` : ''}
+  ${classes ? `AND ${classeEfetivaSubquery} = ${classes}` : ''}
 `;
 
     const sql = `
@@ -71,11 +146,11 @@ export class DisciplineService {
       INNER JOIN FK2_TB_DISCIPLINAS d
               ON d.codigo = g.codigo_disciplina
       INNER JOIN FK2_TB_CLASSES c
-              ON c.codigo = g.codigo_classe
+              ON c.codigo = ${classeEfetivaSubquery}
       INNER JOIN FK2_TB_CURSOS cur
               ON cur.codigo = g.codigo_curso
       INNER JOIN FK2_TB_SEMESTRES s
-              ON s.codigo = g.codigo_semestre
+              ON s.codigo = ${semestreEfetivoSubquery}
       INNER JOIN FK2_TB_DURACAO dur
               ON dur.codigo = d.duracao
       LEFT JOIN FK2_TB_CONFIRMACOES cfr
@@ -107,7 +182,7 @@ export class DisciplineService {
         INNER JOIN FK2_TB_DISCIPLINAS d
                 ON d.codigo = g.codigo_disciplina
         INNER JOIN FK2_TB_SEMESTRES s
-                ON s.codigo = g.codigo_semestre
+                ON s.codigo = ${semestreEfetivoSubquery}
         LEFT JOIN FK2_TB_CONFIRMACOES cfr
                 ON cfr.codigo = al.codigo_confirmacao
       WHERE ${baseWhere}
