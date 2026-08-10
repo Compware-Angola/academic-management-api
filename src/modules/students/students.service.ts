@@ -2291,6 +2291,41 @@ WHERE M."CODIGO" = :codigoMatricula`;
     const min = Math.min(anoMin, anoMax);
     const max = Math.max(anoMin, anoMax);
 
+    /**
+     * Classe/semestre "efetivos" da disciplina para o aluno: se a grade
+     * estiver vinculada ao plano curricular do curso do aluno através de
+     *   (caso de tronco comum),
+     * usa-se a classe/semestre gravados ali; caso contrário (disciplina
+     * nativa, sem registo nessa tabela), cai-se para a classe/semestre
+     * da própria grade curricular (g.codigo_classe / g.codigo_semestre).
+     * Ver findGradeCurricularAluno para a mesma lógica aplicada à listagem.
+     */
+    const classeEfetivaSubquery = `
+      COALESCE(
+        (SELECT pgs.CODIGO_CLASSE
+           FROM FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pgs
+           INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pgc3
+             ON pgc3.CODIGO = pgs.CODIGO_PLANO_CURRICULAR_CURSO
+          WHERE pgs.CODIGO_GRADE_CURRICULAR = g.codigo
+            AND pgc3.CODIGO_CURSO = mat.CODIGO_CURSO
+          FETCH FIRST 1 ROWS ONLY),
+        g.codigo_classe
+      )
+    `;
+
+    const semestreEfetivoSubquery = `
+      COALESCE(
+        (SELECT pgs.CODIGO_SEMESTRE
+           FROM FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pgs
+           INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pgc3
+             ON pgc3.CODIGO = pgs.CODIGO_PLANO_CURRICULAR_CURSO
+          WHERE pgs.CODIGO_GRADE_CURRICULAR = g.codigo
+            AND pgc3.CODIGO_CURSO = mat.CODIGO_CURSO
+          FETCH FIRST 1 ROWS ONLY),
+        g.codigo_semestre
+      )
+    `;
+
     const sql = `
       SELECT
           g.codigo,
@@ -2301,27 +2336,27 @@ WHERE M."CODIGO" = :codigoMatricula`;
           g.HORASPRATICAS as horas_praticas,
           dur.DESIGNACAO AS duracao_nome,
           an.DESIGNACAO AS ano_lectivo_nome,
-          g.CODIGO_SEMESTRE as semestre,
-          g.CODIGO_CLASSE AS classe
+          ${semestreEfetivoSubquery} as semestre,
+          ${classeEfetivaSubquery} AS classe
       FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
       INNER JOIN FK2_TB_GRADE_CURRICULAR g  ON g.codigo = al.CODIGO_GRADE_CURRICULAR
+      INNER JOIN FK2_TB_MATRICULAS mat      ON mat.CODIGO = al.CODIGO_MATRICULA
       INNER JOIN FK2_TB_DISCIPLINAS d       ON d.codigo = g.CODIGO_DISCIPLINA
       INNER JOIN FK2_TB_DURACAO dur         ON dur.CODIGO = d.DURACAO
       INNER JOIN FK2_TB_ANO_LECTIVO an      ON an.CODIGO = al.CODIGO_ANO_LECTIVO
       WHERE al.CODIGO_STATUS_GRADE_CURRICULAR = 3
         AND al.NOTA >= 10
         AND al.CODIGO_MATRICULA = :matriculaId
-        AND g.CODIGO_CLASSE BETWEEN :min AND :max
+        AND ${classeEfetivaSubquery} BETWEEN :min AND :max
       ORDER BY
-          g.CODIGO_CLASSE ASC,
-          g.CODIGO_SEMESTRE ASC,
+          ${classeEfetivaSubquery} ASC,
+          ${semestreEfetivoSubquery} ASC,
           NLSSORT(TRIM(d.designacao), 'NLS_SORT=BINARY_AI') ASC
     `;
 
     const result = await this.dataSource.query(sql, [matriculaId, min, max]);
     return toLowerCaseKeys(result);
   }
-
   async diplomarAluno(
     body: {
       codigoMatricula: number;
