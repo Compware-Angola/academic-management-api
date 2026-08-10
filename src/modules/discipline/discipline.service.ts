@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -12,10 +13,16 @@ import { FindDisciplinasDto } from './dto/find-disciplinas.dto';
 import { CreateDisciplinaDto } from './dto/create-discipline.dto';
 import { UpdateDisciplinaDto } from './dto/update-discipline.dto';
 import { FindGradeCurricularDto } from './dto/FindGradeCurricularDto';
-import { CreateUnidadeCurricularDto } from './dto/create-unidade-curricular.plano.dto';
+import { CreateUnidadesCurricularesDto } from './dto/create-unidade-curricular.plano.dto';
 import { CreateUnidadeCurricularDepartamentoDto } from './dto/create-unidade-curricular-departamento.dto';
 import { FindUnidadeCurricularDeptDto } from './dto/find-unidade-curricular-dept.dto';
 import { FindGradeCurricularAdminDto } from './dto/find-grade-curricular-admin.dto';
+
+class UnidadeCurricularJaNoPlanoException extends BadRequestException {
+  constructor() {
+    super('Esta unidade curricular já está adicionada e activa no plano.');
+  }
+}
 
 @Injectable()
 export class DisciplineService {
@@ -743,17 +750,123 @@ export class DisciplineService {
     }
   }
 
-  async adicionarUnidadeCurricularNoPlano(
-    dto: CreateUnidadeCurricularDto,
+  async adicionarUnidadesCurricularesNoPlano(
+    dto: CreateUnidadesCurricularesDto,
     codigoUtilizador: number,
   ) {
+    const {
+      codigosDisciplina,
+      codigoAnoLectivo,
+      codigoSemestre,
+      codigoClasse,
+      codigoCurso,
+    } = dto;
+
+    const codigoPlanoCurso = await this.getPlanoCurso(
+      codigoCurso,
+      codigoAnoLectivo,
+    );
+
+    const resultado = {
+      adicionadas: [] as { codigoDisciplina: number; codigoGrade: number }[],
+      reativadas: [] as { codigoDisciplina: number; codigoGrade: number }[],
+      falhas: [] as {
+        codigoDisciplina: number;
+        motivo: string;
+        jaNoPlano: boolean;
+      }[],
+    };
+
+    for (const codigoDisciplina of codigosDisciplina) {
+      try {
+        const item = await this.processarDisciplinaNoPlano({
+          codigoDisciplina,
+          codigoAnoLectivo,
+          codigoSemestre,
+          codigoClasse,
+          codigoCurso,
+          codigoPlanoCurso,
+          codigoUtilizador,
+        });
+
+        if (item.status === 'reativada') {
+          resultado.reativadas.push({
+            codigoDisciplina,
+            codigoGrade: item.codigo,
+          });
+        } else {
+          resultado.adicionadas.push({
+            codigoDisciplina,
+            codigoGrade: item.codigo,
+          });
+        }
+      } catch (error) {
+        resultado.falhas.push({
+          codigoDisciplina,
+          motivo:
+            error instanceof HttpException
+              ? error.message
+              : 'Erro inesperado ao processar a disciplina.',
+          jaNoPlano: error instanceof UnidadeCurricularJaNoPlanoException,
+        });
+      }
+    }
+
+    const totalSucesso =
+      resultado.adicionadas.length + resultado.reativadas.length;
+    const totalJaNoPlano = resultado.falhas.filter((f) => f.jaNoPlano).length;
+    const totalOutrasFalhas = resultado.falhas.length - totalJaNoPlano;
+
+    const partes: string[] = [];
+    if (totalSucesso > 0) {
+      partes.push(`${totalSucesso} unidade(s) curricular(es) adicionada(s)`);
+    }
+    if (totalJaNoPlano > 0) {
+      partes.push(`${totalJaNoPlano} já se encontrava(m) no plano`);
+    }
+    if (totalOutrasFalhas > 0) {
+      partes.push(`${totalOutrasFalhas} falharam por outro motivo`);
+    }
+    console.log('Resultado do processamento:', resultado);
+    console.log(
+      'Resultado do TOtal:',
+      totalSucesso,
+      totalJaNoPlano,
+      totalOutrasFalhas,
+    );
+    // Só é erro de verdade se houver falhas que NÃO sejam "já no plano"
+    // e nada tiver sido processado com sucesso.
+    if (totalSucesso === 0 && totalOutrasFalhas > 0 && totalJaNoPlano === 0) {
+      throw new BadRequestException({
+        message: 'Nenhuma disciplina foi adicionada ao plano.',
+        falhas: resultado.falhas,
+      });
+    }
+
+    return {
+      message: partes.join('; ') + '.',
+      ...resultado,
+    };
+  }
+
+  private async processarDisciplinaNoPlano(params: {
+    codigoDisciplina: number;
+    codigoAnoLectivo: number;
+    codigoSemestre: number;
+    codigoClasse: number;
+    codigoCurso: number;
+    codigoPlanoCurso: number;
+    codigoUtilizador: number;
+  }): Promise<{ codigo: number; status: 'criada' | 'reativada' }> {
     const {
       codigoDisciplina,
       codigoAnoLectivo,
       codigoSemestre,
       codigoClasse,
       codigoCurso,
-    } = dto;
+      codigoPlanoCurso,
+      codigoUtilizador,
+    } = params;
 
     // 1. Verificar se a disciplina existe
     const disciplinaResult = await this.dataSource.query(
@@ -765,12 +878,7 @@ export class DisciplineService {
       throw new NotFoundException('Não foi encontrado disciplina.');
     }
 
-    // 2. Verificar se existe plano do curso
-    let codigoPlanoCurso: number;
-
-    codigoPlanoCurso = await this.getPlanoCurso(codigoCurso, codigoAnoLectivo);
-
-    // 3. Obter grade curricular caso exista
+    // 2. Obter grade curricular caso exista
     const gradeResult = await this.dataSource.query(
       `
     SELECT CODIGO
@@ -788,7 +896,7 @@ export class DisciplineService {
       : null;
 
     if (codigoGrade !== null) {
-      // 4a. Grade já existe — verificar se está vinculada a um departamento
+      // 3a. Grade já existe — verificar se está vinculada a um departamento
       const existDeptResult = await this.dataSource.query(
         `
       SELECT COUNT(*) AS total
@@ -814,70 +922,64 @@ export class DisciplineService {
         );
       }
 
-      // 5a. Verificar se já existe no plano
       const existPlanoResult = await this.dataSource.query(
         `
-      SELECT COUNT(*) AS total
-      FROM FK2_TB_PLANO_CURRICULAR_GRADE u
-      JOIN FK2_TB_GRADE_CURRICULAR g
-          ON g.CODIGO = u.CODIGO_GRADE_CURRICULAR
-      JOIN FK2_TB_CLASSES c
-          ON c.CODIGO = g.CODIGO_CLASSE
-      WHERE u.CODIGO_PLANO_CURRICULAR_CURSO = :codigoPlanoCurso
-        AND g.CODIGO = :codigoGrade
-        AND c.CODIGO = :codigoClasse
-      `,
+  SELECT g.STATUS_ AS STATUS_VINCULO
+  FROM FK2_TB_PLANO_CURRICULAR_GRADE u
+  JOIN FK2_TB_GRADE_CURRICULAR g
+      ON g.CODIGO = u.CODIGO_GRADE_CURRICULAR
+  JOIN FK2_TB_CLASSES c
+      ON c.CODIGO = g.CODIGO_CLASSE
+  WHERE u.CODIGO_PLANO_CURRICULAR_CURSO = :codigoPlanoCurso
+    AND g.CODIGO = :codigoGrade
+    AND c.CODIGO = :codigoClasse
+  `,
         { codigoPlanoCurso, codigoGrade, codigoClasse } as any,
       );
 
-      if (Number(existPlanoResult?.[0]?.TOTAL) > 0) {
-        // Grade já está no plano — reativar
-        await this.ativegrade(codigoGrade);
+      const vinculoExistente = existPlanoResult?.[0];
 
-        return {
-          message: 'Grade curricular reativada com sucesso.',
-          codigo: codigoGrade,
-        };
+      if (vinculoExistente) {
+        const statusVinculo = Number(vinculoExistente.STATUS_VINCULO);
+
+        if (statusVinculo === 1) {
+          // Já está activa no plano — não fazer nada e reportar como não adicionada
+          throw new UnidadeCurricularJaNoPlanoException();
+        }
+
+        // Vínculo existe mas está inactivo — reactivação legítima
+        await this.ativegrade(codigoGrade);
+        return { codigo: codigoGrade, status: 'reativada' };
       }
 
-      // 6a. Não está no plano — adicionar ao plano
       await this.ativegrade(codigoGrade);
       await this.adicionarPlano(
         codigoUtilizador,
         codigoGrade,
         codigoPlanoCurso,
       );
-    } else {
-      // 4b. Grade não existe — criar grade curricular
-      codigoGrade = await this.criarGradeCurricular({
-        codigoDisciplina,
-        codigoAnoLectivo,
-        codigoClasse,
-        codigoCurso,
-        codigoUtilizador,
-        codigoSemestre,
-        departamento: null,
-      });
-
-      if (!codigoGrade) {
-        throw new InternalServerErrorException(
-          'Erro ao criar grade curricular.',
-        );
-      }
-
-      // 5b. Adicionar ao plano
-      await this.adicionarPlano(
-        codigoUtilizador,
-        codigoGrade,
-        codigoPlanoCurso,
-      );
+      return { codigo: codigoGrade, status: 'criada' };
     }
 
-    return {
-      message: 'Disciplina cadastrada na grade com sucesso.',
-      codigo: codigoGrade,
-    };
+    // 3b. Grade não existe — criar grade curricular
+    codigoGrade = await this.criarGradeCurricular({
+      codigoDisciplina,
+      codigoAnoLectivo,
+      codigoClasse,
+      codigoCurso,
+      codigoUtilizador,
+      codigoSemestre,
+      departamento: null,
+    });
+
+    if (!codigoGrade) {
+      throw new InternalServerErrorException('Erro ao criar grade curricular.');
+    }
+
+    await this.adicionarPlano(codigoUtilizador, codigoGrade, codigoPlanoCurso);
+    return { codigo: codigoGrade, status: 'criada' };
   }
+
   async removerUnidadeCurricularDoPlano(codigoGrade: number) {
     // 1. Verificar se a grade existe
     const gradeResult = await this.dataSource.query(
