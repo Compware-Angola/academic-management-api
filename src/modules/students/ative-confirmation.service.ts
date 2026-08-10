@@ -1,86 +1,144 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { DataSource } from "typeorm";
-import { AnoLectivoUtil } from "../util/current-academic-year";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { AnoLectivoUtil } from '../util/current-academic-year';
 
 import * as oracledb from 'oracledb';
-import { StudentsResultPlanService } from "./students-result-plan.service";
-
+import { StudentsResultPlanService } from './students-result-plan.service';
 
 @Injectable()
 export class AtiveConfirmationService {
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly anoLectivoUtil: AnoLectivoUtil,
+    private readonly studentResultPlanService: StudentsResultPlanService,
+  ) {}
 
-    constructor(private readonly dataSource: DataSource, private readonly anoLectivoUtil: AnoLectivoUtil, private readonly studentResultPlanService: StudentsResultPlanService) { }
+  async activeConfirmation(matricula: number, anoLetivoId: number) {
+    const { totalGradesCurso, totalGrasesAluno } =
+      await this.studentResultPlanService.findPlan(matricula);
 
-    async activeConfirmation(matricula: number) {
-        const { totalGradesCurso, totalGrasesAluno } = await this.studentResultPlanService.findPlan(matricula);
-
-        if (totalGradesCurso === totalGrasesAluno) {
-            throw new BadRequestException(`Confirmação não pode ser realizada para a Matricula ${matricula} Por Ter Concluído Todas as Disciplinas do seu Curso`);
-        }
-
-        const anoLetivo = await this.anoLectivoUtil.getAnoAtualId();
-        const semestre = await this.anoLectivoUtil.getSemestreAtual();
-        const student = await this.getStudent(matricula, anoLetivo, semestre.semestre || 1);
-        if (!semestre.semestre) {
-            throw new BadRequestException(`Ninguem pode confirmar no momento, estamos fora do periodo de confirmação,Semestre atual: ${anoLetivo} ${semestre.semestre} Fora dos Intervalos dos Semestres configurados`);
-        }
-
-        if (student === null) {
-            //Vamos criar uma nova confirmação
-            const nextClass = await this.getNextClass(Number(matricula));
-            const canal = await this.getCanal(matricula) || 1;
-            const confirmation = await this.createConfirmation(matricula, anoLetivo, semestre.semestre || 1, nextClass, canal);
-            await this.updateGradeCurricular(matricula, anoLetivo, semestre.semestre || 1, confirmation.codigoConfirmacao);
-            return { message: `Matricula ${matricula} confirmada com sucesso` };
-
-        }
-        if (student.ESTADO === 1) {
-            throw new BadRequestException(`Confirmação já realizada para a Matricula ${matricula}`);
-        }
-        const studentSemestre = student?.SEMESTRE || 1;
-        if (student.ESTADO === 0 && semestre?.semestre && semestre?.semestre > studentSemestre) {
-            const nextClass = await this.getNextClass(Number(matricula));
-            const canal = await this.getCanal(matricula) || 1;
-            const confirmation = await this.createConfirmation(matricula, anoLetivo, semestre.semestre || 1, nextClass, canal);
-            await this.updateGradeCurricular(matricula, anoLetivo, semestre.semestre || 1, confirmation.codigoConfirmacao);
-            return { message: `Matricula ${matricula} confirmada com sucesso` };
-        }
-
-        const query = `UPDATE FK2_TB_CONFIRMACOES SET ESTADO = 1, SEMESTRE = :semestre WHERE CODIGO = :codigo`
-        await this.dataSource.query(query, { codigo: student.CODIGO, semestre: semestre.semestre || 1 } as any);
-
-        return { message: `Matricula ${matricula} confirmada com sucesso` };
+    if (totalGradesCurso === totalGrasesAluno) {
+      throw new BadRequestException(
+        `Confirmação não pode ser realizada para a Matricula ${matricula} Por Ter Concluído Todas as Disciplinas do seu Curso`,
+      );
     }
 
+    const anoLetivo = Number(anoLetivoId);
+    const semestre = await this.anoLectivoUtil.getSemestreAtual(1, anoLetivo);
+    console.log('semestre', semestre);
+    const student = await this.getStudent(
+      matricula,
+      anoLetivo,
+      semestre.semestre || 1,
+    );
+    if (!semestre.semestre) {
+      throw new BadRequestException(
+        `Ninguem pode confirmar no momento, estamos fora do periodo de confirmação,Semestre atual: ${anoLetivo} ${semestre.semestre} Fora dos Intervalos dos Semestres configurados`,
+      );
+    }
+    if (student === null) {
+      const nextClass = await this.getNextClass(Number(matricula));
+      const canal = (await this.getCanal(matricula)) || 1;
+      const confirmation = await this.createConfirmation(
+        matricula,
+        anoLetivo,
+        semestre.semestre || 1,
+        nextClass,
+        canal,
+      );
+      await this.updateGradeCurricular(
+        matricula,
+        anoLetivo,
+        semestre.semestre || 1,
+        confirmation.codigoConfirmacao,
+      );
+      return { message: `Matricula ${matricula} confirmada com sucesso` };
+    }
+    if (student.ESTADO === 1) {
+      throw new BadRequestException(
+        `Confirmação já realizada para a Matricula ${matricula}`,
+      );
+    }
+    const studentSemestre = student?.SEMESTRE || 1;
+    if (
+      student.ESTADO === 0 &&
+      semestre?.semestre &&
+      semestre?.semestre > studentSemestre
+    ) {
+      const nextClass = await this.getNextClass(Number(matricula));
+      const canal = (await this.getCanal(matricula)) || 1;
+      const confirmation = await this.createConfirmation(
+        matricula,
+        anoLetivo,
+        semestre.semestre || 1,
+        nextClass,
+        canal,
+      );
+      await this.updateGradeCurricular(
+        matricula,
+        anoLetivo,
+        semestre.semestre || 1,
+        confirmation.codigoConfirmacao,
+      );
+      return { message: `Matricula ${matricula} confirmada com sucesso` };
+    }
 
-    private async getStudent(matricula: number, anoLetivo: number, semestre: number) {
-        const query = `SELECT ESTADO,SEMESTRE,CODIGO FROM FK2_TB_CONFIRMACOES WHERE CODIGO_MATRICULA = :matricula AND CODIGO_ANO_LECTIVO = :anoLetivo AND SEMESTRE = :semestre
+    const query = `UPDATE FK2_TB_CONFIRMACOES SET ESTADO = 1, SEMESTRE = :semestre WHERE CODIGO = :codigo`;
+    await this.dataSource.query(query, {
+      codigo: student.CODIGO,
+      semestre: semestre.semestre || 1,
+    } as any);
+
+    return { message: `Matricula ${matricula} confirmada com sucesso` };
+  }
+
+  private async getStudent(
+    matricula: number,
+    anoLetivo: number,
+    semestre: number,
+  ) {
+    const query = `SELECT ESTADO,SEMESTRE,CODIGO FROM FK2_TB_CONFIRMACOES WHERE CODIGO_MATRICULA = :matricula AND CODIGO_ANO_LECTIVO = :anoLetivo AND SEMESTRE = :semestre
         ORDER BY SEMESTRE DESC
         FETCH FIRST 1 ROW ONLY
-        `
-        const result = await this.dataSource.query(query, { matricula, anoLetivo, semestre } as any);
+        `;
+    const result = await this.dataSource.query(query, {
+      matricula,
+      anoLetivo,
+      semestre,
+    } as any);
 
-        if (result.length === 0) {
-            //Buscar sem o semestre
-            const query2 = `SELECT ESTADO,SEMESTRE , CODIGO FROM FK2_TB_CONFIRMACOES WHERE CODIGO_MATRICULA = :matricula AND CODIGO_ANO_LECTIVO = :anoLetivo
+    if (result.length === 0) {
+      //Buscar sem o semestre
+      const query2 = `SELECT ESTADO,SEMESTRE , CODIGO FROM FK2_TB_CONFIRMACOES WHERE CODIGO_MATRICULA = :matricula AND CODIGO_ANO_LECTIVO = :anoLetivo
             ORDER BY SEMESTRE DESC
             FETCH FIRST 1 ROW ONLY
-            `
-            const result2 = await this.dataSource.query(query2, { matricula, anoLetivo } as any);
-            console.log(result2);
-            if (result2.length > 0) {
-                return result2[0];
-            }
-            return null;
-        }
-
-        return result[0];
-
-
+            `;
+      const result2 = await this.dataSource.query(query2, {
+        matricula,
+        anoLetivo,
+      } as any);
+      console.log(result2);
+      if (result2.length > 0) {
+        return result2[0];
+      }
+      return null;
     }
-    private async createConfirmation(matricula: number, anoLetivo: number, semestre: number, classe: number, canal: number) {
-        const result = await this.dataSource.query(
-            `INSERT INTO FK2_TB_CONFIRMACOES (
+
+    return result[0];
+  }
+  private async createConfirmation(
+    matricula: number,
+    anoLetivo: number,
+    semestre: number,
+    classe: number,
+    canal: number,
+  ) {
+    const result = await this.dataSource.query(
+      `INSERT INTO FK2_TB_CONFIRMACOES (
              Codigo_Matricula, Data_Confirmacao,
              Codigo_Ano_lectivo, Estado, Classe,
              Cadeirante, canal, Semestre
@@ -89,30 +147,33 @@ export class AtiveConfirmationService {
             :codAnoActual, 1, :classe,
             'NAO', :codCanal, :semestre
           ) RETURNING Codigo INTO :outId`,
-            {
-                codMatricula: matricula,
-                codAnoActual: anoLetivo,
-                classe,
-                codCanal: canal,
-                semestre,
-                outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }
-            } as any,
-        );
+      {
+        codMatricula: matricula,
+        codAnoActual: anoLetivo,
+        classe,
+        codCanal: canal,
+        semestre,
+        outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+      } as any,
+    );
 
-        const codigoConfirmacao = result.outId[0];
-        return { message: `Matricula ${matricula} confirmada com sucesso`, codigoConfirmacao };
-    }
-    private async getNextClass(matricula: number, anoLectivo?: number) {
-        const anoLectivoFilter = anoLectivo
-            ? `AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo`
-            : `AND ftgca.CODIGO_ANO_LECTIVO = (
+    const codigoConfirmacao = result.outId[0];
+    return {
+      message: `Matricula ${matricula} confirmada com sucesso`,
+      codigoConfirmacao,
+    };
+  }
+  private async getNextClass(matricula: number, anoLectivo?: number) {
+    const anoLectivoFilter = anoLectivo
+      ? `AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo`
+      : `AND ftgca.CODIGO_ANO_LECTIVO = (
             SELECT MAX(CODIGO_ANO_LECTIVO)
             FROM FK2_TB_GRADE_CURRICULAR_ALUNO
             WHERE CODIGO_MATRICULA = m.CODIGO
               AND CODIGO_STATUS_GRADE_CURRICULAR IN (2)
           )`;
 
-        const sql = `
+    const sql = `
         SELECT
             cl.CODIGO    AS CLASSE_CODIGO,
             c.DURACAO    AS DURACAO,
@@ -136,27 +197,26 @@ export class AtiveConfirmationService {
         FETCH FIRST 1 ROWS ONLY
     `;
 
-        const queryParams: any = { matricula };
-        if (anoLectivo) queryParams.anoLectivo = anoLectivo;
+    const queryParams: any = { matricula };
+    if (anoLectivo) queryParams.anoLectivo = anoLectivo;
 
-        const result = await this.dataSource.query(sql, queryParams as any);
-        console.log('result', result);
+    const result = await this.dataSource.query(sql, queryParams as any);
+    console.log('result', result);
 
+    if (!result || result.length === 0) {
+      throw new BadRequestException(`Matrícula ${matricula} não encontrada`);
+    }
 
-        if (!result || result.length === 0) {
-            throw new BadRequestException(`Matrícula ${matricula} não encontrada`);
-        }
+    const classeAtual = result[0].CLASSE_CODIGO;
+    const duracao = result[0].DURACAO;
+    const isEspecialidade = result[0].IS_ESPECIALIDADE === 1;
 
-        const classeAtual = result[0].CLASSE_CODIGO;
-        const duracao = result[0].DURACAO;
-        const isEspecialidade = result[0].IS_ESPECIALIDADE === 1;
+    if (classeAtual === null || classeAtual === undefined) {
+      return 1;
+    }
 
-        if (classeAtual === null || classeAtual === undefined) {
-            return 1;
-        }
-
-        if (isEspecialidade) {
-            const sql = `
+    if (isEspecialidade) {
+      const sql = `
             SELECT 
                 CLASSE
             FROM FK2_TB_CONFIRMACOES
@@ -164,45 +224,45 @@ export class AtiveConfirmationService {
             ORDER BY CLASSE DESC
             FETCH FIRST 1 ROW ONLY
         `;
-            const result = await this.dataSource.query(sql, { matricula } as any);
-            return result[0].CLASSE;
-        }
-
-        if (classeAtual > duracao) {
-            throw new BadRequestException(
-                `Matrícula ${matricula} já atingiu a classe máxima (${duracao})`
-            );
-        }
-        if (classeAtual === duracao) {
-            return classeAtual;
-        }
-
-        return classeAtual + 1;
+      const result = await this.dataSource.query(sql, { matricula } as any);
+      return result[0].CLASSE;
     }
-    private async getCanal(matricula: number) {
-        const query = `SELECT FK2_TB_MATRICULAS.CANAL FROM FK2_TB_MATRICULAS
+
+    if (classeAtual > duracao) {
+      throw new BadRequestException(
+        `Matrícula ${matricula} já atingiu a classe máxima (${duracao})`,
+      );
+    }
+    if (classeAtual === duracao) {
+      return classeAtual;
+    }
+
+    return classeAtual + 1;
+  }
+  private async getCanal(matricula: number) {
+    const query = `SELECT FK2_TB_MATRICULAS.CANAL FROM FK2_TB_MATRICULAS
         WHERE  FK2_TB_MATRICULAS.CODIGO= :matricula
         FETCH FIRST 1 ROW ONLY
         `;
-        const result = await this.dataSource.query(query, { matricula } as any);
+    const result = await this.dataSource.query(query, { matricula } as any);
 
-        if (result.length === 0) {
-            return 1;
-        }
-
-        return result[0].CANAL;
+    if (result.length === 0) {
+      return 1;
     }
 
-    // ATUALIZA TODAS GRADE CURRICULAR DO ESTUDANTE DO ANO LECRIVO E SEMETRE CRIADO E PASSAR A NOVA CONFIRMACAO !
-    // ATUALIZA TODAS AS GRADES CURRICULARES DO ESTUDANTE
-    // DO ANO LECTIVO E SEMESTRE INFORMADO
-    async updateGradeCurricular(
-        matricula: number,
-        anoLetivo: number,
-        semestre: number,
-        confirmacao: number,
-    ) {
-        const query = `
+    return result[0].CANAL;
+  }
+
+  // ATUALIZA TODAS GRADE CURRICULAR DO ESTUDANTE DO ANO LECRIVO E SEMETRE CRIADO E PASSAR A NOVA CONFIRMACAO !
+  // ATUALIZA TODAS AS GRADES CURRICULARES DO ESTUDANTE
+  // DO ANO LECTIVO E SEMESTRE INFORMADO
+  async updateGradeCurricular(
+    matricula: number,
+    anoLetivo: number,
+    semestre: number,
+    confirmacao: number,
+  ) {
+    const query = `
     UPDATE FK2_TB_GRADE_CURRICULAR_ALUNO gca
     SET gca.CODIGO_CONFIRMACAO = :confirmacao
     WHERE gca.CODIGO_MATRICULA = :matricula
@@ -215,14 +275,13 @@ export class AtiveConfirmationService {
       )
   `;
 
-        const result = await this.dataSource.query(query, {
-            matricula,
-            anoLetivo,
-            semestre,
-            confirmacao,
-        } as any);
+    const result = await this.dataSource.query(query, {
+      matricula,
+      anoLetivo,
+      semestre,
+      confirmacao,
+    } as any);
 
-        return result;
-    }
-
+    return result;
+  }
 }
