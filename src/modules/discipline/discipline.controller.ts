@@ -22,7 +22,7 @@ import { FindDisciplinasDto } from './dto/find-disciplinas.dto';
 import { CreateDisciplinaDto } from './dto/create-discipline.dto';
 import { UpdateDisciplinaDto } from './dto/update-discipline.dto';
 import { FindGradeCurricularDto } from './dto/FindGradeCurricularDto';
-import { CreateUnidadeCurricularDto } from './dto/create-unidade-curricular.plano.dto';
+import { CreateUnidadesCurricularesDto } from './dto/create-unidade-curricular.plano.dto';
 import { CreateUnidadeCurricularDepartamentoDto } from './dto/create-unidade-curricular-departamento.dto';
 import { FindUnidadeCurricularDeptDto } from './dto/find-unidade-curricular-dept.dto';
 import { CreatePlanoGradeCurricularEmMassaDto } from './dto/create-plano-grade-curricular-em-massa.dto';
@@ -140,17 +140,17 @@ export class DisciplineController {
     );
   }
 
-  @Post('plano-curricular')
+  @Post('plano-curricular/lote')
   @ApiOperation({
-    summary: 'add uc no plano',
-    description: 'Adiciona UC ao plano.',
+    summary: 'adicionar múltiplas UC ao plano',
+    description: 'Adiciona uma ou mais UC ao plano curricular do curso.',
   })
   @HttpCode(HttpStatus.CREATED)
-  async adicionarUnidadeCurricularNoPlano(
-    @Body() dto: CreateUnidadeCurricularDto,
+  async adicionarUnidadesCurricularesNoPlano(
+    @Body() dto: CreateUnidadesCurricularesDto,
   ) {
     const codigoUtilizador = 1;
-    return this.disciplineService.adicionarUnidadeCurricularNoPlano(
+    return this.disciplineService.adicionarUnidadesCurricularesNoPlano(
       dto,
       codigoUtilizador,
     );
