@@ -191,16 +191,17 @@ export class StudentNoteService {
     }
   }
 
+
   private async findOnePlanoByCursoAndAnoLectivo(
     codigoCurso: number,
     codigoAnoLectivo: number,
   ): Promise<any> {
     const planoCurso = await this.dataSource.query(
       `
-        SELECT *
-        FROM FK2_TB_PLANO_CURRICULAR_CURSO plano
-        WHERE plano.CODIGO_CURSO =:codigoCurso  OR 0 =:codigoCurso
-          AND plano.CODIGO_ANO_LECTIVO = :codigoAnoLectivo OR 0 = :codigoAnoLectivo
+      SELECT *
+      FROM FK2_TB_PLANO_CURRICULAR_CURSO plano
+      WHERE (plano.CODIGO_CURSO = :codigoCurso OR 0 = :codigoCurso)
+        AND (plano.CODIGO_ANO_LECTIVO = :codigoAnoLectivo OR 0 = :codigoAnoLectivo)
     `,
       {
         codigoCurso,
@@ -212,17 +213,61 @@ export class StudentNoteService {
   }
 
   private async findByPlanoAndUnidadeCurricular(
-    plano: number,
+    plano: number | undefined,
     codigoUnidadeCurricular: number,
   ): Promise<any> {
+    // Sem plano válido (curso sem plano curricular criado para este ano
+    // lectivo), não há como procurar o vínculo — devolve undefined em vez
+    // de rebentar a query com plano = undefined.
+    if (!plano) return undefined;
+
     const planoUnidade = await this.dataSource.query(
       `SELECT *  from
-     FK2_TB_PLANO_CURRICULAR_GRADE grade
-     WHERE grade.CODIGO_PLANO_CURRICULAR_CURSO = :plano
-     AND grade.CODIGO_GRADE_CURRICULAR = :codigoUnidadeCurricular`,
-      [plano, codigoUnidadeCurricular],
+   FK2_TB_PLANO_CURRICULAR_GRADE grade
+   WHERE grade.CODIGO_PLANO_CURRICULAR_CURSO = :plano
+   AND grade.CODIGO_GRADE_CURRICULAR = :codigoUnidadeCurricular`,
+      { plano, codigoUnidadeCurricular } as any,
     );
     return planoUnidade[0];
+  }
+
+  /**
+   * Busca a classe/semestre específicos que a UC de tronco comum tem
+   * dentro do plano curricular de um curso em concreto — vem da tabela
+   * de controlo preenchida por adicionarUcDoDepartamentoParaPlanoCurso
+   * (FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE), e não do CODIGO_CLASSE
+   * "fixo" da própria FK2_TB_GRADE_CURRICULAR.
+   *
+   * Desambigua por semestre da grade do aluno, caso a mesma disciplina
+   * exista em mais de uma classe/semestre no mesmo plano de curso.
+   */
+  private async findClasseSemestreTroncoComum(
+    codigoPlanoCurso: number | undefined,
+    codigoGradeCurricular: number,
+    codigoSemestreGradeAluno?: number,
+  ): Promise<
+    { CODIGO_CLASSE: number; CODIGO_SEMESTRE: number; CLASSE: string } | undefined
+  > {
+    if (!codigoPlanoCurso) return undefined;
+
+    const result = await this.dataSource.query(
+      `
+      SELECT pcgs.CODIGO_CLASSE, pcgs.CODIGO_SEMESTRE, cl.DESIGNACAO AS CLASSE
+      FROM FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pcgs
+      LEFT JOIN FK2_TB_CLASSES cl ON cl.CODIGO = pcgs.CODIGO_CLASSE
+      WHERE pcgs.CODIGO_PLANO_CURRICULAR_CURSO = :codigoPlanoCurso
+        AND pcgs.CODIGO_GRADE_CURRICULAR = :codigoGradeCurricular
+        AND (pcgs.CODIGO_SEMESTRE = :codigoSemestreGradeAluno OR :codigoSemestreGradeAluno IS NULL)
+      ORDER BY pcgs.CODIGO_CLASSE ASC
+      `,
+      {
+        codigoPlanoCurso,
+        codigoGradeCurricular,
+        codigoSemestreGradeAluno: codigoSemestreGradeAluno ?? null,
+      } as any,
+    );
+
+    return result[0];
   }
 
   private async processarNotasHorario(
@@ -256,15 +301,46 @@ export class StudentNoteService {
     try {
       console.log(`\nCADEIRA a verificar -----> `, gradeAluno.DISCIPLINA);
 
-      const planoCurricularCurso = await this.findOnePlanoByCursoAndAnoLectivo(
-        gradeAluno.CODIGO_CURSO,
+      const codigoCursoMatricula =
+        gradeAluno.CODIGO_CURSO_MATRICULA ?? gradeAluno.CODIGO_CURSO;
+
+      let planoCurricularCurso = await this.findOnePlanoByCursoAndAnoLectivo(
+        codigoCursoMatricula,
         gradeAluno.CODIGO_ANO_LECTIVO,
       );
+      console.log(planoCurricularCurso);
+
+      // Fallback: se o curso da matrícula não tiver plano para este ano
+      // lectivo, tenta o curso base (caso de especialização) — cobre o caso
+      // de a UC de tronco comum ter sido vinculada ao plano do curso base.
+      if (!planoCurricularCurso) {
+        const codigoCursoAnterior = await this.findCursoAnteriorEspecialidade(
+          codigoCursoMatricula,
+        );
+        if (codigoCursoAnterior !== null) {
+          planoCurricularCurso = await this.findOnePlanoByCursoAndAnoLectivo(
+            codigoCursoAnterior,
+            gradeAluno.CODIGO_ANO_LECTIVO,
+          );
+        }
+      }
 
       const planoCurricularGrade = await this.findByPlanoAndUnidadeCurricular(
-        planoCurricularCurso.CODIGO,
+        planoCurricularCurso?.CODIGO,
         gradeAluno.CODIGO_GRADE_CURRICULAR,
       );
+      console.log("planoCurricularGrade", planoCurricularGrade)
+
+      // Classe/semestre reais para este curso, considerando tronco comum:
+      // a mesma disciplina (grade curricular) pode ter sido associada a
+      // este plano de curso numa classe diferente da classe "própria" da
+      // FK2_TB_GRADE_CURRICULAR — esta é a fonte de verdade correcta.
+      const classeSemestreTroncoComum = await this.findClasseSemestreTroncoComum(
+        planoCurricularCurso?.CODIGO,
+        gradeAluno.CODIGO_GRADE_CURRICULAR,
+        gradeAluno.CODIGO_SEMESTRE,
+      );
+      console.log("classeSemestreTroncoComum", classeSemestreTroncoComum)
 
       const nota_min_primeira_freq =
         planoCurricularGrade?.NOTA_MIN_PRIMEIRA_FREQ ??
@@ -316,7 +392,7 @@ export class StudentNoteService {
             ? EstadoAvaliacaoEnum.APROVADO
             : EstadoAvaliacaoEnum.REPROVADO;
 
-        pauta.ano = gradeAluno.CLASSE;
+        pauta.ano = classeSemestreTroncoComum?.CLASSE ?? gradeAluno.CLASSE;
         pauta.codigoGradeAluno = gradeAluno.CODIGO;
         pauta.disciplina = gradeAluno.DISCIPLINA;
         pauta.duracao = gradeAluno.DURACAO_PLANO;
@@ -454,7 +530,7 @@ export class StudentNoteService {
           } else {
             const mediaFreq = this.round(
               (nota1f?.NOTA ?? 0) * (peso_primeira_freq / 100) +
-                (nota2f?.NOTA ?? 0) * (peso_segunda_freq / 100),
+              (nota2f?.NOTA ?? 0) * (peso_segunda_freq / 100),
             );
 
             if (hasPratica) {
@@ -621,7 +697,7 @@ export class StudentNoteService {
 
             media = this.round(
               notaTeorica * ((100 - peso_pratica) / 100) +
-                notaPra!.NOTA! * (peso_pratica / 100),
+              notaPra!.NOTA! * (peso_pratica / 100),
             );
 
             if (media >= 10) {
@@ -733,7 +809,7 @@ export class StudentNoteService {
       }
 
       // === PREENCHIMENTO FINAL DA PAUTA ===
-      pauta.ano = gradeAluno.CLASSE;
+      pauta.ano = classeSemestreTroncoComum?.CLASSE ?? gradeAluno.CLASSE;
       pauta.codigoGradeAluno = gradeAluno.CODIGO;
       pauta.disciplina = gradeAluno.DISCIPLINA;
       pauta.duracao = gradeAluno.DURACAO_PLANO;
@@ -1073,11 +1149,10 @@ export class StudentNoteService {
              SET ESTADO = :novoEstado,
                  CODIGO_UTILIZADOR = :codigoUtilizador,
                  UPDATED_AT = SYSDATE
-                 ${
-                   codigoStatusGradeCurricular !== undefined
-                     ? ', CODIGO_STATUS_GRADE_CURRICULAR = :codigoStatusGradeCurricular'
-                     : ''
-                 }
+                 ${codigoStatusGradeCurricular !== undefined
+          ? ', CODIGO_STATUS_GRADE_CURRICULAR = :codigoStatusGradeCurricular'
+          : ''
+        }
            WHERE CODIGO = :codigo
       `,
         {
@@ -1128,7 +1203,28 @@ export class StudentNoteService {
     console.log('TOtal', total);
     return total > 0;
   }
+  /**
+   * Verifica se o curso é de especialização, devolvendo o curso base
+   * (anterior) se for, ou null se não for. Usado como fallback quando o
+   * curso real da matrícula não tem plano curricular próprio para o ano
+   * lectivo (caso comum quando o aluno já migrou para uma especialidade,
+   * mas a disciplina de tronco comum foi vinculada ao plano do curso base).
+   */
+  private async findCursoAnteriorEspecialidade(
+    codigoCursoEspecialidade: number,
+  ): Promise<number | null> {
+    const sql = `
+    SELECT CODIGO_CURSO AS codigo_curso_anterior
+    FROM FK2_TB_CURSO_ESPECIALIDADE
+    WHERE CODIGO_CURSO_ESPECIALIDADE = :codigoCursoEspecialidade
+  `;
+    const result = await this.dataSource.query(sql, {
+      codigoCursoEspecialidade,
+    } as any);
 
+    if (!result?.length) return null;
+    return result[0].CODIGO_CURSO_ANTERIOR ?? result[0].codigo_curso_anterior ?? null;
+  }
   // async findCurriculum(params: FindCurriculumParams) {
   //   const { academicYearCode, enrollmentCode, semester } = params;
   //   const semesterFilter = semester ? 'AND g.CODIGO_SEMESTRE = :semester' : '';
