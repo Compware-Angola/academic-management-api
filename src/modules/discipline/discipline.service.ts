@@ -20,7 +20,7 @@ import { CreateUCTroncoComumPlanoCursoDto } from './dto/create-uc-tronco-comum-p
 
 @Injectable()
 export class DisciplineService {
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly dataSource: DataSource) {}
   async findGradeCurricularAluno({
     matriculaId,
     semestre,
@@ -725,7 +725,6 @@ export class DisciplineService {
     const {
       departamento,
 
-
       search,
       page = 1,
       limit = 25,
@@ -734,27 +733,25 @@ export class DisciplineService {
     const offset = (page - 1) * limit;
     const conditions: string[] = ['1=1'];
     const params: Record<string, any> = {};
-    const type = "DEPARTAMENTO"
+    const type = 'DEPARTAMENTO';
 
     if (!departamento) {
-      throw new BadRequestException("Departamento é obrigatório")
+      throw new BadRequestException('Departamento é obrigatório');
     }
 
     if (type) {
-      conditions.push("gc.TYPE = :type")
-      params.type = type
+      conditions.push('gc.TYPE = :type');
+      params.type = type;
     }
     if (departamento) {
       conditions.push('gc.CODIGO_CURSO = :departamento');
       params.departamento = departamento;
     }
 
-
     if (search) {
       conditions.push('UPPER(dic.DESIGNACAO) LIKE UPPER(:search)');
       params.search = `%${search}%`;
     }
-
 
     const whereClause = 'WHERE ' + conditions.join(' AND ');
 
@@ -972,6 +969,14 @@ export class DisciplineService {
       status: string;
       mensagem: string;
     }[] = [];
+    const classeResult = await this.dataSource.query(
+      `
+    SELECT CODIGO
+    FROM FK2_TB_CLASSES
+    WHERE SIGLA = 'TRONCO_COMUM'
+    `,
+    );
+    const classe = classeResult?.[0]?.CODIGO ?? codigoClasse;
 
     for (const { codigoDisciplina } of disciplinas) {
       const resultado = {
@@ -1020,7 +1025,7 @@ export class DisciplineService {
             `
           UPDATE FK2_TB_GRADE_CURRICULAR
              SET STATUS_ = 1,
-             TYPE = 'DEPARTAMENTO' 
+             TYPE = 'DEPARTAMENTO'
            WHERE CODIGO = :codigo
           `,
             {
@@ -1028,8 +1033,7 @@ export class DisciplineService {
             } as any,
           );
 
-          resultado.mensagem =
-            'Disciplina reactivada no departamento.';
+          resultado.mensagem = 'Disciplina reactivada no departamento.';
         } else {
           // Insere apenas no departamento
           await this.dataSource.query(
@@ -1043,7 +1047,7 @@ export class DisciplineService {
               DATA_REGISTO,
               STATUS_,
               CODIGO_CLASSE
-              
+
           )
           VALUES
           (
@@ -1060,12 +1064,11 @@ export class DisciplineService {
               codigoCurso: codigoDepartamento,
               codigoDepartamento,
               codigoDisciplina,
-              codigoClasse,
+              codigoClasse: classe,
             } as any,
           );
 
-          resultado.mensagem =
-            'Disciplina adicionada ao departamento.';
+          resultado.mensagem = 'Disciplina adicionada ao departamento.';
         }
       } catch (error) {
         resultado.status = 'erro';
@@ -1152,7 +1155,11 @@ export class DisciplineService {
         let codigoPlanoCurso: number;
 
         if (!planoCursoExistente.length) {
-          const novoPlanoCurso = await this.criarPlanoCurso(codigoCurso, anoLetivo, codigoUtilizador);
+          const novoPlanoCurso = await this.criarPlanoCurso(
+            codigoCurso,
+            anoLetivo,
+            codigoUtilizador,
+          );
           codigoPlanoCurso = novoPlanoCurso?.[0]?.CODIGO ?? novoPlanoCurso;
         } else {
           codigoPlanoCurso = planoCursoExistente[0].CODIGO;
@@ -1177,7 +1184,11 @@ export class DisciplineService {
         if (Number(gradeJaAssociadaAoPlano?.[0]?.TOTAL) > 0) {
           await this.ativegrade(codigoGrade);
         } else {
-          await this.adicionarPlano(codigoUtilizador, codigoGrade, codigoPlanoCurso);
+          await this.adicionarPlano(
+            codigoUtilizador,
+            codigoGrade,
+            codigoPlanoCurso,
+          );
         }
 
         // 3. Verifica se a combinação já existe na tabela de controlo antes de inserir
@@ -1190,7 +1201,12 @@ export class DisciplineService {
           AND CODIGO_GRADE_CURRICULAR = :codigoGrade
           AND CODIGO_SEMESTRE = :codigoSemestre
         `,
-          { codigoPlanoCurso, codigoClasse, codigoGrade, codigoSemestre } as any,
+          {
+            codigoPlanoCurso,
+            codigoClasse,
+            codigoGrade,
+            codigoSemestre,
+          } as any,
         );
 
         if (Number(combinacaoJaExiste?.[0]?.TOTAL) > 0) {
@@ -1214,7 +1230,12 @@ export class DisciplineService {
         VALUES
           (:codigoPlanoCurso, :codigoClasse, :codigoGrade, :codigoSemestre)
         `,
-          { codigoPlanoCurso, codigoClasse, codigoGrade, codigoSemestre } as any,
+          {
+            codigoPlanoCurso,
+            codigoClasse,
+            codigoGrade,
+            codigoSemestre,
+          } as any,
         );
 
         cursosComSucesso.push({
