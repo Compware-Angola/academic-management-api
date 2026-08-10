@@ -19,7 +19,7 @@ import { DefinirRegenteDto } from './dto/definir-regente.dto';
 
 @Injectable()
 export class DocenteGestaoService {
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly dataSource: DataSource) {}
   async getTeacherParameters(dto: FindParametrosDocenteTO) {
     const { page = 1, limit = 10, search } = dto;
     const offset = (page - 1) * limit;
@@ -191,7 +191,7 @@ export class DocenteGestaoService {
     ON an.codigo = af.fk_ano_lectivo
 
   INNER JOIN FK2_MCAL_TB_SEMESTRE s
-    ON s.pk_semestre = g.CODIGO_SEMESTRE
+    ON s.pk_semestre = af.SEMESTRE
 
   INNER JOIN FK2_TB_CATEGORIA_DOCENTE ca
     ON ca.codigo = af.FK_CATEGORIA
@@ -602,7 +602,6 @@ export class DocenteGestaoService {
     const params: Record<string, any> = { codigo };
     console.log(dto);
 
-
     const docenteActual = await this.dataSource.query(
       `
     SELECT
@@ -704,8 +703,6 @@ export class DocenteGestaoService {
       } as any);
     }
 
-
-
     if (dto.totalAnoExperiencia !== undefined) {
       fields.push('TOTAL_ANO_EXPERIENCIA = :totalAnoExperiencia');
       params.totalAnoExperiencia = dto.totalAnoExperiencia;
@@ -735,8 +732,6 @@ export class DocenteGestaoService {
     SET ${fields.join(', \n    ')}
     WHERE CODIGO = :codigo
   `;
-
-
 
     try {
       const result = await this.dataSource.query(sql, params as any);
@@ -910,7 +905,7 @@ export class DocenteGestaoService {
         OR UPPER(NVL(d.N_MECANOGRAFICO, '-')) LIKE :search
         OR UPPER(NVL(esc.DESIGNACAO, '-')) LIKE :search
         OR UPPER(NVL(cat.DESIGNACAO, '-')) LIKE :search
-       
+
       )
     `;
 
