@@ -1075,7 +1075,7 @@ END AS RESULTADO
         // Determinístico: pega a primeira do ORDER BY, nunca random.
         const selectedExam = exams[0];
 
-        const sqls = `
+        const sqlSchedules = `
   SELECT FK2_TB_HORARIO_PROVA.ID
         , fn_formatar_hora(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1)) AS HORA_INICIO
          , fn_formatar_hora(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_FIM, 4000, 1)) AS HORA_FIM
