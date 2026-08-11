@@ -37,8 +37,6 @@ export class NoteReleaseService {
     const offset = (page - 1) * limit;
     const realLimit = limit + 1;
 
-    console.log(filters);
-
     let studentsFilter: any[];
 
     switch (tipoAvaliacao) {

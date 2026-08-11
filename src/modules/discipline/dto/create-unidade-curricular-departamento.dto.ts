@@ -4,11 +4,6 @@ import { Type } from 'class-transformer';
 import { IsArray, IsInt, IsNumber, IsPositive, ArrayMinSize } from 'class-validator';
 
 export class CreateUnidadeCurricularDepartamentoDto {
-  @ApiProperty({ example: 1, description: 'Código da disciplina' })
-  @IsNumber()
-  @IsPositive()
-  @Type(() => Number)
-  codigoDisciplina: number;
 
   @ApiProperty({ example: 1, description: 'Código do departamento' })
   @IsInt()
@@ -16,44 +11,31 @@ export class CreateUnidadeCurricularDepartamentoDto {
   @Type(() => Number)
   codigoDepartamento: number;
 
-  @ApiProperty({ example: 23, description: 'Código do ano lectivo' })
-  @IsInt()
-  @IsPositive()
-  @Type(() => Number)
-  codigoAnoLectivo: number;
 
-  @ApiProperty({ example: 1, description: 'Código do semestre' })
-  @IsInt()
-  @IsPositive()
-  @Type(() => Number)
-  codigoSemestre: number;
 
-  @ApiProperty({ example: 1, description: 'Código da classe' })
+  @ApiProperty({ example: 999, description: 'Código da classe para cadeiras tronco em Componente de Formação Comum ou Ramo em Componente de Formação Específica' })
   @IsInt()
   @IsPositive()
   @Type(() => Number)
   codigoClasse: number;
 
-  @ApiProperty({ example: 1074, description: 'Código do utilizador' })
-  @IsInt()
-  @IsPositive()
-  @Type(() => Number)
-  codigoUtilizador: number;
+
+
 
   @ApiProperty({
-    example: [{ codigoCurso: 1 }, { codigoCurso: 2 }],
-    description: 'Lista de cursos',
-    type: () => [CursoItemDto],
+    example: [{ codigoDisciplina: 1 }, { codigoDisciplina: 2 }],
+    description: 'Lista de disciplinas',
+    type: () => [DisciplinaItemDto],
   })
   @IsArray()
   @ArrayMinSize(1)
-  cursos: CursoItemDto[];
+  disciplinas: DisciplinaItemDto[];
 }
 
-export class CursoItemDto {
+export class DisciplinaItemDto {
   @ApiProperty({ example: 1 })
   @IsInt()
   @IsPositive()
   @Type(() => Number)
-  codigoCurso: number;
+  codigoDisciplina: number;
 }

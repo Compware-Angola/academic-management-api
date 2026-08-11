@@ -1,10 +1,4 @@
-import {
-  BadRequestException,
-  HttpException,
-  HttpStatus,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import * as oracledb from 'oracledb';
 import { DataSource } from 'typeorm';
 import { EnrollmentDto, GradeItemDto } from './dto/create-enrollment.dto';
@@ -12,7 +6,7 @@ import { EnrollmentDto, GradeItemDto } from './dto/create-enrollment.dto';
 @Injectable()
 export class EnrollmentService {
   private logger = new Logger(EnrollmentService.name);
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   async enrollment(enrollmentDto: EnrollmentDto) {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -215,7 +209,7 @@ export class EnrollmentService {
             :codigoGrade,
             :codConfirmacao,
             :codMatricula,
-            1,
+            0,
             0,
             SYSDATE,
             :canal,
@@ -305,4 +299,5 @@ export class EnrollmentService {
       segundoSemestre: [...new Set(resultado.segundoSemestre)],
     };
   }
+
 }

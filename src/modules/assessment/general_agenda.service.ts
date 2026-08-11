@@ -36,7 +36,7 @@ export class GenaralAgendaService {
     try {
       if (horario) {
         grade = await this.findGradeCurricularByCodigo(gradeCurricular);
-        console.log('grade: ', grade);
+
         if (grade) {
           listaPauta = await this.carregarPautaHorario(
             grade,
@@ -50,8 +50,6 @@ export class GenaralAgendaService {
             anoLectivo,
             horario,
           );
-
-          console.log('ListaPauta: ', listaPauta);
         }
       } else {
         grade = await this.findGradeCurricularByCodigo(gradeCurricularTurma);
@@ -90,8 +88,8 @@ export class GenaralAgendaService {
       `
     SELECT *
     FROM FK2_TB_GRADE_CURRICULAR gdc
-    WHERE gdc.CODIGO = :pk_grade 
-   
+    WHERE gdc.CODIGO = :pk_grade
+
   `,
       [pk_grade],
     );
@@ -106,6 +104,7 @@ export class GenaralAgendaService {
     limit: number,
   ): Promise<any[]> {
     const pautaGeral: any[] = [];
+
     const schedule = await this.getSchedule(scheduleId);
 
     if (!schedule) {
@@ -121,13 +120,12 @@ export class GenaralAgendaService {
         offset,
         limit,
       );
-    console.log('estudante', listaDeEstudanteDoHorario);
+
     if (listaDeEstudanteDoHorario.length === 0) {
       console.log('Nenhum estudante encontrado no horário:', scheduleId);
       return pautaGeral; // array vazio
     }
 
-    console.log('grade', grade);
     // Processa cada estudante e guarda o resultado
     for (const estudante of listaDeEstudanteDoHorario) {
       const gradeDoEstudante = await this.retornarGradeAvaliadaByGrade(
@@ -135,8 +133,6 @@ export class GenaralAgendaService {
         anoCorrente,
         estudante.NUMERO_MATRICULA,
       );
-
-      console.log('gradeDoEstudante', gradeDoEstudante);
 
       if (gradeDoEstudante) {
         const pautaDoAluno = await this.processarNotasHorario(
@@ -208,9 +204,9 @@ export class GenaralAgendaService {
     const schedule = await this.dataSource.query(
       `
             SELECT DISTINCT * FROM FK2_MGH_TB_HORARIO m
-             WHERE m.PK_HORARIO  = :pkHorario 
-              AND m.ACTIVE_STATE  = 1 
-             AND  m.FK_ESTADO_HORARIO_WF != 4 
+             WHERE m.PK_HORARIO  = :pkHorario
+              AND m.ACTIVE_STATE  = 1
+             AND  m.FK_ESTADO_HORARIO_WF != 4
               ORDER BY m.DESIGNACAO  ASC`,
       [pkHorario],
     );
@@ -248,14 +244,15 @@ export class GenaralAgendaService {
       INNER JOIN FK2_TB_PREINSCRICAO tp2 ON tp2.Codigo = ta2.pre_incricao
       INNER JOIN FK2_TB_CURSOS tc ON tc.Codigo = tm.Codigo_Curso
       INNER JOIN FK2_TB_PERIODOS tp3 ON tp3.Codigo = tp2.Codigo_Turno
-      WHERE tc.codigo = :curso
-        AND tm.estado_matricula = 'activo'  
+      WHERE 1=1
+        ---tc.codigo = :curso
+        AND tm.estado_matricula = 'activo'
         AND tm.Codigo IN (
           SELECT DISTINCT tgca.codigo_matricula
           FROM FK2_MGH_TB_HORARIO mth
-          INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca 
+          INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
             ON JSON_VALUE(tgca.ref_horario, '$.pk') = mth.pk_horario
-          WHERE mth.active_state = 1 
+          WHERE mth.active_state = 1
             AND mth.fk_estado_horario_wf != 4
             AND tgca.codigo_ano_lectivo = :ano_lectivo
             AND tgca.Codigo_Status_Grade_Curricular IN (1,2,3)
@@ -266,7 +263,6 @@ export class GenaralAgendaService {
     OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
     `,
       {
-        curso,
         ano_lectivo,
         pk_horario,
         offset,
@@ -286,21 +282,22 @@ export class GenaralAgendaService {
     SELECT COUNT(*) AS total
     FROM FK2_TB_MATRICULAS tm
     INNER JOIN FK2_TB_CURSOS tc ON tc.Codigo = tm.Codigo_Curso
-    WHERE tc.codigo = :curso
-      AND tm.estado_matricula = 'activo'  
+    WHERE 1=1
+      ---tc.codigo = :curso
+      AND tm.estado_matricula = 'activo'
       AND tm.Codigo IN (
         SELECT DISTINCT tgca.codigo_matricula
         FROM FK2_MGH_TB_HORARIO mth
-        INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca 
+        INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO tgca
           ON JSON_VALUE(tgca.ref_horario, '$.pk') = mth.pk_horario
-        WHERE mth.active_state = 1 
+        WHERE mth.active_state = 1
           AND mth.fk_estado_horario_wf != 4
           AND tgca.codigo_ano_lectivo = :ano_lectivo
           AND tgca.Codigo_Status_Grade_Curricular IN (1,2,3)
           AND mth.pk_horario = :pk_horario
       )
     `,
-      { curso, ano_lectivo, pk_horario } as any,
+      { ano_lectivo, pk_horario } as any,
     );
 
     return Number(result[0]?.TOTAL || 0);
@@ -329,7 +326,7 @@ export class GenaralAgendaService {
       INNER JOIN FK2_TB_PERIODOS tp3 ON tp3.Codigo = tp2.Codigo_Turno
       INNER JOIN FK2_TB_TURMAS tt ON tt.Codigo = tm.Codigo_Turma
       WHERE tc.codigo = :curso
-        AND tm.estado_matricula = 'activo'  
+        AND tm.estado_matricula = 'activo'
         AND tm.Codigo_Turma = :pk_turma
         AND tm.Codigo IN (
           SELECT DISTINCT tgca.codigo_matricula
@@ -363,7 +360,7 @@ export class GenaralAgendaService {
     FROM FK2_TB_MATRICULAS tm
     INNER JOIN FK2_TB_CURSOS tc ON tc.Codigo = tm.Codigo_Curso
     WHERE tc.codigo = :curso
-      AND tm.estado_matricula = 'activo'  
+      AND tm.estado_matricula = 'activo'
       AND tm.Codigo_Turma = :pk_turma
       AND tm.Codigo IN (
         SELECT DISTINCT tgca.codigo_matricula
@@ -387,7 +384,7 @@ export class GenaralAgendaService {
     try {
       const grades = await this.dataSource.query(
         `
-            SELECT 
+            SELECT
                 ftgca.CODIGO_GRADE_CURRICULAR,
                 ftgca.TURMA,
                 ftgca.CODIGO_CONFIRMACAO,
@@ -407,7 +404,6 @@ export class GenaralAgendaService {
 
                 ftgc.CODIGO_CURSO,
                 ftgc.CODIGO_DISCIPLINA,
-                ftgc.CODIGO_CLASSE,
                 ftgc.CODIGO_SEMESTRE,
                 ftgc.HORASTOTAIS,
                 ftgc.HORASTEORICAS,
@@ -436,7 +432,12 @@ export class GenaralAgendaService {
 
                 dc.DURACAO,
                 dc.DESIGNACAO AS DISCIPLINA,
-                cl.DESIGNACAO AS CLASSE,
+                CASE
+                    WHEN ftgc.type = 'DEPARTAMENTO'
+                    THEN COALESCE(clp.DESIGNACAO, cl.DESIGNACAO)
+                    ELSE cl.DESIGNACAO
+                END AS CLASSE,
+
                 drc.DESIGNACAO AS DURACAO_PLANO,
 
                 tm.Codigo AS numero_matricula,
@@ -446,34 +447,53 @@ export class GenaralAgendaService {
                 sm.DESIGNACAO AS SEMESTRE
 
             FROM FK2_TB_GRADE_CURRICULAR_ALUNO ftgca
-                LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc 
-                    ON ftgc.CODIGO = ftgca.CODIGO_GRADE_CURRICULAR 
+                LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc
+                    ON ftgc.CODIGO = ftgca.CODIGO_GRADE_CURRICULAR
                 LEFT JOIN FK2_TB_DISCIPLINAS dc
                     ON dc.CODIGO = ftgc.CODIGO_DISCIPLINA
                 LEFT JOIN FK2_TB_CLASSES cl
                     ON cl.CODIGO = ftgc.CODIGO_CLASSE
                 LEFT JOIN FK2_TB_DURACAO drc
                     ON drc.CODIGO = dc.DURACAO
-                LEFT JOIN FK2_TB_SEMESTRES sm 
+                LEFT JOIN FK2_TB_SEMESTRES sm
                     ON sm.CODIGO = ftgc.CODIGO_SEMESTRE
 
-            INNER JOIN FK2_TB_MATRICULAS tm 
+            INNER JOIN FK2_TB_MATRICULAS tm
                 ON ftgca.CODIGO_MATRICULA = tm.CODIGO
-            INNER JOIN FK2_TB_ADMISSAO ta2 
+            INNER JOIN FK2_TB_ADMISSAO ta2
                 ON ta2.codigo = tm.Codigo_Aluno
-            INNER JOIN FK2_TB_PREINSCRICAO tp2 
+            INNER JOIN FK2_TB_PREINSCRICAO tp2
                 ON tp2.Codigo = ta2.pre_incricao
-            INNER JOIN FK2_TB_CURSOS tc 
+            INNER JOIN FK2_TB_CURSOS tc
                 ON tc.Codigo = tm.Codigo_Curso
-            INNER JOIN FK2_TB_PERIODOS tp3 
+            INNER JOIN FK2_TB_PERIODOS tp3
                 ON tp3.Codigo = tp2.Codigo_Turno
-
+            LEFT JOIN (
+                    SELECT
+                        pcgs.CODIGO_GRADE_CURRICULAR,
+                        ppc.CODIGO_CURSO,
+                        pcgs.CODIGO_CLASSE,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY pcgs.CODIGO_GRADE_CURRICULAR, ppc.CODIGO_CURSO
+                            ORDER BY
+                                CASE WHEN ppc.CODIGO_ANO_LECTIVO = :anoLectivo THEN 0 ELSE 1 END,
+                                pcgs.CODIGO DESC
+                        ) AS RN
+                    FROM FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pcgs
+                    INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO ppc
+                            ON ppc.CODIGO = pcgs.CODIGO_PLANO_CURRICULAR_CURSO
+                ) dept_classe
+                    ON dept_classe.CODIGO_GRADE_CURRICULAR = ftgc.CODIGO
+                   AND ftgc.type = 'DEPARTAMENTO'
+                   AND dept_classe.CODIGO_CURSO = tm.CODIGO_CURSO
+                   AND dept_classe.RN = 1
+                LEFT JOIN FK2_TB_CLASSES clp
+                    ON clp.CODIGO = dept_classe.CODIGO_CLASSE
             WHERE ftgca.CODIGO_GRADE_CURRICULAR = :grade
-                AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+                AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3,1)
                 AND ftgca.CODIGO_MATRICULA = :numeroDeMatricula
                 AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo
                 AND ftgca.OBSERVACAO NOT LIKE :obs
-
             ORDER BY CODIGO_GRADE_CURRICULAR ASC
         `,
         {
@@ -483,8 +503,6 @@ export class GenaralAgendaService {
           obs,
         } as any,
       );
-
-      // Retorna o primeiro registro (ou null/undefined se não encontrar)
       return grades[0] || null;
     } catch (error: any) {
       console.error('Erro ao buscar grade avaliada:', error);
@@ -499,7 +517,7 @@ export class GenaralAgendaService {
   ): Promise<any> {
     const planoCurso = await this.dataSource.query(
       `
-        SELECT * 
+        SELECT *
         FROM FK2_TB_PLANO_CURRICULAR_CURSO plano
         WHERE plano.CODIGO_CURSO =:codigoCurso  OR 0 =:codigoCurso
           AND plano.CODIGO_ANO_LECTIVO = :codigoAnoLectivo OR 0 = :codigoAnoLectivo
@@ -519,7 +537,7 @@ export class GenaralAgendaService {
     const planoUnidade = await this.dataSource.query(
       `SELECT *  from
      FK2_TB_PLANO_CURRICULAR_GRADE grade
-     WHERE grade.CODIGO_PLANO_CURRICULAR_CURSO = :plano 
+     WHERE grade.CODIGO_PLANO_CURRICULAR_CURSO = :plano
      AND grade.CODIGO_GRADE_CURRICULAR = :codigoUnidadeCurricular`,
       [plano, codigoUnidadeCurricular],
     );
@@ -1615,9 +1633,9 @@ export class GenaralAgendaService {
   ): Promise<any | null> {
     const avaliation = await this.dataSource.query(
       `
-    
-    SELECT * FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES avaliacao 
-    WHERE avaliacao.GRADE_CURRICULAR_ALUNO = :codigoGradeAluno 
+
+    SELECT * FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES avaliacao
+    WHERE avaliacao.GRADE_CURRICULAR_ALUNO = :codigoGradeAluno
     AND avaliacao.TIPO_AVALIACAO = :codigoAvaliacao
      ORDER BY avaliacao.CREATED_AT ASC
     `,
@@ -1645,7 +1663,7 @@ export class GenaralAgendaService {
   private async temOral(gradeCurricular: any): Promise<boolean> {
     const result = await this.dataSource.query(
       `
-    SELECT * 
+    SELECT *
     FROM FK2_TB_GRADE_CURRICULAR_DEFINIR_ORAL
     WHERE CODIGOGRADECURRICULAR = :gradeCurricular
 `,
@@ -1666,7 +1684,7 @@ export class GenaralAgendaService {
 
     const result = await this.dataSource.query(
       `
-        SELECT 1 
+        SELECT 1
         FROM FK2_TB_GRADE_CURRICULAR_ALUNO grade
         INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES avaliacoes
             ON avaliacoes.GRADE_CURRICULAR_ALUNO = grade.CODIGO

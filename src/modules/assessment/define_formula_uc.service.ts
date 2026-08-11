@@ -9,7 +9,7 @@ import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 
 @Injectable()
 export class DefineFormulaUcService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   async listarUnidadesCurriculares(
     params: ListarUnidadesCurricularesDto,
@@ -64,7 +64,7 @@ export class DefineFormulaUcService {
          FROM FK2_TB_GRADE_CURRICULAR GC
           WHERE GC.CODIGO_CURSO = ${cursoId}
             AND GC.CODIGO_CLASSE = ${anoCurricular}
-            AND GC.CODIGO_SEMESTRE = ${semestre}
+          --  AND GC.CODIGO_SEMESTRE = ${semestre}
         )
       ORDER BY D.DESIGNACAO
     `;

@@ -22,13 +22,14 @@ import { FindDisciplinasDto } from './dto/find-disciplinas.dto';
 import { CreateDisciplinaDto } from './dto/create-discipline.dto';
 import { UpdateDisciplinaDto } from './dto/update-discipline.dto';
 import { FindGradeCurricularDto } from './dto/FindGradeCurricularDto';
-import { CreateUnidadesCurricularesDto } from './dto/create-unidade-curricular.plano.dto';
+import { CreateUnidadeCurricularDto } from './dto/create-unidade-curricular.plano.dto';
 import { CreateUnidadeCurricularDepartamentoDto } from './dto/create-unidade-curricular-departamento.dto';
 import { FindUnidadeCurricularDeptDto } from './dto/find-unidade-curricular-dept.dto';
 import { CreatePlanoGradeCurricularEmMassaDto } from './dto/create-plano-grade-curricular-em-massa.dto';
 import { ConfigurationPlaneService } from './configuration-plane.service';
 import { ToggleStatusGradeCurricularDto } from './dto/toggle-status-grade-curricular.dto';
 import { FindGradeCurricularAdminDto } from './dto/find-grade-curricular-admin.dto';
+import { CreateUCTroncoComumPlanoCursoDto } from './dto/create-uc-tronco-comum-plano-curso.dto';
 
 @ApiTags('DISCIPLINAS')
 @Controller('discipline')
@@ -36,7 +37,7 @@ export class DisciplineController {
   constructor(
     private readonly disciplineService: DisciplineService,
     private readonly configurationPlaneService: ConfigurationPlaneService,
-  ) {}
+  ) { }
 
   @Post()
   @ApiOperation({
@@ -94,7 +95,7 @@ export class DisciplineController {
     @Query(ValidationPipe) query: FindDisciplinaAlunoDTO,
     @Req() req: any,
   ) {
-    console.log('chegou aqui', query);
+
     return this.disciplineService.findGradeCurricularAluno(query);
   }
 
@@ -140,17 +141,17 @@ export class DisciplineController {
     );
   }
 
-  @Post('plano-curricular/lote')
+  @Post('plano-curricular')
   @ApiOperation({
-    summary: 'adicionar múltiplas UC ao plano',
-    description: 'Adiciona uma ou mais UC ao plano curricular do curso.',
+    summary: 'add uc no plano',
+    description: 'Adiciona UC ao plano.',
   })
   @HttpCode(HttpStatus.CREATED)
-  async adicionarUnidadesCurricularesNoPlano(
-    @Body() dto: CreateUnidadesCurricularesDto,
+  async adicionarUnidadeCurricularNoPlano(
+    @Body() dto: CreateUnidadeCurricularDto,
   ) {
     const codigoUtilizador = 1;
-    return this.disciplineService.adicionarUnidadesCurricularesNoPlano(
+    return this.disciplineService.adicionarUnidadeCurricularNoPlano(
       dto,
       codigoUtilizador,
     );
@@ -177,6 +178,19 @@ export class DisciplineController {
     @Body() dto: CreateUnidadeCurricularDepartamentoDto,
   ) {
     return this.disciplineService.adicionarUnidadeCurricularNoDepartamento(dto);
+  }
+
+  @Post('tronco-comum')
+  @ApiOperation({
+    summary: 'add uc no tronco comum',
+    description: 'Adiciona UC ao tronco comum.',
+  })
+  @HttpCode(HttpStatus.CREATED)
+  async adicionarUnidadeCurricularNoTroncoComum(
+    @Body() dto: CreateUCTroncoComumPlanoCursoDto,
+  ) {
+    const codigoUtilizador = 1;
+    return this.disciplineService.adicionarUcDoDepartamentoParaPlanoCurso(dto, codigoUtilizador);
   }
   @Get('departamento')
   @ApiOperation({
