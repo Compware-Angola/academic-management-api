@@ -30,7 +30,7 @@ export class ExamesDeAcessoService {
     private readonly dataSource: DataSource,
     @InjectQueue('results_final_exam')
     private readonly resultsFinalExamQueue: Queue,
-  ) {}
+  ) { }
 
   async buscaCandidatos(filtros: FilterCandidatoDto) {
     const condicoes: string[] = [
@@ -1075,7 +1075,7 @@ END AS RESULTADO
         // Determinístico: pega a primeira do ORDER BY, nunca random.
         const selectedExam = exams[0];
 
-        const sqlSchedules = `
+        const sqls = `
   SELECT FK2_TB_HORARIO_PROVA.ID
         , fn_formatar_hora(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1)) AS HORA_INICIO
          , fn_formatar_hora(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_FIM, 4000, 1)) AS HORA_FIM
@@ -1473,10 +1473,10 @@ END AS RESULTADO
     const data = rows.map((row: any) => {
       const listaProvas = row.LISTA_DE_PROVAS
         ? row.LISTA_DE_PROVAS.replace(/^Prova de\\s*/i, '')
-            .split(/<br>/i)[0]
-            .split(',')
-            .map((s: string) => s.trim())
-            .filter((s: string) => s.length > 0)
+          .split(/<br>/i)[0]
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0)
         : [];
 
       return {

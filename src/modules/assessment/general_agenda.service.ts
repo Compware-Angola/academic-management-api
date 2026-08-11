@@ -469,7 +469,7 @@ export class GenaralAgendaService {
             // Retorna o primeiro registro (ou null/undefined se não encontrar)
             return grades[0] || null;
 
-        } catch (error:any) {
+        } catch (error: any) {
             console.error('Erro ao buscar grade avaliada:', error);
             throw new Error(`Falha ao consultar grade curricular avaliada: ${error.message}`);
         }
@@ -530,8 +530,8 @@ export class GenaralAgendaService {
             const hasPratica = await this.temPratica(planoCurricularGrade);
             const hasOral = await this.temOral(gradeAluno.CODIGO_GRADE_CURRICULAR);
 
-          // Busca TODAS as notas em paralelo (grande otimização!)
-           const avaliacoes = await this.buscarAvaliacoes(gradeAluno.CODIGO);
+            // Busca TODAS as notas em paralelo (grande otimização!)
+            const avaliacoes = await this.buscarAvaliacoes(gradeAluno.CODIGO);
 
             const getNota = (tipo: number) =>
                 avaliacoes.find(a => a.TIPO_AVALIACAO === tipo) || null;
@@ -981,7 +981,7 @@ export class GenaralAgendaService {
             const hasOral = await this.temOral(gradeAluno.CODIGO_GRADE_CURRICULAR);
 
             // Busca TODAS as notas em paralelo (grande otimização!)
-           const avaliacoes = await this.buscarAvaliacoes(gradeAluno.CODIGO);
+            const avaliacoes = await this.buscarAvaliacoes(gradeAluno.CODIGO);
 
             const getNota = (tipo: number) =>
                 avaliacoes.find(a => a.TIPO_AVALIACAO === tipo) || null;
@@ -1412,7 +1412,7 @@ export class GenaralAgendaService {
 
         return avaliation[0];
     }
-        private async buscarAvaliacoes(
+    private async buscarAvaliacoes(
         gradeAlunoId: number
     ): Promise<any[]> {
 
