@@ -11,7 +11,7 @@ export class AnoLectivoUtil {
   constructor(
     @InjectRepository(AcademicYear)
     private readonly anoLectivoRepo: Repository<AcademicYear>,
-  ) { }
+  ) {}
 
   async getAnoAtualId(tipo_cand: number = 1): Promise<number> {
     try {
@@ -38,13 +38,17 @@ export class AnoLectivoUtil {
   /**
    * Retorna o semestre atual baseado na data de hoje
    */
-  async getSemestreAtual(tipo_cand: number = 1): Promise<{
+
+  async getSemestreAtual(
+    tipo_cand: number = 1,
+    anoLetivoId?: number,
+  ): Promise<{
     anoId: number;
     semestre: number | null;
     descricao: string;
     dataFim: Date | null;
   }> {
-    const anoId = await this.getAnoAtualId(tipo_cand);
+    const anoId = anoLetivoId ?? (await this.getAnoAtualId(tipo_cand));
 
     const ano = await this.anoLectivoRepo.findOne({
       where: { codigo: anoId },
@@ -107,7 +111,10 @@ export class AnoLectivoUtil {
   /**
    * Retorna os dois semestres configurados do ano letivo atual
    */
-  async getSemestresConfigurados(tipo_cand: number = 1, ano_lectivo?: number): Promise<{
+  async getSemestresConfigurados(
+    tipo_cand: number = 1,
+    ano_lectivo?: number,
+  ): Promise<{
     anoLetivo: {
       id: number;
       designacao: string;
@@ -135,7 +142,7 @@ export class AnoLectivoUtil {
         'dataInicioSegundoSemestre',
         'dataFimSegundoSemestre',
         'codigoTipoCandidatura',
-        'designacao'
+        'designacao',
       ],
     });
 
@@ -146,27 +153,27 @@ export class AnoLectivoUtil {
     const primeiroSemestre =
       ano.dataInicioPrimeiroSemestre && ano.dataFimPrimeiroSemestre
         ? {
-          dataInicio: new Date(ano.dataInicioPrimeiroSemestre),
-          dataFim: new Date(ano.dataFimPrimeiroSemestre),
-          descricao: 'PRIMEIRO_SEMESTRE',
-        }
+            dataInicio: new Date(ano.dataInicioPrimeiroSemestre),
+            dataFim: new Date(ano.dataFimPrimeiroSemestre),
+            descricao: 'PRIMEIRO_SEMESTRE',
+          }
         : null;
 
     const segundoSemestre =
       ano.dataInicioSegundoSemestre && ano.dataFimSegundoSemestre
         ? {
-          dataInicio: new Date(ano.dataInicioSegundoSemestre),
-          dataFim: new Date(ano.dataFimSegundoSemestre),
-          descricao: 'SEGUNDO_SEMESTRE',
-        }
+            dataInicio: new Date(ano.dataInicioSegundoSemestre),
+            dataFim: new Date(ano.dataFimSegundoSemestre),
+            descricao: 'SEGUNDO_SEMESTRE',
+          }
         : null;
 
     const anoLetivo = ano.codigo
       ? {
-        id: ano.codigo,
-        designacao: ano.designacao ?? '',
-        tipoCandidatura: ano.codigoTipoCandidatura ?? null,
-      }
+          id: ano.codigo,
+          designacao: ano.designacao ?? '',
+          tipoCandidatura: ano.codigoTipoCandidatura ?? null,
+        }
       : null;
 
     return {
