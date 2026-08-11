@@ -7,7 +7,7 @@ import { RejectCandidateDto } from '../dto/reject-candidate.dto';
 
 @Injectable()
 export class CandidateDecisionService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   async approve(dto: ApproveCandidateDto) {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -17,7 +17,7 @@ export class CandidateDecisionService {
     try {
       // Verifica se já existe admissão para esta pré-inscrição
       const existing = await queryRunner.query(
-        `SELECT CODIGO FROM CMPDEV.FK2_TB_ADMISSAO WHERE PRE_INCRICAO = :preInscricao`,
+        `SELECT CODIGO FROM FK2_TB_ADMISSAO WHERE PRE_INCRICAO = :preInscricao`,
         [dto.preInscricao],
       );
 
@@ -29,7 +29,7 @@ export class CandidateDecisionService {
 
       // Insere na tabela de admissão (PK gerada pelo trigger)
       await queryRunner.query(
-        `INSERT INTO CMPDEV.FK2_TB_ADMISSAO 
+        `INSERT INTO FK2_TB_ADMISSAO 
          (PRE_INCRICAO, MEDIAFINAL, DATA, RESULTADO, CANAL, POLO_ID)
          VALUES (:preInscricao, :mediaFinal, SYSDATE, :resultado, :canal, :poloId)`,
         [
@@ -60,7 +60,7 @@ export class CandidateDecisionService {
       // Verifica se já existe rejeição ativa
       const existing = await queryRunner.query(
         `SELECT PK_REJEICAO_CANDIDATURA 
-         FROM CMPDEV.FK2_TB_REJEICAO_CANDIDATURA_ALUNO 
+         FROM FK2_TB_REJEICAO_CANDIDATURA_ALUNO 
          WHERE FK_PREINSCRICAO = :preInscricao AND FK_ANOLECTIVO = :anoLectivo`,
         [dto.preInscricao, dto.anoLectivo],
       );
@@ -73,7 +73,7 @@ export class CandidateDecisionService {
 
       // Insere rejeição (PK gerada pelo trigger)
       await queryRunner.query(
-        `INSERT INTO CMPDEV.FK2_TB_REJEICAO_CANDIDATURA_ALUNO 
+        `INSERT INTO FK2_TB_REJEICAO_CANDIDATURA_ALUNO 
          (FK_ANOLECTIVO, FK_PREINSCRICAO, FK_UTILIZADOR, MOTIVO, CREAT_AT, UPDATE_AT, ESTADO_REJEICAO)
          VALUES (:anoLectivo, :preInscricao, :utilizador, :motivo, SYSDATE, SYSDATE, :estadoRejeicao)`,
         [
