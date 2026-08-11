@@ -1048,10 +1048,11 @@ END AS RESULTADO
                JSON_EXISTS(cursos, '$[*]?(@.id == $curso)' PASSING :1 AS "curso")
             OR JSON_EXISTS(cursos, '$[*]?(@ == $curso)' PASSING :2 AS "curso")
          )
-           AND FK2_PROVAS.ANO_LECTIVO_ID = :3
-           AND TRUNC(FK2_PROVAS.DATA_REALIZACAO) >= TRUNC(SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda')
-          ORDER BY FK2_PROVAS.ID DESC
-      `;
+          AND FK2_PROVAS.ANO_LECTIVO_ID = :3
+          AND TRUNC(FK2_PROVAS.DATA_REALIZACAO) >= TRUNC(SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda')
+          AND DBMS_LOB.SUBSTR(FK2_PROVAS.HORA_INICIO, 5, 1) >= TO_CHAR(SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda','HH24:MI')
+                ORDER BY FK2_PROVAS.ID DESC
+            `;
 
         const exams = await manager.query(sqlExams, [
           String(candidate.CURSO_CANDIDATURA),
