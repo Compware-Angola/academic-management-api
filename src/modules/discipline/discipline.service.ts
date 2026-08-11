@@ -20,7 +20,7 @@ import { CreateUCTroncoComumPlanoCursoDto } from './dto/create-uc-tronco-comum-p
 
 @Injectable()
 export class DisciplineService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
   async findGradeCurricularAluno({
     matriculaId,
     semestre,
@@ -1104,17 +1104,58 @@ export class DisciplineService {
 
     const gradeCurricular = await this.dataSource.query(
       `
-    SELECT g.CODIGO, d.DESIGNACAO AS NOME_DISCIPLINA
+    SELECT g.CODIGO, d.DESIGNACAO AS NOME_DISCIPLINA,g.CODIGO_CURSO
     FROM FK2_TB_GRADE_CURRICULAR g
     JOIN FK2_TB_DISCIPLINAS d ON d.CODIGO = g.CODIGO_DISCIPLINA
     WHERE g.CODIGO = :codigoGrade
+    AND g.TYPE = 'DEPARTAMENTO'
     `,
       { codigoGrade } as any,
     );
-
     if (gradeCurricular.length === 0) {
       throw new NotFoundException(`Grade ${codigoGrade} não encontrada.`);
     }
+
+    //Criar Plano do departamento se não existir
+    const codigoCurso = gradeCurricular[0].CODIGO_CURSO;
+    const codigoPlanoCurso = await this.getPlanoCurso(codigoCurso, anoLetivo);
+    // Criar plano da grade se não existir
+    // 5a. Verificar se já existe no plano
+    const existPlanoResult = await this.dataSource.query(
+      `
+      SELECT COUNT(*) AS total
+      FROM FK2_TB_PLANO_CURRICULAR_GRADE u
+      JOIN FK2_TB_GRADE_CURRICULAR g
+          ON g.CODIGO = u.CODIGO_GRADE_CURRICULAR
+      JOIN FK2_TB_CLASSES c
+          ON c.CODIGO = g.CODIGO_CLASSE
+      WHERE u.CODIGO_PLANO_CURRICULAR_CURSO = :codigoPlanoCurso
+        AND g.CODIGO = :codigoGrade
+        
+      `,
+      { codigoPlanoCurso, codigoGrade } as any,
+    );
+    if (Number(existPlanoResult?.[0]?.TOTAL) > 0) {
+      // Grade já está no plano — reativar
+      await this.ativegrade(codigoGrade);
+
+      return {
+        message: 'Grade curricular reativada com sucesso.',
+        codigo: codigoGrade,
+      };
+    }
+
+    // 6a. Não está no plano — adicionar ao plano
+    await this.ativegrade(codigoGrade);
+    await this.adicionarPlano(
+      codigoUtilizador,
+      codigoGrade,
+      codigoPlanoCurso,
+    );
+
+
+
+
 
     const nomeDisciplina = gradeCurricular[0].NOME_DISCIPLINA;
 
