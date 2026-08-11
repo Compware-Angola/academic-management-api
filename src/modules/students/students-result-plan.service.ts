@@ -43,7 +43,7 @@ interface FindMatriculaDetails {
 
 @Injectable()
 export class StudentsResultPlanService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   public async findPlan(codigoMatricula: number) {
     const [matricula, gradesAluno] = await Promise.all([
@@ -164,6 +164,24 @@ export class StudentsResultPlanService {
     return toLowerCaseKeys(result[0]);
   }
 
+  /**
+   * NOTA (tronco comum): o filtro por curso é feito por pgc.CODIGO_CURSO
+   * (curso do PLANO CURRICULAR onde a grade foi associada), e não por
+   * g.CODIGO_CURSO (curso "dono" original da grade curricular). Isto
+   * permite que disciplinas de tronco comum, adicionadas a este curso
+   * via adicionarUcDoDepartamentoParaPlanoCurso, apareçam aqui mesmo
+   * sendo originárias de outro departamento/curso.
+   *
+   * NOTA (classe/semestre por plano): a classe e o semestre usados vêm
+   * de FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE (pgs) quando existir
+   * registo — que é a tabela que grava a classe/semestre específicos
+   * desta disciplina DENTRO DESTE plano de curso (é o que
+   * adicionarUcDoDepartamentoParaPlanoCurso grava). Como só as
+   * disciplinas de tronco comum têm registo em pgs, usamos
+   * COALESCE(pgs.*, g.*): disciplinas nativas continuam a usar a
+   * classe/semestre da própria grade (g.*), e as de tronco comum usam
+   * a classe/semestre atribuídos a este plano (pgs.*).
+   */
   private async findGradeCurso(
     params: FindGradeCursoDTO,
   ): Promise<FindGradeCursoReturnDTO[]> {
@@ -177,24 +195,27 @@ export class StudentsResultPlanService {
           s.DESIGNACAO   AS SEMESTRE,
           d.DESIGNACAO   AS DISCIPLINA,
           dur.DESIGNACAO AS DURACAO,
-          g.CODIGO_CLASSE,
+          COALESCE(pgs.CODIGO_CLASSE, g.CODIGO_CLASSE) AS CODIGO_CLASSE,
           cl.DESIGNACAO  AS CLASSE
         FROM FK2_TB_GRADE_CURRICULAR g
         INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE pg
           ON pg.CODIGO_GRADE_CURRICULAR = g.CODIGO
         INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pgc
           ON pgc.CODIGO = pg.CODIGO_PLANO_CURRICULAR_CURSO
+        LEFT JOIN FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pgs
+          ON pgs.CODIGO_PLANO_CURRICULAR_CURSO = pgc.CODIGO
+          AND pgs.CODIGO_GRADE_CURRICULAR      = g.CODIGO
         INNER JOIN FK2_TB_DISCIPLINAS d
           ON d.CODIGO = g.CODIGO_DISCIPLINA
         INNER JOIN FK2_TB_CLASSES cl
-          ON cl.CODIGO = g.CODIGO_CLASSE
+          ON cl.CODIGO = COALESCE(pgs.CODIGO_CLASSE, g.CODIGO_CLASSE)
         INNER JOIN FK2_TB_SEMESTRES s
-          ON s.CODIGO = g.CODIGO_SEMESTRE
+          ON s.CODIGO = COALESCE(pgs.CODIGO_SEMESTRE, g.CODIGO_SEMESTRE)
         INNER JOIN FK2_TB_DURACAO dur
           ON dur.CODIGO = d.DURACAO
-        WHERE g.CODIGO_CURSO = :codigoCurso
-          AND g.STATUS_      = 1
-          AND d.STATUS_      = 1
+        WHERE pgc.CODIGO_CURSO = :codigoCurso
+          AND g.STATUS_        = 1
+          AND d.STATUS_        = 1
       ),
       aluno_base AS (
         SELECT

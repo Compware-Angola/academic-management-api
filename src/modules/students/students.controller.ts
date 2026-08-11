@@ -78,7 +78,7 @@ import { GetConfirmationDTO } from './dto/get-confirmation.dto';
 import { AtualizarEstadoGradeCurricularDto } from './dto/duplicate-uc.dto';
 import { FindStudentCurriculumQueryDTO } from './dto/find-student-curriculum.dto';
 import { GetGradePosGraduacaoDto } from './dto/get-grade-pos-graduacao';
-//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @ApiTags('Students')
 @Controller('students')
 export class StudentsController {
@@ -546,7 +546,7 @@ export class StudentsController {
   findMigrationNote(@Param('matricula', ParseIntPipe) matricula: number) {
     return this.equivalenceTFMigration.findAll(matricula);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Delete('equivalence-migration-tfc/:codigoGradeAluno')
   @ApiOperation({ summary: 'Obter notas equivalencia' })
   @ApiResponse({
@@ -563,7 +563,7 @@ export class StudentsController {
       `Utilizador ${req.user?.nome} eliminou a grade curricular do aluno ${codigoGradeAluno} `,
     );
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Post('equivalence-migration-tfc')
   async launchNotes(
     @Body(ValidationPipe) body: CreateEquivalenceTFCMigration,
