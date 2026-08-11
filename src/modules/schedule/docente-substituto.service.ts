@@ -1,4 +1,3 @@
-
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -16,14 +15,21 @@ export class DocenteSubstitutoService {
   ) {}
 
   // ==================== CREATE ====================
-async create(
-  userId: number = 1,
-  dto: CreateDocenteSubstitutoDto,
-): Promise<any> {
-  const { fkDocenteOriginal, fkDocenteSubstituto, fkHorario, dataInicio, dataTermino, obs = null } = dto;
+  async create(
+    userId: number = 1,
+    dto: CreateDocenteSubstitutoDto,
+  ): Promise<any> {
+    const {
+      fkDocenteOriginal,
+      fkDocenteSubstituto,
+      fkHorario,
+      dataInicio,
+      dataTermino,
+      obs = null,
+    } = dto;
 
-  // ====================== VERIFICAÇÃO ANTES DE INSERIR ======================
-  const checkQuery = `
+    // ====================== VERIFICAÇÃO ANTES DE INSERIR ======================
+    const checkQuery = `
     SELECT COUNT(*) AS TOTAL 
     FROM MGH_TB_AULA_DOCENTE_SUBSTITUTO 
     WHERE FK_HORARIO = :fkHorario 
@@ -31,22 +37,22 @@ async create(
       AND (DATA_TERMINO IS NULL OR DATA_TERMINO >= SYSDATE)
   `;
 
-  const checkResult = await this.dataSource.query(checkQuery, {
-    fkHorario,
-  } as any);
+    const checkResult = await this.dataSource.query(checkQuery, {
+      fkHorario,
+    } as any);
 
-  const alreadyExists = checkResult[0]?.TOTAL > 0;
+    const alreadyExists = checkResult[0]?.TOTAL > 0;
 
-  if (alreadyExists) {
-    throw new BadRequestException(
-      `Este horário (ID: ${fkHorario}) já possui uma substituição ativa. ` +
-      `Não é possível criar outra substituição para o mesmo horário.`
-    );
-  }
+    if (alreadyExists) {
+      throw new BadRequestException(
+        `Este horário (ID: ${fkHorario}) já possui uma substituição ativa. ` +
+          `Não é possível criar outra substituição para o mesmo horário.`,
+      );
+    }
 
-  // ====================== INSERÇÃO ======================
-  const result = await this.dataSource.query(
-    `
+    // ====================== INSERÇÃO ======================
+    const result = await this.dataSource.query(
+      `
     INSERT INTO MGH_TB_AULA_DOCENTE_SUBSTITUTO (
       FK_DOCENTE_ORIGINAL,
       FK_DOCENTE_SUBSTITUTO,
@@ -73,55 +79,55 @@ async create(
       1
     ) RETURNING PK_AULA_DOCENTE_SUBSTITUTO INTO :outId
     `,
-    {
-      fkDocenteOriginal: fkDocenteOriginal || null,
+      {
+        fkDocenteOriginal: fkDocenteOriginal || null,
+        fkDocenteSubstituto,
+        fkHorario,
+        dataInicio,
+        dataTermino: dataTermino || null,
+        obs,
+        userId,
+        outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+      } as any,
+    );
+
+    return {
+      success: true,
+      message: 'Docente substituto criado com sucesso!',
+      id: result.outId[0],
+    };
+  }
+
+  async findAll(filters: ListDocenteSubstitutoDto): Promise<any> {
+    const {
+      anoLectivo,
+      semestre,
+      periodo,
+      curso,
+      anoCurricular,
+      unidadeCurricular,
+      fkDocenteOriginal,
       fkDocenteSubstituto,
       fkHorario,
       dataInicio,
-      dataTermino: dataTermino || null,
-      obs,
-      userId,
-      outId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-    } as any,
-  );
+      dataTermino,
+      page = 1,
+      limit = 25,
+    } = filters;
 
-  return {
-    success: true,
-    message: 'Docente substituto criado com sucesso!',
-    id: result.outId[0],
-  };
-}
+    if (!anoLectivo) {
+      throw new BadRequestException('O campo anoLectivo é obrigatório');
+    }
 
-async findAll(filters: ListDocenteSubstitutoDto): Promise<any> {
-  const {
-    anoLectivo,
-    semestre,
-    periodo,
-    curso,
-    anoCurricular,
-    unidadeCurricular,
-    fkDocenteOriginal,
-    fkDocenteSubstituto,
-    fkHorario,
-    dataInicio,
-    dataTermino,
-    page = 1,
-    limit = 25,
-  } = filters;
+    const offset = (page - 1) * limit;
 
-  if (!anoLectivo) {
-    throw new BadRequestException('O campo anoLectivo é obrigatório');
-  }
+    const params: any = {
+      anoLectivo,
+      offset,
+      limit: offset + limit,
+    };
 
-  const offset = (page - 1) * limit;
-
-  const params: any = {
-    anoLectivo,
-    offset,
-    limit: offset + limit,
-  };
-
-  let sql = `
+    let sql = `
     SELECT *
     FROM (
       SELECT
@@ -207,30 +213,30 @@ async findAll(filters: ListDocenteSubstitutoDto): Promise<any> {
           AND TO_NUMBER(NULLIF(h."FK_ANO_LECTIVO", '')) = :anoLectivo
   `;
 
-  // ===== FILTROS OPCIONAIS =====
+    // ===== FILTROS OPCIONAIS =====
 
-  if (semestre != null) {
-    sql += ` AND TO_NUMBER(NULLIF(h."FK_SEMESTRE", '')) = :semestre`;
-    params.semestre = semestre;
-  }
+    if (semestre != null) {
+      sql += ` AND TO_NUMBER(NULLIF(h."FK_SEMESTRE", '')) = :semestre`;
+      params.semestre = semestre;
+    }
 
-  if (periodo != null) {
-    sql += ` AND TO_NUMBER(NULLIF(h."FK_PERIODO", '')) = :periodo`;
-    params.periodo = periodo;
-  }
+    if (periodo != null) {
+      sql += ` AND TO_NUMBER(NULLIF(h."FK_PERIODO", '')) = :periodo`;
+      params.periodo = periodo;
+    }
 
-  if (unidadeCurricular != null) {
-    sql += ` AND h."FK_GRADE_CURRICULAR" = :unidadeCurricular`;
-    params.unidadeCurricular = unidadeCurricular;
-  }
+    if (unidadeCurricular != null) {
+      sql += ` AND h."FK_GRADE_CURRICULAR" = :unidadeCurricular`;
+      params.unidadeCurricular = unidadeCurricular;
+    }
 
-  if (anoCurricular != null) {
-    sql += ` AND g."CODIGO_CLASSE" = :anoCurricular`;
-    params.anoCurricular = anoCurricular;
-  }
+    if (anoCurricular != null) {
+      sql += ` AND g."CODIGO_CLASSE" = :anoCurricular`;
+      params.anoCurricular = anoCurricular;
+    }
 
-  if (curso != null) {
-    sql += `
+    if (curso != null) {
+      sql += `
       AND (
         (
           (SELECT curs."GRAU" FROM "FK2_TB_CURSOS" curs
@@ -245,39 +251,39 @@ async findAll(filters: ListDocenteSubstitutoDto): Promise<any> {
         )
       )
     `;
-    params.curso = curso;
-  }
+      params.curso = curso;
+    }
 
-  // Filtro docente original via JSON do REF_DOCENTE da aula
-  if (fkDocenteOriginal != null) {
-    sql += ` AND TO_NUMBER(json_value(a."REF_DOCENTE", '$.pkDocente')) = :fkDocenteOriginal`;
-    params.fkDocenteOriginal = fkDocenteOriginal;
-  }
+    // Filtro docente original via JSON do REF_DOCENTE da aula
+    if (fkDocenteOriginal != null) {
+      sql += ` AND TO_NUMBER(json_value(a."REF_DOCENTE", '$.pkDocente')) = :fkDocenteOriginal`;
+      params.fkDocenteOriginal = fkDocenteOriginal;
+    }
 
-  // Filtro docente substituto via FK directa na tabela de docentes
-  if (fkDocenteSubstituto != null) {
-    sql += ` AND s."FK_DOCENTE_SUBSTITUTO" = :fkDocenteSubstituto`;
-    params.fkDocenteSubstituto = fkDocenteSubstituto;
-  }
+    // Filtro docente substituto via FK directa na tabela de docentes
+    if (fkDocenteSubstituto != null) {
+      sql += ` AND s."FK_DOCENTE_SUBSTITUTO" = :fkDocenteSubstituto`;
+      params.fkDocenteSubstituto = fkDocenteSubstituto;
+    }
 
-  if (fkHorario != null) {
-    sql += ` AND s."FK_HORARIO" = :fkHorario`;
-    params.fkHorario = fkHorario;
-  }
+    if (fkHorario != null) {
+      sql += ` AND s."FK_HORARIO" = :fkHorario`;
+      params.fkHorario = fkHorario;
+    }
 
-  // Filtro por período da substituição
-  if (dataInicio != null) {
-    sql += ` AND s."DATA_INICIO" >= TO_DATE(:dataInicio, 'YYYY-MM-DD')`;
-    params.dataInicio = dataInicio;
-  }
+    // Filtro por período da substituição
+    if (dataInicio != null) {
+      sql += ` AND s."DATA_INICIO" >= TO_DATE(:dataInicio, 'YYYY-MM-DD')`;
+      params.dataInicio = dataInicio;
+    }
 
-  if (dataTermino != null) {
-    sql += ` AND s."DATA_TERMINO" <= TO_DATE(:dataTermino, 'YYYY-MM-DD')`;
-    params.dataTermino = dataTermino;
-  }
+    if (dataTermino != null) {
+      sql += ` AND s."DATA_TERMINO" <= TO_DATE(:dataTermino, 'YYYY-MM-DD')`;
+      params.dataTermino = dataTermino;
+    }
 
-  // ===== FECHO DA QUERY =====
-  sql += `
+    // ===== FECHO DA QUERY =====
+    sql += `
       ) dados
     )
     WHERE rn > :offset
@@ -285,28 +291,28 @@ async findAll(filters: ListDocenteSubstitutoDto): Promise<any> {
     ORDER BY rn
   `;
 
-  const result = await this.dataSource.query(sql, params);
+    const result = await this.dataSource.query(sql, params);
 
-  const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
+    const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
 
-  const data = result.map((row: any) => {
-    const { RN, TOTAL_REGISTROS, ...item } = row;
-    return item;
-  });
+    const data = result.map((row: any) => {
+      const { RN, TOTAL_REGISTROS, ...item } = row;
+      return item;
+    });
 
-  return {
-    data: await toLowerCaseKeys(data),
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit),
-  };
-}
+    return {
+      data: await toLowerCaseKeys(data),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
 
   // ==================== FIND ONE ====================
-async findOne(id: number): Promise<any> {
-  const rows = await this.dataSource.query(
-    `
+  async findOne(id: number): Promise<any> {
+    const rows = await this.dataSource.query(
+      `
     SELECT
       s.PK_AULA_DOCENTE_SUBSTITUTO                         AS "CODIGO",
 
@@ -359,7 +365,7 @@ async findOne(id: number): Promise<any> {
       TO_CHAR(s.CREATED_AT, 'DD/MM/YYYY HH24:MI')          AS "DATACRIACAO",
       TO_CHAR(s.UPDATED_AT, 'DD/MM/YYYY HH24:MI')          AS "DATAATUALIZACAO"
 
-    FROM CMPDEV.MGH_TB_AULA_DOCENTE_SUBSTITUTO s
+    FROM MGH_TB_AULA_DOCENTE_SUBSTITUTO s
 
     -- Aula
     LEFT JOIN FK2_MGH_TB_AULA a
@@ -400,20 +406,20 @@ async findOne(id: number): Promise<any> {
     WHERE s.PK_AULA_DOCENTE_SUBSTITUTO = :id
       AND s.ACTIVE_STATE = 1
     `,
-    [id],
-  );
+      [id],
+    );
 
-  if (!rows || rows.length === 0) {
-    return { success: false, message: 'Registo não encontrado.' };
+    if (!rows || rows.length === 0) {
+      return { success: false, message: 'Registo não encontrado.' };
+    }
+
+    const row = rows[0];
+
+    return {
+      success: true,
+      data: (await toLowerCaseKeys([row]))[0],
+    };
   }
-
-  const row = rows[0];
-
-  return {
-    success: true,
-    data: (await toLowerCaseKeys([row]))[0],
-  };
-}
 
   // ==================== UPDATE ====================
   async update(
@@ -421,7 +427,14 @@ async findOne(id: number): Promise<any> {
     userId: number = 1,
     dto: CreateDocenteSubstitutoDto,
   ): Promise<any> {
-    const { fkDocenteOriginal, fkDocenteSubstituto, fkHorario, dataInicio, dataTermino, obs = null } = dto;
+    const {
+      fkDocenteOriginal,
+      fkDocenteSubstituto,
+      fkHorario,
+      dataInicio,
+      dataTermino,
+      obs = null,
+    } = dto;
 
     await this.dataSource.query(
       `
