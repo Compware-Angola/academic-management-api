@@ -1058,7 +1058,7 @@ END AS RESULTADO
           String(candidate.CURSO_CANDIDATURA),
           candidate.ANO_LECTIVO_ID,
         ]);
-
+        console.log('Exams: ', exams);
         if (exams.length === 0) {
           throw new NotFoundException(
             'Nenhuma prova encontrada para o curso e ano lectivo do candidato.',
@@ -1487,6 +1487,18 @@ END AS RESULTADO
   }
 
   async resetarProva(codigoCandidato: number) {
+    const sqlCheck = `SELECT 1 FROM FK2_TB_ADMISSAO WHERE PRE_INCRICAO = :1`;
+    const checkResult = await this.dataSource.query(sqlCheck, [
+      codigoCandidato,
+    ]);
+
+    if (checkResult.length > 0) {
+      throw new HttpException(
+        'Não é possível resetar a prova de um candidato que já possui admissão.',
+        HttpStatus.CONFLICT,
+      );
+    }
+
     const sql = `
       UPDATE FK2_CANDIDATO_PROVAS
          SET STATUS_     = 0
