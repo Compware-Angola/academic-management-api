@@ -30,7 +30,7 @@ export class ExamesDeAcessoService {
     private readonly dataSource: DataSource,
     @InjectQueue('results_final_exam')
     private readonly resultsFinalExamQueue: Queue,
-  ) {}
+  ) { }
 
   async buscaCandidatos(filtros: FilterCandidatoDto) {
     const condicoes: string[] = [
@@ -386,14 +386,7 @@ export class ExamesDeAcessoService {
       params.push(filtros.dataRealizacao);
     }
 
-    // if (filtros.horaInicio) {
-    //   const [hh, mm, ss] = filtros.horaInicio.split(':').map(Number);
-    //   const nanos = hh * 3600000000000 + mm * 60000000000 + ss * 1000000000;
-    //   condicoes.push(
-    //     `TO_NUMBER(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1)) = :${paramIndex++}`,
-    //   );
-    //   params.push(nanos);
-    // }
+
     if (filtros.horaInicio) {
       condicoes.push(`
     fn_formatar_hora(
@@ -1473,10 +1466,10 @@ END AS RESULTADO
     const data = rows.map((row: any) => {
       const listaProvas = row.LISTA_DE_PROVAS
         ? row.LISTA_DE_PROVAS.replace(/^Prova de\\s*/i, '')
-            .split(/<br>/i)[0]
-            .split(',')
-            .map((s: string) => s.trim())
-            .filter((s: string) => s.length > 0)
+          .split(/<br>/i)[0]
+          .split(',')
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0)
         : [];
 
       return {
