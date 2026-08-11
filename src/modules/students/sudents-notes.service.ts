@@ -102,7 +102,6 @@ export class StudentNoteService {
 
                 ftgc.CODIGO_CURSO,
                 ftgc.CODIGO_DISCIPLINA,
-                ftgc.CODIGO_CLASSE,
                 ftgc.CODIGO_SEMESTRE,
                 ftgc.HORASTOTAIS,
                 ftgc.HORASTEORICAS,
@@ -131,7 +130,12 @@ export class StudentNoteService {
 
                 dc.DURACAO,
                 dc.DESIGNACAO AS DISCIPLINA,
-                cl.DESIGNACAO AS CLASSE,
+                CASE
+                    WHEN ftgc.type = 'DEPARTAMENTO'
+                    THEN COALESCE(clp.DESIGNACAO, cl.DESIGNACAO)
+                    ELSE cl.DESIGNACAO
+                END AS CLASSE,
+
                 drc.DESIGNACAO AS DURACAO_PLANO,
 
                 tm.Codigo AS numero_matricula,
@@ -162,6 +166,27 @@ export class StudentNoteService {
                 ON tc.Codigo = tm.Codigo_Curso
             INNER JOIN FK2_TB_PERIODOS tp3
                 ON tp3.Codigo = tp2.Codigo_Turno
+                LEFT JOIN (
+                    SELECT
+                        pcgs.CODIGO_GRADE_CURRICULAR,
+                        ppc.CODIGO_CURSO,
+                        pcgs.CODIGO_CLASSE,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY pcgs.CODIGO_GRADE_CURRICULAR, ppc.CODIGO_CURSO
+                            ORDER BY
+                                CASE WHEN ppc.CODIGO_ANO_LECTIVO = :anoLectivo THEN 0 ELSE 1 END,
+                                pcgs.CODIGO DESC
+                        ) AS RN
+                    FROM FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pcgs
+                    INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO ppc
+                            ON ppc.CODIGO = pcgs.CODIGO_PLANO_CURRICULAR_CURSO
+                ) dept_classe
+                    ON dept_classe.CODIGO_GRADE_CURRICULAR = ftgc.CODIGO
+                   AND ftgc.type = 'DEPARTAMENTO'
+                   AND dept_classe.CODIGO_CURSO = tm.CODIGO_CURSO
+                   AND dept_classe.RN = 1
+                LEFT JOIN FK2_TB_CLASSES clp
+                    ON clp.CODIGO = dept_classe.CODIGO_CLASSE
 
             WHERE 1=1
                 ---AND ftgca.CODIGO_GRADE_CURRICULAR = :grade
@@ -454,7 +479,7 @@ export class StudentNoteService {
           } else {
             const mediaFreq = this.round(
               (nota1f?.NOTA ?? 0) * (peso_primeira_freq / 100) +
-              (nota2f?.NOTA ?? 0) * (peso_segunda_freq / 100),
+                (nota2f?.NOTA ?? 0) * (peso_segunda_freq / 100),
             );
 
             if (hasPratica) {
@@ -621,7 +646,7 @@ export class StudentNoteService {
 
             media = this.round(
               notaTeorica * ((100 - peso_pratica) / 100) +
-              notaPra!.NOTA! * (peso_pratica / 100),
+                notaPra!.NOTA! * (peso_pratica / 100),
             );
 
             if (media >= 10) {
@@ -1073,10 +1098,11 @@ export class StudentNoteService {
              SET ESTADO = :novoEstado,
                  CODIGO_UTILIZADOR = :codigoUtilizador,
                  UPDATED_AT = SYSDATE
-                 ${codigoStatusGradeCurricular !== undefined
-          ? ', CODIGO_STATUS_GRADE_CURRICULAR = :codigoStatusGradeCurricular'
-          : ''
-        }
+                 ${
+                   codigoStatusGradeCurricular !== undefined
+                     ? ', CODIGO_STATUS_GRADE_CURRICULAR = :codigoStatusGradeCurricular'
+                     : ''
+                 }
            WHERE CODIGO = :codigo
       `,
         {
