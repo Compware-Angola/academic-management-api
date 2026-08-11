@@ -198,7 +198,7 @@ const mesTempConfig: MESTEMP[] = [
 
 const mesTempConfigDoutoramento: MESTEMP[] = [
   {
-    designacao: 'I',
+    designacao: "I",
     isencao: 0,
     ordem_mes: 1,
     ano_lectivo: 20,
@@ -211,9 +211,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'II',
+    designacao: "II",
     isencao: 0,
     ordem_mes: 2,
     ano_lectivo: 20,
@@ -226,9 +227,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'III',
+    designacao: "III",
     isencao: 0,
     ordem_mes: 3,
     ano_lectivo: 20,
@@ -241,9 +243,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'IV',
+    designacao: "IV",
     isencao: 0,
     ordem_mes: 4,
     ano_lectivo: 20,
@@ -256,9 +259,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'V',
+    designacao: "V",
     isencao: 0,
     ordem_mes: 5,
     ano_lectivo: 20,
@@ -271,9 +275,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'VI',
+    designacao: "VI",
     isencao: 0,
     ordem_mes: 6,
     ano_lectivo: 20,
@@ -286,9 +291,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'VII',
+    designacao: "VII",
     isencao: 0,
     ordem_mes: 7,
     ano_lectivo: 20,
@@ -301,9 +307,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'VIII',
+    designacao: "VIII",
     isencao: 0,
     ordem_mes: 8,
     ano_lectivo: 20,
@@ -316,9 +323,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'IX',
+    designacao: "IX",
     isencao: 0,
     ordem_mes: 9,
     ano_lectivo: 20,
@@ -331,9 +339,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'X',
+    designacao: "X",
     isencao: 0,
     ordem_mes: 10,
     ano_lectivo: 20,
@@ -346,9 +355,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XI',
+    designacao: "XI",
     isencao: 0,
     ordem_mes: 11,
     ano_lectivo: 20,
@@ -361,9 +371,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XII',
+    designacao: "XII",
     isencao: 0,
     ordem_mes: 12,
     ano_lectivo: 20,
@@ -376,9 +387,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XIII',
+    designacao: "XIII",
     isencao: 0,
     ordem_mes: 1,
     ano_lectivo: 20,
@@ -391,9 +403,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XIV',
+    designacao: "XIV",
     isencao: 0,
     ordem_mes: 2,
     ano_lectivo: 20,
@@ -406,9 +419,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XV',
+    designacao: "XV",
     isencao: 0,
     ordem_mes: 3,
     ano_lectivo: 20,
@@ -421,9 +435,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XVI',
+    designacao: "XVI",
     isencao: 0,
     ordem_mes: 4,
     ano_lectivo: 20,
@@ -436,9 +451,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XVII',
+    designacao: "XVII",
     isencao: 0,
     ordem_mes: 5,
     ano_lectivo: 20,
@@ -451,9 +467,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XVIII',
+    designacao: "XVIII",
     isencao: 0,
     ordem_mes: 6,
     ano_lectivo: 20,
@@ -466,9 +483,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XIX',
+    designacao: "XIX",
     isencao: 0,
     ordem_mes: 7,
     ano_lectivo: 20,
@@ -481,9 +499,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XX',
+    designacao: "XX",
     isencao: 0,
     ordem_mes: 8,
     ano_lectivo: 20,
@@ -496,9 +515,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XXI',
+    designacao: "XXI",
     isencao: 0,
     ordem_mes: 9,
     ano_lectivo: 20,
@@ -511,9 +531,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XXII',
+    designacao: "XXII",
     isencao: 0,
     ordem_mes: 10,
     ano_lectivo: 20,
@@ -526,9 +547,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XXIII',
+    designacao: "XXIII",
     isencao: 0,
     ordem_mes: 11,
     ano_lectivo: 20,
@@ -541,9 +563,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XXIV',
+    designacao: "XXIV",
     isencao: 0,
     ordem_mes: 12,
     ano_lectivo: 20,
@@ -556,9 +579,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XXV',
+    designacao: "XXV",
     isencao: 0,
     ordem_mes: 1,
     ano_lectivo: 20,
@@ -571,9 +595,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XXVI',
+    designacao: "XXVI",
     isencao: 0,
     ordem_mes: 2,
     ano_lectivo: 20,
@@ -586,9 +611,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XXVII',
+    designacao: "XXVII",
     isencao: 0,
     ordem_mes: 3,
     ano_lectivo: 20,
@@ -601,9 +627,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XXVIII',
+    designacao: "XXVIII",
     isencao: 0,
     ordem_mes: 4,
     ano_lectivo: 20,
@@ -616,9 +643,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XXIX',
+    designacao: "XXIX",
     isencao: 0,
     ordem_mes: 5,
     ano_lectivo: 20,
@@ -631,9 +659,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XXX',
+    designacao: "XXX",
     isencao: 0,
     ordem_mes: 6,
     ano_lectivo: 20,
@@ -646,9 +675,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XXXI',
+    designacao: "XXXI",
     isencao: 0,
     ordem_mes: 7,
     ano_lectivo: 20,
@@ -661,9 +691,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XXXII',
+    designacao: "XXXII",
     isencao: 0,
     ordem_mes: 8,
     ano_lectivo: 20,
@@ -676,9 +707,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XXXIII',
+    designacao: "XXXIII",
     isencao: 0,
     ordem_mes: 9,
     ano_lectivo: 20,
@@ -691,9 +723,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XXXIV',
+    designacao: "XXXIV",
     isencao: 0,
     ordem_mes: 10,
     ano_lectivo: 20,
@@ -706,9 +739,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XXXV',
+    designacao: "XXXV",
     isencao: 0,
     ordem_mes: 11,
     ano_lectivo: 20,
@@ -721,9 +755,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XXXVI',
+    designacao: "XXXVI",
     isencao: 0,
     ordem_mes: 12,
     ano_lectivo: 20,
@@ -736,9 +771,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XXXVII',
+    designacao: "XXXVII",
     isencao: 0,
     ordem_mes: 1,
     ano_lectivo: 20,
@@ -751,9 +787,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XXXVIII',
+    designacao: "XXXVIII",
     isencao: 0,
     ordem_mes: 2,
     ano_lectivo: 20,
@@ -766,9 +803,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XXXIX',
+    designacao: "XXXIX",
     isencao: 0,
     ordem_mes: 3,
     ano_lectivo: 20,
@@ -781,9 +819,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XL',
+    designacao: "XL",
     isencao: 0,
     ordem_mes: 4,
     ano_lectivo: 20,
@@ -796,9 +835,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XLI',
+    designacao: "XLI",
     isencao: 0,
     ordem_mes: 5,
     ano_lectivo: 20,
@@ -811,9 +851,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XLII',
+    designacao: "XLII",
     isencao: 0,
     ordem_mes: 6,
     ano_lectivo: 20,
@@ -826,9 +867,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XLIII',
+    designacao: "XLIII",
     isencao: 0,
     ordem_mes: 7,
     ano_lectivo: 20,
@@ -841,9 +883,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XLIV',
+    designacao: "XLIV",
     isencao: 0,
     ordem_mes: 8,
     ano_lectivo: 20,
@@ -856,9 +899,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XLV',
+    designacao: "XLV",
     isencao: 0,
     ordem_mes: 9,
     ano_lectivo: 20,
@@ -871,9 +915,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XLVI',
+    designacao: "XLVI",
     isencao: 0,
     ordem_mes: 10,
     ano_lectivo: 20,
@@ -886,9 +931,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XLVII',
+    designacao: "XLVII",
     isencao: 0,
     ordem_mes: 11,
     ano_lectivo: 20,
@@ -901,9 +947,10 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XLVIII',
+    designacao: "XLVIII",
     isencao: 0,
     ordem_mes: 12,
     ano_lectivo: 20,
@@ -916,12 +963,13 @@ const mesTempConfigDoutoramento: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
-  },
-];
+
+  }
+]
 
 const mesTempConfigMestrado: MESTEMP[] = [
   {
-    designacao: 'I',
+    designacao: "I",
     isencao: 0,
     ordem_mes: 1,
     ano_lectivo: 19,
@@ -936,7 +984,7 @@ const mesTempConfigMestrado: MESTEMP[] = [
     semestre_posgraduacao: 1,
   },
   {
-    designacao: 'II',
+    designacao: "II",
     isencao: 0,
     ordem_mes: 2,
     ano_lectivo: 19,
@@ -949,10 +997,11 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
 
   {
-    designacao: 'III',
+    designacao: "III",
     isencao: 0,
     ordem_mes: 3,
     ano_lectivo: 19,
@@ -965,9 +1014,10 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'IV',
+    designacao: "IV",
     isencao: 0,
     ordem_mes: 4,
     ano_lectivo: 19,
@@ -980,9 +1030,10 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'V',
+    designacao: "V",
     isencao: 0,
     ordem_mes: 5,
     ano_lectivo: 19,
@@ -995,9 +1046,10 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'VI',
+    designacao: "VI",
     isencao: 0,
     ordem_mes: 6,
     ano_lectivo: 19,
@@ -1010,9 +1062,10 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'VII',
+    designacao: "VII",
     isencao: 0,
     ordem_mes: 7,
     ano_lectivo: 19,
@@ -1025,10 +1078,11 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
 
   {
-    designacao: 'VIII',
+    designacao: "VIII",
     isencao: 0,
     ordem_mes: 8,
     ano_lectivo: 19,
@@ -1041,10 +1095,11 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
 
   {
-    designacao: 'IX',
+    designacao: "IX",
     isencao: 0,
     ordem_mes: 9,
     ano_lectivo: 19,
@@ -1057,10 +1112,11 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
 
   {
-    designacao: 'X',
+    designacao: "X",
     isencao: 0,
     ordem_mes: 10,
     ano_lectivo: 19,
@@ -1073,10 +1129,11 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
 
   {
-    designacao: 'XI',
+    designacao: "XI",
     isencao: 0,
     ordem_mes: 11,
     ano_lectivo: 19,
@@ -1089,10 +1146,11 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
 
   {
-    designacao: 'XII',
+    designacao: "XII",
     isencao: 0,
     ordem_mes: 12,
     ano_lectivo: 19,
@@ -1105,9 +1163,10 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XIII',
+    designacao: "XIII",
     isencao: 0,
     ordem_mes: 1,
     ano_lectivo: 19,
@@ -1120,10 +1179,11 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
 
   {
-    designacao: 'XIV',
+    designacao: "XIV",
     isencao: 0,
     ordem_mes: 2,
     ano_lectivo: 19,
@@ -1136,9 +1196,10 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XV',
+    designacao: "XV",
     isencao: 0,
     ordem_mes: 3,
     ano_lectivo: 19,
@@ -1151,9 +1212,10 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XVI',
+    designacao: "XVI",
     isencao: 0,
     ordem_mes: 4,
     ano_lectivo: 19,
@@ -1166,9 +1228,10 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XVII',
+    designacao: "XVII",
     isencao: 0,
     ordem_mes: 5,
     ano_lectivo: 19,
@@ -1181,9 +1244,10 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XVIII',
+    designacao: "XVIII",
     isencao: 0,
     ordem_mes: 6,
     ano_lectivo: 19,
@@ -1196,9 +1260,10 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 1,
     semestre_posgraduacao: 1,
+
   },
   {
-    designacao: 'XIX',
+    designacao: "XIX",
     isencao: 0,
     ordem_mes: 7,
     ano_lectivo: 19,
@@ -1211,9 +1276,10 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XX',
+    designacao: "XX",
     isencao: 0,
     ordem_mes: 8,
     ano_lectivo: 19,
@@ -1226,9 +1292,10 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XXI',
+    designacao: "XXI",
     isencao: 0,
     ordem_mes: 9,
     ano_lectivo: 19,
@@ -1241,9 +1308,10 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XXII',
+    designacao: "XXII",
     isencao: 0,
     ordem_mes: 10,
     ano_lectivo: 19,
@@ -1256,9 +1324,10 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XXIII',
+    designacao: "XXIII",
     isencao: 0,
     ordem_mes: 11,
     ano_lectivo: 19,
@@ -1271,9 +1340,10 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
+
   },
   {
-    designacao: 'XXIV',
+    designacao: "XXIV",
     isencao: 0,
     ordem_mes: 12,
     ano_lectivo: 19,
@@ -1286,7 +1356,10 @@ const mesTempConfigMestrado: MESTEMP[] = [
     data_final_desconto: null,
     semestre: 2,
     semestre_posgraduacao: 2,
-  },
-];
+
+  }
+]
 
 export { mesTempConfig, mesTempConfigDoutoramento, mesTempConfigMestrado };
+
+

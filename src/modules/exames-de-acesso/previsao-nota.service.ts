@@ -137,6 +137,19 @@ export class PrevisaoNotaService {
             params.push(filtros.codigoAnoLetivo);
         }
 
+        if (filtros.search) {
+            const nomeIndex = paramIndex++;
+            const biIndex = paramIndex++;
+            condicoes.push(`(
+        UPPER(FK2_TB_PREINSCRICAO.NOME_COMPLETO) LIKE UPPER(:${nomeIndex})
+        OR UPPER(FK2_TB_PREINSCRICAO.BILHETE_IDENTIDADE) LIKE UPPER(:${biIndex})
+      )`);
+            const termo = `%${filtros.search.trim()}%`;
+            params.push(termo, termo);
+        }
+        // Nunca deve trazer candidatos sem prova atribuída, independente de filtros
+        condicoes.push(`FK2_CANDIDATO_PROVAS.PROVA_ID IS NOT NULL`);
+
         const extraWhere =
             condicoes.length > 0 ? condicoes.map((c) => `AND ${c}`).join('\n') : '';
 

@@ -169,7 +169,7 @@ export class MarkingAssessmentService {
     if (isComProva) {
       const baseWhere = `
         1=1
-        AND (:semestre                IS NULL OR tgc.Codigo_Semestre = :semestre)
+        AND (:semestre                IS NULL OR tt.FK_SEMESTRE = :semestre)
         AND (:curso                   IS NULL OR tc.Codigo = :curso)
         AND (:anoCurricular           IS NULL OR tc2.Codigo = :anoCurricular)
         AND (:anoLectivo              IS NULL OR tal.Codigo = :anoLectivo)
@@ -234,7 +234,7 @@ export class MarkingAssessmentService {
             ON ts.Codigo = tcp.codigo_sala
         INNER JOIN fk2_mcal_tb_prazo prazo
             ON JSON_VALUE(tcp.ref_prazo, '$.pk_prazo') = prazo.pk_prazo
-        INNER JOIN fk2_tb_faculdade tf
+        LEFT JOIN fk2_tb_faculdade tf
             ON tc.faculdade_id = tf.codigo
         INNER JOIN fk2_mcal_tb_tipo_avaliacao mtta
             ON mtta.pk_tipo_avaliacao = prazo.fk_tipo_avaliacao
@@ -295,7 +295,7 @@ export class MarkingAssessmentService {
         SELECT
           td.Designacao        AS disciplina,
           th.Designacao        AS horario,
-          gc.Codigo_Semestre   AS semestre,
+          th.FK_SEMESTRE       AS semestre,
           tc.Designacao        AS curso,
           th.PK_HORARIO        AS codigo_horario,
           gc.Codigo_Classe     AS classe,
@@ -321,7 +321,7 @@ export class MarkingAssessmentService {
         WHERE 1=1
           AND JSON_VALUE(th.ref_ano_lectivo, '$.pk') = :anoLectivo
           AND (:curso                   is null or  gc.Codigo_Curso = :curso )
-          AND (:semestre                is null or  gc.Codigo_Semestre = :semestre)
+          AND (:semestre                is null or  th.FK_SEMESTRE = :semestre)
           AND (:anoCurricular           is null or  gc.Codigo_Classe   = :anoCurricular)
           AND (:horarioId               is null or  th.PK_HORARIO = :horarioId)
           AND (:unidadeCurricular       is null or  th.FK_GRADE_CURRICULAR = :unidadeCurricular)
@@ -352,7 +352,7 @@ export class MarkingAssessmentService {
       WHERE 1=1
         AND JSON_VALUE(th.ref_ano_lectivo, '$.pk') = :anoLectivo
         AND (:curso             IS NULL OR gc.Codigo_Curso   = :curso)
-        AND (:semestre          IS NULL OR gc.Codigo_Semestre = :semestre)
+        AND (:semestre          IS NULL OR th.FK_SEMESTRE = :semestre)
         AND (:anoCurricular     IS NULL OR gc.Codigo_Classe   = :anoCurricular)
         AND (:horarioId         IS NULL OR th.PK_HORARIO      = :horarioId)
         AND (:unidadeCurricular IS NULL OR th.FK_GRADE_CURRICULAR = :unidadeCurricular)

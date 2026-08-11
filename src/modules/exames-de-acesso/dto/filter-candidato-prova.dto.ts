@@ -48,4 +48,9 @@ export class FilterCandidatoProvaDto {
   @IsNumber()
   @Type(() => Number)
   limit?: number = 10;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsString()
+  search?: string;
 }

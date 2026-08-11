@@ -1,32 +1,37 @@
-import {
-  IsArray,
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  ArrayMinSize,
-  ArrayUnique,
-} from 'class-validator';
+// dto/create-unidade-curricular.dto.ts
+import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsInt, IsNumber, IsPositive } from 'class-validator';
 
-export class CreateUnidadesCurricularesDto {
-  @IsArray()
-  @ArrayMinSize(1)
-  @ArrayUnique()
-  @IsInt({ each: true })
-  codigosDisciplina: number[];
+export class CreateUnidadeCurricularDto {
+  @ApiProperty({ example: 1, description: 'Código da disciplina' })
+  @IsNumber()
+  @IsPositive()
+  @Type(() => Number)
+  codigoDisciplina: number;
 
-  @IsInt()
-  @IsNotEmpty()
+  @ApiProperty({ example: 23, description: 'Código do ano lectivo' })
+  @IsNumber()
+  @IsPositive()
+  @Type(() => Number)
   codigoAnoLectivo: number;
 
+  @ApiProperty({ example: 1, description: 'Código do semestre' })
   @IsInt()
-  @IsNotEmpty()
-  codigoCurso: number;
+  @IsPositive()
+  @Type(() => Number)
+  codigoSemestre: number;
 
+  @ApiProperty({ example: 1, description: 'Código da classe' })
   @IsInt()
-  @IsNotEmpty()
+  @IsPositive()
+  @Type(() => Number)
   codigoClasse: number;
 
-  @IsOptional()
+  @ApiProperty({ example: 1, description: 'Código do curso' })
   @IsInt()
-  codigoSemestre: number;
+  @IsPositive()
+  @Type(() => Number)
+  codigoCurso: number;
+
 }

@@ -80,6 +80,23 @@ export class AttendanceListService {
         : `(is_bolseiro = 1 OR mes_pago >= :prestacao)`;
 
     const sql = `
+WITH grade_curricular_dept AS (
+  -- Só existe para grades do tipo DEPARTAMENTO (tronco comum).
+  -- Resolve curso/classe reais via plano curricular do aluno;
+  -- se não houver plano vinculado, os campos ficam NULL e quem
+  -- consome esta CTE cai no fallback da própria grade (default 999).
+  SELECT
+    g.codigo              AS codigo_grade_curricular,
+    ppc.codigo_curso       AS codigo_curso_plano,
+    pcgs.codigo_classe     AS codigo_classe_plano,
+    ppc.codigo_ano_lectivo AS codigo_ano_lectivo_plano
+  FROM FK2_TB_GRADE_CURRICULAR g
+    LEFT JOIN FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pcgs
+           ON pcgs.codigo_grade_curricular = g.codigo
+    LEFT JOIN FK2_TB_PLANO_CURRICULAR_CURSO ppc
+           ON ppc.codigo = pcgs.codigo_plano_curricular_curso
+  WHERE g.type = 'DEPARTAMENTO'
+)
 SELECT * FROM (
   SELECT
     m.codigo AS numero_matricula,
@@ -103,8 +120,18 @@ SELECT * FROM (
   INNER JOIN fk2_tb_admissao ad ON ad.codigo = m.codigo_aluno
   INNER JOIN fk2_tb_preinscricao pre ON pre.codigo = ad.pre_incricao
   INNER JOIN fk2_tb_cursos cc on cc.codigo = m.codigo_curso
-  INNER JOIN FK2_TB_GRADE_CURRICULAR gg on gg.codigo = al.CODIGO_GRADE_CURRICULAR
-  INNER JOIN FK2_TB_CLASSES cl on cl.codigo = gg.CODIGO_CLASSE
+  INNER JOIN FK2_TB_GRADE_CURRICULAR g
+          ON g.codigo = al.CODIGO_GRADE_CURRICULAR
+  LEFT JOIN grade_curricular_dept gd
+         ON gd.codigo_grade_curricular = g.codigo
+        AND (gd.codigo_ano_lectivo_plano IS NULL OR gd.codigo_ano_lectivo_plano = al.CODIGO_ANO_LECTIVO)
+        AND (gd.codigo_curso_plano IS NULL OR gd.codigo_curso_plano = m.CODIGO_CURSO)
+  INNER JOIN FK2_TB_CLASSES cl
+          ON cl.codigo = CASE
+                            WHEN g.type = 'DEPARTAMENTO'
+                            THEN COALESCE(gd.codigo_classe_plano, g.codigo_classe)
+                            ELSE g.codigo_classe
+                          END
   LEFT JOIN FK2_MGH_TB_HORARIO hr on hr.PK_HORARIO = JSON_VALUE(al.REF_HORARIO, '$.pk')
   LEFT JOIN FK2_TB_PERIODOS pp on pp.codigo = hr.FK_PERIODO
   LEFT JOIN (
@@ -144,7 +171,7 @@ SELECT * FROM (
   WHERE
     JSON_VALUE(al.REF_HORARIO, '$.pk') = :horarioPk
     AND al.CODIGO_ANO_LECTIVO = :anoLectivo
-    AND al.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 4,1)
+    AND al.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 4)
     AND (:nome IS NULL OR fn_remove_acentos(UPPER(pre.nome_completo)) LIKE '%' || fn_remove_acentos(UPPER(:nome)) || '%')
     AND (:codigoMatricula IS NULL OR m.codigo = :codigoMatricula)
 )
@@ -164,7 +191,6 @@ ORDER BY nome ASC
       },
     };
   }
-
   // ---------- 3. Formatar linhas (compartilhado) ----------
 
   private formatAttendanceRows(rows: any[]) {

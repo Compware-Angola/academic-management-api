@@ -26,10 +26,11 @@ export class PreRegistrationService {
   async create(dto: CreatePreRegistrationDto, userId: number) {
     await this.assertUniqueBI(dto.bilheteIdentidade);
     await this.assertUniqueEmail(dto.email);
-
     if (!dto.anoLectivoId) {
-      throw new ConflictException("O Ano Lectivo eobrigatorio!")
+      throw new ConflictException('O Ano lectivo e obrigatorio!');
     }
+
+
 
     const result = await this.dataSource.query(
       `
