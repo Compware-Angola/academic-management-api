@@ -30,6 +30,7 @@ import { ConfigurationPlaneService } from './configuration-plane.service';
 import { ToggleStatusGradeCurricularDto } from './dto/toggle-status-grade-curricular.dto';
 import { FindGradeCurricularAdminDto } from './dto/find-grade-curricular-admin.dto';
 import { CreateUCTroncoComumPlanoCursoDto } from './dto/create-uc-tronco-comum-plano-curso.dto';
+import { CreateUnidadesCurricularesDto } from './dto/add-uc-to-plan.dto';
 
 @ApiTags('DISCIPLINAS')
 @Controller('discipline')
@@ -37,7 +38,7 @@ export class DisciplineController {
   constructor(
     private readonly disciplineService: DisciplineService,
     private readonly configurationPlaneService: ConfigurationPlaneService,
-  ) { }
+  ) {}
 
   @Post()
   @ApiOperation({
@@ -57,6 +58,22 @@ export class DisciplineController {
   async createDisciplina(@Body() dto: CreateDisciplinaDto) {
     const pkUtilizador = 1;
     return this.disciplineService.createDisciplina(dto, pkUtilizador);
+  }
+
+  @Post('plano-curricular/lote')
+  @ApiOperation({
+    summary: 'adicionar múltiplas UC ao plano',
+    description: 'Adiciona uma ou mais UC ao plano curricular do curso.',
+  })
+  @HttpCode(HttpStatus.CREATED)
+  async adicionarUnidadesCurricularesNoPlano(
+    @Body() dto: CreateUnidadesCurricularesDto,
+  ) {
+    const codigoUtilizador = 1;
+    return this.disciplineService.adicionarUnidadesCurricularesNoPlano(
+      dto,
+      codigoUtilizador,
+    );
   }
   @Post('add-grade-curricular-plano-massa')
   @ApiBody({ type: CreatePlanoGradeCurricularEmMassaDto })
@@ -95,7 +112,6 @@ export class DisciplineController {
     @Query(ValidationPipe) query: FindDisciplinaAlunoDTO,
     @Req() req: any,
   ) {
-
     return this.disciplineService.findGradeCurricularAluno(query);
   }
 
@@ -190,7 +206,10 @@ export class DisciplineController {
     @Body() dto: CreateUCTroncoComumPlanoCursoDto,
   ) {
     const codigoUtilizador = 1;
-    return this.disciplineService.adicionarUcDoDepartamentoParaPlanoCurso(dto, codigoUtilizador);
+    return this.disciplineService.adicionarUcDoDepartamentoParaPlanoCurso(
+      dto,
+      codigoUtilizador,
+    );
   }
   @Get('departamento')
   @ApiOperation({
