@@ -28,6 +28,7 @@ export class UnidadeCurricularJaNoPlanoException extends ConflictException {
     super(mensagem);
   }
 }
+import { ConsultarVinculacaoGradeDto } from './dto/ConsultarVinculacaoGradeDto';
 
 @Injectable()
 export class DisciplineService {
@@ -1572,6 +1573,57 @@ export class DisciplineService {
       totalErros: cursosComErro.length,
       sucesso: cursosComSucesso,
       erros: cursosComErro,
+    };
+  }
+  async consultarCursosVinculadosGrade(dto: ConsultarVinculacaoGradeDto) {
+    const { codigoGrade, anoLetivo, codigoCurso } = dto;
+
+    const gradeExiste = await this.dataSource.query(
+      `SELECT CODIGO FROM FK2_TB_GRADE_CURRICULAR WHERE CODIGO = :codigoGrade`,
+      { codigoGrade } as any,
+    );
+    if (gradeExiste.length === 0) {
+      throw new NotFoundException(`Grade ${codigoGrade} não encontrada.`);
+    }
+
+    const filtroCurso = codigoCurso ? 'AND pcc.CODIGO_CURSO = :codigoCurso' : '';
+
+    const resultado = await this.dataSource.query(
+      `
+    SELECT
+      pcc.CODIGO_CURSO             AS CODIGO_CURSO,
+      cur.DESIGNACAO                AS NOME_CURSO,
+      pcgs.CODIGO_CLASSE            AS CODIGO_CLASSE,
+      cl.DESIGNACAO                 AS NOME_CLASSE,
+      pcgs.CODIGO_SEMESTRE          AS CODIGO_SEMESTRE,
+      pcgs.CODIGO_GRADE_CURRICULAR  AS CODIGO_GRADE,
+      pcc.CODIGO                    AS CODIGO_PLANO_CURRICULAR_CURSO
+    FROM FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pcgs
+    JOIN FK2_TB_PLANO_CURRICULAR_CURSO pcc
+      ON pcc.CODIGO = pcgs.CODIGO_PLANO_CURRICULAR_CURSO
+    JOIN FK2_TB_CURSOS cur
+      ON cur.CODIGO = pcc.CODIGO_CURSO
+    JOIN FK2_TB_CLASSES cl
+      ON cl.CODIGO = pcgs.CODIGO_CLASSE
+    WHERE pcgs.CODIGO_GRADE_CURRICULAR = :codigoGrade
+      AND pcc.CODIGO_ANO_LECTIVO = :anoLetivo
+      ${filtroCurso}
+    ORDER BY cur.DESIGNACAO, cl.DESIGNACAO, pcgs.CODIGO_SEMESTRE
+    `,
+      { codigoGrade, anoLetivo, ...(codigoCurso ? { codigoCurso } : {}) } as any,
+    );
+
+    return {
+      codigoGrade,
+      anoLetivo,
+      total: resultado.length,
+      vinculos: resultado.map((r) => ({
+        codigoCurso: r.CODIGO_CURSO,
+        nomeCurso: r.NOME_CURSO,
+        codigoClasse: r.CODIGO_CLASSE,
+        anoCurricular: r.NOME_CLASSE,
+        codigoSemestre: r.CODIGO_SEMESTRE,
+      })),
     };
   }
 

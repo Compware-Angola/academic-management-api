@@ -31,6 +31,7 @@ import { ToggleStatusGradeCurricularDto } from './dto/toggle-status-grade-curric
 import { FindGradeCurricularAdminDto } from './dto/find-grade-curricular-admin.dto';
 import { CreateUCTroncoComumPlanoCursoDto } from './dto/create-uc-tronco-comum-plano-curso.dto';
 import { CreateUnidadesCurricularesDto } from './dto/add-uc-to-plan.dto';
+import { ConsultarVinculacaoGradeDto } from './dto/ConsultarVinculacaoGradeDto';
 
 @ApiTags('DISCIPLINAS')
 @Controller('discipline')
@@ -220,5 +221,10 @@ export class DisciplineController {
     @Query() dto: FindUnidadeCurricularDeptDto,
   ) {
     return this.disciplineService.listarUnidadeCurricularDept(dto);
+  }
+
+  @Get('vincular/consultar')
+  async consultarVinculacao(@Query() dto: ConsultarVinculacaoGradeDto) {
+    return this.disciplineService.consultarCursosVinculadosGrade(dto);
   }
 }
