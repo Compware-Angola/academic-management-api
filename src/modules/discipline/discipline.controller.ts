@@ -30,6 +30,7 @@ import { ConfigurationPlaneService } from './configuration-plane.service';
 import { ToggleStatusGradeCurricularDto } from './dto/toggle-status-grade-curricular.dto';
 import { FindGradeCurricularAdminDto } from './dto/find-grade-curricular-admin.dto';
 import { CreateUCTroncoComumPlanoCursoDto } from './dto/create-uc-tronco-comum-plano-curso.dto';
+import { ConsultarVinculacaoGradeDto } from './dto/ConsultarVinculacaoGradeDto';
 
 @ApiTags('DISCIPLINAS')
 @Controller('discipline')
@@ -201,5 +202,10 @@ export class DisciplineController {
     @Query() dto: FindUnidadeCurricularDeptDto,
   ) {
     return this.disciplineService.listarUnidadeCurricularDept(dto);
+  }
+
+  @Get('vincular/consultar')
+  async consultarVinculacao(@Query() dto: ConsultarVinculacaoGradeDto) {
+    return this.disciplineService.consultarCursosVinculadosGrade(dto);
   }
 }
