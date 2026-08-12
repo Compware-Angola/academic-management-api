@@ -724,7 +724,7 @@ export class DisciplineService {
 
     if (Number(gradeDepartamentoResult?.[0]?.TOTAL) > 0) {
       throw new BadRequestException(
-        'Esta disciplina já está vinculada a uma grade de departamento.',
+        'Esta disciplina já está vinculada a grade por tronco em comum.',
       );
     }
 
