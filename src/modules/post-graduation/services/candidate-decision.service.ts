@@ -7,7 +7,7 @@ import { RejectCandidateDto } from '../dto/reject-candidate.dto';
 
 @Injectable()
 export class CandidateDecisionService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   async approve(dto: ApproveCandidateDto) {
     const queryRunner = this.dataSource.createQueryRunner();

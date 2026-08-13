@@ -12,7 +12,7 @@ export class DocenteSubstitutoService {
   constructor(
     @InjectDataSource()
     private readonly dataSource: DataSource,
-  ) {}
+  ) { }
 
   // ==================== CREATE ====================
   async create(
@@ -46,7 +46,7 @@ export class DocenteSubstitutoService {
     if (alreadyExists) {
       throw new BadRequestException(
         `Este horário (ID: ${fkHorario}) já possui uma substituição ativa. ` +
-          `Não é possível criar outra substituição para o mesmo horário.`,
+        `Não é possível criar outra substituição para o mesmo horário.`,
       );
     }
 
