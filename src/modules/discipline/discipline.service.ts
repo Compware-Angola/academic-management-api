@@ -1214,7 +1214,7 @@ export class DisciplineService {
         JOIN FK2_TB_CLASSES c ON c.CODIGO = grade.CODIGO_CLASSE
         WHERE plano.CODIGO_PLANO_CURRICULAR_CURSO = :codigoPlanoCurso
           AND grade.CODIGO = :codigoGrade
-          AND c.CODIGO = :codigoClasse
+       
         `,
           { codigoPlanoCurso, codigoGrade, codigoClasse } as any,
         );
