@@ -1222,6 +1222,7 @@ export class DisciplineService {
         grade.CODIGO = :codigoGrade
         OR d.CODIGO = :codigoDisciplina
       )
+
   `,
           {
             codigoPlanoCurso,
@@ -1238,7 +1239,7 @@ export class DisciplineService {
             nomeCurso,
             codigoGrade,
             nomeDisciplina,
-            motivo: 'Esta grade já faz parte do plano Deste Curso',
+            motivo: `Esta grade já faz parte do plano Deste Curso (${gradeCurricular[0]?.NOME_DISCIPLINA}  Foi Reativada())`,
           });
           continue;
         } else {
