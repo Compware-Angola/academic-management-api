@@ -13,7 +13,7 @@ import { toLowerCaseKeys } from 'src/modules/util/toLowerCaseKeys';
 
 @Injectable()
 export class CandidatesService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
   async findCandidates(
     filters: FindCandidatesDto,
   ): Promise<PaginatedResult<any>> {

@@ -313,8 +313,9 @@ export class CreatePreRegistrationDto {
   })
   inquerito?: string;
 
-  @ApiPropertyOptional({ example: 2026 })
-  @IsOptional()
+  @ApiProperty({ example: 2026, required: true })
+  @Type(() => Number)
+  @IsNotEmpty()
   @IsNumber()
-  anoLectivoId?: number;
+  anoLectivoId: number;
 }

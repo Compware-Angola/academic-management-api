@@ -78,7 +78,7 @@ import { GetConfirmationDTO } from './dto/get-confirmation.dto';
 import { AtualizarEstadoGradeCurricularDto } from './dto/duplicate-uc.dto';
 import { FindStudentCurriculumQueryDTO } from './dto/find-student-curriculum.dto';
 import { GetGradePosGraduacaoDto } from './dto/get-grade-pos-graduacao';
-//@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
+@UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @ApiTags('Students')
 @Controller('students')
 export class StudentsController {
@@ -93,7 +93,7 @@ export class StudentsController {
     private readonly equivalenceTFMigration: EquivalenceTFCMigration,
     private readonly hangingRailingsAndToBeMadeService: HangingRailingsAndToBeMadeService,
     private httpService: HttpService,
-  ) { }
+  ) {}
   private log(req: any, descricao: string) {
     const user = req.user;
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
@@ -263,13 +263,16 @@ export class StudentsController {
     return result;
   }
 
-  @Put('acitve-confirmation/:codigoMatricula')
+  @Put('acitve-confirmation/:codigoMatricula/:anoLetivoId')
   async activarConfirmacao(
     @Param('codigoMatricula') codigoMatricula: number,
+    @Param('anoLetivoId') anoLetivoId: number,
     @Req() req: any,
   ) {
-    const result =
-      await this.ativeConfirmationService.activeConfirmation(codigoMatricula);
+    const result = await this.ativeConfirmationService.activeConfirmation(
+      codigoMatricula,
+      anoLetivoId,
+    );
     this.log(
       req,
       `Utilizador ${req.user?.nome} Ativou a confirmação do estudante com o codigo de matricula ${codigoMatricula}`,
@@ -546,7 +549,7 @@ export class StudentsController {
   findMigrationNote(@Param('matricula', ParseIntPipe) matricula: number) {
     return this.equivalenceTFMigration.findAll(matricula);
   }
-
+  @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Delete('equivalence-migration-tfc/:codigoGradeAluno')
   @ApiOperation({ summary: 'Obter notas equivalencia' })
   @ApiResponse({
@@ -605,7 +608,7 @@ export class StudentsController {
     @Query(ValidationPipe) query: GetGradePosGraduacaoDto,
   ) {
     return this.hangingRailingsAndToBeMadeService.findHangingRailingsAndToBeMadePos(
-      query
+      query,
     );
   }
 

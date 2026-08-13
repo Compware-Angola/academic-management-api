@@ -44,129 +44,180 @@ export class StudentsService {
     const anoLectivoFilter = anoLectivo
       ? `AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo`
       : `AND ftgca.CODIGO_ANO_LECTIVO = (
-        SELECT MAX(CODIGO_ANO_LECTIVO)
-        FROM FK2_TB_GRADE_CURRICULAR_ALUNO
-        WHERE CODIGO_MATRICULA = m.CODIGO
-          AND CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
-    )`;
+      SELECT MAX(CODIGO_ANO_LECTIVO)
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO
+      WHERE CODIGO_MATRICULA = m.CODIGO
+        AND CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+  )`;
 
     const sql = `
-  SELECT
-      m.codigo               AS codigo_matricula,
-      p.BILHETE_IDENTIDADE   AS bi,
-      c.designacao           AS curso,
-      c.codigo               AS curso_codigo,
-      pe.DESIGNACAO          AS periodo,
-      pe.codigo              AS periodo_codigo,
-      m.ESTADO_MATRICULA     AS estado,
-      p.Nome_Completo        AS nome_completo,
-      p.Bilhete_Identidade   AS bi_aluno,
-      p.Email                AS email,
-      p.Contactos_Telefonicos AS contacto,
-      p.CONTACTO_DE_EMERGENCIA AS contacto_alternativo,
-      p.Data_Nascimento      AS data_nascimento,
-      p.DATA_EMISSAO_BI      AS data_emissao_bi,
-      p.DATA_VALIDADE_BI     AS data_validade_bi,
-      p.PAI                  AS pai,
-      p.MAE                  AS mae,
-      p.CODIGO_OCUPACAO      AS ocupacao_codigo,
-      p.CODIGO_PROFISSAO     AS profissao_codigo,
-      p.NATURALIDADE         AS naturalidade,
-      nac.DESIGNACAO         AS nacionalidade,
-      p.ESTADO_CIVIL         AS estado_civil,
-      p.SEXO                 AS sexo,
-      fac.DESIGNACAO         AS faculdade,
-      tpc.DESIGNACAO         AS grau,
-      tpc.SIGLA              AS sigla_grau,
-      tpc.ID                 AS tipo_canditatura_codigo,
-      pr.DESIGNACAO          AS regime,
-      p.MORADA_COMPLETA      AS morada,
-      p.SALDO                AS saldo_atual,
-      p.SALDO_RESET          AS saldo_reset,
-      p.SALDO_RESET_ANTER    AS saldo_reset_anterior,
-      u.FOTO                 AS foto,
+SELECT
+    m.codigo               AS codigo_matricula,
+    p.BILHETE_IDENTIDADE   AS bi,
+    c.designacao           AS curso,
+    c.codigo               AS curso_codigo,
+    pe.DESIGNACAO          AS periodo,
+    pe.codigo              AS periodo_codigo,
+    m.ESTADO_MATRICULA     AS estado,
+    p.Nome_Completo        AS nome_completo,
+    p.Bilhete_Identidade   AS bi_aluno,
+    p.Email                AS email,
+    p.Contactos_Telefonicos AS contacto,
+    p.CONTACTO_DE_EMERGENCIA AS contacto_alternativo,
+    p.Data_Nascimento      AS data_nascimento,
+    p.DATA_EMISSAO_BI      AS data_emissao_bi,
+    p.DATA_VALIDADE_BI     AS data_validade_bi,
+    p.PAI                  AS pai,
+    p.MAE                  AS mae,
+    p.CODIGO_OCUPACAO      AS ocupacao_codigo,
+    p.CODIGO_PROFISSAO     AS profissao_codigo,
+    p.NATURALIDADE         AS naturalidade,
+    nac.DESIGNACAO         AS nacionalidade,
+    p.ESTADO_CIVIL         AS estado_civil,
+    p.SEXO                 AS sexo,
+    fac.DESIGNACAO         AS faculdade,
+    tpc.DESIGNACAO         AS grau,
+    tpc.SIGLA              AS sigla_grau,
+    tpc.ID                 AS tipo_canditatura_codigo,
+    pr.DESIGNACAO          AS regime,
+    p.MORADA_COMPLETA      AS morada,
+    p.SALDO                AS saldo_atual,
+    p.SALDO_RESET          AS saldo_reset,
+    p.SALDO_RESET_ANTER    AS saldo_reset_anterior,
+    u.FOTO                 AS foto,
 
-      -- Verifica se o curso é especialidade
-      CASE WHEN ce.CODIGO_CURSO_ESPECIALIDADE IS NOT NULL THEN 1 ELSE 0 END AS is_especialidade,
+    -- Verifica se o curso é especialidade
+    CASE WHEN ce.CODIGO_CURSO_ESPECIALIDADE IS NOT NULL THEN 1 ELSE 0 END AS is_especialidade,
 
-      -- Classe com mais grades curriculares inscritas
-      (
-          SELECT cl.DESIGNACAO
-          FROM FK2_TB_GRADE_CURRICULAR_ALUNO ftgca
-          LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc
-              ON ftgc.CODIGO = ftgca.CODIGO_GRADE_CURRICULAR
-          LEFT JOIN FK2_TB_CLASSES cl
-              ON cl.CODIGO = ftgc.CODIGO_CLASSE
-          WHERE ftgca.CODIGO_MATRICULA = m.CODIGO
-            AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
-            ${anoLectivoFilter}
-          GROUP BY cl.CODIGO, cl.DESIGNACAO
-          ORDER BY COUNT(ftgca.CODIGO) DESC
-          FETCH FIRST 1 ROWS ONLY
-      ) AS classe,
+    -- Classe (DESIGNACAO) com mais grades curriculares inscritas,
+    -- resolvendo tronco comum (DEPARTAMENTO) via plano curricular do aluno
+    (
+        SELECT
+            CASE
+                WHEN ftgc.type = 'DEPARTAMENTO'
+                THEN COALESCE(clp.DESIGNACAO, cl.DESIGNACAO)
+                ELSE cl.DESIGNACAO
+            END AS classe_resolvida
+        FROM FK2_TB_GRADE_CURRICULAR_ALUNO ftgca
+        LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc
+            ON ftgc.CODIGO = ftgca.CODIGO_GRADE_CURRICULAR
+        LEFT JOIN FK2_TB_CLASSES cl
+            ON cl.CODIGO = ftgc.CODIGO_CLASSE
+        LEFT JOIN FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pcgs
+            ON pcgs.codigo_grade_curricular = ftgc.CODIGO
+           AND ftgc.type = 'DEPARTAMENTO'
+        LEFT JOIN FK2_TB_PLANO_CURRICULAR_CURSO ppc
+            ON ppc.codigo = pcgs.codigo_plano_curricular_curso
+           AND (ppc.codigo_ano_lectivo IS NULL OR ppc.codigo_ano_lectivo = ftgca.CODIGO_ANO_LECTIVO)
+           AND (ppc.codigo_curso IS NULL OR ppc.codigo_curso = m.CODIGO_CURSO)
+        LEFT JOIN FK2_TB_CLASSES clp
+            ON clp.CODIGO = pcgs.codigo_classe
+        WHERE ftgca.CODIGO_MATRICULA = m.CODIGO
+          AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+          ${anoLectivoFilter}
+        GROUP BY
+            CASE
+                WHEN ftgc.type = 'DEPARTAMENTO'
+                THEN COALESCE(clp.CODIGO, cl.CODIGO)
+                ELSE cl.CODIGO
+            END,
+            CASE
+                WHEN ftgc.type = 'DEPARTAMENTO'
+                THEN COALESCE(clp.DESIGNACAO, cl.DESIGNACAO)
+                ELSE cl.DESIGNACAO
+            END
+        ORDER BY COUNT(ftgca.CODIGO) DESC
+        FETCH FIRST 1 ROWS ONLY
+    ) AS classe,
 
-      (
-          SELECT cl.CODIGO
-          FROM FK2_TB_GRADE_CURRICULAR_ALUNO ftgca
-          LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc
-              ON ftgc.CODIGO = ftgca.CODIGO_GRADE_CURRICULAR
-          LEFT JOIN FK2_TB_CLASSES cl
-              ON cl.CODIGO = ftgc.CODIGO_CLASSE
-          WHERE ftgca.CODIGO_MATRICULA = m.CODIGO
-            AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
-            ${anoLectivoFilter}
-          GROUP BY cl.CODIGO, cl.DESIGNACAO
-          ORDER BY COUNT(ftgca.CODIGO) DESC
-          FETCH FIRST 1 ROWS ONLY
-      ) AS classe_codigo,
+    -- Código da classe com mais grades curriculares inscritas,
+    -- resolvendo tronco comum (DEPARTAMENTO) via plano curricular do aluno
+    (
+        SELECT
+            CASE
+                WHEN ftgc.type = 'DEPARTAMENTO'
+                THEN COALESCE(clp.CODIGO, cl.CODIGO)
+                ELSE cl.CODIGO
+            END AS classe_codigo_resolvida
+        FROM FK2_TB_GRADE_CURRICULAR_ALUNO ftgca
+        LEFT JOIN FK2_TB_GRADE_CURRICULAR ftgc
+            ON ftgc.CODIGO = ftgca.CODIGO_GRADE_CURRICULAR
+        LEFT JOIN FK2_TB_CLASSES cl
+            ON cl.CODIGO = ftgc.CODIGO_CLASSE
+        LEFT JOIN FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pcgs
+            ON pcgs.codigo_grade_curricular = ftgc.CODIGO
+           AND ftgc.type = 'DEPARTAMENTO'
+        LEFT JOIN FK2_TB_PLANO_CURRICULAR_CURSO ppc
+            ON ppc.codigo = pcgs.codigo_plano_curricular_curso
+           AND (ppc.codigo_ano_lectivo IS NULL OR ppc.codigo_ano_lectivo = ftgca.CODIGO_ANO_LECTIVO)
+           AND (ppc.codigo_curso IS NULL OR ppc.codigo_curso = m.CODIGO_CURSO)
+        LEFT JOIN FK2_TB_CLASSES clp
+            ON clp.CODIGO = pcgs.codigo_classe
+        WHERE ftgca.CODIGO_MATRICULA = m.CODIGO
+          AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
+          ${anoLectivoFilter}
+        GROUP BY
+            CASE
+                WHEN ftgc.type = 'DEPARTAMENTO'
+                THEN COALESCE(clp.CODIGO, cl.CODIGO)
+                ELSE cl.CODIGO
+            END,
+            CASE
+                WHEN ftgc.type = 'DEPARTAMENTO'
+                THEN COALESCE(clp.DESIGNACAO, cl.DESIGNACAO)
+                ELSE cl.DESIGNACAO
+            END
+        ORDER BY COUNT(ftgca.CODIGO) DESC
+        FETCH FIRST 1 ROWS ONLY
+    ) AS classe_codigo,
 
-      -- Confirmação mais alta (usada quando curso é especialidade)
-      (
-          SELECT MAX(conf.CLASSE)
-          FROM FK2_TB_CONFIRMACOES conf
-          WHERE conf.CODIGO_MATRICULA = m.CODIGO
-      ) AS classe_confirmacao_max,
+    -- Confirmação mais alta (usada quando curso é especialidade)
+    (
+        SELECT MAX(conf.CLASSE)
+        FROM FK2_TB_CONFIRMACOES conf
+        WHERE conf.CODIGO_MATRICULA = m.CODIGO
+    ) AS classe_confirmacao_max,
 
-      -- Ficheiro da acta de diplomação (registo mais recente)
-      (
-          SELECT log.FILENAME
-          FROM FK2_MGA_TB_LOG_DIPLOMAR log
-          WHERE log.FK_MATRICULA = m.CODIGO
-          ORDER BY log.CREATED_AT DESC, log.PK_LOG_DIPLOMAR DESC
-          FETCH FIRST 1 ROWS ONLY
-      ) AS acta_filename,
+    -- Ficheiro da acta de diplomação (registo mais recente)
+    (
+        SELECT log.FILENAME
+        FROM FK2_MGA_TB_LOG_DIPLOMAR log
+        WHERE log.FK_MATRICULA = m.CODIGO
+        ORDER BY log.CREATED_AT DESC, log.PK_LOG_DIPLOMAR DESC
+        FETCH FIRST 1 ROWS ONLY
+    ) AS acta_filename,
 
-      -- Data da acta de diplomação (registo mais recente)
-      (
-          SELECT log.DATA_ACTA
-          FROM FK2_MGA_TB_LOG_DIPLOMAR log
-          WHERE log.FK_MATRICULA = m.CODIGO
-          ORDER BY log.CREATED_AT DESC, log.PK_LOG_DIPLOMAR DESC
-          FETCH FIRST 1 ROWS ONLY
-      ) AS data_acta
+    -- Data da acta de diplomação (registo mais recente)
+    (
+        SELECT log.DATA_ACTA
+        FROM FK2_MGA_TB_LOG_DIPLOMAR log
+        WHERE log.FK_MATRICULA = m.CODIGO
+        ORDER BY log.CREATED_AT DESC, log.PK_LOG_DIPLOMAR DESC
+        FETCH FIRST 1 ROWS ONLY
+    ) AS data_acta
 
-  FROM FK2_TB_MATRICULAS m
-  LEFT JOIN FK2_TB_ADMISSAO a
-      ON a.codigo = m.CODIGO_ALUNO
-  LEFT JOIN FK2_TB_PREINSCRICAO p
-      ON p.codigo = a.PRE_INCRICAO
-  LEFT JOIN FK2_USERS u
-      ON u.ID = p.USER_ID
-  LEFT JOIN FK2_TB_CURSOS c
-      ON c.codigo = m.CODIGO_CURSO
-  LEFT JOIN FK2_TB_FACULDADE fac
-      ON fac.codigo = c.FACULDADE_ID
-  LEFT JOIN FK2_TB_PERIODOS pe
-      ON pe.codigo = p.CODIGO_TURNO
-  LEFT JOIN FK2_TB_NACIONALIDADES nac
-      ON nac.CODIGO = p.CODIGO_NACIONALIDADE
-  LEFT JOIN FK2_TB_TIPO_CANDIDATURA tpc
-      ON tpc.ID = p.CODIGO_TIPO_CANDIDATURA
-  LEFT JOIN FK2_TB_PERIODOS pr
-      ON pr.CODIGO = p.CODIGO_TURNO
-  LEFT JOIN FK2_TB_CURSO_ESPECIALIDADE ce
-      ON ce.CODIGO_CURSO_ESPECIALIDADE = c.CODIGO
-  WHERE m.codigo = :codigoMatricula
+FROM FK2_TB_MATRICULAS m
+LEFT JOIN FK2_TB_ADMISSAO a
+    ON a.codigo = m.CODIGO_ALUNO
+LEFT JOIN FK2_TB_PREINSCRICAO p
+    ON p.codigo = a.PRE_INCRICAO
+LEFT JOIN FK2_USERS u
+    ON u.ID = p.USER_ID
+LEFT JOIN FK2_TB_CURSOS c
+    ON c.codigo = m.CODIGO_CURSO
+LEFT JOIN FK2_TB_FACULDADE fac
+    ON fac.codigo = c.FACULDADE_ID
+LEFT JOIN FK2_TB_PERIODOS pe
+    ON pe.codigo = p.CODIGO_TURNO
+LEFT JOIN FK2_TB_NACIONALIDADES nac
+    ON nac.CODIGO = p.CODIGO_NACIONALIDADE
+LEFT JOIN FK2_TB_TIPO_CANDIDATURA tpc
+    ON tpc.ID = p.CODIGO_TIPO_CANDIDATURA
+LEFT JOIN FK2_TB_PERIODOS pr
+    ON pr.CODIGO = p.CODIGO_TURNO
+LEFT JOIN FK2_TB_CURSO_ESPECIALIDADE ce
+    ON ce.CODIGO_CURSO_ESPECIALIDADE = c.CODIGO
+WHERE m.codigo = :codigoMatricula
 `;
 
     const queryParams: any = { codigoMatricula };
@@ -2291,6 +2342,41 @@ WHERE M."CODIGO" = :codigoMatricula`;
     const min = Math.min(anoMin, anoMax);
     const max = Math.max(anoMin, anoMax);
 
+    /**
+     * Classe/semestre "efetivos" da disciplina para o aluno: se a grade
+     * estiver vinculada ao plano curricular do curso do aluno através de
+     *   (caso de tronco comum),
+     * usa-se a classe/semestre gravados ali; caso contrário (disciplina
+     * nativa, sem registo nessa tabela), cai-se para a classe/semestre
+     * da própria grade curricular (g.codigo_classe / g.codigo_semestre).
+     * Ver findGradeCurricularAluno para a mesma lógica aplicada à listagem.
+     */
+    const classeEfetivaSubquery = `
+      COALESCE(
+        (SELECT pgs.CODIGO_CLASSE
+           FROM FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pgs
+           INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pgc3
+             ON pgc3.CODIGO = pgs.CODIGO_PLANO_CURRICULAR_CURSO
+          WHERE pgs.CODIGO_GRADE_CURRICULAR = g.codigo
+            AND pgc3.CODIGO_CURSO = mat.CODIGO_CURSO
+          FETCH FIRST 1 ROWS ONLY),
+        g.codigo_classe
+      )
+    `;
+
+    const semestreEfetivoSubquery = `
+      COALESCE(
+        (SELECT pgs.CODIGO_SEMESTRE
+           FROM FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pgs
+           INNER JOIN FK2_TB_PLANO_CURRICULAR_CURSO pgc3
+             ON pgc3.CODIGO = pgs.CODIGO_PLANO_CURRICULAR_CURSO
+          WHERE pgs.CODIGO_GRADE_CURRICULAR = g.codigo
+            AND pgc3.CODIGO_CURSO = mat.CODIGO_CURSO
+          FETCH FIRST 1 ROWS ONLY),
+        g.codigo_semestre
+      )
+    `;
+
     const sql = `
       SELECT
           g.codigo,
@@ -2301,27 +2387,27 @@ WHERE M."CODIGO" = :codigoMatricula`;
           g.HORASPRATICAS as horas_praticas,
           dur.DESIGNACAO AS duracao_nome,
           an.DESIGNACAO AS ano_lectivo_nome,
-          g.CODIGO_SEMESTRE as semestre,
-          g.CODIGO_CLASSE AS classe
+          ${semestreEfetivoSubquery} as semestre,
+          ${classeEfetivaSubquery} AS classe
       FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
       INNER JOIN FK2_TB_GRADE_CURRICULAR g  ON g.codigo = al.CODIGO_GRADE_CURRICULAR
+      INNER JOIN FK2_TB_MATRICULAS mat      ON mat.CODIGO = al.CODIGO_MATRICULA
       INNER JOIN FK2_TB_DISCIPLINAS d       ON d.codigo = g.CODIGO_DISCIPLINA
       INNER JOIN FK2_TB_DURACAO dur         ON dur.CODIGO = d.DURACAO
       INNER JOIN FK2_TB_ANO_LECTIVO an      ON an.CODIGO = al.CODIGO_ANO_LECTIVO
       WHERE al.CODIGO_STATUS_GRADE_CURRICULAR = 3
         AND al.NOTA >= 10
         AND al.CODIGO_MATRICULA = :matriculaId
-        AND g.CODIGO_CLASSE BETWEEN :min AND :max
+        AND ${classeEfetivaSubquery} BETWEEN :min AND :max
       ORDER BY
-          g.CODIGO_CLASSE ASC,
-          g.CODIGO_SEMESTRE ASC,
+          ${classeEfetivaSubquery} ASC,
+          ${semestreEfetivoSubquery} ASC,
           NLSSORT(TRIM(d.designacao), 'NLS_SORT=BINARY_AI') ASC
     `;
 
     const result = await this.dataSource.query(sql, [matriculaId, min, max]);
     return toLowerCaseKeys(result);
   }
-
   async diplomarAluno(
     body: {
       codigoMatricula: number;

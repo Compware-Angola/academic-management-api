@@ -29,11 +29,12 @@ export class UcDocenteSemAfetacaoService {
         "TD",
         "TD.CODIGO = TGC.CODIGO_DISCIPLINA"
       )
-      .innerJoin(
+      .leftJoin(
         "FK2_TB_SEMESTRES",
         "TS",
         "TS.CODIGO = TGC.CODIGO_SEMESTRE"
       )
+      .innerJoin('FK2_TB_CLASSES', 'TCLC', 'TCLC.CODIGO = TGC.CODIGO_CLASSE')
       .innerJoin(
         "FK2_TB_CURSOS",
         "TC",
@@ -106,11 +107,11 @@ export class UcDocenteSemAfetacaoService {
         "TGC.CODIGO AS CODIGO_DISCIPLINA",
         "TD.DESIGNACAO AS DISCIPLINA",
         "TS.DESIGNACAO AS SEMESTRE",
-        "TGC.CODIGO_CLASSE AS CLASSE",
+        "TCLC.DESIGNACAO AS CLASSE",
       ])
       .orderBy("TC.DESIGNACAO", "ASC")
       .addOrderBy("TS.DESIGNACAO", "ASC")
-      .addOrderBy("TGC.CODIGO_CLASSE", "ASC")
+      .addOrderBy("TCLC.DESIGNACAO", "ASC")
       .offset(offset)
       .limit(limit)
       .getRawMany();

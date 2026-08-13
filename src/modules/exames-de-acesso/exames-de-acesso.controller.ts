@@ -30,14 +30,20 @@ import { RemoteJwtAuthGuard } from '../../common/guard/remote.jwt-auth.guard';
 import { AccessLogHelper } from '../../common/helpers/access-log.helper';
 import { ApiKeyGuard } from '../../common/guard/api-key.guard';
 import { FilterEstatisticaCursosDto } from './dto/filter-estatistica-cursos.dto';
+import { CorrigirProvasFilterDto } from './dto/corrigir-provas-filter.dto';
+import { PrevisaoNotaService } from './previsao-nota.service';
+import { DefinirNotaAdmissaoDto } from './dto/definir-nota-admissao.dto';
+import { AdmissaoManualService } from './admissao-manual.service';
 
 @Controller('exames-de-acesso')
 @ApiTags('Exames de acesso')
 export class ExamesDeAcessoController {
   constructor(
     private readonly examesAcessoService: ExamesDeAcessoService,
+    private readonly previsaoNotaService: PrevisaoNotaService,
     private httpService: HttpService,
-  ) {}
+    private readonly admissaoManualService: AdmissaoManualService,
+  ) { }
 
   @Get('candidato')
   @ApiOperation({ summary: 'Lista todos os candidatos' })
@@ -59,6 +65,15 @@ export class ExamesDeAcessoController {
   })
   buscaCandidatosAdmitidos(@Query() filtros: FilterCandidatoAdmitidoDto) {
     return this.examesAcessoService.buscaCandidatosAdmitidos(filtros);
+  }
+  @Post('admissao-manual')
+  async definirNota(@Body() body: DefinirNotaAdmissaoDto) {
+    return this.admissaoManualService.definirNotaEAdmitir(body.candidatos);
+  }
+
+  @Get('nota-prevista')
+  async buscarNotaPrevista(@Query() filtros: FilterCandidatoProvaDto) {
+    return this.previsaoNotaService.buscarProvasPendentesComNotaPrevista(filtros);
   }
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Patch('candidato/:codigoCandidato')
@@ -263,10 +278,8 @@ export class ExamesDeAcessoController {
   }
 
   @Post('corrigir-provas')
-  @ApiOperation({ summary: 'Corrige provas automaticamente para o canal 13' })
-  @ApiResponse({ status: 200, description: 'Provas corrigidas com sucesso' })
-  corrigirProvas() {
-    return this.examesAcessoService.corrigirTodasAsProvas();
+  async corrigirProvas(@Body() filtros: CorrigirProvasFilterDto) {
+    return this.examesAcessoService.corrigirTodasAsProvas(filtros);
   }
 
   @Get('estatistica/cursos')
