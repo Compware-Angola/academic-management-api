@@ -1208,18 +1208,26 @@ export class DisciplineService {
         // 2. Verifica se a grade curricular já está associada a este plano de curso
         const gradeJaAssociadaAoPlano = await this.dataSource.query(
           `
-        SELECT COUNT(*) AS TOTAL
-        FROM FK2_TB_PLANO_CURRICULAR_GRADE plano
-        JOIN FK2_TB_GRADE_CURRICULAR grade ON grade.CODIGO = plano.CODIGO_GRADE_CURRICULAR
-        JOIN FK2_TB_CLASSES c ON c.CODIGO = grade.CODIGO_CLASSE
-        JOIN FK2_TB_DISCIPLINAS d ON d.CODIGO = grade.CODIGO_DISCIPLINA
+    SELECT COUNT(*) AS TOTAL
+    FROM FK2_TB_PLANO_CURRICULAR_GRADE plano
+    JOIN FK2_TB_GRADE_CURRICULAR grade
+      ON grade.CODIGO = plano.CODIGO_GRADE_CURRICULAR
+    JOIN FK2_TB_CLASSES c
+      ON c.CODIGO = grade.CODIGO_CLASSE
+    JOIN FK2_TB_DISCIPLINAS d
+      ON d.CODIGO = grade.CODIGO_DISCIPLINA
 
-        WHERE plano.CODIGO_PLANO_CURRICULAR_CURSO = :codigoPlanoCurso
-          AND grade.CODIGO = :codigoGrade
-          AND d.CODIGO = :codigoDisciplina
-       
-        `,
-          { codigoPlanoCurso, codigoGrade, codigoDisciplina: gradeCurricular[0]?.CODIGO_DISCIPLINA } as any,
+    WHERE plano.CODIGO_PLANO_CURRICULAR_CURSO = :codigoPlanoCurso
+      AND (
+        grade.CODIGO = :codigoGrade
+        OR d.CODIGO = :codigoDisciplina
+      )
+  `,
+          {
+            codigoPlanoCurso,
+            codigoGrade,
+            codigoDisciplina: gradeCurricular[0]?.CODIGO_DISCIPLINA,
+          } as any,
         );
 
         if (Number(gradeJaAssociadaAoPlano?.[0]?.TOTAL) > 0) {
