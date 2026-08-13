@@ -1219,7 +1219,7 @@ export class DisciplineService {
           AND d.CODIGO = :codigoDisciplina
        
         `,
-          { codigoPlanoCurso, codigoGrade, codigoDisciplina: gradeCurricular[0].CODIGO_DISCIPLINA } as any,
+          { codigoPlanoCurso, codigoGrade, codigoDisciplina: gradeCurricular[0]?.CODIGO_DISCIPLINA } as any,
         );
 
         if (Number(gradeJaAssociadaAoPlano?.[0]?.TOTAL) > 0) {
