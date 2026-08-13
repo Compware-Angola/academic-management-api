@@ -94,6 +94,19 @@ export class TopicosService {
       );
     }
 
+    // 2. Verify that the academic year does not already have a topic
+    const topicoExists = await this.dataSource.query(
+      `SELECT ID
+       FROM FK2_TOPICOS
+      WHERE ANO_LECTIVO_ID = :1`,
+      [anoLetivoId],
+    );
+
+    if (topicoExists && topicoExists.length > 0) {
+      throw new BadRequestException(
+        `Já existe um tópico cadastrado para este ano letivo.`,
+      );
+    }
     const query = `
       INSERT INTO FK2_TOPICOS (
         DESIGNACAO,
