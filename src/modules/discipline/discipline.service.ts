@@ -1139,15 +1139,9 @@ export class DisciplineService {
     if (Number(existPlanoResult?.[0]?.TOTAL) > 0) {
       // Grade já está no plano — reativar
       await this.ativegrade(codigoGrade);
-
-      return {
-        message: 'Grade curricular reativada com sucesso.',
-        codigo: codigoGrade,
-      };
     }
 
-    // 6a. Não está no plano — adicionar ao plano
-    await this.ativegrade(codigoGrade);
+
     await this.adicionarPlano(
       codigoUtilizador,
       codigoGrade,
@@ -1217,14 +1211,25 @@ export class DisciplineService {
         SELECT COUNT(*) AS TOTAL
         FROM FK2_TB_PLANO_CURRICULAR_GRADE plano
         JOIN FK2_TB_GRADE_CURRICULAR grade ON grade.CODIGO = plano.CODIGO_GRADE_CURRICULAR
+        JOIN FK2_TB_CLASSES c ON c.CODIGO = grade.CODIGO_CLASSE
         WHERE plano.CODIGO_PLANO_CURRICULAR_CURSO = :codigoPlanoCurso
           AND grade.CODIGO = :codigoGrade
+          AND c.CODIGO = :codigoClasse
         `,
-          { codigoPlanoCurso, codigoGrade } as any,
+          { codigoPlanoCurso, codigoGrade, codigoClasse } as any,
         );
 
         if (Number(gradeJaAssociadaAoPlano?.[0]?.TOTAL) > 0) {
           await this.ativegrade(codigoGrade);
+
+          cursosComErro.push({
+            codigoCurso,
+            nomeCurso,
+            codigoGrade,
+            nomeDisciplina,
+            motivo: 'Esta grade já faz parte do plano Deste Curso',
+          });
+          continue;
         } else {
           await this.adicionarPlano(
             codigoUtilizador,
