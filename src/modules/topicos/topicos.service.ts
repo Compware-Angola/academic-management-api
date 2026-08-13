@@ -11,7 +11,7 @@ import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 
 @Injectable()
 export class TopicosService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
   async findAll(filtros: FilterTopicoDto) {
     const { designacao, anoLetivoId, page = 1, limit = 10 } = filtros;
