@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -386,14 +387,7 @@ export class ExamesDeAcessoService {
       params.push(filtros.dataRealizacao);
     }
 
-    // if (filtros.horaInicio) {
-    //   const [hh, mm, ss] = filtros.horaInicio.split(':').map(Number);
-    //   const nanos = hh * 3600000000000 + mm * 60000000000 + ss * 1000000000;
-    //   condicoes.push(
-    //     `TO_NUMBER(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1)) = :${paramIndex++}`,
-    //   );
-    //   params.push(nanos);
-    // }
+
     if (filtros.horaInicio) {
       condicoes.push(`
     fn_formatar_hora(
@@ -1007,57 +1001,140 @@ END AS RESULTADO
   async atribuirProva(codigoCandidato: number) {
     try {
       return await this.dataSource.transaction(async (manager) => {
+        /**
+         * ============================================================
+         * 1. BUSCAR E BLOQUEAR O CANDIDATO
+         * ============================================================
+         *
+         * FOR UPDATE garante que duas chamadas simultâneas não consigam
+         * atribuir duas provas ao mesmo candidato.
+         */
+
         const sqlCandidate = `
-        SELECT FK2_TB_PREINSCRICAO.CODIGO
-             , FK2_USERS.ANO_LECTIVO_ID
-             , FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA
-             , FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA
-             , FK2_TB_PREINSCRICAO.CODIGO_TURNO
-          FROM FK2_TB_PREINSCRICAO
-             , FK2_TB_TIPO_CANDIDATURA
-             , FK2_USERS
-             , FK2_TB_ANO_LECTIVO
-             , FK2_TB_CURSOS
-             , FK2_TB_PERIODOS
-         WHERE FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA = FK2_TB_TIPO_CANDIDATURA.ID
-           AND FK2_TB_PREINSCRICAO.USER_ID                 = FK2_USERS.ID
-           AND FK2_USERS.ANO_LECTIVO_ID                    = FK2_TB_ANO_LECTIVO.CODIGO
-           AND FK2_TB_PREINSCRICAO.CURSO_CANDIDATURA       = FK2_TB_CURSOS.CODIGO
-           AND FK2_TB_PREINSCRICAO.CODIGO_TURNO            = FK2_TB_PERIODOS.CODIGO
-           AND FK2_TB_PREINSCRICAO.CODIGO NOT IN (SELECT CANDIDATO_ID FROM FK2_CANDIDATO_PROVAS)
-           AND FK2_TB_PREINSCRICAO.CODIGO = :1
+        SELECT
+            p.CODIGO,
+            u.ANO_LECTIVO_ID,
+            p.CODIGO_TIPO_CANDIDATURA,
+            p.CURSO_CANDIDATURA,
+            p.CODIGO_TURNO
+        FROM FK2_TB_PREINSCRICAO p
+        INNER JOIN FK2_TB_TIPO_CANDIDATURA tc
+            ON tc.ID = p.CODIGO_TIPO_CANDIDATURA
+        INNER JOIN FK2_USERS u
+            ON u.ID = p.USER_ID
+        INNER JOIN FK2_TB_ANO_LECTIVO al
+            ON al.CODIGO = u.ANO_LECTIVO_ID
+        INNER JOIN FK2_TB_CURSOS c
+            ON c.CODIGO = p.CURSO_CANDIDATURA
+        INNER JOIN FK2_TB_PERIODOS periodo
+            ON periodo.CODIGO = p.CODIGO_TURNO
+        WHERE p.CODIGO = :1
+        FOR UPDATE
       `;
 
-        const candidates = await manager.query(sqlCandidate, [codigoCandidato]);
+        const candidates = await manager.query(sqlCandidate, [
+          codigoCandidato,
+        ]);
 
-        if (candidates.length === 0) {
+        if (!candidates || candidates.length === 0) {
           throw new BadRequestException(
-            'Candidato não encontrado ou já possui prova atribuída.',
+            'Candidato não encontrado.',
           );
         }
 
         const candidate = candidates[0];
 
-        // Trava a linha do candidato para evitar corridas entre chamadas
-        // concorrentes do mesmo pagamento (webhook duplicado, retry, etc.)
-        await manager.query(
-          `SELECT CODIGO FROM FK2_TB_PREINSCRICAO WHERE CODIGO = :1 FOR UPDATE`,
-          [codigoCandidato],
-        );
+        /**
+         * ============================================================
+         * 2. VERIFICAR SE JÁ POSSUI PROVA
+         * ============================================================
+         */
 
-        // ORDER BY DATA_REALIZACAO ASC = a próxima prova a acontecer para o curso.
-        // Se a intenção for "a mais recentemente cadastrada", troque para
-        // ORDER BY FK2_PROVAS.ID DESC — mas então use exams[0], nunca random.
+        const sqlExistingExam = `
+        SELECT
+            ID,
+            HORARIO_PROVA_ID,
+            PROVA_ID,
+            STATUS_
+        FROM FK2_CANDIDATO_PROVAS
+        WHERE CANDIDATO_ID = :1
+        FETCH FIRST 1 ROW ONLY
+      `;
+
+        const existingExam = await manager.query(sqlExistingExam, [
+          codigoCandidato,
+        ]);
+
+        if (existingExam.length > 0) {
+          throw new ConflictException(
+            'Este candidato já possui uma prova atribuída.',
+          );
+        }
+
+        /**
+         * ============================================================
+         * 3. BUSCAR PROVAS DISPONÍVEIS ALEATORIAMENTE
+         * ============================================================
+         *
+         * DBMS_RANDOM.VALUE faz o Oracle embaralhar as provas.
+         *
+         * Portanto:
+         *
+         * exams[0]
+         *
+         * será uma prova aleatória.
+         */
+
         const sqlExams = `
-        SELECT FK2_PROVAS.ID, FK2_PROVAS.DATA_REALIZACAO
-          FROM FK2_PROVAS
-         WHERE (
-               JSON_EXISTS(cursos, '$[*]?(@.id == $curso)' PASSING :1 AS "curso")
-            OR JSON_EXISTS(cursos, '$[*]?(@ == $curso)' PASSING :2 AS "curso")
-         )
-           AND FK2_PROVAS.ANO_LECTIVO_ID = :3
-           AND TRUNC(FK2_PROVAS.DATA_REALIZACAO) >= TRUNC(SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda')
-          ORDER BY FK2_PROVAS.ID DESC
+        SELECT
+            p.ID,
+            p.DATA_REALIZACAO
+        FROM FK2_PROVAS p
+        WHERE
+            (
+                JSON_EXISTS(
+                    p.CURSOS,
+                    '$[*]?(@.id == $curso)'
+                    PASSING :1 AS "curso"
+                )
+                OR
+                JSON_EXISTS(
+                    p.CURSOS,
+                    '$[*]?(@ == $curso)'
+                    PASSING :2 AS "curso"
+                )
+            )
+            AND p.ANO_LECTIVO_ID = :3
+
+            /**
+             * A prova precisa ter pelo menos um horário futuro.
+             */
+            AND EXISTS (
+                SELECT 1
+                FROM FK2_TB_HORARIO_PROVA hp
+                WHERE hp.PROVA_ID = p.ID
+                  AND TRUNC(hp.DATA_REALIZACAO) >=
+                      TRUNC(
+                          SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda'
+                      )
+                  AND (
+                      TRUNC(hp.DATA_REALIZACAO) >
+                          TRUNC(
+                              SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda'
+                          )
+                      OR
+                      DBMS_LOB.SUBSTR(
+                          hp.HORA_INICIO,
+                          5,
+                          1
+                      ) >= TO_CHAR(
+                          SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda',
+                          'HH24:MI'
+                      )
+                  )
+            )
+
+        ORDER BY DBMS_RANDOM.VALUE
       `;
 
         const exams = await manager.query(sqlExams, [
@@ -1066,82 +1143,276 @@ END AS RESULTADO
           candidate.ANO_LECTIVO_ID,
         ]);
 
-        if (exams.length === 0) {
+        console.log('Provas encontradas:', exams);
+
+        if (!exams || exams.length === 0) {
           throw new NotFoundException(
-            'Nenhuma prova encontrada para o curso e ano lectivo do candidato.',
+            'Nenhuma prova disponível encontrada para o curso e ano lectivo do candidato.',
           );
         }
 
-        // Determinístico: pega a primeira do ORDER BY, nunca random.
-        const selectedExam = exams[0];
+        /**
+         * ============================================================
+         * 4. TENTAR AS PROVAS ALEATORIAMENTE
+         * ============================================================
+         *
+         * Não vamos simplesmente pegar exams[0].
+         *
+         * É melhor percorrer as provas aleatórias até encontrar
+         * uma que tenha horário com capacidade.
+         *
+         * Isso evita o problema:
+         *
+         * Prova A -> sem vagas
+         * Prova B -> sem vagas
+         * Prova C -> tem vaga
+         */
 
-        const sqlSchedules = `
-  SELECT FK2_TB_HORARIO_PROVA.ID
-        , fn_formatar_hora(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1)) AS HORA_INICIO
-         , fn_formatar_hora(DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_FIM, 4000, 1)) AS HORA_FIM
-       , FK2_TB_HORARIO_PROVA.DATA_REALIZACAO
-       , FK2_TB_HORARIO_PROVA.SALA_ID
-       , FK2_TB_HORARIO_PROVA.PROVA_ID
-       , FK2_TB_SALAS.CAPACIDADEEXAMEACESSOPROVA
-    FROM FK2_TB_HORARIO_PROVA
-       , FK2_TB_SALAS
-       , FK2_PROVAS
-   WHERE FK2_TB_HORARIO_PROVA.SALA_ID  = FK2_TB_SALAS.CODIGO
-     AND FK2_TB_HORARIO_PROVA.PROVA_ID = FK2_PROVAS.ID
-     AND FK2_TB_SALAS.CAPACIDADEEXAMEACESSOPROVA > 0
-     AND TRUNC(FK2_TB_HORARIO_PROVA.DATA_REALIZACAO) >= TRUNC(SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda')
-     AND (
-           JSON_EXISTS(FK2_PROVAS.CURSOS, '$[*]?(@.id == $curso)' PASSING :1 AS "curso")
-        OR JSON_EXISTS(FK2_PROVAS.CURSOS, '$[*]?(@ == $curso)' PASSING :2 AS "curso")
-       )
-     AND FK2_TB_HORARIO_PROVA.PROVA_ID = :3
-    ORDER BY FK2_TB_HORARIO_PROVA.DATA_REALIZACAO
-          , DBMS_LOB.SUBSTR(FK2_TB_HORARIO_PROVA.HORA_INICIO, 4000, 1)
-`;
-
-        const schedules = (await manager.query(sqlSchedules, [
-          String(candidate.CURSO_CANDIDATURA),
-          String(candidate.CURSO_CANDIDATURA),
-          selectedExam.ID,
-        ])) as any[];
-
-        console.log('Schedules: ', schedules);
-
+        let selectedExam: any = null;
         let selectedSchedule: any = null;
-        for (const schedule of schedules) {
-          // Trava a linha do horário em si, para serializar candidatos concorrentes
-          // tentando o mesmo horário. O Oracle não permite FOR UPDATE sobre COUNT(*),
-          // então o lock precisa ser numa query separada, sobre a tabela "pai".
-          await manager.query(
-            `SELECT ID FROM FK2_TB_HORARIO_PROVA WHERE ID = :1 FOR UPDATE`,
-            [schedule.ID],
+
+        for (const exam of exams) {
+          /**
+           * ========================================================
+           * BUSCAR HORÁRIOS DA PROVA
+           * ========================================================
+           *
+           * Também são ordenados aleatoriamente.
+           */
+
+          const sqlSchedules = `
+          SELECT
+              hp.ID,
+              fn_formatar_hora(
+                  DBMS_LOB.SUBSTR(
+                      hp.HORA_INICIO,
+                      4000,
+                      1
+                  )
+              ) AS HORA_INICIO,
+
+              fn_formatar_hora(
+                  DBMS_LOB.SUBSTR(
+                      hp.HORA_FIM,
+                      4000,
+                      1
+                  )
+              ) AS HORA_FIM,
+
+              hp.DATA_REALIZACAO,
+              hp.SALA_ID,
+              hp.PROVA_ID,
+
+              s.CAPACIDADEEXAMEACESSOPROVA
+
+          FROM FK2_TB_HORARIO_PROVA hp
+
+          INNER JOIN FK2_TB_SALAS s
+              ON s.CODIGO = hp.SALA_ID
+
+          INNER JOIN FK2_PROVAS p
+              ON p.ID = hp.PROVA_ID
+
+          WHERE
+              hp.PROVA_ID = :1
+
+              AND s.CAPACIDADEEXAMEACESSOPROVA > 0
+
+              AND (
+                  TRUNC(hp.DATA_REALIZACAO) >
+                      TRUNC(
+                          SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda'
+                      )
+
+                  OR
+
+                  (
+                      TRUNC(hp.DATA_REALIZACAO) =
+                          TRUNC(
+                              SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda'
+                          )
+
+                      AND DBMS_LOB.SUBSTR(
+                          hp.HORA_INICIO,
+                          5,
+                          1
+                      ) >= TO_CHAR(
+                          SYSTIMESTAMP AT TIME ZONE 'Africa/Luanda',
+                          'HH24:MI'
+                      )
+                  )
+              )
+
+          ORDER BY DBMS_RANDOM.VALUE
+        `;
+
+          const schedules = (await manager.query(sqlSchedules, [
+            exam.ID,
+          ])) as any[];
+
+          console.log(
+            `Horários encontrados para prova ${exam.ID}:`,
+            schedules,
           );
 
-          const sqlCount = `
-            SELECT COUNT(*) AS QUANTIDADE_CANDIDATOS
-              FROM FK2_CANDIDATO_PROVAS
-            WHERE FK2_CANDIDATO_PROVAS.HORARIO_PROVA_ID = :1
-          `;
-          const countRes = await manager.query(sqlCount, [schedule.ID]);
-          const currentCount = Number(countRes[0].QUANTIDADE_CANDIDATOS);
+          if (!schedules || schedules.length === 0) {
+            continue;
+          }
 
-          if (schedule.CAPACIDADEEXAMEACESSOPROVA > currentCount) {
-            selectedSchedule = schedule;
+          /**
+           * ========================================================
+           * 5. VERIFICAR CAPACIDADE DOS HORÁRIOS
+           * ========================================================
+           */
+
+          for (const schedule of schedules) {
+            /**
+             * Lock no horário.
+             *
+             * Isso é importante para evitar:
+             *
+             * candidato A -> vê 29/30
+             * candidato B -> vê 29/30
+             *
+             * e os dois inserirem ao mesmo tempo.
+             */
+
+            await manager.query(
+              `
+              SELECT ID
+              FROM FK2_TB_HORARIO_PROVA
+              WHERE ID = :1
+              FOR UPDATE
+            `,
+              [schedule.ID],
+            );
+
+            /**
+             * ======================================================
+             * CONTAR CANDIDATOS JÁ ATRIBUÍDOS
+             * ======================================================
+             */
+
+            const sqlCount = `
+            SELECT COUNT(*) AS QUANTIDADE_CANDIDATOS
+            FROM FK2_CANDIDATO_PROVAS
+            WHERE HORARIO_PROVA_ID = :1
+          `;
+
+            const countResult = await manager.query(sqlCount, [
+              schedule.ID,
+            ]);
+
+            const currentCount = Number(
+              countResult?.[0]?.QUANTIDADE_CANDIDATOS ?? 0,
+            );
+
+            const capacity = Number(
+              schedule.CAPACIDADEEXAMEACESSOPROVA ?? 0,
+            );
+
+            console.log(
+              `Horário ${schedule.ID}: ${currentCount}/${capacity}`,
+            );
+
+            /**
+             * Existe espaço?
+             */
+
+            if (currentCount < capacity) {
+              selectedExam = exam;
+              selectedSchedule = schedule;
+
+              break;
+            }
+          }
+
+          /**
+           * Se encontramos horário disponível,
+           * não precisamos procurar outra prova.
+           */
+
+          if (selectedExam && selectedSchedule) {
             break;
           }
         }
 
-        if (!selectedSchedule) {
+        /**
+         * ============================================================
+         * 6. NENHUMA VAGA ENCONTRADA
+         * ============================================================
+         */
+
+        if (!selectedExam || !selectedSchedule) {
           throw new HttpException(
             'Não há horários disponíveis com capacidade para este candidato.',
             HttpStatus.CONFLICT,
           );
         }
 
+        console.log('Prova selecionada:', selectedExam);
+        console.log('Horário selecionado:', selectedSchedule);
+
+        /**
+         * ============================================================
+         * 7. ÚLTIMA VERIFICAÇÃO
+         * ============================================================
+         *
+         * Como o horário está bloqueado com FOR UPDATE, fazemos uma
+         * última contagem antes do INSERT.
+         */
+
+        const finalCountResult = await manager.query(
+          `
+          SELECT COUNT(*) AS QUANTIDADE_CANDIDATOS
+          FROM FK2_CANDIDATO_PROVAS
+          WHERE HORARIO_PROVA_ID = :1
+        `,
+          [selectedSchedule.ID],
+        );
+
+        const finalCount = Number(
+          finalCountResult?.[0]?.QUANTIDADE_CANDIDATOS ?? 0,
+        );
+
+        const finalCapacity = Number(
+          selectedSchedule.CAPACIDADEEXAMEACESSOPROVA ?? 0,
+        );
+
+        if (finalCount >= finalCapacity) {
+          throw new HttpException(
+            'O horário selecionado acabou de atingir a capacidade máxima. Tente novamente.',
+            HttpStatus.CONFLICT,
+          );
+        }
+
+        /**
+         * ============================================================
+         * 8. INSERIR EXAME DE ADMISSÃO
+         * ============================================================
+         */
+
         const sqlInsertExame = `
-        INSERT INTO FK2_TB_EXAME_ADMISSAO (CANAL, HORA_INICIO, HORA_FIM, DATA_PROVA, CODIGO_SALA, CODIGO_DISCIPLINA, CODIGO_PREINSCRICAO)
-        VALUES (1, :1, :2, :3, :4, :5, :6)
+        INSERT INTO FK2_TB_EXAME_ADMISSAO (
+            CANAL,
+            HORA_INICIO,
+            HORA_FIM,
+            DATA_PROVA,
+            CODIGO_SALA,
+            CODIGO_DISCIPLINA,
+            CODIGO_PREINSCRICAO
+        )
+        VALUES (
+            1,
+            :1,
+            :2,
+            :3,
+            :4,
+            :5,
+            :6
+        )
       `;
+
         await manager.query(sqlInsertExame, [
           selectedSchedule.HORA_INICIO,
           selectedSchedule.HORA_FIM,
@@ -1151,34 +1422,79 @@ END AS RESULTADO
           codigoCandidato,
         ]);
 
+        /**
+         * ============================================================
+         * 9. INSERIR CANDIDATO NA PROVA
+         * ============================================================
+         */
+
         const sqlInsertCandidatoProva = `
-        INSERT INTO FK2_CANDIDATO_PROVAS (CANDIDATO_ID, STATUS_, CANAL, HORARIO_PROVA_ID, PROVA_ID, CREATED_AT)
-        VALUES (:1, 0, 1, :2, :3, SYSDATE)
+        INSERT INTO FK2_CANDIDATO_PROVAS (
+            CANDIDATO_ID,
+            STATUS_,
+            CANAL,
+            HORARIO_PROVA_ID,
+            PROVA_ID,
+            CREATED_AT
+        )
+        VALUES (
+            :1,
+            0,
+            1,
+            :2,
+            :3,
+            SYSDATE
+        )
       `;
+
         await manager.query(sqlInsertCandidatoProva, [
           codigoCandidato,
           selectedSchedule.ID,
           selectedExam.ID,
         ]);
 
+        /**
+         * ============================================================
+         * 10. RETORNO
+         * ============================================================
+         */
+
         return {
           message: 'Prova atribuída com sucesso.',
+
           candidatoId: codigoCandidato,
+
           provaId: selectedExam.ID,
+
           horarioId: selectedSchedule.ID,
+
+          dataRealizacao: selectedSchedule.DATA_REALIZACAO,
+
+          horaInicio: selectedSchedule.HORA_INICIO,
+
+          horaFim: selectedSchedule.HORA_FIM,
+
+          salaId: selectedSchedule.SALA_ID,
+
+          capacidade: finalCapacity,
+
+          candidatosNoHorario: finalCount + 1,
         };
       });
     } catch (error) {
-      console.error('Erro completo:', error);
+      console.error('Erro completo ao atribuir prova:', error);
 
-      if (error?.status) {
-        throw new HttpException(error.response || error.message, error.status);
+      /**
+       * NestJS HttpException
+       */
+      if (error instanceof HttpException) {
+        throw error;
       }
 
       throw new HttpException(
         {
           message: 'Erro inesperado ao atribuir prova.',
-          detail: error.message,
+          detail: error?.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -1494,6 +1810,18 @@ END AS RESULTADO
   }
 
   async resetarProva(codigoCandidato: number) {
+    const sqlCheck = `SELECT 1 FROM FK2_TB_ADMISSAO WHERE PRE_INCRICAO = :1`;
+    const checkResult = await this.dataSource.query(sqlCheck, [
+      codigoCandidato,
+    ]);
+
+    if (checkResult.length > 0) {
+      throw new HttpException(
+        'Não é possível resetar a prova de um candidato que já possui admissão.',
+        HttpStatus.CONFLICT,
+      );
+    }
+
     const sql = `
       UPDATE FK2_CANDIDATO_PROVAS
          SET STATUS_     = 0

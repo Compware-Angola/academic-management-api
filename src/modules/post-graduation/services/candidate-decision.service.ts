@@ -73,7 +73,7 @@ export class CandidateDecisionService {
 
       // Insere rejeição (PK gerada pelo trigger)
       await queryRunner.query(
-        `INSERT INTO FK2_TB_REJEICAO_CANDIDATURA_ALUNO 
+        `INSERT INTO K2_TB_REJEICAO_CANDIDATURA_ALUNO 
          (FK_ANOLECTIVO, FK_PREINSCRICAO, FK_UTILIZADOR, MOTIVO, CREAT_AT, UPDATE_AT, ESTADO_REJEICAO)
          VALUES (:anoLectivo, :preInscricao, :utilizador, :motivo, SYSDATE, SYSDATE, :estadoRejeicao)`,
         [

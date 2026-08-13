@@ -1,4 +1,3 @@
-
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -20,7 +19,14 @@ export class DocenteSubstitutoService {
     userId: number = 1,
     dto: CreateDocenteSubstitutoDto,
   ): Promise<any> {
-    const { fkDocenteOriginal, fkDocenteSubstituto, fkHorario, dataInicio, dataTermino, obs = null } = dto;
+    const {
+      fkDocenteOriginal,
+      fkDocenteSubstituto,
+      fkHorario,
+      dataInicio,
+      dataTermino,
+      obs = null,
+    } = dto;
 
     // ====================== VERIFICAÇÃO ANTES DE INSERIR ======================
     const checkQuery = `
@@ -40,7 +46,7 @@ export class DocenteSubstitutoService {
     if (alreadyExists) {
       throw new BadRequestException(
         `Este horário (ID: ${fkHorario}) já possui uma substituição ativa. ` +
-        `Não é possível criar outra substituição para o mesmo horário.`
+        `Não é possível criar outra substituição para o mesmo horário.`,
       );
     }
 
@@ -421,7 +427,14 @@ export class DocenteSubstitutoService {
     userId: number = 1,
     dto: CreateDocenteSubstitutoDto,
   ): Promise<any> {
-    const { fkDocenteOriginal, fkDocenteSubstituto, fkHorario, dataInicio, dataTermino, obs = null } = dto;
+    const {
+      fkDocenteOriginal,
+      fkDocenteSubstituto,
+      fkHorario,
+      dataInicio,
+      dataTermino,
+      obs = null,
+    } = dto;
 
     await this.dataSource.query(
       `
