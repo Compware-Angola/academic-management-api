@@ -93,8 +93,251 @@ export class StudentsProvasService {
     private readonly prazosService: PrazosService,
     private readonly httpService: HttpService,
     private readonly studentsResultPlanService: StudentsResultPlanService,
-  ) {}
+  ) { }
 
+
+
+  async cadeirasRecurso(dto: FindCadeirasRecursoDto) {
+    const { data } = await this.studentNoteService.findAll({
+      anoLectivo: dto.codigoAnoLectivo,
+      codigoMatricula: dto.codigoMatricula,
+    });
+
+    const semestres = [...new Set(data.map((c) => c.semestre))];
+    console.log('Semestres', semestres);
+
+    const prazosPorSemestre = await this.buscarSituacaoPrazosLancamento(
+      dto.codigoAnoLectivo,
+      semestres,
+    );
+    console.log('Prazos', prazosPorSemestre);
+
+    const elegiveis = this.filtrarCadeirasElegiveis(
+      data,
+      {
+        apenasReprovadas: true,
+        excluirComEtapasPosExame: true,
+      },
+      prazosPorSemestre,
+    );
+
+    if (!elegiveis.length) {
+      return { total: 0, cadeiras: [] };
+    }
+
+    const ids = elegiveis.map((c) => c.codigoGradeAluno);
+    const jaInscritas = await this.buscarCadeirasJaInscritas(
+      dto.codigoMatricula,
+      TIPO_AVALIACAO.RECURSO,
+      ids,
+      dto.codigoAnoLectivo,
+    );
+
+    const cadeiras = elegiveis
+      .filter((c) => !jaInscritas.includes(c.codigoGradeAluno))
+      .map(this.mapearCadeiraBase.bind(this));
+
+    return {
+      total: cadeiras.length,
+      matricula: dto.codigoMatricula,
+      anoLectivo: dto.codigoAnoLectivo,
+      nomeCompleto: data[0]?.nome_completo ?? null,
+      cadeiras,
+    };
+  }
+
+  async cadeirasEpocaEspecial(dto: FindCadeirasEpocaEspecialDto) {
+    const { data } = await this.studentNoteService.findAll({
+      anoLectivo: dto.codigoAnoLectivo,
+      codigoMatricula: dto.codigoMatricula,
+    });
+
+    const elegiveis = this.filtrarCadeirasElegiveis(data, {
+      apenasReprovadas: true,
+      excluirSeTemNotas: ['notaEE', 'notaOEE'],
+      requererAoMenosUmaCondicao: [
+        // Caminho 1: foi direto para EE, sem passar pelo recurso
+        (c) => !this.temNota(c.notaRec) && !this.temNota(c.notaOrRec),
+        // Caminho 2: fez recurso e reprovou
+        (c) => this.temNota(c.notaRec) && c.resultado === 'Reprovado',
+        // Caminho 3: fez oral de recurso e reprovou
+        (c) => this.temNota(c.notaOrRec) && c.resultado === 'Reprovado',
+      ],
+    });
+
+    return {
+      total: elegiveis.length,
+      matricula: dto.codigoMatricula,
+      anoLectivo: dto.codigoAnoLectivo,
+      nomeCompleto: elegiveis[0]?.nome_completo ?? null,
+      cadeiras: elegiveis.map(this.mapearCadeiraComNotasRecurso.bind(this)),
+    };
+  }
+
+  async inscricaoRecurso(dto: InscricaoDTO) {
+    const [anoLectivo, dadosAluno, anoLectivoDaUltimaConfirmacao] = await Promise.all([
+      this.buscarAnoLectivoCorrente(dto.tipoCandidatura),
+      this.dadosAluno(dto.codigoMatricula),
+      this.buscarAnoLectivoDaUltimaConfirmacao(dto.codigoMatricula)
+    ]);
+
+    if (anoLectivo.codigo !== anoLectivoDaUltimaConfirmacao) {
+      throw new BadRequestException(
+        'Não é possível efetuar a inscrição neste momento. Por favor, aguarde a abertura do novo ano letivo.',
+      );
+    }
+
+    const prazo = await this.prazosService.obterPrazo({
+      tipo: TipoCalendario.RECURSO,
+      anoLectivoParam: anoLectivo.codigo,
+    });
+    if (prazo && !prazo.podeInscrever)
+      throw new BadRequestException(prazo.mensagem);
+
+    const servico = await this.buscarPrecoServico(
+      SIGLA_SERVICO.RECURSO,
+      anoLectivo.codigo,
+    );
+    if (!servico) {
+      throw new BadRequestException('Serviço de recurso não configurado.');
+    }
+
+    const valores = await this.calcularValoresInscricao(
+      dto.gradesAlunos.length,
+      servico,
+    );
+
+    const bodyFatura: InvoicePayload = this.montarPayloadFatura({
+      valores,
+      servico,
+      dto,
+      dadosAluno,
+      anoLectivo,
+      codigoDescricao: 6,
+      descricao: `Inscrição de Recurso - ${anoLectivo.designacao}`,
+    });
+
+    const fatura = await FinanceInvoiceHelper.createInvoice(
+      this.httpService,
+      bodyFatura,
+    );
+
+    await this.persistirInscricoes(
+      dto.codigoMatricula,
+      dto.gradesAlunos,
+      TIPO_AVALIACAO.RECURSO,
+      anoLectivo.codigo,
+      fatura.Codigo,
+      dadosAluno.canal,
+    );
+
+    return {
+      message: 'Inscrição realizada com sucesso',
+    };
+  }
+
+  async inscricaoEpocaEspecial(dto: InscricaoDTO) {
+    const [anoLectivo, dadosAluno] = await Promise.all([
+      this.buscarAnoLectivoCorrente(dto.tipoCandidatura),
+      this.dadosAluno(dto.codigoMatricula),
+    ]);
+
+    const studentForEpocaEspecial =
+      await this.studentsResultPlanService.findPlan(dto.codigoMatricula);
+
+    const prazo = await this.prazosService.obterPrazo({
+      tipo: TipoCalendario.EXAME_ESPECIAL,
+      anoLectivoParam: anoLectivo.codigo,
+    });
+    if (prazo && !prazo.podeInscrever)
+      throw new BadRequestException(prazo.mensagem);
+
+    if (
+      !(
+        studentForEpocaEspecial.totalGradesCurso -
+        studentForEpocaEspecial.totalGrasesAluno <=
+        4
+      )
+    )
+      throw new BadRequestException(
+        'O aluno não é elegível para inscrição em época especial.',
+      );
+
+    const servico = await this.buscarPrecoServico(
+      SIGLA_SERVICO.EXAME_ESPECIAL,
+      anoLectivo.codigo,
+    );
+    if (!servico) {
+      throw new BadRequestException(
+        'Serviço de época especial não configurado.',
+      );
+    }
+
+    const valores = await this.calcularValoresInscricao(
+      dto.gradesAlunos.length,
+      servico,
+    );
+
+    const bodyFatura: InvoicePayload = this.montarPayloadFatura({
+      valores,
+      servico,
+      dto,
+      dadosAluno,
+      anoLectivo,
+      codigoDescricao: 7,
+      descricao: `Inscrição de Época Especial - ${anoLectivo.designacao}`,
+    });
+
+    const fatura = await FinanceInvoiceHelper.createInvoice(
+      this.httpService,
+      bodyFatura,
+    );
+
+    await this.persistirInscricoes(
+      dto.codigoMatricula,
+      dto.gradesAlunos,
+      TIPO_AVALIACAO.EXAME_ESPECIAL,
+      anoLectivo.codigo,
+      fatura.Codigo,
+      dadosAluno.canal,
+    );
+
+    return {
+      message: 'Inscrição realizada com sucesso',
+    };
+  }
+
+  async recursoCadeiraInscrita({
+    codigoMatricula,
+    codigoAnoLectivo,
+  }: {
+    codigoMatricula: number;
+    codigoAnoLectivo: number;
+  }) {
+    const cadeirasInscritas = await this.buscarCadeiraInscrita(
+      codigoMatricula,
+      codigoAnoLectivo,
+      TIPO_AVALIACAO.RECURSO,
+    );
+
+    return { cadeirasInscritas };
+  }
+
+  async epocaEspecialCadeiraInscrita({
+    codigoMatricula,
+    codigoAnoLectivo,
+  }: {
+    codigoMatricula: number;
+    codigoAnoLectivo: number;
+  }) {
+    const cadeirasInscritas = await this.buscarCadeiraInscrita(
+      codigoMatricula,
+      codigoAnoLectivo,
+      TIPO_AVALIACAO.EXAME_ESPECIAL,
+    );
+
+    return { cadeirasInscritas };
+  }
   private temNota(valor: string | null | undefined): boolean {
     return valor !== '' && valor !== null && valor !== undefined;
   }
@@ -302,19 +545,31 @@ export class StudentsProvasService {
     };
   }
 
-  private async buscarAnoLectivoCorrente(): Promise<AnoLectivo> {
+  private async buscarAnoLectivoCorrente(tipoCandidatura: number): Promise<AnoLectivo> {
     const sql = `
-      SELECT CODIGO, DESIGNACAO
+    SELECT CODIGO, DESIGNACAO
       FROM FK2_TB_ANO_LECTIVO
-      WHERE ESTADO = 'Activo'
+      WHERE FASE_ANOLECTIVO = 'ACTIVO'
+        AND CODIGO_TIPO_CANDIDATURA = :tipoCandidatura
         AND ROWNUM = 1
     `;
-    const [anoLectivo] = await this.dataSource.query(sql);
+
+    const [anoLectivo] = await this.dataSource.query(sql, { tipoCandidatura } as any);
     if (!anoLectivo) {
       throw new BadRequestException('Nenhum ano lectivo corrente encontrado');
     }
     return toLowerCaseKeys(anoLectivo) as AnoLectivo;
   }
+
+  private async buscarAnoLectivoDaUltimaConfirmacao(enrollmentCode: number): Promise<number | null> {
+    const sql = `SELECT CODIGO_ANO_LECTIVO
+FROM FK2_TB_CONFIRMACOES
+WHERE CODIGO_MATRICULA = :enrollmentCode
+ORDER BY DATA_CONFIRMACAO ASC, CLASSE ASC`
+    const [anoLectivo] = await this.dataSource.query(sql, { enrollmentCode } as any);
+    return anoLectivo ? toLowerCaseKeys(anoLectivo).codigo_ano_lectivo : null
+  }
+
 
   private async buscarCadeiraInscrita(
     codigoMatricula: number,
@@ -322,21 +577,21 @@ export class StudentsProvasService {
     codigoTipoAvaliacao: CodigoTipoAvaliacao,
   ) {
     const sql = `
-    SELECT  
+    SELECT
       hia.CODIGO_GRADE_ALUNO,
       s.DESIGNACAO              AS semestre,
       d.DESIGNACAO              AS disciplina,
       d.CODIGO                  AS codigo_disciplina,
       hia.CODIGO_GRADE,
       c.DESIGNACAO              AS classe
-    FROM FK2_TB_HISTORICO_INSCRICOES_AVALIACOES hia
-    INNER JOIN FK2_TB_GRADE_CURRICULAR gc 
+    FROM FK2_INSCRICAO_AVALIACOES hia
+    INNER JOIN FK2_TB_GRADE_CURRICULAR gc
       ON gc.CODIGO = hia.CODIGO_GRADE
-    INNER JOIN FK2_TB_SEMESTRES s 
+    INNER JOIN FK2_TB_SEMESTRES s
       ON s.CODIGO = gc.CODIGO_SEMESTRE
-    INNER JOIN FK2_TB_DISCIPLINAS d 
+    INNER JOIN FK2_TB_DISCIPLINAS d
       ON d.CODIGO = gc.CODIGO_DISCIPLINA
-    INNER JOIN FK2_TB_CLASSES c 
+    INNER JOIN FK2_TB_CLASSES c
       ON c.CODIGO = gc.CODIGO_CLASSE
     WHERE hia.CODIGO_MATRICULA = :codigoMatricula
       AND hia.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
@@ -363,9 +618,9 @@ export class StudentsProvasService {
     const placeholders = codigoGradeAluno.join(', ');
 
     const sql = `
-      SELECT CODIGO_GRADE_ALUNO 
-      FROM FK2_TB_HISTORICO_INSCRICOES_AVALIACOES 
-      WHERE CODIGO_MATRICULA    = :codigoMatricula 
+      SELECT CODIGO_GRADE_ALUNO
+      FROM FK2_INSCRICAO_AVALIACOES
+      WHERE CODIGO_MATRICULA    = :codigoMatricula
         AND CODIGO_GRADE_ALUNO  IN (${placeholders})
         AND CODIGO_TIPO_AVALIACAO = :codigoTipoAvaliacao
         AND CODIGO_ANO_LECTIVO  = :codigoAnoLectivo
@@ -387,7 +642,7 @@ export class StudentsProvasService {
     codigoAno: number,
   ): Promise<ServicoPagamento | null> {
     const sql = `
-      SELECT 
+      SELECT
         TS.CODIGO,
         TS.DESCRICAO,
         TS.PRECO,
@@ -395,7 +650,7 @@ export class StudentsProvasService {
         TS.SIGLA
       FROM FK2_TB_TIPO_SERVICOS TS
       LEFT JOIN FK2_TIPO_TAXAS TT ON TT.ID = TS.TAXA_IVA_ID
-      WHERE TS.SIGLA              = :sigla 
+      WHERE TS.SIGLA              = :sigla
         AND TS.CODIGO_ANO_LECTIVO = :codigoAno
         AND TS.ESTADO             = 'Ativo'
         AND ROWNUM                = 1
@@ -407,10 +662,10 @@ export class StudentsProvasService {
 
   private async buscarParametroRetencao(): Promise<number> {
     const sql = `
-      SELECT VALOR 
-      FROM FK2_TB_PARAMETROS 
-      WHERE DESCRICAO = 'PC' 
-        AND ESTADO    = 1 
+      SELECT VALOR
+      FROM FK2_TB_PARAMETROS
+      WHERE DESCRICAO = 'PC'
+        AND ESTADO    = 1
         AND ROWNUM    = 1
     `;
     const resultado = await this.dataSource.query(sql);
@@ -467,10 +722,10 @@ export class StudentsProvasService {
         // Verificação de duplicidade antes de inserir
         const [{ TOTAL }] = await queryRunner.query(
           `
-          SELECT COUNT(*) AS TOTAL 
-          FROM FK2_TB_HISTORICO_INSCRICOES_AVALIACOES 
-          WHERE CODIGO_MATRICULA    = :matricula 
-            AND CODIGO_GRADE_ALUNO  = :grade 
+          SELECT COUNT(*) AS TOTAL
+          FROM FK2_INSCRICAO_AVALIACOES
+          WHERE CODIGO_MATRICULA    = :matricula
+            AND CODIGO_GRADE_ALUNO  = :grade
             AND CODIGO_TIPO_AVALIACAO = :tipo
             AND CODIGO_ANO_LECTIVO  = :ano
           `,
@@ -490,7 +745,7 @@ export class StudentsProvasService {
 
         await queryRunner.query(
           `
-          INSERT INTO FK2_TB_HISTORICO_INSCRICOES_AVALIACOES (
+          INSERT INTO FK2_INSCRICAO_AVALIACOES (
             CODIGO_GRADE,
             CODIGO_GRADE_ALUNO,
             CODIGO_MATRICULA,
@@ -526,7 +781,7 @@ export class StudentsProvasService {
 
   private async dadosAluno(codigoMatricula: number): Promise<DadosAluno> {
     const sql = `
-      SELECT 
+      SELECT
         ad.PRE_INCRICAO AS codigo_preinscricao,
         ad.POLO_ID,
         ad.CANAL
@@ -593,240 +848,5 @@ export class StudentsProvasService {
         codigo_anoLectivo: anoLectivo.codigo,
       })),
     };
-  }
-
-  async cadeirasRecurso(dto: FindCadeirasRecursoDto) {
-    const { data } = await this.studentNoteService.findAll({
-      anoLectivo: dto.codigoAnoLectivo,
-      codigoMatricula: dto.codigoMatricula,
-    });
-
-    const semestres = [...new Set(data.map((c) => c.semestre))];
-    console.log('Semestres', semestres);
-
-    const prazosPorSemestre = await this.buscarSituacaoPrazosLancamento(
-      dto.codigoAnoLectivo,
-      semestres,
-    );
-    console.log('Prazos', prazosPorSemestre);
-
-    const elegiveis = this.filtrarCadeirasElegiveis(
-      data,
-      {
-        apenasReprovadas: true,
-        excluirComEtapasPosExame: true,
-      },
-      prazosPorSemestre,
-    );
-
-    if (!elegiveis.length) {
-      return { total: 0, cadeiras: [] };
-    }
-
-    const ids = elegiveis.map((c) => c.codigoGradeAluno);
-    const jaInscritas = await this.buscarCadeirasJaInscritas(
-      dto.codigoMatricula,
-      TIPO_AVALIACAO.RECURSO,
-      ids,
-      dto.codigoAnoLectivo,
-    );
-
-    const cadeiras = elegiveis
-      .filter((c) => !jaInscritas.includes(c.codigoGradeAluno))
-      .map(this.mapearCadeiraBase.bind(this));
-
-    return {
-      total: cadeiras.length,
-      matricula: dto.codigoMatricula,
-      anoLectivo: dto.codigoAnoLectivo,
-      nomeCompleto: data[0]?.nome_completo ?? null,
-      cadeiras,
-    };
-  }
-
-  async cadeirasEpocaEspecial(dto: FindCadeirasEpocaEspecialDto) {
-    const { data } = await this.studentNoteService.findAll({
-      anoLectivo: dto.codigoAnoLectivo,
-      codigoMatricula: dto.codigoMatricula,
-    });
-
-    const elegiveis = this.filtrarCadeirasElegiveis(data, {
-      apenasReprovadas: true,
-      excluirSeTemNotas: ['notaEE', 'notaOEE'],
-      requererAoMenosUmaCondicao: [
-        // Caminho 1: foi direto para EE, sem passar pelo recurso
-        (c) => !this.temNota(c.notaRec) && !this.temNota(c.notaOrRec),
-        // Caminho 2: fez recurso e reprovou
-        (c) => this.temNota(c.notaRec) && c.resultado === 'Reprovado',
-        // Caminho 3: fez oral de recurso e reprovou
-        (c) => this.temNota(c.notaOrRec) && c.resultado === 'Reprovado',
-      ],
-    });
-
-    return {
-      total: elegiveis.length,
-      matricula: dto.codigoMatricula,
-      anoLectivo: dto.codigoAnoLectivo,
-      nomeCompleto: elegiveis[0]?.nome_completo ?? null,
-      cadeiras: elegiveis.map(this.mapearCadeiraComNotasRecurso.bind(this)),
-    };
-  }
-
-  async inscricaoRecurso(dto: InscricaoDTO) {
-    const [anoLectivo, dadosAluno] = await Promise.all([
-      this.buscarAnoLectivoCorrente(),
-      this.dadosAluno(dto.codigoMatricula),
-    ]);
-
-    const prazo = await this.prazosService.obterPrazo({
-      tipo: TipoCalendario.RECURSO,
-      anoLectivoParam: anoLectivo.codigo,
-    });
-    if (prazo && !prazo.podeInscrever)
-      throw new BadRequestException(prazo.mensagem);
-
-    const servico = await this.buscarPrecoServico(
-      SIGLA_SERVICO.RECURSO,
-      anoLectivo.codigo,
-    );
-    if (!servico) {
-      throw new BadRequestException('Serviço de recurso não configurado.');
-    }
-
-    const valores = await this.calcularValoresInscricao(
-      dto.gradesAlunos.length,
-      servico,
-    );
-
-    const bodyFatura: InvoicePayload = this.montarPayloadFatura({
-      valores,
-      servico,
-      dto,
-      dadosAluno,
-      anoLectivo,
-      codigoDescricao: 6,
-      descricao: `Inscrição de Recurso - ${anoLectivo.designacao}`,
-    });
-
-    const fatura = await FinanceInvoiceHelper.createInvoice(
-      this.httpService,
-      bodyFatura,
-    );
-
-    await this.persistirInscricoes(
-      dto.codigoMatricula,
-      dto.gradesAlunos,
-      TIPO_AVALIACAO.RECURSO,
-      anoLectivo.codigo,
-      fatura.Codigo,
-      dadosAluno.canal,
-    );
-
-    return {
-      message: 'Inscrição realizada com sucesso',
-    };
-  }
-
-  async inscricaoEpocaEspecial(dto: InscricaoDTO) {
-    const [anoLectivo, dadosAluno] = await Promise.all([
-      this.buscarAnoLectivoCorrente(),
-      this.dadosAluno(dto.codigoMatricula),
-    ]);
-
-    const studentForEpocaEspecial =
-      await this.studentsResultPlanService.findPlan(dto.codigoMatricula);
-
-    const prazo = await this.prazosService.obterPrazo({
-      tipo: TipoCalendario.EXAME_ESPECIAL,
-      anoLectivoParam: anoLectivo.codigo,
-    });
-    if (prazo && !prazo.podeInscrever)
-      throw new BadRequestException(prazo.mensagem);
-
-    if (
-      !(
-        studentForEpocaEspecial.totalGradesCurso -
-          studentForEpocaEspecial.totalGrasesAluno <=
-        4
-      )
-    )
-      throw new BadRequestException(
-        'O aluno não é elegível para inscrição em época especial.',
-      );
-
-    const servico = await this.buscarPrecoServico(
-      SIGLA_SERVICO.EXAME_ESPECIAL,
-      anoLectivo.codigo,
-    );
-    if (!servico) {
-      throw new BadRequestException(
-        'Serviço de época especial não configurado.',
-      );
-    }
-
-    const valores = await this.calcularValoresInscricao(
-      dto.gradesAlunos.length,
-      servico,
-    );
-
-    const bodyFatura: InvoicePayload = this.montarPayloadFatura({
-      valores,
-      servico,
-      dto,
-      dadosAluno,
-      anoLectivo,
-      codigoDescricao: 7,
-      descricao: `Inscrição de Época Especial - ${anoLectivo.designacao}`,
-    });
-
-    const fatura = await FinanceInvoiceHelper.createInvoice(
-      this.httpService,
-      bodyFatura,
-    );
-
-    await this.persistirInscricoes(
-      dto.codigoMatricula,
-      dto.gradesAlunos,
-      TIPO_AVALIACAO.EXAME_ESPECIAL,
-      anoLectivo.codigo,
-      fatura.Codigo,
-      dadosAluno.canal,
-    );
-
-    return {
-      message: 'Inscrição realizada com sucesso',
-    };
-  }
-
-  async recursoCadeiraInscrita({
-    codigoMatricula,
-    codigoAnoLectivo,
-  }: {
-    codigoMatricula: number;
-    codigoAnoLectivo: number;
-  }) {
-    const cadeirasInscritas = await this.buscarCadeiraInscrita(
-      codigoMatricula,
-      codigoAnoLectivo,
-      TIPO_AVALIACAO.RECURSO,
-    );
-
-    return { cadeirasInscritas };
-  }
-
-  async epocaEspecialCadeiraInscrita({
-    codigoMatricula,
-    codigoAnoLectivo,
-  }: {
-    codigoMatricula: number;
-    codigoAnoLectivo: number;
-  }) {
-    const cadeirasInscritas = await this.buscarCadeiraInscrita(
-      codigoMatricula,
-      codigoAnoLectivo,
-      TIPO_AVALIACAO.EXAME_ESPECIAL,
-    );
-
-    return { cadeirasInscritas };
   }
 }
