@@ -84,11 +84,20 @@ export class InscricaoDTO {
   @IsNumber()
   @Type(() => Number)
   codigoMatricula: number;
+
+  @ApiProperty({ description: 'Tipo de candidatura', example: 23 })
+  @IsNotEmpty()
+  @IsNumber()
+  @Type(() => Number)
+  tipoCandidatura: number;
 }
 
 export class CriarInscricaoRecursoBodyDTO extends OmitType(InscricaoDTO, [
   'codigoMatricula',
-] as const) {}
+  'tipoCandidatura'
+] as const) { }
 export class CriarInscricaoEpocaEspecialBodyDTO extends OmitType(InscricaoDTO, [
   'codigoMatricula',
-] as const) {}
+  'tipoCandidatura'
+
+] as const) { }
