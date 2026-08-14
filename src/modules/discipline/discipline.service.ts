@@ -1213,7 +1213,7 @@ export class DisciplineService {
     INNER JOIN FK2_TB_MATRICULAS m
     ON m.CODIGO = gca.CODIGO_MATRICULA
     WHERE gca.CODIGO_GRADE_CURRICULAR = :codigoGrade
-    AND m.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+    AND gca.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
     AND m.CODIGO_CURSO = :codigoCurso
     `,
       { codigoGrade, codigoAnoLectivo, codigoCurso } as any,
