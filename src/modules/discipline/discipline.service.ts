@@ -1204,7 +1204,26 @@ export class DisciplineService {
     codigoUtilizador: number,
   ) {
     const { codigoGrade, codigoAnoLectivo, codigoCurso } = dto;
+    // 0. Verificar se ja tem um estudante inscrito na UC neste ano e neste curso
+    // FK2_TB_MATRICULAS,CODIGO_MATRICULA
+    const existEstudanteResult = await this.dataSource.query(
+      `
+    SELECT COUNT(*) AS total
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO gca
+    INNER JOIN FK2_TB_MATRICULAS m
+    ON m.CODIGO = gca.CODIGO_MATRICULA
+    WHERE gca.CODIGO_GRADE_CURRICULAR = :codigoGrade
+    AND m.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+    AND m.CODIGO_CURSO = :codigoCurso
+    `,
+      { codigoGrade, codigoAnoLectivo, codigoCurso } as any,
+    );
 
+    if (Number(existEstudanteResult?.[0]?.TOTAL) > 0) {
+      throw new BadRequestException(
+        'Não foi encontrado estudante inscrito na UC neste ano e neste curso.',
+      );
+    }
     // 1. Obter plano do curso
     const codigoPlanoCurso = await this.getPlanoCurso(
       codigoCurso,
