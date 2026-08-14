@@ -1133,7 +1133,7 @@ export class StudentNoteService {
     const result = await this.dataSource.query(
       `
     SELECT COUNT(*) AS TOTAL
-    FROM FK2_TB_HISTORICO_INSCRICOES_AVALIACOES ha
+    FROM FK2_INSCRICAO_AVALIACOES ha
     INNER JOIN FK2_FACTURA ft ON ft.CODIGO = ha.CODIGO_FACTURA
     WHERE ha.CODIGO_MATRICULA     = :matricula
       AND ha.CODIGO_GRADE_ALUNO    = :grade
@@ -1223,7 +1223,7 @@ export class StudentNoteService {
     SELECT
       COUNT(*) AS TOTAL,
       SUM(CASE WHEN ft.ESTADO = 1 THEN 1 ELSE 0 END) AS PAGOS
-    FROM FK2_TB_HISTORICO_INSCRICOES_AVALIACOES ha
+    FROM FK2_INSCRICAO_AVALIACOES ha
     INNER JOIN FK2_FACTURA ft ON ft.CODIGO = ha.CODIGO_FACTURA
     WHERE ha.CODIGO_MATRICULA     = :matricula
       AND ha.CODIGO_GRADE_ALUNO    = :grade
