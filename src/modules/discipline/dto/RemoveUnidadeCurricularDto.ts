@@ -1,5 +1,6 @@
 import { IsInt } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class RemoveUnidadeCurricularDto {
     @ApiProperty({
@@ -7,6 +8,7 @@ export class RemoveUnidadeCurricularDto {
         description: 'Código da unidade curricular',
     })
     @IsInt()
+    @Type(() => Number)
     codigoGrade: number;
 
     @ApiProperty({
@@ -14,6 +16,7 @@ export class RemoveUnidadeCurricularDto {
         description: 'Código do ano lectivo',
     })
     @IsInt()
+    @Type(() => Number)
     codigoAnoLectivo: number;
 
     @ApiProperty({
@@ -21,5 +24,6 @@ export class RemoveUnidadeCurricularDto {
         description: 'Código do curso',
     })
     @IsInt()
+    @Type(() => Number)
     codigoCurso: number;
 }
