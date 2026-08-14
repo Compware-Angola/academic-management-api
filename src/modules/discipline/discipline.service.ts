@@ -29,10 +29,11 @@ export class UnidadeCurricularJaNoPlanoException extends ConflictException {
   }
 }
 import { ConsultarVinculacaoGradeDto } from './dto/ConsultarVinculacaoGradeDto';
+import { RemoveUnidadeCurricularDto } from './dto/RemoveUnidadeCurricularDto';
 
 @Injectable()
 export class DisciplineService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
   async findGradeCurricularAluno({
     matriculaId,
     semestre,
@@ -1198,22 +1199,40 @@ export class DisciplineService {
       codigo: codigoGrade,
     };
   }
-  async removerUnidadeCurricularDoPlano(codigoGrade: number) {
-    // 1. Verificar se a grade existe
-    const gradeResult = await this.dataSource.query(
-      `SELECT COUNT(*) AS total FROM FK2_TB_GRADE_CURRICULAR WHERE CODIGO = :codigoGrade`,
-      { codigoGrade } as any,
+  async removerUnidadeCurricularDoPlano(
+    dto: RemoveUnidadeCurricularDto,
+    codigoUtilizador: number,
+  ) {
+    const { codigoGrade, codigoAnoLectivo, codigoCurso } = dto;
+
+    // 1. Obter plano do curso
+    const codigoPlanoCurso = await this.getPlanoCurso(
+      codigoCurso,
+      codigoAnoLectivo,
     );
 
-    if (Number(gradeResult?.[0]?.TOTAL) === 0) {
-      throw new NotFoundException('Grade curricular não encontrada.');
+    // 2. Verificar se a grade está de facto associada a este plano
+    const existPlanoResult = await this.dataSource.query(
+      `
+    SELECT COUNT(*) AS total
+    FROM FK2_TB_PLANO_CURRICULAR_GRADE
+    WHERE CODIGO_PLANO_CURRICULAR_CURSO = :codigoPlanoCurso
+      AND CODIGO_GRADE_CURRICULAR       = :codigoGrade
+    `,
+      { codigoPlanoCurso, codigoGrade } as any,
+    );
+
+    if (Number(existPlanoResult?.[0]?.TOTAL) === 0) {
+      throw new NotFoundException(
+        'Não foi encontrada esta unidade curricular no plano deste curso.',
+      );
     }
 
-    // 2. Desativar a grade
-    await this.inativegrade(codigoGrade);
+    // 3. Remover a associação plano ↔ grade
+    await this.removerPlano(codigoGrade, codigoPlanoCurso);
 
     return {
-      message: 'UC Removida Com Sucesso',
+      message: 'Unidade curricular removida do plano com sucesso.',
       codigo: codigoGrade,
     };
   }
@@ -1812,7 +1831,26 @@ export class DisciplineService {
 
     return result?.outId[0];
   }
-
+  private async removerPlano(
+    codigoGrade: number,
+    codigoPlanoCurso: number,
+  ): Promise<void> {
+    try {
+      await this.dataSource.query(
+        `
+      DELETE FROM FK2_TB_PLANO_CURRICULAR_GRADE
+      WHERE CODIGO_PLANO_CURRICULAR_CURSO = :codigoPlanoCurso
+        AND CODIGO_GRADE_CURRICULAR       = :codigoGrade
+      `,
+        { codigoPlanoCurso, codigoGrade } as any,
+      );
+    } catch (error) {
+      console.error('Erro ao remover plano de grade:', error);
+      throw new InternalServerErrorException(
+        `Erro ao remover grade do plano: ${error.message}`,
+      );
+    }
+  }
   private async adicionarPlano(
     codigoUtilizador: number,
     codigoGrade: number,
