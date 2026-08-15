@@ -20,6 +20,8 @@ import { FindUnidadeCurricularDeptDto } from './dto/find-unidade-curricular-dept
 import { FindGradeCurricularAdminDto } from './dto/find-grade-curricular-admin.dto';
 import { CreateUCTroncoComumPlanoCursoDto } from './dto/create-uc-tronco-comum-plano-curso.dto';
 import { CreateUnidadesCurricularesDto } from './dto/add-uc-to-plan.dto';
+import { ConsultarVinculacaoGradeDto } from './dto/ConsultarVinculacaoGradeDto';
+import { RemoveUnidadeCurricularDto } from './dto/RemoveUnidadeCurricularDto';
 
 export class UnidadeCurricularJaNoPlanoException extends ConflictException {
   constructor(
@@ -28,8 +30,6 @@ export class UnidadeCurricularJaNoPlanoException extends ConflictException {
     super(mensagem);
   }
 }
-import { ConsultarVinculacaoGradeDto } from './dto/ConsultarVinculacaoGradeDto';
-import { RemoveUnidadeCurricularDto } from './dto/RemoveUnidadeCurricularDto';
 
 @Injectable()
 export class DisciplineService {
@@ -1221,9 +1221,11 @@ export class DisciplineService {
 
     if (Number(existEstudanteResult?.[0]?.TOTAL) > 0) {
       throw new BadRequestException(
-        'Não foi encontrado estudante inscrito na UC neste ano e neste curso.',
+        'Foi encontrado estudante inscrito na UC neste ano e neste curso.',
       );
     }
+
+
     // 1. Obter plano do curso
     const codigoPlanoCurso = await this.getPlanoCurso(
       codigoCurso,
@@ -1435,11 +1437,10 @@ export class DisciplineService {
     if (Number(existPlanoResult?.[0]?.TOTAL) > 0) {
       // Grade já está no plano — reativar
       await this.ativegrade(codigoGrade);
+    } else {
+      await this.adicionarPlano(codigoUtilizador, codigoGrade, codigoPlanoCurso);
     }
 
-    // 6a. Não está no plano — adicionar ao plano
-    await this.ativegrade(codigoGrade);
-    await this.adicionarPlano(codigoUtilizador, codigoGrade, codigoPlanoCurso);
 
     const nomeDisciplina = gradeCurricular[0].NOME_DISCIPLINA;
 
@@ -1629,6 +1630,94 @@ export class DisciplineService {
       totalErros: cursosComErro.length,
       sucesso: cursosComSucesso,
       erros: cursosComErro,
+    };
+  }
+  async desvincularUnidadeCurricularDoPlano(
+    codigoVinculo: number,
+    codigoUtilizador: number,
+  ) {
+
+    // 0. Obter o vínculo pelo seu código (já traz grade, plano, curso e ano letivo)
+    const vinculoResult = await this.dataSource.query(
+      `
+    SELECT
+      pcgs.CODIGO,
+      pcgs.CODIGO_PLANO_CURRICULAR_CURSO,
+      pcgs.CODIGO_CLASSE,
+      pcgs.CODIGO_GRADE_CURRICULAR,
+      pcgs.CODIGO_SEMESTRE,
+      pcc.CODIGO_CURSO,
+      pcc.CODIGO_ANO_LECTIVO
+    FROM FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pcgs
+    JOIN FK2_TB_PLANO_CURRICULAR_CURSO pcc
+      ON pcc.CODIGO = pcgs.CODIGO_PLANO_CURRICULAR_CURSO
+    WHERE pcgs.CODIGO = :codigoVinculo
+    `,
+      { codigoVinculo } as any,
+    );
+
+    if (vinculoResult.length === 0) {
+      throw new NotFoundException(`Vínculo ${codigoVinculo} não encontrado.`);
+    }
+
+    const {
+      CODIGO_PLANO_CURRICULAR_CURSO: codigoPlanoCurso,
+      CODIGO_GRADE_CURRICULAR: codigoGrade,
+      CODIGO_CURSO: codigoCurso,
+      CODIGO_ANO_LECTIVO: codigoAnoLectivo,
+    } = vinculoResult[0];
+
+    // 1. Verificar se já existe estudante inscrito nesta UC, neste ano e neste curso
+    const existEstudanteResult = await this.dataSource.query(
+      `
+    SELECT COUNT(*) AS total
+    FROM FK2_TB_GRADE_CURRICULAR_ALUNO gca
+    INNER JOIN FK2_TB_MATRICULAS m
+      ON m.CODIGO = gca.CODIGO_MATRICULA
+    WHERE gca.CODIGO_GRADE_CURRICULAR = :codigoGrade
+      AND gca.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+      AND m.CODIGO_CURSO = :codigoCurso
+    `,
+      { codigoGrade, codigoAnoLectivo, codigoCurso } as any,
+    );
+
+    if (Number(existEstudanteResult?.[0]?.TOTAL) > 0) {
+      throw new BadRequestException(
+        'Foi encontrado estudante inscrito na UC neste ano e neste curso.',
+      );
+    }
+
+    // 2. Remover o registo de vínculo (classe/semestre) da tabela de controlo
+    await this.dataSource.query(
+      `
+    DELETE FROM FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE
+    WHERE CODIGO = :codigoVinculo
+    `,
+      { codigoVinculo } as any,
+    );
+
+    // 3. Se não sobrar nenhum outro vínculo (classe/semestre) desta grade
+    //    neste mesmo plano de curso, remover também a associação grade ↔ plano
+    const outrosVinculosResult = await this.dataSource.query(
+      `
+    SELECT COUNT(*) AS total
+    FROM FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE
+    WHERE CODIGO_PLANO_CURRICULAR_CURSO = :codigoPlanoCurso
+      AND CODIGO_GRADE_CURRICULAR = :codigoGrade
+    `,
+      { codigoPlanoCurso, codigoGrade } as any,
+    );
+
+    if (Number(outrosVinculosResult?.[0]?.TOTAL) === 0) {
+      await this.removerPlano(codigoGrade, codigoPlanoCurso);
+    }
+
+    return {
+      message: 'Unidade curricular desvinculada do plano com sucesso.',
+      codigoVinculo,
+      codigoGrade,
+      codigoCurso,
+      codigoAnoLectivo,
     };
   }
   async consultarCursosVinculadosGrade(dto: ConsultarVinculacaoGradeDto) {
