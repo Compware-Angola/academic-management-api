@@ -1736,6 +1736,7 @@ export class DisciplineService {
     const resultado = await this.dataSource.query(
       `
     SELECT
+      pcgs.CODIGO                   AS CODIGO_VINCULO,
       pcc.CODIGO_CURSO             AS CODIGO_CURSO,
       cur.DESIGNACAO                AS NOME_CURSO,
       pcgs.CODIGO_CLASSE            AS CODIGO_CLASSE,
