@@ -1769,6 +1769,8 @@ export class DisciplineService {
         codigoClasse: r.CODIGO_CLASSE,
         anoCurricular: r.NOME_CLASSE,
         codigoSemestre: r.CODIGO_SEMESTRE,
+        codigoVinculo: r.CODIGO_VINCULO,
+
       })),
     };
   }
