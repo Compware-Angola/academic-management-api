@@ -34,6 +34,7 @@ import { CreateUnidadesCurricularesDto } from './dto/add-uc-to-plan.dto';
 import { ConsultarVinculacaoGradeDto } from './dto/ConsultarVinculacaoGradeDto';
 import { RemoveUnidadeCurricularDto } from './dto/RemoveUnidadeCurricularDto';
 
+
 @ApiTags('DISCIPLINAS')
 @Controller('discipline')
 export class DisciplineController {
@@ -184,6 +185,20 @@ export class DisciplineController {
     const codigoUtilizador = 1;
     return this.disciplineService.removerUnidadeCurricularDoPlano(
       query,
+      codigoUtilizador,
+    );
+  }
+
+  @Delete('plano-curricular/desvincular/:codigoVinculo')
+  @ApiOperation({
+    summary: 'Desvincular UC do plano',
+    description: 'Remove a vinculação entre UC e plano curricular (sem remover estudantes).',
+  })
+  @HttpCode(HttpStatus.OK)
+  async desvincularUnidadeCurricular(@Param('codigoVinculo', ParseIntPipe) codigoVinculo: number) {
+    const codigoUtilizador = 1;
+    return this.disciplineService.desvincularUnidadeCurricularDoPlano(
+      codigoVinculo,
       codigoUtilizador,
     );
   }
