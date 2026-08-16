@@ -178,7 +178,7 @@ export class StudentsProvasService {
     const [anoLectivo, dadosAluno, anoLectivoDaUltimaConfirmacao] = await Promise.all([
       this.buscarAnoLectivoCorrente(dto.tipoCandidatura),
       this.dadosAluno(dto.codigoMatricula),
-      this.buscarAnoLectivoDaUltimaConfirmacao(dto.codigoMatricula)
+      this.buscarAnoLectivoDaUltimaConfirmacao(dto.codigoMatricula),
     ]);
 
     if (anoLectivo.codigo !== anoLectivoDaUltimaConfirmacao) {
@@ -194,6 +194,21 @@ export class StudentsProvasService {
     if (prazo && !prazo.podeInscrever)
       throw new BadRequestException(prazo.mensagem);
 
+
+    const gradesParaInscrever = await this.filtrarGradesNaoInscritas(
+      dto.codigoMatricula,
+      dto.gradesAlunos,
+      TIPO_AVALIACAO.RECURSO,
+      anoLectivo.codigo,
+    );
+
+
+    if (gradesParaInscrever.length === 0) {
+      throw new BadRequestException(
+        'O aluno já está inscrito em todas as cadeiras selecionadas.',
+      );
+    }
+
     const servico = await this.buscarPrecoServico(
       SIGLA_SERVICO.RECURSO,
       anoLectivo.codigo,
@@ -203,7 +218,7 @@ export class StudentsProvasService {
     }
 
     const valores = await this.calcularValoresInscricao(
-      dto.gradesAlunos.length,
+      gradesParaInscrever.length,
       servico,
     );
 
@@ -224,7 +239,7 @@ export class StudentsProvasService {
 
     await this.persistirInscricoes(
       dto.codigoMatricula,
-      dto.gradesAlunos,
+      gradesParaInscrever,
       TIPO_AVALIACAO.RECURSO,
       anoLectivo.codigo,
       fatura.Codigo,
@@ -235,7 +250,42 @@ export class StudentsProvasService {
       message: 'Inscrição realizada com sucesso',
     };
   }
+  /**
+   * Verifica quais grades já estão inscritas e retorna apenas
+   * as que ainda podem ser cadastradas.
+   */
+  private async filtrarGradesNaoInscritas(
+    codigoMatricula: number,
+    gradeAlunos: GradeRecursoAluno[],
+    codigoTipoAvaliacao: CodigoTipoAvaliacao,
+    codigoAnoLectivo: number,
+  ): Promise<GradeRecursoAluno[]> {
+    if (!gradeAlunos || gradeAlunos.length === 0) {
+      return [];
+    }
 
+    const codigosGradeAluno = gradeAlunos.map((g) => g.codigoGradeAluno);
+
+    const inscritos = await this.dataSource.query(
+      `
+    SELECT CODIGO_GRADE_ALUNO
+    FROM FK2_INSCRICAO_AVALIACOES
+    WHERE CODIGO_MATRICULA      = :matricula
+      AND CODIGO_TIPO_AVALIACAO = :tipo
+      AND CODIGO_ANO_LECTIVO    = :ano
+      AND CODIGO_GRADE_ALUNO IN (:...codigosGradeAluno)
+    `,
+      [codigoMatricula, codigoTipoAvaliacao, codigoAnoLectivo, codigosGradeAluno],
+    );
+
+    const codigosJaInscritos = new Set(
+      inscritos.map((i: any) => i.CODIGO_GRADE_ALUNO),
+    );
+
+    return gradeAlunos.filter(
+      (g) => !codigosJaInscritos.has(g.codigoGradeAluno),
+    );
+  }
   async inscricaoEpocaEspecial(dto: InscricaoDTO) {
     const [anoLectivo, dadosAluno] = await Promise.all([
       this.buscarAnoLectivoCorrente(dto.tipoCandidatura),
@@ -713,6 +763,23 @@ ORDER BY DATA_CONFIRMACAO ASC, CLASSE ASC`
     idFatura: number,
     canal: number,
   ): Promise<void> {
+    // Verifica se existe grade antes de qualquer coisa
+    if (!gradeAlunos || gradeAlunos.length === 0) {
+      throw new BadRequestException(
+        'Nenhuma grade encontrada para o aluno. Não é possível efetuar a inscrição.',
+      );
+    }
+
+    // Garante que cada item da lista realmente tem CODIGO_GRADE preenchido
+    const gradeInvalida = gradeAlunos.some(
+      (g) => g.codigoGrade === null || g.codigoGrade === undefined,
+    );
+    if (gradeInvalida) {
+      throw new BadRequestException(
+        'Foi encontrada uma grade inválida (sem código de grade) para o aluno.',
+      );
+    }
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
