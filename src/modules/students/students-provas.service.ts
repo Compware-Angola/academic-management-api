@@ -250,10 +250,6 @@ export class StudentsProvasService {
       message: 'Inscrição realizada com sucesso',
     };
   }
-  /**
-   * Verifica quais grades já estão inscritas e retorna apenas
-   * as que ainda podem ser cadastradas.
-   */
   private async filtrarGradesNaoInscritas(
     codigoMatricula: number,
     gradeAlunos: GradeRecursoAluno[],
@@ -266,6 +262,20 @@ export class StudentsProvasService {
 
     const codigosGradeAluno = gradeAlunos.map((g) => g.codigoGradeAluno);
 
+    // Gera :grade0, :grade1, :grade2... e o objeto de binds correspondente
+    const placeholders = codigosGradeAluno
+      .map((_, i) => `:grade${i}`)
+      .join(', ');
+
+    const bindParams: Record<string, any> = {
+      matricula: codigoMatricula,
+      tipo: codigoTipoAvaliacao,
+      ano: codigoAnoLectivo,
+    };
+    codigosGradeAluno.forEach((codigo, i) => {
+      bindParams[`grade${i}`] = codigo;
+    });
+
     const inscritos = await this.dataSource.query(
       `
     SELECT CODIGO_GRADE_ALUNO
@@ -273,9 +283,9 @@ export class StudentsProvasService {
     WHERE CODIGO_MATRICULA      = :matricula
       AND CODIGO_TIPO_AVALIACAO = :tipo
       AND CODIGO_ANO_LECTIVO    = :ano
-      AND CODIGO_GRADE_ALUNO IN (:...codigosGradeAluno)
+      AND CODIGO_GRADE_ALUNO IN (${placeholders})
     `,
-      [codigoMatricula, codigoTipoAvaliacao, codigoAnoLectivo, codigosGradeAluno],
+      [bindParams],
     );
 
     const codigosJaInscritos = new Set(
