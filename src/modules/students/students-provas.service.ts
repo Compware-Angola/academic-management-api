@@ -262,30 +262,26 @@ export class StudentsProvasService {
 
     const codigosGradeAluno = gradeAlunos.map((g) => g.codigoGradeAluno);
 
-    // Gera :grade0, :grade1, :grade2... e o objeto de binds correspondente
+    // :1 = matricula, :2 = tipo, :3 = ano, :4.. = cada codigoGradeAluno
     const placeholders = codigosGradeAluno
-      .map((_, i) => `:grade${i}`)
+      .map((_, i) => `:${i + 4}`)
       .join(', ');
-
-    const bindParams: Record<string, any> = {
-      matricula: codigoMatricula,
-      tipo: codigoTipoAvaliacao,
-      ano: codigoAnoLectivo,
-    };
-    codigosGradeAluno.forEach((codigo, i) => {
-      bindParams[`grade${i}`] = codigo;
-    });
 
     const inscritos = await this.dataSource.query(
       `
     SELECT CODIGO_GRADE_ALUNO
     FROM FK2_INSCRICAO_AVALIACOES
-    WHERE CODIGO_MATRICULA      = :matricula
-      AND CODIGO_TIPO_AVALIACAO = :tipo
-      AND CODIGO_ANO_LECTIVO    = :ano
+    WHERE CODIGO_MATRICULA      = :1
+      AND CODIGO_TIPO_AVALIACAO = :2
+      AND CODIGO_ANO_LECTIVO    = :3
       AND CODIGO_GRADE_ALUNO IN (${placeholders})
     `,
-      [bindParams],
+      [
+        codigoMatricula,
+        codigoTipoAvaliacao,
+        codigoAnoLectivo,
+        ...codigosGradeAluno,
+      ],
     );
 
     const codigosJaInscritos = new Set(
