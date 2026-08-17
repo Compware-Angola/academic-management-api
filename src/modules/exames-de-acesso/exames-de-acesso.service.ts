@@ -2071,6 +2071,7 @@ END AS RESULTADO
   }
 
 
+  //-----------------------------REUSABLE CODE FOR EXPECTED DATA FORMAT---------------------
   private getPreinscricaoDateExpression(): string {
     return `
     CASE
