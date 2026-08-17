@@ -32,6 +32,8 @@ import { FindGradeCurricularAdminDto } from './dto/find-grade-curricular-admin.d
 import { CreateUCTroncoComumPlanoCursoDto } from './dto/create-uc-tronco-comum-plano-curso.dto';
 import { CreateUnidadesCurricularesDto } from './dto/add-uc-to-plan.dto';
 import { ConsultarVinculacaoGradeDto } from './dto/ConsultarVinculacaoGradeDto';
+import { RemoveUnidadeCurricularDto } from './dto/RemoveUnidadeCurricularDto';
+
 
 @ApiTags('DISCIPLINAS')
 @Controller('discipline')
@@ -39,7 +41,7 @@ export class DisciplineController {
   constructor(
     private readonly disciplineService: DisciplineService,
     private readonly configurationPlaneService: ConfigurationPlaneService,
-  ) {}
+  ) { }
 
   @Post()
   @ApiOperation({
@@ -173,16 +175,32 @@ export class DisciplineController {
       codigoUtilizador,
     );
   }
-  @Delete('plano-curricular/:codigoGrade')
+  @Delete('plano-curricular')
   @ApiOperation({
     summary: 'Remover UC do plano',
     description: 'Remove UC do plano curricular.',
   })
   @HttpCode(HttpStatus.OK)
-  async removerUnidadeCurricularDoPlano(
-    @Param('codigoGrade') codigoGrade: number,
-  ) {
-    return this.disciplineService.removerUnidadeCurricularDoPlano(codigoGrade);
+  async removerUnidadeCurricularDoPlano(@Query() query: RemoveUnidadeCurricularDto) {
+    const codigoUtilizador = 1;
+    return this.disciplineService.removerUnidadeCurricularDoPlano(
+      query,
+      codigoUtilizador,
+    );
+  }
+
+  @Delete('plano-curricular/desvincular/:codigoVinculo')
+  @ApiOperation({
+    summary: 'Desvincular UC do plano',
+    description: 'Remove a vinculação entre UC e plano curricular (sem remover estudantes).',
+  })
+  @HttpCode(HttpStatus.OK)
+  async desvincularUnidadeCurricular(@Param('codigoVinculo', ParseIntPipe) codigoVinculo: number) {
+    const codigoUtilizador = 1;
+    return this.disciplineService.desvincularUnidadeCurricularDoPlano(
+      codigoVinculo,
+      codigoUtilizador,
+    );
   }
 
   @Post('departamento')

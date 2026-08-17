@@ -31,7 +31,7 @@ export class ExamesDeAcessoService {
     private readonly dataSource: DataSource,
     @InjectQueue('results_final_exam')
     private readonly resultsFinalExamQueue: Queue,
-  ) { }
+  ) {}
 
   async buscaCandidatos(filtros: FilterCandidatoDto) {
     const condicoes: string[] = [
@@ -386,7 +386,6 @@ export class ExamesDeAcessoService {
       );
       params.push(filtros.dataRealizacao);
     }
-
 
     if (filtros.horaInicio) {
       condicoes.push(`
@@ -950,12 +949,13 @@ END AS RESULTADO
          , FK2_TB_PREINSCRICAO.CONTACTOS_TELEFONICOS AS CONTATO
          , FK2_TB_PREINSCRICAO.SEXO
          , TO_CHAR(
-            TO_DATE(
-              DBMS_LOB.SUBSTR(FK2_TB_PREINSCRICAO.DATA_PREESCRINCAO, 4000, 1),
-              'YYYY-MM-DD HH24:MI:SS'
-            ),
-            'DD/MM/YYYY'
-          ) AS DATA_CANDIDATURA
+  CASE
+    WHEN REGEXP_LIKE(FK2_TB_PREINSCRICAO.DATA_PREESCRINCAO, '^[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2}')
+    THEN TO_DATE(FK2_TB_PREINSCRICAO.DATA_PREESCRINCAO, 'YYYY-MM-DD HH24:MI:SS')
+    ELSE TO_DATE(FK2_TB_PREINSCRICAO.DATA_PREESCRINCAO, 'DD-MON-RR', 'NLS_DATE_LANGUAGE=ENGLISH')
+  END,
+  'DD/MM/YYYY'
+) AS DATA_CANDIDATURA
          , FK2_TB_PREINSCRICAO.CODIGO_TIPO_CANDIDATURA
          , FK2_TB_TIPO_CANDIDATURA.DESIGNACAO AS TIPO_CANDIDATURA
          , FK2_TB_PREINSCRICAO.ESTADO_PREISCRICAO_CANDIDATO AS ESTADO
@@ -1032,14 +1032,10 @@ END AS RESULTADO
         FOR UPDATE
       `;
 
-        const candidates = await manager.query(sqlCandidate, [
-          codigoCandidato,
-        ]);
+        const candidates = await manager.query(sqlCandidate, [codigoCandidato]);
 
         if (!candidates || candidates.length === 0) {
-          throw new BadRequestException(
-            'Candidato não encontrado.',
-          );
+          throw new BadRequestException('Candidato não encontrado.');
         }
 
         const candidate = candidates[0];
@@ -1250,10 +1246,7 @@ END AS RESULTADO
             exam.ID,
           ])) as any[];
 
-          console.log(
-            `Horários encontrados para prova ${exam.ID}:`,
-            schedules,
-          );
+          console.log(`Horários encontrados para prova ${exam.ID}:`, schedules);
 
           if (!schedules || schedules.length === 0) {
             continue;
@@ -1299,21 +1292,15 @@ END AS RESULTADO
             WHERE HORARIO_PROVA_ID = :1
           `;
 
-            const countResult = await manager.query(sqlCount, [
-              schedule.ID,
-            ]);
+            const countResult = await manager.query(sqlCount, [schedule.ID]);
 
             const currentCount = Number(
               countResult?.[0]?.QUANTIDADE_CANDIDATOS ?? 0,
             );
 
-            const capacity = Number(
-              schedule.CAPACIDADEEXAMEACESSOPROVA ?? 0,
-            );
+            const capacity = Number(schedule.CAPACIDADEEXAMEACESSOPROVA ?? 0);
 
-            console.log(
-              `Horário ${schedule.ID}: ${currentCount}/${capacity}`,
-            );
+            console.log(`Horário ${schedule.ID}: ${currentCount}/${capacity}`);
 
             /**
              * Existe espaço?
@@ -1789,10 +1776,10 @@ END AS RESULTADO
     const data = rows.map((row: any) => {
       const listaProvas = row.LISTA_DE_PROVAS
         ? row.LISTA_DE_PROVAS.replace(/^Prova de\\s*/i, '')
-          .split(/<br>/i)[0]
-          .split(',')
-          .map((s: string) => s.trim())
-          .filter((s: string) => s.length > 0)
+            .split(/<br>/i)[0]
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter((s: string) => s.length > 0)
         : [];
 
       return {

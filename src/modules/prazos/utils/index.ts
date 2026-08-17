@@ -9,167 +9,133 @@ export type MensagensPrazo = {
 
 export const MENSAGENS_PADRAO: Record<CodigoTipoCalendario, MensagensPrazo> = {
   1: {
-    antes: 'A época de afectação ainda não está disponível.',
-    durante: 'A época de afectação está aberta.',
-    depois: 'A época de afectação terminou.',
-    naoConfigurado: 'O calendário de afectação não foi configurado.',
+    antes: 'O período de afectação ainda não foi iniciado.',
+    durante: 'O período de afectação está em curso.',
+    depois: 'O período de afectação está encerrado.',
+    naoConfigurado: 'O calendário de afectação ainda não foi configurado.',
   },
 
   2: {
-    antes: 'A criação de horários ainda não está disponível.',
-
-    durante: 'A criação de horários está aberta.',
-
-    depois: 'A criação de horários terminou.',
-
-    naoConfigurado: 'O calendário de criação de horários não foi configurado.',
+    antes: 'O período de criação de horários ainda não foi iniciado.',
+    durante: 'O período de criação de horários está em curso.',
+    depois: 'O período de criação de horários está encerrado.',
+    naoConfigurado:
+      'O calendário de criação de horários ainda não foi configurado.',
   },
 
   3: {
-    antes: 'A inscrição de novos estudantes ainda não está disponível.',
-
-    durante: 'A inscrição de novos estudantes está aberta.',
-
-    depois: 'A inscrição de novos estudantes terminou.',
-
+    antes: 'O período de inscrição de novos estudantes ainda não foi iniciado.',
+    durante: 'O período de inscrição de novos estudantes está em curso.',
+    depois: 'O período de inscrição de novos estudantes está encerrado.',
     naoConfigurado:
-      'O calendário de inscrição de novos estudantes não foi configurado.',
+      'O calendário de inscrição de novos estudantes ainda não foi configurado.',
   },
 
   4: {
-    antes: 'A confirmação de matrícula ainda não está disponível.',
-
-    durante: 'A confirmação de matrícula está aberta.',
-
-    depois: 'A confirmação de matrícula terminou.',
-
+    antes: 'O período de confirmação de matrícula ainda não foi iniciado.',
+    durante: 'O período de confirmação de matrícula está em curso.',
+    depois: 'O período de confirmação de matrícula está encerrado.',
     naoConfigurado:
-      'O calendário de confirmação de matrícula não foi configurado.',
+      'O calendário de confirmação de matrícula ainda não foi configurado.',
   },
 
   5: {
-    antes: 'O exame de acesso ainda não está disponível.',
-
-    durante: 'O exame de acesso está aberto.',
-
-    depois: 'O exame de acesso terminou.',
-
-    naoConfigurado: 'O calendário de exame de acesso não foi configurado.',
+    antes: 'O período de exame de acesso ainda não foi iniciado.',
+    durante: 'O período de exame de acesso está em curso.',
+    depois: 'O período de exame de acesso está encerrado.',
+    naoConfigurado:
+      'O calendário de exame de acesso ainda não foi configurado.',
   },
 
   6: {
-    antes: 'A abertura do ano lectivo ainda não está disponível.',
-
-    durante: 'A abertura do ano lectivo está activa.',
-
-    depois: 'A abertura do ano lectivo terminou.',
-
+    antes: 'O período de abertura do ano lectivo ainda não foi iniciado.',
+    durante: 'O período de abertura do ano lectivo está em curso.',
+    depois: 'O período de abertura do ano lectivo está encerrado.',
     naoConfigurado:
-      'O calendário de abertura do ano lectivo não foi configurado.',
+      'O calendário de abertura do ano lectivo ainda não foi configurado.',
   },
 
   7: {
-    antes: 'A candidatura de docentes ainda não está disponível.',
-
-    durante: 'A candidatura de docentes está aberta.',
-
-    depois: 'A candidatura de docentes terminou.',
-
+    antes: 'O período de candidatura de docentes ainda não foi iniciado.',
+    durante: 'O período de candidatura de docentes está em curso.',
+    depois: 'O período de candidatura de docentes está encerrado.',
     naoConfigurado:
-      'O calendário de candidatura de docentes não foi configurado.',
+      'O calendário de candidatura de docentes ainda não foi configurado.',
   },
 
   8: {
-    antes: 'A selecção de horários ainda não está disponível.',
-
-    durante: 'A selecção de horários está aberta.',
-
-    depois: 'A selecção de horários terminou.',
-
-    naoConfigurado: 'O calendário de selecção de horários não foi configurado.',
+    antes: 'O período de selecção de horários ainda não foi iniciado.',
+    durante: 'O período de selecção de horários está em curso.',
+    depois: 'O período de selecção de horários está encerrado.',
+    naoConfigurado:
+      'O calendário de selecção de horários ainda não foi configurado.',
   },
 
   9: {
-    antes: 'A época para inscrição de Recurso ainda não está disponível!',
-
-    durante: 'A época para inscrição de Recurso está aberta.',
-
-    depois: 'A época para inscrição de Recurso terminou.',
-
-    naoConfigurado: 'O calendário de Recurso não foi configurado.',
+    antes: 'O período de inscrição para exame de recurso ainda não foi iniciado.',
+    durante: 'O período de inscrição para exame de recurso está em curso.',
+    depois: 'O período de inscrição para exame de recurso está encerrado.',
+    naoConfigurado:
+      'O calendário de inscrição para exame de recurso ainda não foi configurado.',
   },
 
   10: {
     antes:
-      'A época para inscrição de Exame Especial ainda não está disponível!',
-
-    durante: 'A época para inscrição de Exame Especial está aberta.',
-
-    depois: 'A época para inscrição de Exame Especial terminou.',
-
-    naoConfigurado: 'O calendário de Exame Especial não foi configurado.',
+      'O período de inscrição para exame especial ainda não foi iniciado.',
+    durante: 'O período de inscrição para exame especial está em curso.',
+    depois: 'O período de inscrição para exame especial está encerrado.',
+    naoConfigurado:
+      'O calendário de inscrição para exame especial ainda não foi configurado.',
   },
 
   11: {
-    antes: 'A época para Melhoria de Notas ainda não está disponível!',
-
-    durante: 'A época para Melhoria de Notas está aberta.',
-
-    depois: 'A época para Melhoria de Notas terminou.',
-
-    naoConfigurado: 'O calendário de Melhoria de Notas não foi configurado.',
+    antes: 'O período para melhoria de notas ainda não foi iniciado.',
+    durante: 'O período para melhoria de notas está em curso.',
+    depois: 'O período para melhoria de notas está encerrado.',
+    naoConfigurado:
+      'O calendário para melhoria de notas ainda não foi configurado.',
   },
 
   12: {
-    antes: 'A época para Reingresso ainda não está disponível!',
-
-    durante: 'A época para Reingresso está aberta.',
-
-    depois: 'A época para Reingresso terminou.',
-
-    naoConfigurado: 'O calendário de Reingresso não foi configurado.',
+    antes: 'O período de reingresso ainda não foi iniciado.',
+    durante: 'O período de reingresso está em curso.',
+    depois: 'O período de reingresso está encerrado.',
+    naoConfigurado: 'O calendário de reingresso ainda não foi configurado.',
   },
 
   13: {
-    antes: 'A época para substituição de UC ainda não está disponível!',
-
-    durante: 'A época para substituição de UC está aberta.',
-
-    depois: 'A época para substituição de UC terminou.',
-
-    naoConfigurado: 'O calendário de substituição de UC não foi configurado.',
+    antes: 'O período de substituição de UC ainda não foi iniciado.',
+    durante: 'O período de substituição de UC está em curso.',
+    depois: 'O período de substituição de UC está encerrado.',
+    naoConfigurado:
+      'O calendário de substituição de UC ainda não foi configurado.',
   },
 
   14: {
-    antes: 'A época para mudança de curso interna ainda não está disponível!',
-
-    durante: 'A época para mudança de curso interna está aberta.',
-
-    depois: 'A época para mudança de curso interna terminou.',
-
+    antes:
+      'O período de mudança interna de curso ainda não foi iniciado.',
+    durante: 'O período de mudança interna de curso está em curso.',
+    depois: 'O período de mudança interna de curso está encerrado.',
     naoConfigurado:
-      'O calendário de mudança de curso interna não foi configurado.',
+      'O calendário de mudança interna de curso ainda não foi configurado.',
   },
 
   15: {
     antes:
-      'A inscrição para cadeiras extracurriculares ainda não está disponível!',
-
-    durante: 'A inscrição para cadeiras extracurriculares está aberta.',
-
-    depois: 'A inscrição para cadeiras extracurriculares terminou.',
-
+      'O período de inscrição em cadeiras extracurriculares ainda não foi iniciado.',
+    durante:
+      'O período de inscrição em cadeiras extracurriculares está em curso.',
+    depois:
+      'O período de inscrição em cadeiras extracurriculares está encerrado.',
     naoConfigurado:
-      'O calendário de cadeiras extracurriculares não foi configurado.',
+      'O calendário de inscrição em cadeiras extracurriculares ainda não foi configurado.',
   },
 
   16: {
-    antes: 'A época de matrículas ainda não está disponível!',
-
-    durante: 'A época de matrículas está aberta.',
-
-    depois: 'A época de matrículas terminou.',
-
-    naoConfigurado: 'O calendário de matrículas não foi configurado.',
+    antes: 'O período de matrículas ainda não foi iniciado.',
+    durante: 'O período de matrículas está em curso.',
+    depois: 'O período de matrículas está encerrado.',
+    naoConfigurado:
+      'O calendário de matrículas ainda não foi configurado.',
   },
 };

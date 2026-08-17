@@ -19,7 +19,7 @@ import { StudentsProvasService } from './students-provas.service';
 @ApiTags('Provas')
 @Controller('students/provas')
 export class StudentsProvasController {
-  constructor(private readonly studentsProvasService: StudentsProvasService) {}
+  constructor(private readonly studentsProvasService: StudentsProvasService) { }
 
   @Get('recurso/:codigoAnoLectivo/:codigoMatricula')
   async cadeirasRecurso(@Param() params: FindCadeirasRecursoDto) {
@@ -33,25 +33,29 @@ export class StudentsProvasController {
     return this.studentsProvasService.cadeirasEpocaEspecial(params);
   }
 
-  @Post('recurso/:codigoMatricula')
+  @Post('recurso/:codigoMatricula/:tipoCandidatura')
   async inscricaoRecurso(
     @Param('codigoMatricula', ParseIntPipe) codigoMatricula: number,
+    @Param('tipoCandidatura', ParseIntPipe) tipoCandidatura: number,
     @Body() body: CriarInscricaoRecursoBodyDTO,
   ) {
     return this.studentsProvasService.inscricaoRecurso({
-      codigoMatricula: codigoMatricula,
+      codigoMatricula,
+      tipoCandidatura,
       gradesAlunos: body.gradesAlunos,
     });
   }
 
-  @Post('epoca-especial/:codigoMatricula')
+  @Post('epoca-especial/:codigoMatricula/:tipoCandidatura')
   async inscricaoEpocaEspecial(
     @Param('codigoMatricula', ParseIntPipe) codigoMatricula: number,
+    @Param('tipoCandidatura', ParseIntPipe) tipoCandidatura: number,
     @Body() body: CriarInscricaoEpocaEspecialBodyDTO,
   ) {
     return this.studentsProvasService.inscricaoEpocaEspecial({
-      codigoMatricula: codigoMatricula,
+      codigoMatricula,
       gradesAlunos: body.gradesAlunos,
+      tipoCandidatura
     });
   }
 
