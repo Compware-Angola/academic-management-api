@@ -12,7 +12,7 @@ export class TipoCalendarioService {
   constructor(
     @InjectRepository(TipoCalendario)
     private readonly repo: Repository<TipoCalendario>,
-  ) {}
+  ) { }
 
   async create(dto: CreateTipoCalendarioDto): Promise<TipoCalendario> {
     const queryRunner = this.repo.manager.connection.createQueryRunner();
@@ -21,7 +21,7 @@ export class TipoCalendarioService {
 
     try {
       const sql = `
-        INSERT INTO CMPDEV.FK2_TB_TIPO_CALENDARIO
+        INSERT INTO FK2_TB_TIPO_CALENDARIO
           (DESIGNACAO, ATIVO_PARA_ALUNO, SIGLA)
         VALUES (:1, :2, :3)
         RETURNING CODIGO INTO :4

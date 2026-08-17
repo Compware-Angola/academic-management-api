@@ -1,6 +1,6 @@
 import { Entity, Column, PrimaryColumn } from 'typeorm';
 
-@Entity('FK2_TB_TIPO_CALENDARIO', { schema: 'CMPDEV' })
+@Entity('FK2_TB_TIPO_CALENDARIO')
 export class TipoCalendario {
   @PrimaryColumn({ name: 'CODIGO', type: 'number' })
   codigo: number;
