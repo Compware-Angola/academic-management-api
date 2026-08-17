@@ -93,9 +93,7 @@ export class StudentsProvasService {
     private readonly prazosService: PrazosService,
     private readonly httpService: HttpService,
     private readonly studentsResultPlanService: StudentsResultPlanService,
-  ) { }
-
-
+  ) {}
 
   async cadeirasRecurso(dto: FindCadeirasRecursoDto) {
     const { data } = await this.studentNoteService.findAll({
@@ -175,17 +173,18 @@ export class StudentsProvasService {
   }
 
   async inscricaoRecurso(dto: InscricaoDTO) {
-    const [anoLectivo, dadosAluno, anoLectivoDaUltimaConfirmacao] = await Promise.all([
-      this.buscarAnoLectivoCorrente(dto.tipoCandidatura),
-      this.dadosAluno(dto.codigoMatricula),
-      this.buscarAnoLectivoDaUltimaConfirmacao(dto.codigoMatricula),
-    ]);
+    const [anoLectivo, dadosAluno, anoLectivoDaUltimaConfirmacao] =
+      await Promise.all([
+        this.buscarAnoLectivoCorrente(dto.tipoCandidatura),
+        this.dadosAluno(dto.codigoMatricula),
+        this.buscarAnoLectivoDaUltimaConfirmacao(dto.codigoMatricula),
+      ]);
 
-    if (anoLectivo.codigo !== anoLectivoDaUltimaConfirmacao) {
-      throw new BadRequestException(
-        'Não é possível efetuar a inscrição neste momento. Por favor, aguarde a abertura do novo ano letivo.',
-      );
-    }
+    // if (anoLectivo.codigo !== anoLectivoDaUltimaConfirmacao) {
+    //   throw new BadRequestException(
+    //     'Não é possível efetuar a inscrição neste momento. Por favor, aguarde a abertura do novo ano letivo.',
+    //   );
+    // }
 
     const prazo = await this.prazosService.obterPrazo({
       tipo: TipoCalendario.RECURSO,
@@ -194,14 +193,12 @@ export class StudentsProvasService {
     if (prazo && !prazo.podeInscrever)
       throw new BadRequestException(prazo.mensagem);
 
-
     const gradesParaInscrever = await this.filtrarGradesNaoInscritas(
       dto.codigoMatricula,
       dto.gradesAlunos,
       TIPO_AVALIACAO.RECURSO,
       anoLectivo.codigo,
     );
-
 
     if (gradesParaInscrever.length === 0) {
       throw new BadRequestException(
@@ -311,7 +308,7 @@ export class StudentsProvasService {
     if (
       !(
         studentForEpocaEspecial.totalGradesCurso -
-        studentForEpocaEspecial.totalGrasesAluno <=
+          studentForEpocaEspecial.totalGrasesAluno <=
         4
       )
     )
@@ -601,7 +598,9 @@ export class StudentsProvasService {
     };
   }
 
-  private async buscarAnoLectivoCorrente(tipoCandidatura: number): Promise<AnoLectivo> {
+  private async buscarAnoLectivoCorrente(
+    tipoCandidatura: number,
+  ): Promise<AnoLectivo> {
     const sql = `
     SELECT CODIGO, DESIGNACAO
       FROM FK2_TB_ANO_LECTIVO
@@ -610,22 +609,27 @@ export class StudentsProvasService {
         AND ROWNUM = 1
     `;
 
-    const [anoLectivo] = await this.dataSource.query(sql, { tipoCandidatura } as any);
+    const [anoLectivo] = await this.dataSource.query(sql, {
+      tipoCandidatura,
+    } as any);
     if (!anoLectivo) {
       throw new BadRequestException('Nenhum ano lectivo corrente encontrado');
     }
     return toLowerCaseKeys(anoLectivo) as AnoLectivo;
   }
 
-  private async buscarAnoLectivoDaUltimaConfirmacao(enrollmentCode: number): Promise<number | null> {
+  private async buscarAnoLectivoDaUltimaConfirmacao(
+    enrollmentCode: number,
+  ): Promise<number | null> {
     const sql = `SELECT CODIGO_ANO_LECTIVO
 FROM FK2_TB_CONFIRMACOES
 WHERE CODIGO_MATRICULA = :enrollmentCode
-ORDER BY DATA_CONFIRMACAO ASC, CLASSE ASC`
-    const [anoLectivo] = await this.dataSource.query(sql, { enrollmentCode } as any);
-    return anoLectivo ? toLowerCaseKeys(anoLectivo).codigo_ano_lectivo : null
+ORDER BY DATA_CONFIRMACAO ASC, CLASSE ASC`;
+    const [anoLectivo] = await this.dataSource.query(sql, {
+      enrollmentCode,
+    } as any);
+    return anoLectivo ? toLowerCaseKeys(anoLectivo).codigo_ano_lectivo : null;
   }
-
 
   private async buscarCadeiraInscrita(
     codigoMatricula: number,
