@@ -2071,15 +2071,33 @@ END AS RESULTADO
   }
 
   async buscaEstatisticaCandidatos(filtros: FilterEstatisticaCandidatosDto) {
+    console.log('============================================================================')
+    console.log(filtros)
+
     const dateCase = `
-    CASE
-        WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{2}-\\d{2}-\\d{4}')
-            THEN TO_DATE(P.DATA_PREESCRINCAO, 'DD-MM-YYYY HH24:MI')
-        WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{4}-\\d{2}-\\d{2}')
-            THEN TO_DATE(P.DATA_PREESCRINCAO, 'YYYY-MM-DD HH24:MI:SS')
-        ELSE NULL
-    END
-  `;
+  CASE
+      WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{2}-[A-Z]{3}-\\d{2}$')
+          THEN TO_DATE(
+              P.DATA_PREESCRINCAO,
+              'DD-MON-RR',
+              'NLS_DATE_LANGUAGE=ENGLISH'
+          )
+
+      WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{2}-\\d{2}-\\d{4}')
+          THEN TO_DATE(
+              P.DATA_PREESCRINCAO,
+              'DD-MM-YYYY HH24:MI'
+          )
+
+      WHEN REGEXP_LIKE(P.DATA_PREESCRINCAO, '^\\d{4}-\\d{2}-\\d{2}')
+          THEN TO_DATE(
+              P.DATA_PREESCRINCAO,
+              'YYYY-MM-DD HH24:MI:SS'
+          )
+
+      ELSE NULL
+  END
+`;
 
     const condicoes: string[] = [];
     const params: any[] = [];
