@@ -50,6 +50,7 @@ import { DocumentTypeModule } from './modules/document-type/document-type.module
 import { GenderModule } from './modules/gender/gender.module';
 import { AcademicDegreeModule } from './modules/academic-degree/academic-degrees.module';
 import { CourseTrainingAreaModule } from './modules/course-training-area/course-training-area.module';
+import { TipoCalendarioModule } from './modules/tipo-calendario/tipo-calendario.module';
 
 @Module({
   imports: [
@@ -151,7 +152,8 @@ import { CourseTrainingAreaModule } from './modules/course-training-area/course-
     DocumentTypeModule,
     GenderModule,
     AcademicDegreeModule,
-    CourseTrainingAreaModule
+    CourseTrainingAreaModule,
+    TipoCalendarioModule
 
   ],
   controllers: [AppController],
