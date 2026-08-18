@@ -18,100 +18,107 @@ export class PreRegistrationService {
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly anoLectivoUtil: AnoLectivoUtil,
-  ) { }
+  ) {}
 
   // ─────────────────────────────────────────────
   //  CREATE
   // ─────────────────────────────────────────────
   async create(dto: CreatePreRegistrationDto, userId: number) {
-    await this.assertUniqueBI(dto.bilheteIdentidade);
-    await this.assertUniqueEmail(dto.email);
     if (!dto.anoLectivoId) {
       throw new ConflictException('O Ano lectivo e obrigatorio!');
     }
 
+    // 1. Localiza registo(s) existente(s) com o mesmo BI ou EMAIL
+    const existing = await this.findExistingPreRegistration(
+      dto.bilheteIdentidade,
+      dto.email,
+    );
 
+    // 2. Se existir, anula BI e EMAIL no registo antigo para liberar a unicidade
+    if (existing) {
+      await this.clearUniqueFields(existing.CODIGO);
+    }
 
+    // 3. Insere a nova candidatura normalmente
     const result = await this.dataSource.query(
       `
-        INSERT INTO FK2_TB_PREINSCRICAO (
-            CURSO_CANDIDATURA,
-            TENTOU_UNIVERSIDADE_PUBLICA,
-            MODALIDADE_FREQUENCIA,
-            NOME_COMPLETO,
-            BILHETE_IDENTIDADE,
-            DATA_EMISSAO_BI,
-            DATA_VALIDADE_BI,
-            SEXO,
-            DATA_NASCIMENTO,
-            ESTADO_CIVIL,
-            CONTACTOS_TELEFONICOS,
-            CONTACTO_DE_EMERGENCIA,
-            MORADA_COMPLETA,
-            EMAIL,
-            INSTITUICAO_FORMACAO_ACESSO,
-            CURSO_ENSINO_MEDIO,
-            INSTITUICAO_FORMACAO,
-            DATA_CONCLUSAO,
-            MEDIA_FINAL,
-            PAI,
-            MAE,
-            NECESSIDADE_ESPECIAL_ID,
-            POLO_ID,
-            CURSOOPCIONAL1_ID,
-            CURSOOPCIONAL2_ID,
-            USER_ID,
-            ESTADO_PREISCRICAO_CANDIDATO,
-            CODIGO_TIPO_CANDIDATURA,
-            CODIGO_TURNO,
-            ANOLECTIVO,
-            CODIGO_NACIONALIDADE,
-            INQUERITO,
-            CREATED_AT,
-            UPDATED_AT,
-            CODIGO_FACULDADE,
-            DATA_PREESCRINCAO
-        ) VALUES (
-            :cursoCandidatura,
-            :tentou_universidade_publica,
-            :modalidadeFrequencia,
-            :nomeCompleto,
-            :bilheteIdentidade,
-            TO_DATE(:dataEmissaoBI, 'YYYY-MM-DD'),
-            TO_DATE(:dataValidadeBI, 'YYYY-MM-DD'),
-            :sexo,
-            TO_DATE(:dataNascimento, 'YYYY-MM-DD'),
-            :estadoCivil,
-            :contactosTelefonicos,
-            :contactoDeEmergencia,
-            :moradaCompleta,
-            :email,
-            :instituicaoFormacaoAcesso,
-            :cursoFormacao,
-            :instituicaoFormacao,
-            TO_DATE(:dataConclusao, 'YYYY-MM-DD'),
-            :mediaFinal,
-            :pai,
-            :mae,
-            :necessidadeEspecialId,
-            :poloId,
-            
-            :cursoOpcional1Id,
-            :cursoOpcional2Id,
-            :userId,
-            1,
-            :codigoTipoCandidatura,
-            :codigoTurno,
-            :anoLectivo,
-            :codigoNacionalidade,
-            :inquerito,
-            SYSDATE,
-            SYSDATE,
-            :codigoFaculdade,
-            SYSDATE
-        )
-        RETURNING CODIGO INTO :outId
-        `,
+      INSERT INTO FK2_TB_PREINSCRICAO (
+          CURSO_CANDIDATURA,
+          TENTOU_UNIVERSIDADE_PUBLICA,
+          MODALIDADE_FREQUENCIA,
+          NOME_COMPLETO,
+          BILHETE_IDENTIDADE,
+          DATA_EMISSAO_BI,
+          DATA_VALIDADE_BI,
+          SEXO,
+          DATA_NASCIMENTO,
+          ESTADO_CIVIL,
+          CONTACTOS_TELEFONICOS,
+          CONTACTO_DE_EMERGENCIA,
+          MORADA_COMPLETA,
+          EMAIL,
+          INSTITUICAO_FORMACAO_ACESSO,
+          CURSO_ENSINO_MEDIO,
+          INSTITUICAO_FORMACAO,
+          DATA_CONCLUSAO,
+          MEDIA_FINAL,
+          PAI,
+          MAE,
+          NECESSIDADE_ESPECIAL_ID,
+          POLO_ID,
+          CURSOOPCIONAL1_ID,
+          CURSOOPCIONAL2_ID,
+          USER_ID,
+          ESTADO_PREISCRICAO_CANDIDATO,
+          CODIGO_TIPO_CANDIDATURA,
+          CODIGO_TURNO,
+          ANOLECTIVO,
+          CODIGO_NACIONALIDADE,
+          INQUERITO,
+          CREATED_AT,
+          UPDATED_AT,
+          CODIGO_FACULDADE,
+          DATA_PREESCRINCAO
+      ) VALUES (
+          :cursoCandidatura,
+          :tentou_universidade_publica,
+          :modalidadeFrequencia,
+          :nomeCompleto,
+          :bilheteIdentidade,
+          TO_DATE(:dataEmissaoBI, 'YYYY-MM-DD'),
+          TO_DATE(:dataValidadeBI, 'YYYY-MM-DD'),
+          :sexo,
+          TO_DATE(:dataNascimento, 'YYYY-MM-DD'),
+          :estadoCivil,
+          :contactosTelefonicos,
+          :contactoDeEmergencia,
+          :moradaCompleta,
+          :email,
+          :instituicaoFormacaoAcesso,
+          :cursoFormacao,
+          :instituicaoFormacao,
+          TO_DATE(:dataConclusao, 'YYYY-MM-DD'),
+          :mediaFinal,
+          :pai,
+          :mae,
+          :necessidadeEspecialId,
+          :poloId,
+          :cursoOpcional1Id,
+          :cursoOpcional2Id,
+          :userId,
+          1,
+          :codigoTipoCandidatura,
+          :codigoTurno,
+          :anoLectivo,
+          :codigoNacionalidade,
+          :inquerito,
+          SYSDATE,
+          SYSDATE,
+          :codigoFaculdade,
+          SYSDATE
+      )
+      RETURNING CODIGO INTO :outId
+      `,
       {
         cursoCandidatura: dto.cursoCandidatura,
         tentou_universidade_publica: dto.tentou_universidade_publica,
@@ -168,6 +175,42 @@ export class PreRegistrationService {
       message: 'Pré-registro criado com sucesso.',
       estado: 1,
     };
+  }
+
+  private async findExistingPreRegistration(
+    bilheteIdentidade: string,
+    email: string,
+  ): Promise<{ CODIGO: number } | null> {
+    const result = await this.dataSource.query(
+      `
+      SELECT CODIGO
+      FROM FK2_TB_PREINSCRICAO
+      WHERE BILHETE_IDENTIDADE = :bilheteIdentidade
+         OR EMAIL = :email
+      FETCH FIRST 1 ROWS ONLY
+    `,
+      {
+        bilheteIdentidade,
+        email,
+      } as any,
+    );
+
+    return result.length > 0 ? result[0] : null;
+  }
+
+  private async clearUniqueFields(codigo: number): Promise<void> {
+    await this.dataSource.query(
+      `
+      UPDATE FK2_TB_PREINSCRICAO
+      SET
+        BILHETE_IDENTIDADE = NULL,
+        EMAIL = NULL,
+        UPDATED_AT = SYSDATE
+        DELETED_AT = SYSDATE
+      WHERE CODIGO = :codigo
+    `,
+      { codigo } as any,
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -804,10 +847,10 @@ WHERE us.id = :userId
     const data = result.map((row: any) => {
       const listaProvas = row.LISTA_DE_PROVAS
         ? row.LISTA_DE_PROVAS.replace(/^Prova de\s*/i, '')
-          .split(/<br>/i)[0]
-          .split(',')
-          .map((s: string) => s.trim())
-          .filter((s: string) => s.length > 0)
+            .split(/<br>/i)[0]
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter((s: string) => s.length > 0)
         : [];
       console.log({ row, listaProvas });
       return {
