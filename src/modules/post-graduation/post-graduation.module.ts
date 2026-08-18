@@ -14,6 +14,7 @@ import { CandidatesController } from './controllers/candidates.controller';
 import { GuidanceResearchManagementController } from './controllers/guidance-research-management.controller';
 import { GuidanceResearchManagementService } from './services/guidance-research-management.service';
 import { BullModule } from '@nestjs/bullmq';
+import { QueueName } from 'src/common/constants/queue.constant';
 import { HttpModule } from '@nestjs/axios';
 import { CandidateDecisionService } from './services/candidate-decision.service';
 
@@ -25,7 +26,7 @@ import { CandidateDecisionService } from './services/candidate-decision.service'
   ],
   imports: [
     BullModule.registerQueue({
-      name: 'final_average',
+      name: QueueName.FINAL_AVERAGE,
     }),
     HttpModule.register({
       timeout: 5000,

@@ -3,6 +3,7 @@ import { ExamesDeAcessoController } from './exames-de-acesso.controller';
 import { ExamesDeAcessoService } from './exames-de-acesso.service';
 import { HttpModule } from '@nestjs/axios/dist/http.module';
 import { BullModule } from '@nestjs/bullmq';
+import { QueueName } from 'src/common/constants/queue.constant';
 import { PrevisaoNotaService } from './previsao-nota.service';
 import { AdmissaoManualService } from './admissao-manual.service';
 
@@ -13,7 +14,7 @@ import { AdmissaoManualService } from './admissao-manual.service';
       maxRedirects: 5
     }),
     BullModule.registerQueue({
-      name: 'results_final_exam',
+      name: QueueName.RESULTS_FINAL_EXAM,
     })
   ],
 

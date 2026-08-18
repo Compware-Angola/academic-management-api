@@ -23,13 +23,14 @@ import { FilterEstatisticaCursosDto } from './dto/filter-estatistica-cursos.dto'
 import { gerarHashExterno } from '../util/hash.util';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { QueueName } from 'src/common/constants/queue.constant';
 import { CorrigirProvasFilterDto } from './dto/corrigir-provas-filter.dto';
 
 @Injectable()
 export class ExamesDeAcessoService {
   constructor(
     private readonly dataSource: DataSource,
-    @InjectQueue('results_final_exam')
+    @InjectQueue(QueueName.RESULTS_FINAL_EXAM)
     private readonly resultsFinalExamQueue: Queue,
   ) {}
 

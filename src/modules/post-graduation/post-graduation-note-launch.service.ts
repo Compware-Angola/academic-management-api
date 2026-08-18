@@ -13,6 +13,7 @@ import {
 } from './dto/upsert-note-launch.dto';
 import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
+import { QueueName } from 'src/common/constants/queue.constant';
 import { RequestUser } from '../../common/types/token-validation-response.interface';
 
 type DatabaseRow = Record<string, unknown>;
@@ -35,7 +36,7 @@ export class PostGraduationNoteLaunchService {
   private readonly logger = new Logger(PostGraduationNoteLaunchService.name);
 
   constructor(
-    @InjectQueue('final_average')
+    @InjectQueue(QueueName.FINAL_AVERAGE)
     private readonly finalAverageQueue: Queue,
     private readonly dataSource: DataSource,
   ) { }

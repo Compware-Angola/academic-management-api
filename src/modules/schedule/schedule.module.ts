@@ -7,6 +7,7 @@ import { AnoLectivoUtil } from '../util/current-academic-year';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AcademicYear } from '../shared/entities/academic.year.entity';
 import { BullModule } from '@nestjs/bullmq';
+import { QueueName } from 'src/common/constants/queue.constant';
 import { DocenteSubstitutoController } from './docente-substituto.controller';
 import { DocenteSubstitutoService } from './docente-substituto.service';
 import { MoveStudentsCorrectionService } from './move-students-correction.service';
@@ -28,7 +29,7 @@ import { CreateSchedulesImportedService } from './create-schedules-imported.serv
       httpsAgent: { keepAlive: true },
     }),
     BullModule.registerQueue({
-      name: 'schedule_service',
+      name: QueueName.SCHEDULE_SERVICE,
     }),
   ],
   controllers: [ScheduleController, ImportSchedulesController, DocenteSubstitutoController, ClassTimesScheduleController, SchedulePortalController],

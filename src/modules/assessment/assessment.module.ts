@@ -21,6 +21,7 @@ import { BookTestService } from './book_test.service';
 import { HttpModule } from '@nestjs/axios';
 import { promptToCreateAndEditService } from '../academic_activities/prompt-to-create-and-edit.service';
 import { BullModule } from '@nestjs/bullmq';
+import { QueueName } from 'src/common/constants/queue.constant';
 
 @Module({
   imports: [TypeOrmModule.forFeature([AcademicYear])
@@ -31,7 +32,7 @@ import { BullModule } from '@nestjs/bullmq';
       maxRedirects: 5
     }),
   BullModule.registerQueue({
-    name: 'final_average',
+    name: QueueName.FINAL_AVERAGE,
   }),
 
 
