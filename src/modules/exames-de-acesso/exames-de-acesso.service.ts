@@ -2183,7 +2183,7 @@ LEFT JOIN (
   FETCH NEXT :${limitIndex} ROWS ONLY
   `;
 
-    const sqlCount = `SELECT COUNT(*) AS TOTAL, SUM(PAGOS) AS TOTAL_PAGOS FROM (${sqlInner})`;
+    const sqlCount = `SELECT COUNT(*) AS TOTAL, SUM(TOTAL_DIA) AS TOTAL_CANDIDATOS, SUM(PAGOS) AS TOTAL_PAGOS FROM (${sqlInner})`;
 
     const [data, total] = await Promise.all([
       this.dataSource.query(sql, params),
@@ -2193,6 +2193,7 @@ LEFT JOIN (
     return this.toLower({
       data,
       total: Number(total[0].TOTAL),
+      totalGeralCandidatos: Number(total[0].TOTAL_CANDIDATOS || 0),
       totalPagos: Number(total[0].TOTAL_PAGOS || 0),
       page,
       limit,
