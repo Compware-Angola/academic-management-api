@@ -35,12 +35,12 @@ export interface EstudanteMatriculado {
 
 
 type EstudanteMatriculadoExportRow = Record<string, unknown> & {
-  codigoMatricula?: number;
-  dataMatricula?: Date | string;
+  codigomatricula?: number;
+  datamatricula?: Date | string;
   nome?: string;
   telefone?: string;
   genero?: string;
-  anoLectivo?: string;
+  anolectivo?: string;
   curso?: string;
   periodo?: string;
   classe?: string;
@@ -198,7 +198,18 @@ export class RegistrationService {
         page,
         limit: batchSize,
       });
-      const rows = response.data as EstudanteMatriculadoExportRow[];
+      const rows = (response.data as unknown as EstudanteMatriculadoExportRow[]).map(
+        (row) => {
+          const dateValue = row.datamatricula;
+          if (dateValue instanceof Date) {
+            const dd = String(dateValue.getDate()).padStart(2, '0');
+            const mm = String(dateValue.getMonth() + 1).padStart(2, '0');
+            const yyyy = dateValue.getFullYear();
+            return { ...row, datamatricula: `${dd}/${mm}/${yyyy}` };
+          }
+          return row;
+        },
+      );
 
       if (!rows.length) {
         break;
@@ -224,7 +235,7 @@ export class RegistrationService {
       {
         title: 'Estudantes Matriculados',
         columns: [
-          { label: 'Matrícula', key: 'codigoMatricula', width: 55 },
+          { label: 'Matrícula', key: 'codigomatricula', width: 55 },
           { label: 'Nome', key: 'nome', width: 140 },
           { label: 'Telefone', key: 'telefone', width: 70 },
           { label: 'Gênero', key: 'genero', width: 35 },
@@ -232,8 +243,8 @@ export class RegistrationService {
           { label: 'Período', key: 'periodo', width: 60 },
           { label: 'Classe', key: 'classe', width: 50 },
           { label: 'Tipo', key: 'tipo', width: 55 },
-          { label: 'Data Matrícula', key: 'dataMatricula', width: 65 },
-          { label: 'Ano Lectivo', key: 'anoLectivo', width: 60 },
+          { label: 'Data Matrícula', key: 'datamatricula', width: 65 },
+          { label: 'Ano Lectivo', key: 'anolectivo', width: 60 },
         ],
       },
     );
@@ -248,8 +259,8 @@ export class RegistrationService {
         title: 'Estudantes Matriculados',
         sheetName: 'Estudantes Matriculados',
         columns: [
-          { label: 'Matrícula', key: 'codigoMatricula', width: 18 },
-          { label: 'Data Matrícula', key: 'dataMatricula', width: 18 },
+          { label: 'Matrícula', key: 'codigomatricula', width: 18 },
+          { label: 'Data Matrícula', key: 'datamatricula', width: 18 },
           { label: 'Nome', key: 'nome', width: 35 },
           { label: 'Telefone', key: 'telefone', width: 20 },
           { label: 'Gênero', key: 'genero', width: 12 },
@@ -257,7 +268,7 @@ export class RegistrationService {
           { label: 'Período', key: 'periodo', width: 18 },
           { label: 'Classe', key: 'classe', width: 15 },
           { label: 'Tipo', key: 'tipo', width: 18 },
-          { label: 'Ano Lectivo', key: 'anoLectivo', width: 18 },
+          { label: 'Ano Lectivo', key: 'anolectivo', width: 18 },
         ],
       },
     );
