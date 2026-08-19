@@ -19,6 +19,7 @@ import { calcularSemestreByAnoLectivo } from '../util/calcular-semestre';
 import { PdfExportHelper } from '../../common/helpers/export/pdf-export.helper';
 import { ExcelExportHelper } from '../../common/helpers/export/excel-export.helper';
 import { ExportEstudanteMatriculadoDTO } from './dto/export-estudante-matriculado.dto';
+import { FilterEstatisticaMatriculadosDto } from './dto/filter-estatistica-matriculados.dto';
 
 export interface EstudanteMatriculado {
   codigoMatricula: number;
@@ -50,7 +51,7 @@ type EstudanteMatriculadoExportRow = Record<string, unknown> & {
 export class RegistrationService {
   constructor(private readonly dataSource: DataSource) {}
 
-  private buildEstudantesMatriculadosWhereClause(filters: FindEstudanteMatriculadoDTO | ExportEstudanteMatriculadoDTO) {
+  private buildEstudantesMatriculadosWhereClause(filters: FindEstudanteMatriculadoDTO | ExportEstudanteMatriculadoDTO | FilterEstatisticaMatriculadosDto) {
     const enum TIPO_ESTUDANTE {
       ANTIGO_ESTUDANTE = 0,
       NOVO_ESTUDANTE = 1,
@@ -90,6 +91,7 @@ export class RegistrationService {
     return { whereClause: conditions.join(' AND '), params };
   }
 
+  
   private getEstudantesMatriculadosBaseSql() {
     return {
       select: `
@@ -183,6 +185,60 @@ export class RegistrationService {
       page,
       limit,
       totalPages,
+    };
+  }
+
+  async estatisticaEstudantesMatriculados(
+    filters: FilterEstatisticaMatriculadosDto,
+  ) {
+    const { whereClause, params } =
+      this.buildEstudantesMatriculadosWhereClause(filters);
+
+    const sql = `
+      SELECT
+          cl.DESIGNACAO AS anoCurricular,
+          COUNT(DISTINCT g.CODIGO_MATRICULA) AS total
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO g
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tg
+          ON tg.CODIGO = g.CODIGO_GRADE_CURRICULAR
+      INNER JOIN FK2_TB_MATRICULAS tm
+          ON g.CODIGO_MATRICULA = tm.CODIGO
+      INNER JOIN FK2_TB_CURSOS tc
+          ON tc.CODIGO = tm.CODIGO_CURSO
+      INNER JOIN FK2_TB_ADMISSAO ta
+          ON ta.CODIGO = tm.CODIGO_ALUNO
+      INNER JOIN FK2_TB_PREINSCRICAO tp
+          ON ta.PRE_INCRICAO = tp.CODIGO
+      INNER JOIN FK2_TB_PERIODOS tp2
+          ON tp2.CODIGO = tp.CODIGO_TURNO
+      INNER JOIN FK2_TB_ANO_LECTIVO tal
+          ON tal.CODIGO = tp.ANOLECTIVO
+      INNER JOIN FK2_TB_CLASSES cl
+          ON cl.CODIGO = tg.CODIGO_CLASSE
+      LEFT JOIN fk2_tb_bolseiros fb
+          ON  fb.CODIGO_MATRICULA  = tm.CODIGO
+          AND fb.CODIGO_ANOLECTIVO = g.CODIGO_ANO_LECTIVO
+          AND fb.SEMESTRE          = tg.CODIGO_SEMESTRE
+          AND fb.STATUS_           = 0
+      LEFT JOIN FK2_TB_INSTITUICAO i
+          ON i.CODIGO = fb.CODIGO_INSTITUICAO
+      WHERE ${whereClause}
+      GROUP BY cl.DESIGNACAO, cl.CODIGO
+      ORDER BY cl.CODIGO ASC
+    `;
+
+    const result = await this.dataSource.query(sql, params);
+
+    const data = (await toLowerCaseKeys(result)) as Array<{
+      anocurricular: string;
+      total: number;
+    }>;
+
+    return {
+      data: data.map((row) => ({
+        anoCurricular: row.anocurricular,
+        total: Number(row.total),
+      })),
     };
   }
 

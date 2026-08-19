@@ -26,6 +26,7 @@ import { FindEstudanteMatriculadoDTO } from './dto/find-studantes-matriculadoDTO
 import { FindEstudantesSemInscricaoCursoDTO } from './dto/find-estudantes-sem-Inscricao-cursoDTO';
 import { FilterEstadoMatriculaHorarioDto } from './dto/listar-estado-matricula-por-horario.dto';
 import { FilterListarEstudantesPorEstadoMatriculaDto } from './dto/filter-listar-estudantes-por-estado-da-matricula.dto';
+import { FilterEstatisticaMatriculadosDto } from './dto/filter-estatistica-matriculados.dto';
 
 import { IsentarColisaoMatriculaDto } from './dto/isentar-colisao-matricula.dto';
 import { IsentarColisaoCursoDto } from './dto/isentar-colisao-curso.dto';
@@ -97,6 +98,18 @@ async listarHorariosDisponiveisInscritosPorUc(
     @Query(ValidationPipe) query: FindEstudanteMatriculadoDTO,
   ) {
     return this.registrationService.findEstudantesMatriculados(query);
+  }
+
+  @Get('/estudantes-matriculados/estatistica')
+  @ApiOperation({ summary: 'Estatística de estudantes matriculados por ano curricular' })
+  @ApiResponse({
+    status: 200,
+    description: 'Retorna a contagem de estudantes matriculados agrupados por ano curricular',
+  })
+  async estatisticaEstudantesMatriculados(
+    @Query(ValidationPipe) query: FilterEstatisticaMatriculadosDto,
+  ) {
+    return this.registrationService.estatisticaEstudantesMatriculados(query);
   }
 
   @Get('/estudantes-matriculados/export/pdf')
