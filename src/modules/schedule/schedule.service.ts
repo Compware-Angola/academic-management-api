@@ -23,13 +23,14 @@ import { formatHora } from '../util/formate-date';
 import { promptToCreateAndEditService } from '../academic_activities/prompt-to-create-and-edit.service';
 import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
+import { QueueName } from 'src/common/constants/queue.constant';
 import { ScheduleParamDto } from './dto/parametros.dto';
 import { UpdateScheduleParamDto } from './dto/update-schedule-params.dto';
 
 @Injectable()
 export class ScheduleService {
   constructor(
-    @InjectQueue('schedule_service')
+    @InjectQueue(QueueName.SCHEDULE_SERVICE)
     private readonly scheduleQueue: Queue,
 
     private readonly dataSource: DataSource,

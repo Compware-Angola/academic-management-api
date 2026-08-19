@@ -11,11 +11,12 @@ import { promptToCreateAndEditService } from '../academic_activities/prompt-to-c
 import { GetStudentSummaryDto } from './dto/GetStudentSummaryDto';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { QueueName } from 'src/common/constants/queue.constant';
 
 @Injectable()
 export class NoteReleaseService {
   constructor(
-    @InjectQueue('final_average')
+    @InjectQueue(QueueName.FINAL_AVERAGE)
     private readonly finalAverageQueue: Queue,
     private readonly dataSource: DataSource,
     private readonly promptToCreateAndEditService: promptToCreateAndEditService,

@@ -51,6 +51,7 @@ import { GenderModule } from './modules/gender/gender.module';
 import { AcademicDegreeModule } from './modules/academic-degree/academic-degrees.module';
 import { CourseTrainingAreaModule } from './modules/course-training-area/course-training-area.module';
 import { TipoCalendarioModule } from './modules/tipo-calendario/tipo-calendario.module';
+import { databaseOptionsFactory } from './common/config/database.factory';
 
 @Module({
   imports: [
@@ -79,33 +80,8 @@ import { TipoCalendarioModule } from './modules/tipo-calendario/tipo-calendario.
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const isSSL = config.get<string>('DB_SSL') === 'true';
-
-        // ✅ Garantir timezone antes da criação da pool Oracle
-        process.env.TZ = config.get<string>('TZ') || 'Africa/Luanda';
-        process.env.ORA_SDTZ = config.get<string>('ORA_SDTZ') || 'Africa/Luanda';
-
-        return {
-          type: 'oracle' as const,
-          host: config.get<string>('DB_HOST'),
-          port: config.get<number>('DB_PORT', 1521),
-          username: config.get<string>('DB_USERNAME'),
-          password: config.get<string>('DB_PASSWORD'),
-          sid: config.get<string>('DB_SID'),
-          timezone: config.get<string>('TZ') || 'Africa/Luanda',
-
-
-          entities: [__dirname + '/**/*.entity{.ts,.js}'],
-          synchronize: false,
-          logging: ['query', 'error'],
-
-          extra: {
-            disableInsertDefaultValues: true,
-            ...(isSSL ? { ssl: { rejectUnauthorized: true } } : {}),
-          },
-        };
-      },
+      useFactory: (config: ConfigService) =>
+        databaseOptionsFactory(config, __dirname + '/**/*.entity{.ts,.js}'),
     }),
 
     AssessmentModule,
