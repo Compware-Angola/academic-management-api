@@ -85,6 +85,30 @@ export class HttpExportHelper {
         document.end();
     }
 
+    // ── Excel ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Envia um Buffer de Excel (.xlsx) como resposta HTTP.
+     *
+     * @param response     Objeto Response do Express
+     * @param fileBaseName Nome base do arquivo (sem extensão)
+     * @param buffer       Buffer do arquivo Excel gerado pelo ExcelExportHelper
+     */
+    static async streamExcel(
+        response: Response,
+        fileBaseName: string,
+        buffer: Buffer | Promise<Buffer>,
+    ): Promise<void> {
+        const fileName = HttpExportHelper.buildFileName(fileBaseName, 'xlsx');
+        const resolvedBuffer = await buffer;
+
+        response.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        response.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        response.setHeader('Cache-Control', 'no-store');
+
+        response.end(resolvedBuffer);
+    }
+
     // ── Util ─────────────────────────────────────────────────────────────────────
 
     private static buildFileName(base: string, ext: string): string {

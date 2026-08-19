@@ -16,8 +16,9 @@ import { calcularSemestreByAnoLectivo } from '../util/calcular-semestre';
 
 
 
-import { PdfExportHelper } from 'src/common/helpers/export/pdf-export.helper';
-import { ExcelExportHelper } from 'src/common/helpers/export/excel-export.helper';
+import { PdfExportHelper } from '../../common/helpers/export/pdf-export.helper';
+import { ExcelExportHelper } from '../../common/helpers/export/excel-export.helper';
+import { ExportEstudanteMatriculadoDTO } from './dto/export-estudante-matriculado.dto';
 
 export interface EstudanteMatriculado {
   codigoMatricula: number;
@@ -49,27 +50,16 @@ type EstudanteMatriculadoExportRow = Record<string, unknown> & {
 export class RegistrationService {
   constructor(private readonly dataSource: DataSource) {}
 
-  async findEstudantesMatriculados(filters: FindEstudanteMatriculadoDTO) {
+  private buildEstudantesMatriculadosWhereClause(filters: FindEstudanteMatriculadoDTO | ExportEstudanteMatriculadoDTO) {
     const enum TIPO_ESTUDANTE {
       ANTIGO_ESTUDANTE = 0,
       NOVO_ESTUDANTE = 1,
     }
-    const {
-      codigoAnoLectivo,
-      codigoCurso,
-      periodo,
-      tipoEstudante,
-      anoCurricular,
-      limit = 10,
-      page = 1,
-    } = filters;
-
-    const offset = (page - 1) * limit;
+    const { codigoAnoLectivo, codigoCurso, periodo, tipoEstudante, anoCurricular } = filters;
 
     const conditions: string[] = [];
     const params: any = {};
 
-    // STATUS fixo
     conditions.push(`g.CODIGO_STATUS_GRADE_CURRICULAR IN (2)`);
 
     if (codigoAnoLectivo) {
@@ -80,17 +70,14 @@ export class RegistrationService {
       conditions.push(`tg.CODIGO_CLASSE = :anoCurricular`);
       params.anoCurricular = anoCurricular;
     }
-
     if (codigoCurso) {
       conditions.push(`tc.CODIGO = :codigoCurso`);
       params.codigoCurso = codigoCurso;
     }
-
     if (periodo) {
       conditions.push(`tp2.CODIGO = :periodo`);
       params.periodo = periodo;
     }
-
     if (tipoEstudante == TIPO_ESTUDANTE.ANTIGO_ESTUDANTE) {
       conditions.push(`tp.ANOLECTIVO != :excludeAnoLectivo`);
       params.excludeAnoLectivo = codigoAnoLectivo;
@@ -100,9 +87,12 @@ export class RegistrationService {
       params.includeAnoLectivo = codigoAnoLectivo;
     }
 
-    const whereClause = conditions.join(' AND ');
+    return { whereClause: conditions.join(' AND '), params };
+  }
 
-    const sql = `
+  private getEstudantesMatriculadosBaseSql() {
+    return {
+      select: `
     SELECT DISTINCT
         g.CODIGO_MATRICULA           AS codigoMatricula,
         tm.DATA_MATRICULA            As dataMatricula,
@@ -131,29 +121,14 @@ export class RegistrationService {
         ON tal.CODIGO = tp.ANOLECTIVO
     INNER JOIN FK2_TB_CLASSES cl
         ON cl.CODIGO = tg.CODIGO_CLASSE
-
-    ---BOLSEIROS [TIPOS DE ESTUDANTES]
      LEFT JOIN fk2_tb_bolseiros fb
         ON  fb.CODIGO_MATRICULA  = tm.CODIGO
         AND fb.CODIGO_ANOLECTIVO = g.CODIGO_ANO_LECTIVO
         AND fb.SEMESTRE          = tg.CODIGO_SEMESTRE
-        AND fb.STATUS_           = 0 -- passar parametro depois
+        AND fb.STATUS_           = 0
     LEFT JOIN FK2_TB_INSTITUICAO i
-        ON i.CODIGO = fb.CODIGO_INSTITUICAO
-    ----FIM BOLSEIROS [TIPOS DE ESTUDANTES]
-
-    WHERE ${whereClause}
-    ORDER BY tp.NOME_COMPLETO ASC
-    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
-  `;
-
-    const sqlParams = {
-      ...params,
-      offset,
-      limit,
-    };
-
-    const sqlCount = `
+        ON i.CODIGO = fb.CODIGO_INSTITUICAO`,
+      count: `
     SELECT COUNT(DISTINCT g.CODIGO_MATRICULA) AS TOTAL
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO g
     INNER JOIN FK2_TB_GRADE_CURRICULAR tg
@@ -169,9 +144,26 @@ export class RegistrationService {
     INNER JOIN FK2_TB_PERIODOS tp2
         ON tp2.CODIGO = tp.CODIGO_TURNO
     INNER JOIN FK2_TB_ANO_LECTIVO tal
-        ON tal.CODIGO = tp.ANOLECTIVO
+        ON tal.CODIGO = tp.ANOLECTIVO`,
+    };
+  }
+
+  async findEstudantesMatriculados(filters: FindEstudanteMatriculadoDTO) {
+    const { limit = 10, page = 1 } = filters;
+    const offset = (page - 1) * limit;
+
+    const { whereClause, params } = this.buildEstudantesMatriculadosWhereClause(filters);
+    const baseSql = this.getEstudantesMatriculadosBaseSql();
+
+    const sql = `${baseSql.select}
     WHERE ${whereClause}
-  `;
+    ORDER BY tp.NOME_COMPLETO ASC
+    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY`;
+
+    const sqlCount = `${baseSql.count}
+    WHERE ${whereClause}`;
+
+    const sqlParams = { ...params, offset, limit };
 
     const [result, countResult] = await Promise.all([
       this.dataSource.query(sql, sqlParams),
@@ -192,6 +184,83 @@ export class RegistrationService {
       limit,
       totalPages,
     };
+  }
+
+  private async *iterateEstudantesMatriculados(
+    filters: ExportEstudanteMatriculadoDTO,
+  ): AsyncGenerator<EstudanteMatriculadoExportRow[]> {
+    const batchSize = 500;
+    let page = 1;
+
+    while (true) {
+      const response = await this.findEstudantesMatriculados({
+        ...filters,
+        page,
+        limit: batchSize,
+      });
+      const rows = response.data as EstudanteMatriculadoExportRow[];
+
+      if (!rows.length) {
+        break;
+      }
+
+      yield rows;
+
+      if (rows.length < batchSize || page * batchSize >= response.total) {
+        break;
+      }
+
+      page += 1;
+    }
+  }
+
+  async writeEstudantesMatriculadosPdf(
+    filters: ExportEstudanteMatriculadoDTO,
+    document: PDFKit.PDFDocument,
+  ): Promise<void> {
+    await PdfExportHelper.writeTable(
+      document,
+      this.iterateEstudantesMatriculados(filters),
+      {
+        title: 'Estudantes Matriculados',
+        columns: [
+          { label: 'Matrícula', key: 'codigoMatricula', width: 55 },
+          { label: 'Nome', key: 'nome', width: 140 },
+          { label: 'Telefone', key: 'telefone', width: 70 },
+          { label: 'Gênero', key: 'genero', width: 35 },
+          { label: 'Curso', key: 'curso', width: 100 },
+          { label: 'Período', key: 'periodo', width: 60 },
+          { label: 'Classe', key: 'classe', width: 50 },
+          { label: 'Tipo', key: 'tipo', width: 55 },
+          { label: 'Data Matrícula', key: 'dataMatricula', width: 65 },
+          { label: 'Ano Lectivo', key: 'anoLectivo', width: 60 },
+        ],
+      },
+    );
+  }
+
+  async exportEstudantesMatriculadosExcel(
+    filters: ExportEstudanteMatriculadoDTO,
+  ): Promise<Buffer> {
+    return ExcelExportHelper.buildWorkbookBuffer(
+      this.iterateEstudantesMatriculados(filters),
+      {
+        title: 'Estudantes Matriculados',
+        sheetName: 'Estudantes Matriculados',
+        columns: [
+          { label: 'Matrícula', key: 'codigoMatricula', width: 18 },
+          { label: 'Data Matrícula', key: 'dataMatricula', width: 18 },
+          { label: 'Nome', key: 'nome', width: 35 },
+          { label: 'Telefone', key: 'telefone', width: 20 },
+          { label: 'Gênero', key: 'genero', width: 12 },
+          { label: 'Curso', key: 'curso', width: 30 },
+          { label: 'Período', key: 'periodo', width: 18 },
+          { label: 'Classe', key: 'classe', width: 15 },
+          { label: 'Tipo', key: 'tipo', width: 18 },
+          { label: 'Ano Lectivo', key: 'anoLectivo', width: 18 },
+        ],
+      },
+    );
   }
 
   async findInscricaoSemUC(filters: FindInscricaoSemUCDTO) {

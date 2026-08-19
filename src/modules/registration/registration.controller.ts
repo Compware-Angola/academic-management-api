@@ -6,10 +6,14 @@ import {
   Post,
   Query,
   Req,
+  Res,
   ValidationPipe,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RegistrationService } from './registration.service';
+import { HttpExportHelper } from '../../common/helpers/export/http-export.helper';
+import { ExportEstudanteMatriculadoDTO } from './dto/export-estudante-matriculado.dto';
 
 
 
@@ -93,6 +97,37 @@ async listarHorariosDisponiveisInscritosPorUc(
     @Query(ValidationPipe) query: FindEstudanteMatriculadoDTO,
   ) {
     return this.registrationService.findEstudantesMatriculados(query);
+  }
+
+  @Get('/estudantes-matriculados/export/pdf')
+  @ApiOperation({ summary: 'Exportar Estudantes Matriculados em PDF' })
+  @ApiResponse({ status: 200, description: 'Arquivo PDF gerado com sucesso' })
+  async exportEstudantesMatriculadosPdf(
+    @Query(ValidationPipe) query: ExportEstudanteMatriculadoDTO,
+    @Res() response: Response,
+  ) {
+    await HttpExportHelper.streamPdf(
+      response,
+      'estudantes-matriculados',
+      (document) =>
+        this.registrationService.writeEstudantesMatriculadosPdf(query, document),
+    );
+  }
+
+  @Get('/estudantes-matriculados/export/excel')
+  @ApiOperation({ summary: 'Exportar Estudantes Matriculados em Excel' })
+  @ApiResponse({ status: 200, description: 'Arquivo Excel gerado com sucesso' })
+  async exportEstudantesMatriculadosExcel(
+    @Query(ValidationPipe) query: ExportEstudanteMatriculadoDTO,
+    @Res() response: Response,
+  ) {
+    const buffer =
+      await this.registrationService.exportEstudantesMatriculadosExcel(query);
+    await HttpExportHelper.streamExcel(
+      response,
+      'estudantes-matriculados',
+      buffer,
+    );
   }
 
   @Get('/estudantes/sem-inscricoes-curso')
