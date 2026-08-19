@@ -2147,14 +2147,30 @@ END AS RESULTADO
          SUM(CASE WHEN P.Codigo_Turno = 3 THEN 1 ELSE 0 END) AS qt_noite,
          SUM(CASE WHEN P.Codigo_Turno = 5 THEN 1 ELSE 0 END) AS qt_diurno,
          SUM(CASE WHEN P.Codigo_Turno = 6 THEN 1 ELSE 0 END) AS qt_noturno,
+         COUNT(PG.COD_PRE) AS PAGOS,
          COUNT(*) AS TOTAL_DIA
     FROM FK2_TB_PREINSCRICAO P
-       , FK2_TB_CURSOS C
-       , FK2_USERS U
-       , FK2_TB_FACULDADE F
-   WHERE P.CURSO_CANDIDATURA = C.CODIGO
-     AND P.USER_ID           = U.ID
-     AND C.FACULDADE_ID      = F.CODIGO
+
+INNER JOIN FK2_TB_CURSOS C
+    ON P.CURSO_CANDIDATURA = C.CODIGO
+INNER JOIN FK2_USERS U
+    ON P.USER_ID = U.ID
+INNER JOIN FK2_TB_FACULDADE F
+    ON C.FACULDADE_ID = F.CODIGO
+
+LEFT JOIN (
+    SELECT DISTINCT
+        f.CODIGO_PREINSCRICAO AS COD_PRE
+    FROM FK2_FACTURA f
+    INNER JOIN FK2_FACTURA_ITEMS fi
+        ON fi.CODIGOFACTURA = f.CODIGO
+    INNER JOIN FK2_TB_TIPO_SERVICOS ts
+        ON ts.CODIGO = fi.CODIGOPRODUTO
+    WHERE UPPER(ts.SIGLA) = UPPER('TdEdA') AND f.ESTADO = 1
+) PG
+    ON PG.COD_PRE = P.CODIGO
+
+   WHERE 1=1
      ${extraWhere}
    GROUP BY TRUNC(${dateCase})
   `;
@@ -2167,7 +2183,7 @@ END AS RESULTADO
   FETCH NEXT :${limitIndex} ROWS ONLY
   `;
 
-    const sqlCount = `SELECT COUNT(*) AS TOTAL FROM (${sqlInner})`;
+    const sqlCount = `SELECT COUNT(*) AS TOTAL, SUM(PAGOS) AS TOTAL_PAGOS FROM (${sqlInner})`;
 
     const [data, total] = await Promise.all([
       this.dataSource.query(sql, params),
@@ -2177,6 +2193,7 @@ END AS RESULTADO
     return this.toLower({
       data,
       total: Number(total[0].TOTAL),
+      totalPagos: Number(total[0].TOTAL_PAGOS || 0),
       page,
       limit,
       totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
@@ -2244,16 +2261,31 @@ SELECT
         'N/A'
     ) AS DATA,
     COUNT(*) AS SUBTOTAL,
+    COUNT(PG.COD_PRE) AS PAGOS,
     TRUNC(${dateCase}) AS DATA_TRUNC
 
 FROM FK2_TB_PREINSCRICAO P
-   , FK2_USERS U
-   , FK2_TB_CURSOS C
-   , FK2_TB_FACULDADE F
 
-WHERE P.USER_ID           = U.ID
-  AND P.CURSO_CANDIDATURA = C.CODIGO
-  AND C.FACULDADE_ID      = F.CODIGO
+INNER JOIN FK2_USERS U
+    ON P.USER_ID = U.ID
+INNER JOIN FK2_TB_CURSOS C
+    ON P.CURSO_CANDIDATURA = C.CODIGO
+INNER JOIN FK2_TB_FACULDADE F
+    ON C.FACULDADE_ID = F.CODIGO
+
+LEFT JOIN (
+    SELECT DISTINCT
+        f.CODIGO_PREINSCRICAO AS COD_PRE
+    FROM FK2_FACTURA f
+    INNER JOIN FK2_FACTURA_ITEMS fi
+        ON fi.CODIGOFACTURA = f.CODIGO
+    INNER JOIN FK2_TB_TIPO_SERVICOS ts
+        ON ts.CODIGO = fi.CODIGOPRODUTO
+    WHERE UPPER(ts.SIGLA) = UPPER('TdEdA') AND f.ESTADO = 1
+) PG
+    ON PG.COD_PRE = P.CODIGO
+
+WHERE 1=1
   ${extraWhere}
 
 GROUP BY TRUNC(${dateCase})
@@ -2262,7 +2294,8 @@ GROUP BY TRUNC(${dateCase})
     const sql = `
 SELECT 
     DATA,
-    SUBTOTAL
+    SUBTOTAL,
+    PAGOS
 
 FROM (${sqlInner})
 
@@ -2276,7 +2309,8 @@ FETCH NEXT :${limitIndex} ROWS ONLY
     const sqlCount = `
 SELECT 
     COUNT(*) AS TOTAL,
-    SUM(SUBTOTAL) AS TOTAL_CANDIDATOS
+    SUM(SUBTOTAL) AS TOTAL_CANDIDATOS,
+    SUM(PAGOS) AS TOTAL_PAGOS
 
 FROM (${sqlInner})
 `;
@@ -2290,6 +2324,7 @@ FROM (${sqlInner})
       data,
       total: Number(counts[0].TOTAL),
       totalGeralCandidatos: Number(counts[0].TOTAL_CANDIDATOS || 0),
+      totalPagos: Number(counts[0].TOTAL_PAGOS || 0),
       page,
       limit,
       totalPages: Math.ceil(Number(counts[0].TOTAL) / limit),
