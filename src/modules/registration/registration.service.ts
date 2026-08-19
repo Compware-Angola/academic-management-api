@@ -16,6 +16,9 @@ import { calcularSemestreByAnoLectivo } from '../util/calcular-semestre';
 
 
 
+import { PdfExportHelper } from 'src/common/helpers/export/pdf-export.helper';
+import { ExcelExportHelper } from 'src/common/helpers/export/excel-export.helper';
+
 export interface EstudanteMatriculado {
   codigoMatricula: number;
   dataMatricula: Date;
@@ -29,6 +32,19 @@ export interface EstudanteMatriculado {
   classe: string;
 }
 
+
+type EstudanteMatriculadoExportRow = Record<string, unknown> & {
+  codigoMatricula?: number;
+  dataMatricula?: Date | string;
+  nome?: string;
+  telefone?: string;
+  genero?: string;
+  anoLectivo?: string;
+  curso?: string;
+  periodo?: string;
+  classe?: string;
+  tipo?: string;
+};
 @Injectable()
 export class RegistrationService {
   constructor(private readonly dataSource: DataSource) {}
