@@ -205,7 +205,7 @@ export class PreRegistrationService {
       SET
         BILHETE_IDENTIDADE = NULL,
         EMAIL = NULL,
-        UPDATED_AT = SYSDATE
+        UPDATED_AT = SYSDATE,
         DELETED_AT = SYSDATE
       WHERE CODIGO = :codigo
     `,
