@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
+import { Curso, CursoParamsDto } from './dto/curso-params.dto';
 
 @Injectable()
 export class CursosService {
@@ -34,5 +35,64 @@ export class CursosService {
     );
 
     return toLowerCaseKeys(especialidades);
+  }
+
+  async getCursosWithVagas(params?: CursoParamsDto): Promise<Curso[]> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+
+    try {
+      const isGraduacao =
+        params?.tipoCandidaturaId !== undefined &&
+        Number(params.tipoCandidaturaId) === 1;
+
+      const vagasTable = isGraduacao
+        ? 'FK2_VAGAS_CURSOS'
+        : 'FK2_VAGAS_CURSOS_POS_GRADUACAO';
+
+      const conditions: string[] = ['VAGA.NUM_VAGAS > 0'];
+      const queryParams: any[] = [];
+      let paramIndex = 1;
+
+      if (params?.faculdadeId) {
+        conditions.push(`CURSO.FACULDADE_ID = :${paramIndex}`);
+        queryParams.push(Number(params.faculdadeId));
+        paramIndex++;
+      }
+
+      if (params?.tipoCandidaturaId) {
+        conditions.push(`CURSO.TIPO_CANDIDATURA = :${paramIndex}`);
+        queryParams.push(Number(params.tipoCandidaturaId));
+        paramIndex++;
+      }
+
+      if (params?.anoLectivo) {
+        conditions.push(`VAGA.ANO_LECTIVO_ID = :${paramIndex}`);
+        queryParams.push(Number(params.anoLectivo));
+        paramIndex++;
+      }
+
+      if (params?.periodo) {
+        conditions.push(`VAGA.PERIODO_ID = :${paramIndex}`);
+        queryParams.push(Number(params.periodo));
+        paramIndex++;
+      }
+
+      const sql = `
+        SELECT DISTINCT
+          CURSO.CODIGO AS "codigo",
+          CURSO.DESIGNACAO AS "designacao",
+          CURSO.DURACAO AS "duracao"
+        FROM FK2_TB_CURSOS CURSO
+        INNER JOIN ${vagasTable} VAGA
+          ON VAGA.CURSO_ID = CURSO.CODIGO
+        WHERE ${conditions.join(' AND ')}
+      `;
+
+      const result = await queryRunner.query(sql, queryParams);
+      return result as Curso[];
+    } finally {
+      await queryRunner.release();
+    }
   }
 }
