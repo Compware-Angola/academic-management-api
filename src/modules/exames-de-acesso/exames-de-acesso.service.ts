@@ -306,20 +306,32 @@ export class ExamesDeAcessoService {
       await this.atualizarSenhaSeAnoLetivoAtivo(dto, codigoCandidato);
     }
 
+    if (campos.length > 0) {
+      const whereIndex = paramIndex++;
+      params.push(codigoCandidato);
+
+      const sql = `
+      UPDATE FK2_TB_PREINSCRICAO
+         SET ${campos.join(',           ')}
+       WHERE CODIGO = :${whereIndex}
+    `;
+
+      await this.dataSource.query(sql, params);
+    }
+
+    if (dto.email !== undefined) {
+      const sqlUser = `
+      UPDATE FK2_USERS
+         SET EMAIL = :1
+       WHERE ID = (SELECT USER_ID FROM FK2_TB_PREINSCRICAO WHERE CODIGO = :2)
+    `;
+
+      await this.dataSource.query(sqlUser, [dto.email, codigoCandidato]);
+    }
+
     if (campos.length === 0) {
       return;
     }
-
-    const whereIndex = paramIndex++;
-    params.push(codigoCandidato);
-
-    const sql = `
-    UPDATE FK2_TB_PREINSCRICAO
-       SET ${campos.join(',           ')}
-     WHERE CODIGO = :${whereIndex}
-  `;
-
-    await this.dataSource.query(sql, params);
 
     return this.buscaCandidatos({ codigoCandidato, page: 1, limit: 1 });
   }
