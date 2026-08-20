@@ -16,6 +16,11 @@ import { calcularSemestreByAnoLectivo } from '../util/calcular-semestre';
 
 
 
+import { PdfExportHelper } from '../../common/helpers/export/pdf-export.helper';
+import { ExcelExportHelper } from '../../common/helpers/export/excel-export.helper';
+import { ExportEstudanteMatriculadoDTO } from './dto/export-estudante-matriculado.dto';
+import { FilterEstatisticaMatriculadosDto } from './dto/filter-estatistica-matriculados.dto';
+
 export interface EstudanteMatriculado {
   codigoMatricula: number;
   dataMatricula: Date;
@@ -29,39 +34,66 @@ export interface EstudanteMatriculado {
   classe: string;
 }
 
+
+type EstudanteMatriculadoExportRow = Record<string, unknown> & {
+  codigomatricula?: number;
+  datamatricula?: Date | string;
+  nome?: string;
+  telefone?: string;
+  genero?: string;
+  anolectivo?: string;
+  curso?: string;
+  periodo?: string;
+  classe?: string;
+  tipo?: string;
+};
 @Injectable()
 export class RegistrationService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(private readonly dataSource: DataSource) { }
 
-  async findEstudantesMatriculados(filters: FindEstudanteMatriculadoDTO) {
+  private buildEstudantesMatriculadosWhereClause(
+    filters:
+      | FindEstudanteMatriculadoDTO
+      | ExportEstudanteMatriculadoDTO
+      | FilterEstatisticaMatriculadosDto,
+  ) {
     const enum TIPO_ESTUDANTE {
       ANTIGO_ESTUDANTE = 0,
       NOVO_ESTUDANTE = 1,
     }
+
     const {
       codigoAnoLectivo,
       codigoCurso,
       periodo,
       tipoEstudante,
       anoCurricular,
-      limit = 10,
-      page = 1,
     } = filters;
-
-    const offset = (page - 1) * limit;
 
     const conditions: string[] = [];
     const params: any = {};
 
-    // STATUS fixo
-    conditions.push(`g.CODIGO_STATUS_GRADE_CURRICULAR IN (2)`);
+    /**
+     * Only active/current curricular records participate
+     * in the calculation of the student's current class.
+     *
+     * The actual current class is calculated in the
+     * current_class CTE.
+     */
+    conditions.push(`g.CODIGO_STATUS_GRADE_CURRICULAR = 2`);
 
     if (codigoAnoLectivo) {
       conditions.push(`g.CODIGO_ANO_LECTIVO = :codigoAnoLectivo`);
       params.codigoAnoLectivo = codigoAnoLectivo;
     }
+
+    /**
+     * IMPORTANT:
+     * anoCurricular now refers to the calculated CURRENT CLASS,
+     * not directly to an arbitrary GRADE_CURRICULAR_ALUNO record.
+     */
     if (anoCurricular) {
-      conditions.push(`tg.CODIGO_CLASSE = :anoCurricular`);
+      conditions.push(`cc.CODIGO_CLASSE = :anoCurricular`);
       params.anoCurricular = anoCurricular;
     }
 
@@ -79,83 +111,213 @@ export class RegistrationService {
       conditions.push(`tp.ANOLECTIVO != :excludeAnoLectivo`);
       params.excludeAnoLectivo = codigoAnoLectivo;
     }
+
     if (tipoEstudante == TIPO_ESTUDANTE.NOVO_ESTUDANTE) {
       conditions.push(`tp.ANOLECTIVO = :includeAnoLectivo`);
       params.includeAnoLectivo = codigoAnoLectivo;
     }
 
-    const whereClause = conditions.join(' AND ');
+    return {
+      whereClause: conditions.join(' AND '),
+      params,
+    };
+  }
 
-    const sql = `
-    SELECT DISTINCT
-        g.CODIGO_MATRICULA           AS codigoMatricula,
-        tm.DATA_MATRICULA            As dataMatricula,
-        tp.NOME_COMPLETO             AS nome,
-        tp.CONTACTOS_TELEFONICOS     AS telefone,
-        tp.SEXO                      AS genero,
-        tal.DESIGNACAO               AS anoLectivo,
-        tc.DESIGNACAO                AS curso,
-        tp2.DESIGNACAO               AS periodo,
-        cl.DESIGNACAO                AS classe,
-        fn_tipo_estudante(fb.codigo, i.renuncia, fb.CODIGO_TIPO_BOLSA) as tipo
-    FROM FK2_TB_GRADE_CURRICULAR_ALUNO g
-    INNER JOIN FK2_TB_GRADE_CURRICULAR tg
-        on tg.codigo = g.CODIGO_GRADE_CURRICULAR
-    INNER JOIN FK2_TB_MATRICULAS tm
+
+  private getEstudantesMatriculadosBaseSql() {
+    return {
+      select: `
+      WITH disciplinas_por_classe AS (
+        SELECT
+          g.CODIGO_MATRICULA,
+          g.CODIGO_ANO_LECTIVO,
+          tg.CODIGO_CLASSE,
+          COUNT(DISTINCT g.CODIGO_GRADE_CURRICULAR) AS TOTAL_DISCIPLINAS
+        FROM FK2_TB_GRADE_CURRICULAR_ALUNO g
+        INNER JOIN FK2_TB_GRADE_CURRICULAR tg
+          ON tg.CODIGO = g.CODIGO_GRADE_CURRICULAR
+        WHERE g.CODIGO_STATUS_GRADE_CURRICULAR = 2
+        GROUP BY
+          g.CODIGO_MATRICULA,
+          g.CODIGO_ANO_LECTIVO,
+          tg.CODIGO_CLASSE
+      ),
+
+      classe_atual AS (
+        SELECT
+          CODIGO_MATRICULA,
+          CODIGO_ANO_LECTIVO,
+          CODIGO_CLASSE,
+          TOTAL_DISCIPLINAS
+        FROM (
+          SELECT
+            dpc.*,
+            ROW_NUMBER() OVER (
+              PARTITION BY
+                dpc.CODIGO_MATRICULA,
+                dpc.CODIGO_ANO_LECTIVO
+              ORDER BY
+                dpc.TOTAL_DISCIPLINAS DESC,
+                dpc.CODIGO_CLASSE ASC
+            ) AS RN
+          FROM disciplinas_por_classe dpc
+        )
+        WHERE RN = 1
+      )
+
+      SELECT DISTINCT
+          tm.CODIGO                  AS codigoMatricula,
+          tm.DATA_MATRICULA          AS dataMatricula,
+          tp.NOME_COMPLETO           AS nome,
+          tp.CONTACTOS_TELEFONICOS   AS telefone,
+          tp.SEXO                    AS genero,
+          tal.DESIGNACAO             AS anoLectivo,
+          tc.DESIGNACAO              AS curso,
+          tp2.DESIGNACAO             AS periodo,
+          cl.DESIGNACAO              AS classe,
+          fn_tipo_estudante(
+            fb.codigo,
+            i.renuncia,
+            fb.CODIGO_TIPO_BOLSA
+          ) AS tipo
+
+      FROM FK2_TB_MATRICULAS tm
+
+      /**
+       * THIS IS THE IMPORTANT JOIN.
+       *
+       * At this point we have exactly one calculated
+       * current class for each matrícula + academic year.
+       */
+      INNER JOIN classe_atual cc
+        ON cc.CODIGO_MATRICULA = tm.CODIGO
+
+      INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO g
         ON g.CODIGO_MATRICULA = tm.CODIGO
-    INNER JOIN FK2_TB_CURSOS tc
+        AND g.CODIGO_ANO_LECTIVO = cc.CODIGO_ANO_LECTIVO
+        AND g.CODIGO_STATUS_GRADE_CURRICULAR = 2
+
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tg
+        ON tg.CODIGO = g.CODIGO_GRADE_CURRICULAR
+        AND tg.CODIGO_CLASSE = cc.CODIGO_CLASSE
+
+      INNER JOIN FK2_TB_CURSOS tc
         ON tc.CODIGO = tm.CODIGO_CURSO
-    INNER JOIN FK2_TB_ADMISSAO ta
+
+      INNER JOIN FK2_TB_ADMISSAO ta
         ON ta.CODIGO = tm.CODIGO_ALUNO
-    INNER JOIN FK2_TB_PREINSCRICAO tp
+
+      INNER JOIN FK2_TB_PREINSCRICAO tp
         ON ta.PRE_INCRICAO = tp.CODIGO
-    INNER JOIN FK2_TB_PERIODOS tp2
+
+      INNER JOIN FK2_TB_PERIODOS tp2
         ON tp2.CODIGO = tp.CODIGO_TURNO
-    INNER JOIN FK2_TB_ANO_LECTIVO tal
+
+      INNER JOIN FK2_TB_ANO_LECTIVO tal
         ON tal.CODIGO = tp.ANOLECTIVO
-    INNER JOIN FK2_TB_CLASSES cl
-        ON cl.CODIGO = tg.CODIGO_CLASSE
 
-    ---BOLSEIROS [TIPOS DE ESTUDANTES]
-     LEFT JOIN fk2_tb_bolseiros fb
-        ON  fb.CODIGO_MATRICULA  = tm.CODIGO
+      INNER JOIN FK2_TB_CLASSES cl
+        ON cl.CODIGO = cc.CODIGO_CLASSE
+
+      LEFT JOIN FK2_TB_BOLSEIROS fb
+        ON fb.CODIGO_MATRICULA = tm.CODIGO
         AND fb.CODIGO_ANOLECTIVO = g.CODIGO_ANO_LECTIVO
-        AND fb.SEMESTRE          = tg.CODIGO_SEMESTRE
-        AND fb.STATUS_           = 0 -- passar parametro depois
-    LEFT JOIN FK2_TB_INSTITUICAO i
-        ON i.CODIGO = fb.CODIGO_INSTITUICAO
-    ----FIM BOLSEIROS [TIPOS DE ESTUDANTES]
+        AND fb.SEMESTRE = tg.CODIGO_SEMESTRE
+        AND fb.STATUS_ = 0
 
+      LEFT JOIN FK2_TB_INSTITUICAO i
+        ON i.CODIGO = fb.CODIGO_INSTITUICAO
+    `,
+
+      count: `
+      WITH disciplinas_por_classe AS (
+        SELECT
+          g.CODIGO_MATRICULA,
+          g.CODIGO_ANO_LECTIVO,
+          tg.CODIGO_CLASSE,
+          COUNT(DISTINCT g.CODIGO_GRADE_CURRICULAR) AS TOTAL_DISCIPLINAS
+        FROM FK2_TB_GRADE_CURRICULAR_ALUNO g
+        INNER JOIN FK2_TB_GRADE_CURRICULAR tg
+          ON tg.CODIGO = g.CODIGO_GRADE_CURRICULAR
+        WHERE g.CODIGO_STATUS_GRADE_CURRICULAR = 2
+        GROUP BY
+          g.CODIGO_MATRICULA,
+          g.CODIGO_ANO_LECTIVO,
+          tg.CODIGO_CLASSE
+      ),
+
+      classe_atual AS (
+        SELECT
+          CODIGO_MATRICULA,
+          CODIGO_ANO_LECTIVO,
+          CODIGO_CLASSE
+        FROM (
+          SELECT
+            dpc.*,
+            ROW_NUMBER() OVER (
+              PARTITION BY
+                dpc.CODIGO_MATRICULA,
+                dpc.CODIGO_ANO_LECTIVO
+              ORDER BY
+                dpc.TOTAL_DISCIPLINAS DESC,
+                dpc.CODIGO_CLASSE ASC
+            ) AS RN
+          FROM disciplinas_por_classe dpc
+        )
+        WHERE RN = 1
+      )
+
+      SELECT COUNT(DISTINCT tm.CODIGO) AS TOTAL
+
+      FROM FK2_TB_MATRICULAS tm
+
+      INNER JOIN classe_atual cc
+        ON cc.CODIGO_MATRICULA = tm.CODIGO
+
+      INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO g
+        ON g.CODIGO_MATRICULA = tm.CODIGO
+        AND g.CODIGO_ANO_LECTIVO = cc.CODIGO_ANO_LECTIVO
+        AND g.CODIGO_STATUS_GRADE_CURRICULAR = 2
+
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tg
+        ON tg.CODIGO = g.CODIGO_GRADE_CURRICULAR
+        AND tg.CODIGO_CLASSE = cc.CODIGO_CLASSE
+
+      INNER JOIN FK2_TB_CURSOS tc
+        ON tc.CODIGO = tm.CODIGO_CURSO
+
+      INNER JOIN FK2_TB_ADMISSAO ta
+        ON ta.CODIGO = tm.CODIGO_ALUNO
+
+      INNER JOIN FK2_TB_PREINSCRICAO tp
+        ON ta.PRE_INCRICAO = tp.CODIGO
+
+      INNER JOIN FK2_TB_PERIODOS tp2
+        ON tp2.CODIGO = tp.CODIGO_TURNO
+
+      INNER JOIN FK2_TB_ANO_LECTIVO tal
+        ON tal.CODIGO = tp.ANOLECTIVO
+    `,
+    };
+  }
+
+  async findEstudantesMatriculados(filters: FindEstudanteMatriculadoDTO) {
+    console.log('============================================================', filters)
+    const { limit = 10, page = 1 } = filters;
+    const offset = (page - 1) * limit;
+
+    const { whereClause, params } = this.buildEstudantesMatriculadosWhereClause(filters);
+    const baseSql = this.getEstudantesMatriculadosBaseSql();
+
+    const sql = `${baseSql.select}
     WHERE ${whereClause}
     ORDER BY tp.NOME_COMPLETO ASC
-    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
-  `;
+    OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY`;
 
-    const sqlParams = {
-      ...params,
-      offset,
-      limit,
-    };
+    const sqlCount = `${baseSql.count}
+    WHERE ${whereClause}`;
 
-    const sqlCount = `
-    SELECT COUNT(DISTINCT g.CODIGO_MATRICULA) AS TOTAL
-    FROM FK2_TB_GRADE_CURRICULAR_ALUNO g
-    INNER JOIN FK2_TB_GRADE_CURRICULAR tg
-        on tg.codigo = g.CODIGO_GRADE_CURRICULAR
-    INNER JOIN FK2_TB_MATRICULAS tm
-        ON g.CODIGO_MATRICULA = tm.CODIGO
-    INNER JOIN FK2_TB_CURSOS tc
-        ON tc.CODIGO = tm.CODIGO_CURSO
-    INNER JOIN FK2_TB_ADMISSAO ta
-        ON ta.CODIGO = tm.CODIGO_ALUNO
-    INNER JOIN FK2_TB_PREINSCRICAO tp
-        ON ta.PRE_INCRICAO = tp.CODIGO
-    INNER JOIN FK2_TB_PERIODOS tp2
-        ON tp2.CODIGO = tp.CODIGO_TURNO
-    INNER JOIN FK2_TB_ANO_LECTIVO tal
-        ON tal.CODIGO = tp.ANOLECTIVO
-    WHERE ${whereClause}
-  `;
+    const sqlParams = { ...params, offset, limit };
 
     const [result, countResult] = await Promise.all([
       this.dataSource.query(sql, sqlParams),
@@ -176,6 +338,202 @@ export class RegistrationService {
       limit,
       totalPages,
     };
+  }
+
+  async estatisticaEstudantesMatriculados(
+    filters: FilterEstatisticaMatriculadosDto,
+  ) {
+    const {
+      whereClause,
+      params,
+    } = this.buildEstudantesMatriculadosWhereClause(filters);
+
+    const sql = `
+    WITH disciplinas_por_classe AS (
+      SELECT
+        g.CODIGO_MATRICULA,
+        g.CODIGO_ANO_LECTIVO,
+        tg.CODIGO_CLASSE,
+        COUNT(DISTINCT g.CODIGO_GRADE_CURRICULAR) AS TOTAL_DISCIPLINAS
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO g
+      INNER JOIN FK2_TB_GRADE_CURRICULAR tg
+        ON tg.CODIGO = g.CODIGO_GRADE_CURRICULAR
+      WHERE g.CODIGO_STATUS_GRADE_CURRICULAR = 2
+      GROUP BY
+        g.CODIGO_MATRICULA,
+        g.CODIGO_ANO_LECTIVO,
+        tg.CODIGO_CLASSE
+    ),
+
+    classe_atual AS (
+      SELECT
+        CODIGO_MATRICULA,
+        CODIGO_ANO_LECTIVO,
+        CODIGO_CLASSE,
+        TOTAL_DISCIPLINAS
+      FROM (
+        SELECT
+          dpc.*,
+          ROW_NUMBER() OVER (
+            PARTITION BY
+              dpc.CODIGO_MATRICULA,
+              dpc.CODIGO_ANO_LECTIVO
+            ORDER BY
+              dpc.TOTAL_DISCIPLINAS DESC,
+              dpc.CODIGO_CLASSE ASC
+          ) AS RN
+        FROM disciplinas_por_classe dpc
+      )
+      WHERE RN = 1
+    )
+
+    SELECT
+      cl.DESIGNACAO AS anoCurricular,
+      COUNT(DISTINCT tm.CODIGO) AS total
+
+    FROM FK2_TB_MATRICULAS tm
+
+    INNER JOIN classe_atual cc
+      ON cc.CODIGO_MATRICULA = tm.CODIGO
+
+    INNER JOIN FK2_TB_GRADE_CURRICULAR_ALUNO g
+      ON g.CODIGO_MATRICULA = tm.CODIGO
+      AND g.CODIGO_ANO_LECTIVO = cc.CODIGO_ANO_LECTIVO
+      AND g.CODIGO_STATUS_GRADE_CURRICULAR = 2
+
+    INNER JOIN FK2_TB_GRADE_CURRICULAR tg
+      ON tg.CODIGO = g.CODIGO_GRADE_CURRICULAR
+      AND tg.CODIGO_CLASSE = cc.CODIGO_CLASSE
+
+    INNER JOIN FK2_TB_CURSOS tc
+      ON tc.CODIGO = tm.CODIGO_CURSO
+
+    INNER JOIN FK2_TB_ADMISSAO ta
+      ON ta.CODIGO = tm.CODIGO_ALUNO
+
+    INNER JOIN FK2_TB_PREINSCRICAO tp
+      ON ta.PRE_INCRICAO = tp.CODIGO
+
+    INNER JOIN FK2_TB_PERIODOS tp2
+      ON tp2.CODIGO = tp.CODIGO_TURNO
+
+    INNER JOIN FK2_TB_ANO_LECTIVO tal
+      ON tal.CODIGO = tp.ANOLECTIVO
+
+    INNER JOIN FK2_TB_CLASSES cl
+      ON cl.CODIGO = cc.CODIGO_CLASSE
+
+    WHERE ${whereClause}
+
+    GROUP BY
+      cl.DESIGNACAO,
+      cl.CODIGO
+
+    ORDER BY
+      cl.CODIGO ASC
+  `;
+
+    const result = await this.dataSource.query(sql, params);
+
+    const data = (await toLowerCaseKeys(result)) as Array<{
+      anocurricular: string;
+      total: number;
+    }>;
+
+    return {
+      data: data.map((row) => ({
+        anoCurricular: row.anocurricular,
+        total: Number(row.total),
+      })),
+    };
+  }
+
+  private async *iterateEstudantesMatriculados(
+    filters: ExportEstudanteMatriculadoDTO,
+  ): AsyncGenerator<EstudanteMatriculadoExportRow[]> {
+    const batchSize = 500;
+    let page = 1;
+
+    while (true) {
+      const response = await this.findEstudantesMatriculados({
+        ...filters,
+        page,
+        limit: batchSize,
+      });
+      const rows = (response.data as unknown as EstudanteMatriculadoExportRow[]).map(
+        (row) => {
+          const dateValue = row.datamatricula;
+          if (dateValue instanceof Date) {
+            const dd = String(dateValue.getDate()).padStart(2, '0');
+            const mm = String(dateValue.getMonth() + 1).padStart(2, '0');
+            const yyyy = dateValue.getFullYear();
+            return { ...row, datamatricula: `${dd}/${mm}/${yyyy}` };
+          }
+          return row;
+        },
+      );
+
+      if (!rows.length) {
+        break;
+      }
+
+      yield rows;
+
+      if (rows.length < batchSize || page * batchSize >= response.total) {
+        break;
+      }
+
+      page += 1;
+    }
+  }
+
+  async writeEstudantesMatriculadosPdf(
+    filters: ExportEstudanteMatriculadoDTO,
+    document: PDFKit.PDFDocument,
+  ): Promise<void> {
+    await PdfExportHelper.writeTable(
+      document,
+      this.iterateEstudantesMatriculados(filters),
+      {
+        title: 'Estudantes Matriculados',
+        columns: [
+          { label: 'Matrícula', key: 'codigomatricula', width: 55 },
+          { label: 'Nome', key: 'nome', width: 140 },
+          { label: 'Telefone', key: 'telefone', width: 70 },
+          { label: 'Gênero', key: 'genero', width: 35 },
+          { label: 'Curso', key: 'curso', width: 100 },
+          { label: 'Período', key: 'periodo', width: 60 },
+          { label: 'Classe', key: 'classe', width: 50 },
+          { label: 'Tipo', key: 'tipo', width: 55 },
+          { label: 'Data Matrícula', key: 'datamatricula', width: 65 },
+          { label: 'Ano Lectivo', key: 'anolectivo', width: 60 },
+        ],
+      },
+    );
+  }
+
+  async exportEstudantesMatriculadosExcel(
+    filters: ExportEstudanteMatriculadoDTO,
+  ): Promise<Buffer> {
+    return ExcelExportHelper.buildWorkbookBuffer(
+      this.iterateEstudantesMatriculados(filters),
+      {
+        title: 'Estudantes Matriculados',
+        sheetName: 'Estudantes Matriculados',
+        columns: [
+          { label: 'Matrícula', key: 'codigomatricula', width: 18 },
+          { label: 'Data Matrícula', key: 'datamatricula', width: 18 },
+          { label: 'Nome', key: 'nome', width: 35 },
+          { label: 'Telefone', key: 'telefone', width: 20 },
+          { label: 'Gênero', key: 'genero', width: 12 },
+          { label: 'Curso', key: 'curso', width: 30 },
+          { label: 'Período', key: 'periodo', width: 18 },
+          { label: 'Classe', key: 'classe', width: 15 },
+          { label: 'Tipo', key: 'tipo', width: 18 },
+          { label: 'Ano Lectivo', key: 'anolectivo', width: 18 },
+        ],
+      },
+    );
   }
 
   async findInscricaoSemUC(filters: FindInscricaoSemUCDTO) {
@@ -303,30 +661,30 @@ export class RegistrationService {
     };
   }
 
-async listarGeralEstudantes(filter: FilterListagemGeralEstudantesDto) {
-  const {
-    page = 1,
-    limit = 10,
-    anoLectivo,
-    faculdade,
-    grauAcademico,
-    curso,
-    anoCurricular,
-    periodo,
-    nacionalidade,
-    necessidade,
-    sexo,
-    search,
-  } = filter;
+  async listarGeralEstudantes(filter: FilterListagemGeralEstudantesDto) {
+    const {
+      page = 1,
+      limit = 10,
+      anoLectivo,
+      faculdade,
+      grauAcademico,
+      curso,
+      anoCurricular,
+      periodo,
+      nacionalidade,
+      necessidade,
+      sexo,
+      search,
+    } = filter;
 
-  const offset = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-  const params: any = {
-    offset,
-    limit: offset + limit,
-  };
+    const params: any = {
+      offset,
+      limit: offset + limit,
+    };
 
-  let sql = `
+    let sql = `
     SELECT *
     FROM (
       SELECT
@@ -366,67 +724,67 @@ async listarGeralEstudantes(filter: FilterListagemGeralEstudantesDto) {
         WHERE 1 = 1
   `;
 
-  // Filtros obrigatórios / principais
-  if (anoLectivo && anoLectivo > 0) {
-    sql += ` AND tal.CODIGO = :anoLectivo`;
-    params.anoLectivo = anoLectivo;
-  }
+    // Filtros obrigatórios / principais
+    if (anoLectivo && anoLectivo > 0) {
+      sql += ` AND tal.CODIGO = :anoLectivo`;
+      params.anoLectivo = anoLectivo;
+    }
 
-  // Filtros opcionais
-  if (faculdade && faculdade > 0) {
-    sql += ` AND tc2.FACULDADE_ID = :faculdade`;
-    params.faculdade = faculdade;
-  }
+    // Filtros opcionais
+    if (faculdade && faculdade > 0) {
+      sql += ` AND tc2.FACULDADE_ID = :faculdade`;
+      params.faculdade = faculdade;
+    }
 
-  if (grauAcademico && grauAcademico > 0) {
-    sql += ` AND tc2.GRAU = :grauAcademico`;
-    params.grauAcademico = grauAcademico;
-  }
+    if (grauAcademico && grauAcademico > 0) {
+      sql += ` AND tc2.GRAU = :grauAcademico`;
+      params.grauAcademico = grauAcademico;
+    }
 
-  if (curso && curso > 0) {
-    sql += ` AND tc2.CODIGO = :curso`;
-    params.curso = curso;
-  }
+    if (curso && curso > 0) {
+      sql += ` AND tc2.CODIGO = :curso`;
+      params.curso = curso;
+    }
 
-  if (anoCurricular && anoCurricular > 0) {
-    sql += ` AND tgc.CODIGO_CLASSE = :anoCurricular`;
-    params.anoCurricular = anoCurricular;
-  }
+    if (anoCurricular && anoCurricular > 0) {
+      sql += ` AND tgc.CODIGO_CLASSE = :anoCurricular`;
+      params.anoCurricular = anoCurricular;
+    }
 
-  if (periodo && periodo > 0) {
-    sql += ` AND tp2.CODIGO = :periodo`;
-    params.periodo = periodo;
-  }
+    if (periodo && periodo > 0) {
+      sql += ` AND tp2.CODIGO = :periodo`;
+      params.periodo = periodo;
+    }
 
-  if (nacionalidade && nacionalidade > 0) {
-    sql += ` AND tn.CODIGO = :nacionalidade`;
-    params.nacionalidade = nacionalidade;
-  }
+    if (nacionalidade && nacionalidade > 0) {
+      sql += ` AND tn.CODIGO = :nacionalidade`;
+      params.nacionalidade = nacionalidade;
+    }
 
-  if (necessidade && necessidade > 0) {
-    sql += ` AND NVL(ne.ID, 0) = :necessidade`;
-    params.necessidade = necessidade;
-  }
+    if (necessidade && necessidade > 0) {
+      sql += ` AND NVL(ne.ID, 0) = :necessidade`;
+      params.necessidade = necessidade;
+    }
 
-  if (sexo && sexo > 0) {
-    sql += ` AND tp.SEXO = (SELECT DESIGNACAO FROM FK2_TB_SEXO WHERE CODIGO = :sexo)`;
-    params.sexo = sexo;
-  }
+    if (sexo && sexo > 0) {
+      sql += ` AND tp.SEXO = (SELECT DESIGNACAO FROM FK2_TB_SEXO WHERE CODIGO = :sexo)`;
+      params.sexo = sexo;
+    }
 
-  // Filtro de pesquisa (nome ou número de matrícula)
-  if (search && search.trim()) {
-    const searchTerm = `%${search.trim().toUpperCase()}%`;
-    sql += `
+    // Filtro de pesquisa (nome ou número de matrícula)
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim().toUpperCase()}%`;
+      sql += `
       AND (
         UPPER(tp.NOME_COMPLETO) LIKE :search
         OR UPPER(NVL(TO_CHAR(tm.NUMEROALUNO), TO_CHAR(tm.CODIGO_ALUNO))) LIKE :search
       )
     `;
-    params.search = searchTerm;
-  }
+      params.search = searchTerm;
+    }
 
-  // Fechamento das subqueries e paginação
-  sql += `
+    // Fechamento das subqueries e paginação
+    sql += `
         ) dados
     )
     WHERE rn > :offset
@@ -434,59 +792,59 @@ async listarGeralEstudantes(filter: FilterListagemGeralEstudantesDto) {
     ORDER BY rn
   `;
 
-  const result = await this.dataSource.query(sql, params);
+    const result = await this.dataSource.query(sql, params);
 
-  const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
+    const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
 
-  const data = result.map((row: any) => {
-    const { RN, TOTAL_REGISTROS, ...item } = row;
-    return item;
-  });
+    const data = result.map((row: any) => {
+      const { RN, TOTAL_REGISTROS, ...item } = row;
+      return item;
+    });
 
-  return {
-    data: await toLowerCaseKeys(data),   // mantendo o padrão do seu outro método
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
-  };
-}
+    return {
+      data: await toLowerCaseKeys(data),   // mantendo o padrão do seu outro método
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
 
-async listarInscritosPorUc(filter: FilterInscritosPorUcDto) {
-  const {
-    page = 1,
-    limit = 10,
-    anoLectivo = 0,
-    curso = 0,
-    anoCurricular = 0,
-    semestre = 0,
-    periodo = 0,
-    cadeira = 0,
-    horario = 0,
-    estado = '0',
-    search,
-  } = filter;
+  async listarInscritosPorUc(filter: FilterInscritosPorUcDto) {
+    const {
+      page = 1,
+      limit = 10,
+      anoLectivo = 0,
+      curso = 0,
+      anoCurricular = 0,
+      semestre = 0,
+      periodo = 0,
+      cadeira = 0,
+      horario = 0,
+      estado = '0',
+      search,
+    } = filter;
 
-  const offset = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-  // Mapeamento de estado
-  const estadoMap: Record<string, string | null> = {
-    '0': null,
-    '1': 'Em curso',
-    '2': 'Pendente',
-    '3': 'Fez com Sucesso'
-  };
+    // Mapeamento de estado
+    const estadoMap: Record<string, string | null> = {
+      '0': null,
+      '1': 'Em curso',
+      '2': 'Pendente',
+      '3': 'Fez com Sucesso'
+    };
 
-  const estadoNome = estadoMap[String(estado)] ?? null;
+    const estadoNome = estadoMap[String(estado)] ?? null;
 
-  // ====================== PARÂMETROS ======================
-  const params: any = {
-    anoLectivo,           // ← Sempre incluído (mesmo que 0)
-    offset,
-    limit: offset + limit,
-  };
+    // ====================== PARÂMETROS ======================
+    const params: any = {
+      anoLectivo,           // ← Sempre incluído (mesmo que 0)
+      offset,
+      limit: offset + limit,
+    };
 
-  let sql = `
+    let sql = `
     SELECT *
     FROM (
       SELECT
@@ -527,57 +885,57 @@ async listarInscritosPorUc(filter: FilterInscritosPorUcDto) {
         WHERE 1 = 1
   `;
 
-  // ==================== FILTROS ====================
+    // ==================== FILTROS ====================
 
-  if (anoLectivo && anoLectivo > 0) {
-    sql += ` AND tal.CODIGO = :anoLectivo`;
-  }
+    if (anoLectivo && anoLectivo > 0) {
+      sql += ` AND tal.CODIGO = :anoLectivo`;
+    }
 
-  if (curso && curso > 0) {
-    sql += ` AND tc.CODIGO = :curso`;
-    params.curso = curso;
-  }
+    if (curso && curso > 0) {
+      sql += ` AND tc.CODIGO = :curso`;
+      params.curso = curso;
+    }
 
-  if (anoCurricular && anoCurricular > 0) {
-    sql += ` AND tgc.CODIGO_CLASSE = :anoCurricular`;
-    params.anoCurricular = anoCurricular;
-  }
+    if (anoCurricular && anoCurricular > 0) {
+      sql += ` AND tgc.CODIGO_CLASSE = :anoCurricular`;
+      params.anoCurricular = anoCurricular;
+    }
 
-  if (semestre && semestre > 0) {
-    sql += ` AND tgc.CODIGO_SEMESTRE = :semestre`;
-    params.semestre = semestre;
-  }
+    if (semestre && semestre > 0) {
+      sql += ` AND tgc.CODIGO_SEMESTRE = :semestre`;
+      params.semestre = semestre;
+    }
 
-  if (cadeira && cadeira > 0) {
-    sql += ` AND tgc.CODIGO = :cadeira`;
-    params.cadeira = cadeira;
-  }
+    if (cadeira && cadeira > 0) {
+      sql += ` AND tgc.CODIGO = :cadeira`;
+      params.cadeira = cadeira;
+    }
 
-  if (horario && horario > 0) {
-    sql += ` AND JSON_VALUE(tgca.REF_HORARIO, '$.pk') = TO_CHAR(:horario)`;
-    params.horario = horario;
-  }
+    if (horario && horario > 0) {
+      sql += ` AND JSON_VALUE(tgca.REF_HORARIO, '$.pk') = TO_CHAR(:horario)`;
+      params.horario = horario;
+    }
 
-  if (estadoNome) {
-    sql += ` AND UPPER(tsgc.DESIGNACAO) = :estadoNome`;
-    params.estadoNome = estadoNome.toUpperCase();
-  }
+    if (estadoNome) {
+      sql += ` AND UPPER(tsgc.DESIGNACAO) = :estadoNome`;
+      params.estadoNome = estadoNome.toUpperCase();
+    }
 
-  // Filtro de pesquisa
-  if (search && search.trim()) {
-    const searchTerm = `%${search.trim().toUpperCase()}%`;
-    sql += `
+    // Filtro de pesquisa
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim().toUpperCase()}%`;
+      sql += `
       AND (
         UPPER(tp.NOME_COMPLETO) LIKE :search
         OR TO_CHAR(tm.CODIGO) LIKE :search
         OR TO_CHAR(NVL(tm.NUMEROALUNO, tm.CODIGO_ALUNO)) LIKE :search
       )
     `;
-    params.search = searchTerm;
-  }
+      params.search = searchTerm;
+    }
 
-  // ==================== FECHAMENTO ====================
-  sql += `
+    // ==================== FECHAMENTO ====================
+    sql += `
         ) dados
     )
     WHERE rn > :offset
@@ -585,37 +943,37 @@ async listarInscritosPorUc(filter: FilterInscritosPorUcDto) {
     ORDER BY rn
   `;
 
-  const result = await this.dataSource.query(sql, params);
+    const result = await this.dataSource.query(sql, params);
 
-  const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
+    const total = result.length > 0 ? Number(result[0].TOTAL_REGISTROS) : 0;
 
-  const data = result.map((row: any) => {
-    const { RN, TOTAL_REGISTROS, ...item } = row;
-    return item;
-  });
+    const data = result.map((row: any) => {
+      const { RN, TOTAL_REGISTROS, ...item } = row;
+      return item;
+    });
 
-  return {
-    data: await toLowerCaseKeys(data),
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
-  };
-}
+    return {
+      data: await toLowerCaseKeys(data),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
 
-async listarHorariosDisponiveisInscritosPorUc(
-  filter: FilterHorariosInscritosPorUcDto,
-) {
-  const {
-    anoLectivo = 0,
-    curso = 0,
-    anoCurricular = 0,
-    semestre = 0,
-    periodo = 0,
-    cadeira = 0,
-  } = filter;
+  async listarHorariosDisponiveisInscritosPorUc(
+    filter: FilterHorariosInscritosPorUcDto,
+  ) {
+    const {
+      anoLectivo = 0,
+      curso = 0,
+      anoCurricular = 0,
+      semestre = 0,
+      periodo = 0,
+      cadeira = 0,
+    } = filter;
 
-  const sql = `
+    const sql = `
     SELECT DISTINCT
       JSON_VALUE(
         tgca.REF_HORARIO,
@@ -641,14 +999,14 @@ async listarHorariosDisponiveisInscritosPorUc(
     ORDER BY DESIGNACAO ASC
   `;
 
-  return await this.dataSource.query(sql, {
-    anoLectivo,
-    curso,
-    anoCurricular,
-    semestre,
-    cadeira,
-  } as any);
-}
+    return await this.dataSource.query(sql, {
+      anoLectivo,
+      curso,
+      anoCurricular,
+      semestre,
+      cadeira,
+    } as any);
+  }
 
 
 
@@ -779,31 +1137,31 @@ async listarHorariosDisponiveisInscritosPorUc(
     };
   }
 
- async listarEstadoMatriculaPorHorario(filter: any) {
-  const {
-    page = 1,
-    limit = 10,
-    anoLectivo = 0,
-    curso = 0,
-    anoCurricular = 0,
-    semestre = 0,
-    turno = 0,
-    unidadeCurricular = 0,
-    horario = 0,
-    estado = 0,
-    search,
-  } = filter;
+  async listarEstadoMatriculaPorHorario(filter: any) {
+    const {
+      page = 1,
+      limit = 10,
+      anoLectivo = 0,
+      curso = 0,
+      anoCurricular = 0,
+      semestre = 0,
+      turno = 0,
+      unidadeCurricular = 0,
+      horario = 0,
+      estado = 0,
+      search,
+    } = filter;
 
-  const safePage = Number(page) > 0 ? Number(page) : 1;
-  const safeLimit = Number(limit) > 0 ? Number(limit) : 10;
-  const offset = (safePage - 1) * safeLimit;
+    const safePage = Number(page) > 0 ? Number(page) : 1;
+    const safeLimit = Number(limit) > 0 ? Number(limit) : 10;
+    const offset = (safePage - 1) * safeLimit;
 
-  const searchValue =
-    search && String(search).trim()
-      ? `%${String(search).trim().toUpperCase()}%`
-      : null;
+    const searchValue =
+      search && String(search).trim()
+        ? `%${String(search).trim().toUpperCase()}%`
+        : null;
 
-  const sql = `
+    const sql = `
     WITH base_matriculas AS (
       SELECT DISTINCT
         tm.CODIGO AS MATRICULA,
@@ -986,35 +1344,35 @@ async listarHorariosDisponiveisInscritosPorUc(
     ORDER BY RN
   `;
 
-  const sqlParams = [
-    anoLectivo,               // :1
-    curso,                    // :2
-    curso,                    // :3
-    semestre,                 // :4
-    semestre,                 // :5
-    turno,                    // :6
-    turno,                    // :7
-    estado,                   // :8
-    estado,                   // :9
-    horario,                  // :10
-    horario,                  // :11
-    unidadeCurricular,        // :12
-    unidadeCurricular,        // :13
-    anoLectivo,               // :14
-    anoLectivo,               // :15
-    anoCurricular,            // :16
-    anoCurricular,            // :17
-    searchValue,              // :18
-    searchValue,              // :19
-    searchValue,              // :20
-    searchValue,              // :21
-    searchValue,              // :22
-    searchValue,              // :23
-    offset + 1,               // :24
-    offset + safeLimit,       // :25
-  ];
+    const sqlParams = [
+      anoLectivo,               // :1
+      curso,                    // :2
+      curso,                    // :3
+      semestre,                 // :4
+      semestre,                 // :5
+      turno,                    // :6
+      turno,                    // :7
+      estado,                   // :8
+      estado,                   // :9
+      horario,                  // :10
+      horario,                  // :11
+      unidadeCurricular,        // :12
+      unidadeCurricular,        // :13
+      anoLectivo,               // :14
+      anoLectivo,               // :15
+      anoCurricular,            // :16
+      anoCurricular,            // :17
+      searchValue,              // :18
+      searchValue,              // :19
+      searchValue,              // :20
+      searchValue,              // :21
+      searchValue,              // :22
+      searchValue,              // :23
+      offset + 1,               // :24
+      offset + safeLimit,       // :25
+    ];
 
-  const countSql = `
+    const countSql = `
     WITH base_matriculas AS (
       SELECT DISTINCT
         tm.CODIGO AS MATRICULA,
@@ -1161,128 +1519,128 @@ async listarHorariosDisponiveisInscritosPorUc(
       )
   `;
 
-  const countParams = [
-    anoLectivo,               // :1
-    curso,                    // :2
-    curso,                    // :3
-    semestre,                 // :4
-    semestre,                 // :5
-    turno,                    // :6
-    turno,                    // :7
-    estado,                   // :8
-    estado,                   // :9
-    horario,                  // :10
-    horario,                  // :11
-    unidadeCurricular,        // :12
-    unidadeCurricular,        // :13
-    anoLectivo,               // :14
-    anoCurricular,            // :15
-    anoCurricular,            // :16
-    searchValue,              // :17
-    searchValue,              // :18
-    searchValue,              // :19
-    searchValue,              // :20
-    searchValue,              // :21
-    searchValue,              // :22
-  ];
+    const countParams = [
+      anoLectivo,               // :1
+      curso,                    // :2
+      curso,                    // :3
+      semestre,                 // :4
+      semestre,                 // :5
+      turno,                    // :6
+      turno,                    // :7
+      estado,                   // :8
+      estado,                   // :9
+      horario,                  // :10
+      horario,                  // :11
+      unidadeCurricular,        // :12
+      unidadeCurricular,        // :13
+      anoLectivo,               // :14
+      anoCurricular,            // :15
+      anoCurricular,            // :16
+      searchValue,              // :17
+      searchValue,              // :18
+      searchValue,              // :19
+      searchValue,              // :20
+      searchValue,              // :21
+      searchValue,              // :22
+    ];
 
-  const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql, sqlParams),
-    this.dataSource.query(countSql, countParams),
-  ]);
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, sqlParams),
+      this.dataSource.query(countSql, countParams),
+    ]);
 
-  const total = Number(countResult[0]?.TOTAL ?? 0);
+    const total = Number(countResult[0]?.TOTAL ?? 0);
 
-  const data = result.map((row: any, index: number) => ({
-    numero: offset + index + 1,
-    matricula: row.MATRICULA,
-    nome: row.NOME,
-    tipo_aluno: row.TIPO_ALUNO,
-    horario: row.HORARIO,
-    curso: row.CURSO,
-    estado: row.ESTADO,
-    cor: row.COR,
-    ano_curricular: row.ANO_CURRICULAR,
-  }));
+    const data = result.map((row: any, index: number) => ({
+      numero: offset + index + 1,
+      matricula: row.MATRICULA,
+      nome: row.NOME,
+      tipo_aluno: row.TIPO_ALUNO,
+      horario: row.HORARIO,
+      curso: row.CURSO,
+      estado: row.ESTADO,
+      cor: row.COR,
+      ano_curricular: row.ANO_CURRICULAR,
+    }));
 
-  return {
-    data,
-    total,
-    page: safePage,
-    limit: safeLimit,
-    totalPages: Math.ceil(total / safeLimit) || 1,
-  };
-}
+    return {
+      data,
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit) || 1,
+    };
+  }
 
-async listarEstudantesPorEstadoMatricula(filter: any) {
-  const {
-    page = 1,
-    limit = 10,
-    anoLectivo = 0,
-    curso = 0,
-    turno = 0,
-    estado = 0,
-    anoCurricular = 0,
-    search,
-  } = filter;
+  async listarEstudantesPorEstadoMatricula(filter: any) {
+    const {
+      page = 1,
+      limit = 10,
+      anoLectivo = 0,
+      curso = 0,
+      turno = 0,
+      estado = 0,
+      anoCurricular = 0,
+      search,
+    } = filter;
 
-  const offset = (page - 1) * limit;
-  const searchValue =
-    search && String(search).trim()
-      ? `%${String(search).trim().toUpperCase()}%`
-      : null;
+    const offset = (page - 1) * limit;
+    const searchValue =
+      search && String(search).trim()
+        ? `%${String(search).trim().toUpperCase()}%`
+        : null;
 
-  const dataParams: Record<string, any> = {
-    anoLectivo_base: anoLectivo,
-    anoLectivo_bolsa: anoLectivo,
-    anoLectivo_plano: anoLectivo,
+    const dataParams: Record<string, any> = {
+      anoLectivo_base: anoLectivo,
+      anoLectivo_bolsa: anoLectivo,
+      anoLectivo_plano: anoLectivo,
 
-    curso_base: curso,
-    curso_zero_base: curso,
+      curso_base: curso,
+      curso_zero_base: curso,
 
-    turno_base: turno,
-    turno_zero_base: turno,
+      turno_base: turno,
+      turno_zero_base: turno,
 
-    estado_base: estado,
-    estado_zero_base: estado,
+      estado_base: estado,
+      estado_zero_base: estado,
 
-    anoCurricular_final: anoCurricular,
+      anoCurricular_final: anoCurricular,
 
-    search_nome: searchValue,
-    search_matricula: searchValue,
-    search_curso: searchValue,
-    search_estado: searchValue,
-    search_telefone: searchValue,
-    search_email: searchValue,
+      search_nome: searchValue,
+      search_matricula: searchValue,
+      search_curso: searchValue,
+      search_estado: searchValue,
+      search_telefone: searchValue,
+      search_email: searchValue,
 
-    offset_rows: offset,
-    limit_rows: limit,
-  };
+      offset_rows: offset,
+      limit_rows: limit,
+    };
 
-  const countParams: Record<string, any> = {
-    anoLectivo_base: anoLectivo,
-    anoLectivo_plano: anoLectivo,
+    const countParams: Record<string, any> = {
+      anoLectivo_base: anoLectivo,
+      anoLectivo_plano: anoLectivo,
 
-    curso_base: curso,
-    curso_zero_base: curso,
+      curso_base: curso,
+      curso_zero_base: curso,
 
-    turno_base: turno,
-    turno_zero_base: turno,
+      turno_base: turno,
+      turno_zero_base: turno,
 
-    estado_base: estado,
-    estado_zero_base: estado,
+      estado_base: estado,
+      estado_zero_base: estado,
 
-    anoCurricular_final: anoCurricular,
+      anoCurricular_final: anoCurricular,
 
-    search_nome: searchValue,
-    search_matricula: searchValue,
-    search_curso: searchValue,
-    search_estado: searchValue,
-    search_telefone: searchValue,
-    search_email: searchValue,
-  };
+      search_nome: searchValue,
+      search_matricula: searchValue,
+      search_curso: searchValue,
+      search_estado: searchValue,
+      search_telefone: searchValue,
+      search_email: searchValue,
+    };
 
-  const sql = `
+    const sql = `
     WITH base_estudantes AS (
       SELECT DISTINCT
         tm.CODIGO AS MATRICULA,
@@ -1427,7 +1785,7 @@ async listarEstudantesPorEstadoMatricula(filter: any) {
     ORDER BY t.RN
   `;
 
-  const countSql = `
+    const countSql = `
     WITH base_estudantes AS (
       SELECT DISTINCT
         tm.CODIGO AS MATRICULA,
@@ -1553,155 +1911,155 @@ async listarEstudantesPorEstadoMatricula(filter: any) {
     )
   `;
 
-  const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql, dataParams as any),
-    this.dataSource.query(countSql, countParams as any),
-  ]);
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, dataParams as any),
+      this.dataSource.query(countSql, countParams as any),
+    ]);
 
-  const total = Number(countResult[0]?.TOTAL ?? 0);
+    const total = Number(countResult[0]?.TOTAL ?? 0);
 
-  const data = result.map((row: any, index: number) => ({
-    numero: offset + index + 1,
-    matricula: row.MATRICULA,
-    nome: row.NOME,
-    tipo_aluno: row.TIPO_ALUNO,
-    telefone: row.TELEFONE,
-    email: row.EMAIL,
-    curso: row.CURSO,
-    ano_curricular: row.ANO_CURRICULAR,
-    estado: row.ESTADO,
-    cor: row.COR,
-  }));
+    const data = result.map((row: any, index: number) => ({
+      numero: offset + index + 1,
+      matricula: row.MATRICULA,
+      nome: row.NOME,
+      tipo_aluno: row.TIPO_ALUNO,
+      telefone: row.TELEFONE,
+      email: row.EMAIL,
+      curso: row.CURSO,
+      ano_curricular: row.ANO_CURRICULAR,
+      estado: row.ESTADO,
+      cor: row.COR,
+    }));
 
-  return {
-    data,
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
-  };
-}
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
 
-async isentarColisaoMatricula(
-  matricula: number,
-  anoLectivo: number,
-  user: any,
-) {
-  const exists = await this.dataSource.query(
-    `
+  async isentarColisaoMatricula(
+    matricula: number,
+    anoLectivo: number,
+    user: any,
+  ) {
+    const exists = await this.dataSource.query(
+      `
       SELECT 1
       FROM FK2_MGIM_TB_COLISAO_MATRICULA
       WHERE CODIGO_MATRICULA = :1
         AND CODIGO_ANOLECTIVO = :2
       FETCH FIRST 1 ROWS ONLY
     `,
-    [matricula, anoLectivo],
-  );
-
-  if (exists.length > 0) {
-    throw new BadRequestException(
-      'O estudante já está isento da colisão para este ano lectivo.',
+      [matricula, anoLectivo],
     );
-  }
 
-  await this.dataSource.query(
-    `
+    if (exists.length > 0) {
+      throw new BadRequestException(
+        'O estudante já está isento da colisão para este ano lectivo.',
+      );
+    }
+
+    await this.dataSource.query(
+      `
       INSERT INTO FK2_MGIM_TB_COLISAO_MATRICULA
         (CODIGO_MATRICULA, REF_UTILIZADOR, DATA, CODIGO_ANOLECTIVO)
       VALUES
         (:1, :2, SYSDATE, :3)
     `,
-    [matricula, JSON.stringify(user), anoLectivo],
-  );
+      [matricula, JSON.stringify(user), anoLectivo],
+    );
 
-  return {
-    message: 'Colisão aplicada por matrícula com sucesso.',
-  };
-}
+    return {
+      message: 'Colisão aplicada por matrícula com sucesso.',
+    };
+  }
 
-async isentarColisaoCurso(
-  curso: number,
-  turno: number,
-  anoLectivo: number,
-  user: any,
-) {
-  const exists = await this.dataSource.query(
-    `
+  async isentarColisaoCurso(
+    curso: number,
+    turno: number,
+    anoLectivo: number,
+    user: any,
+  ) {
+    const exists = await this.dataSource.query(
+      `
       SELECT 1
       FROM FK2_MGIM_TB_COLISAO_CURSO
       WHERE CODIGO_CURSO = :1
         AND CODIGO_ANOLECTIVO = :2
       FETCH FIRST 1 ROWS ONLY
     `,
-    [curso, anoLectivo],
-  );
-
-  if (exists.length > 0) {
-    throw new BadRequestException(
-      'Este curso já está isento da colisão para este ano lectivo.',
+      [curso, anoLectivo],
     );
-  }
 
-  await this.dataSource.query(
-    `
+    if (exists.length > 0) {
+      throw new BadRequestException(
+        'Este curso já está isento da colisão para este ano lectivo.',
+      );
+    }
+
+    await this.dataSource.query(
+      `
       INSERT INTO FK2_MGIM_TB_COLISAO_CURSO
         (CODIGO_CURSO, CODIGO_TURNO, REF_UTILIZADOR, DATA, CODIGO_ANOLECTIVO)
       VALUES
         (:1, :2, :3, SYSDATE, :4)
     `,
-    [curso, turno, JSON.stringify(user), anoLectivo],
-  );
+      [curso, turno, JSON.stringify(user), anoLectivo],
+    );
 
-  return {
-    message: 'Colisão aplicada por curso com sucesso.',
-  };
-}
+    return {
+      message: 'Colisão aplicada por curso com sucesso.',
+    };
+  }
 
 
-async pesquisarEstudantesParaIsencao(filter: any) {
-  const {
-    page = 1,
-    limit = 10,
-    anoLectivo = 0,
-    curso = 0,
-    turno = 0,
-    search = "",
-  } = filter;
+  async pesquisarEstudantesParaIsencao(filter: any) {
+    const {
+      page = 1,
+      limit = 10,
+      anoLectivo = 0,
+      curso = 0,
+      turno = 0,
+      search = "",
+    } = filter;
 
-  const offset = (page - 1) * limit;
-  const searchValue =
-    search && String(search).trim()
-      ? `%${String(search).trim().toUpperCase()}%`
-      : null;
+    const offset = (page - 1) * limit;
+    const searchValue =
+      search && String(search).trim()
+        ? `%${String(search).trim().toUpperCase()}%`
+        : null;
 
-  const dataParams = [
-    anoLectivo,   // :1
-    anoLectivo,   // :2
-    curso,        // :3
-    curso,        // :4
-    turno,        // :5
-    turno,        // :6
-    searchValue,  // :7
-    searchValue,  // :8
-    searchValue,  // :9
-    offset,       // :10
-    offset,       // :11
-    limit,        // :12
-  ];
+    const dataParams = [
+      anoLectivo,   // :1
+      anoLectivo,   // :2
+      curso,        // :3
+      curso,        // :4
+      turno,        // :5
+      turno,        // :6
+      searchValue,  // :7
+      searchValue,  // :8
+      searchValue,  // :9
+      offset,       // :10
+      offset,       // :11
+      limit,        // :12
+    ];
 
-  const countParams = [
-    anoLectivo,   // :1
-    anoLectivo,   // :2
-    curso,        // :3
-    curso,        // :4
-    turno,        // :5
-    turno,        // :6
-    searchValue,  // :7
-    searchValue,  // :8
-    searchValue,  // :9
-  ];
+    const countParams = [
+      anoLectivo,   // :1
+      anoLectivo,   // :2
+      curso,        // :3
+      curso,        // :4
+      turno,        // :5
+      turno,        // :6
+      searchValue,  // :7
+      searchValue,  // :8
+      searchValue,  // :9
+    ];
 
-  const sql = `
+    const sql = `
     SELECT *
     FROM (
       SELECT
@@ -1732,7 +2090,7 @@ async pesquisarEstudantesParaIsencao(filter: any) {
     ORDER BY t.RN
   `;
 
-  const countSql = `
+    const countSql = `
     SELECT COUNT(*) AS TOTAL
     FROM (
       SELECT DISTINCT tm.CODIGO
@@ -1754,66 +2112,66 @@ async pesquisarEstudantesParaIsencao(filter: any) {
     )
   `;
 
-  const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql, dataParams),
-    this.dataSource.query(countSql, countParams),
-  ]);
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, dataParams),
+      this.dataSource.query(countSql, countParams),
+    ]);
 
-  const total = Number(countResult[0]?.TOTAL ?? 0);
+    const total = Number(countResult[0]?.TOTAL ?? 0);
 
-  const data = result.map((row: any) => ({
-    matricula: row.MATRICULA,
-    nome: row.NOME,
-    email: row.EMAIL,
-    telefone: row.TELEFONE,
-    curso: row.CURSO,
-    codigo_turno: row.CODIGO_TURNO,
-  }));
+    const data = result.map((row: any) => ({
+      matricula: row.MATRICULA,
+      nome: row.NOME,
+      email: row.EMAIL,
+      telefone: row.TELEFONE,
+      curso: row.CURSO,
+      codigo_turno: row.CODIGO_TURNO,
+    }));
 
-  return {
-    data,
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
-  };
-}
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
 
 
-async listarColisoesIsentasPorMatricula(filter: any) {
-  const {
-    page = 1,
-    limit = 10,
-    anoLectivo = 0,
-    search = "",
-  } = filter;
+  async listarColisoesIsentasPorMatricula(filter: any) {
+    const {
+      page = 1,
+      limit = 10,
+      anoLectivo = 0,
+      search = "",
+    } = filter;
 
-  const offset = (page - 1) * limit;
-  const searchValue =
-    search && String(search).trim()
-      ? `%${String(search).trim().toUpperCase()}%`
-      : null;
+    const offset = (page - 1) * limit;
+    const searchValue =
+      search && String(search).trim()
+        ? `%${String(search).trim().toUpperCase()}%`
+        : null;
 
-  const dataParams = [
-    anoLectivo,   // :1
-    anoLectivo,   // :2
-    searchValue,  // :3
-    searchValue,  // :4
-    searchValue,  // :5
-    offset,       // :6
-    offset,       // :7
-    limit,        // :8
-  ];
+    const dataParams = [
+      anoLectivo,   // :1
+      anoLectivo,   // :2
+      searchValue,  // :3
+      searchValue,  // :4
+      searchValue,  // :5
+      offset,       // :6
+      offset,       // :7
+      limit,        // :8
+    ];
 
-  const countParams = [
-    anoLectivo,   // :1
-    anoLectivo,   // :2
-    searchValue,  // :3
-    searchValue,  // :4
-    searchValue,  // :5
-  ];
+    const countParams = [
+      anoLectivo,   // :1
+      anoLectivo,   // :2
+      searchValue,  // :3
+      searchValue,  // :4
+      searchValue,  // :5
+    ];
 
-  const sql = `
+    const sql = `
     SELECT *
     FROM (
       SELECT
@@ -1844,7 +2202,7 @@ async listarColisoesIsentasPorMatricula(filter: any) {
     ORDER BY t.RN
   `;
 
-  const countSql = `
+    const countSql = `
     SELECT COUNT(*) AS TOTAL
     FROM (
       SELECT cm.CODIGO
@@ -1864,65 +2222,65 @@ async listarColisoesIsentasPorMatricula(filter: any) {
     )
   `;
 
-  const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql, dataParams),
-    this.dataSource.query(countSql, countParams),
-  ]);
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, dataParams),
+      this.dataSource.query(countSql, countParams),
+    ]);
 
-  const total = Number(countResult[0]?.TOTAL ?? 0);
+    const total = Number(countResult[0]?.TOTAL ?? 0);
 
-  const data = result.map((row: any, index: number) => ({
-    numero: offset + index + 1,
-    codigo: row.CODIGO,
-    matricula: row.MATRICULA,
-    nome: row.NOME,
-    ano_lectivo: row.ANO_LECTIVO,
-    data: row.DATA,
-    ref_utilizador: row.REF_UTILIZADOR,
-  }));
+    const data = result.map((row: any, index: number) => ({
+      numero: offset + index + 1,
+      codigo: row.CODIGO,
+      matricula: row.MATRICULA,
+      nome: row.NOME,
+      ano_lectivo: row.ANO_LECTIVO,
+      data: row.DATA,
+      ref_utilizador: row.REF_UTILIZADOR,
+    }));
 
-  return {
-    data,
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
-  };
-}
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
 
-async listarColisoesIsentasPorCurso(filter: any) {
-  const {
-    page = 1,
-    limit = 10,
-    anoLectivo = 0,
-    curso = 0,
-    turno = 0,
-  } = filter;
+  async listarColisoesIsentasPorCurso(filter: any) {
+    const {
+      page = 1,
+      limit = 10,
+      anoLectivo = 0,
+      curso = 0,
+      turno = 0,
+    } = filter;
 
-  const offset = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-  const dataParams = [
-    anoLectivo, // :1
-    anoLectivo, // :2
-    curso,      // :3
-    curso,      // :4
-    turno,      // :5
-    turno,      // :6
-    offset,     // :7
-    offset,     // :8
-    limit,      // :9
-  ];
+    const dataParams = [
+      anoLectivo, // :1
+      anoLectivo, // :2
+      curso,      // :3
+      curso,      // :4
+      turno,      // :5
+      turno,      // :6
+      offset,     // :7
+      offset,     // :8
+      limit,      // :9
+    ];
 
-  const countParams = [
-    anoLectivo, // :1
-    anoLectivo, // :2
-    curso,      // :3
-    curso,      // :4
-    turno,      // :5
-    turno,      // :6
-  ];
+    const countParams = [
+      anoLectivo, // :1
+      anoLectivo, // :2
+      curso,      // :3
+      curso,      // :4
+      turno,      // :5
+      turno,      // :6
+    ];
 
-  const sql = `
+    const sql = `
     SELECT *
     FROM (
       SELECT
@@ -1950,7 +2308,7 @@ async listarColisoesIsentasPorCurso(filter: any) {
     ORDER BY t.RN
   `;
 
-  const countSql = `
+    const countSql = `
     SELECT COUNT(*) AS TOTAL
     FROM (
       SELECT cc.CODIGO
@@ -1961,37 +2319,37 @@ async listarColisoesIsentasPorCurso(filter: any) {
     )
   `;
 
-  const [result, countResult] = await Promise.all([
-    this.dataSource.query(sql, dataParams),
-    this.dataSource.query(countSql, countParams),
-  ]);
+    const [result, countResult] = await Promise.all([
+      this.dataSource.query(sql, dataParams),
+      this.dataSource.query(countSql, countParams),
+    ]);
 
-  const total = Number(countResult[0]?.TOTAL ?? 0);
+    const total = Number(countResult[0]?.TOTAL ?? 0);
 
-  const data = result.map((row: any, index: number) => ({
-    numero: offset + index + 1,
-    codigo: row.CODIGO,
-    codigo_curso: row.CODIGO_CURSO,
-    curso: row.CURSO,
-    codigo_turno: row.CODIGO_TURNO,
-    turno: row.TURNO,
-    ano_lectivo: row.ANO_LECTIVO,
-    data: row.DATA,
-    ref_utilizador: row.REF_UTILIZADOR,
-  }));
+    const data = result.map((row: any, index: number) => ({
+      numero: offset + index + 1,
+      codigo: row.CODIGO,
+      codigo_curso: row.CODIGO_CURSO,
+      curso: row.CURSO,
+      codigo_turno: row.CODIGO_TURNO,
+      turno: row.TURNO,
+      ano_lectivo: row.ANO_LECTIVO,
+      data: row.DATA,
+      ref_utilizador: row.REF_UTILIZADOR,
+    }));
 
-  return {
-    data,
-    total,
-    page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
-  };
-}
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
 
-/** Procura um estudante por número de matrícula e retorna dados básicos. */
-async findEstudantePorMatricula(matricula: number) {
-  const sql = `
+  /** Procura um estudante por número de matrícula e retorna dados básicos. */
+  async findEstudantePorMatricula(matricula: number) {
+    const sql = `
     SELECT
       tm.CODIGO                           AS codigoMatricula,
       tp.NOME_COMPLETO                    AS nomeCompleto,
@@ -2006,52 +2364,52 @@ async findEstudantePorMatricula(matricula: number) {
     WHERE tm.CODIGO = :1
     FETCH FIRST 1 ROWS ONLY
   `;
-  const result = await this.dataSource.query(sql, [matricula]);
-  if (!result || result.length === 0) {
-    throw new NotFoundException('Estudante não encontrado');
+    const result = await this.dataSource.query(sql, [matricula]);
+    if (!result || result.length === 0) {
+      throw new NotFoundException('Estudante não encontrado');
+    }
+    // normaliza as chaves em minúsculas para facilitar o acesso
+    const [student] = await toLowerCaseKeys(result);
+    return {
+      codigoMatricula: student.codigomatricula,
+      nomeCompleto: student.nomecompleto,
+      curso: student.curso,
+      bilhete: student.bilhete,
+      periodo: student.periodo,
+    };
   }
-  // normaliza as chaves em minúsculas para facilitar o acesso
-  const [student] = await toLowerCaseKeys(result);
-  return {
-    codigoMatricula: student.codigomatricula,
-    nomeCompleto: student.nomecompleto,
-    curso: student.curso,
-    bilhete: student.bilhete,
-    periodo: student.periodo,
-  };
-}
 
-/** Verifica se existe isenção de colisão por matrícula num ano lectivo. */
-async verificarColisaoMatricula(
-  matricula: number,
-  anoLectivo: number,
-): Promise<{ existe: boolean }> {
-  const sql = `
+  /** Verifica se existe isenção de colisão por matrícula num ano lectivo. */
+  async verificarColisaoMatricula(
+    matricula: number,
+    anoLectivo: number,
+  ): Promise<{ existe: boolean }> {
+    const sql = `
     SELECT 1
     FROM FK2_MGIM_TB_COLISAO_MATRICULA
     WHERE CODIGO_MATRICULA = :1
       AND CODIGO_ANOLECTIVO = :2
     FETCH FIRST 1 ROWS ONLY
   `;
-  const result = await this.dataSource.query(sql, [matricula, anoLectivo]);
-  return { existe: result && result.length > 0 };
-}
+    const result = await this.dataSource.query(sql, [matricula, anoLectivo]);
+    return { existe: result && result.length > 0 };
+  }
 
-/** Verifica se existe isenção de colisão por curso num ano lectivo. */
-async verificarColisaoCurso(
-  curso: number,
-  anoLectivo: number,
-): Promise<{ existe: boolean }> {
-  const sql = `
+  /** Verifica se existe isenção de colisão por curso num ano lectivo. */
+  async verificarColisaoCurso(
+    curso: number,
+    anoLectivo: number,
+  ): Promise<{ existe: boolean }> {
+    const sql = `
     SELECT 1
     FROM FK2_MGIM_TB_COLISAO_CURSO
     WHERE CODIGO_CURSO = :1
       AND CODIGO_ANOLECTIVO = :2
     FETCH FIRST 1 ROWS ONLY
   `;
-  const result = await this.dataSource.query(sql, [curso, anoLectivo]);
-  return { existe: result && result.length > 0 };
-}
+    const result = await this.dataSource.query(sql, [curso, anoLectivo]);
+    return { existe: result && result.length > 0 };
+  }
 
 
 
