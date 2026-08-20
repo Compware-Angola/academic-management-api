@@ -2058,7 +2058,6 @@ END AS RESULTADO
     });
   }
 
-
   //-----------------------------REUSABLE CODE FOR EXPECTED DATA FORMAT---------------------
   private getPreinscricaoDateExpression(): string {
     return `
@@ -2088,7 +2087,6 @@ END AS RESULTADO
   }
 
   async buscaEstatisticaCandidatos(filtros: FilterEstatisticaCandidatosDto) {
-
     const dateCase = this.getPreinscricaoDateExpression();
 
     const condicoes: string[] = [];
@@ -2157,7 +2155,10 @@ INNER JOIN FK2_USERS U
     ON P.USER_ID = U.ID
 INNER JOIN FK2_TB_FACULDADE F
     ON C.FACULDADE_ID = F.CODIGO
-
+INNER JOIN FK2_TB_PERIODOS PER
+    ON P.CODIGO_TURNO = PER.CODIGO
+INNER JOIN FK2_TB_ANO_LECTIVO ANO
+    ON P.ANOLECTIVO = ANO.CODIGO
 LEFT JOIN (
     SELECT DISTINCT
         f.CODIGO_PREINSCRICAO AS COD_PRE
@@ -2185,9 +2186,10 @@ LEFT JOIN (
 
     const sqlCount = `SELECT COUNT(*) AS TOTAL, SUM(TOTAL_DIA) AS TOTAL_CANDIDATOS, SUM(PAGOS) AS TOTAL_PAGOS FROM (${sqlInner})`;
 
-    const [data, total] = await Promise.all([
+    const [data, total, filtrosDesignacoes] = await Promise.all([
       this.dataSource.query(sql, params),
       this.dataSource.query(sqlCount, params.slice(0, -2)),
+      this.buscaDesignacoesFiltros(filtros),
     ]);
 
     return this.toLower({
@@ -2195,14 +2197,52 @@ LEFT JOIN (
       total: Number(total[0].TOTAL),
       totalGeralCandidatos: Number(total[0].TOTAL_CANDIDATOS || 0),
       totalPagos: Number(total[0].TOTAL_PAGOS || 0),
+      filtros: filtrosDesignacoes,
       page,
       limit,
       totalPages: Math.ceil(Number(total[0].TOTAL) / limit),
     });
   }
 
-  async buscaEstatisticaPorDia(filtros: FilterEstatisticaCandidatosDto) {
+  private async buscaDesignacoesFiltros(
+    filtros: FilterEstatisticaCandidatosDto,
+  ) {
+    const [curso, faculdade, turno, anoLectivo] = await Promise.all([
+      filtros.codigoCurso
+        ? this.dataSource.query(
+            `SELECT DESIGNACAO FROM FK2_TB_CURSOS WHERE CODIGO = :1`,
+            [filtros.codigoCurso],
+          )
+        : Promise.resolve(null),
+      filtros.codigoFaculdade
+        ? this.dataSource.query(
+            `SELECT DESIGNACAO FROM FK2_TB_FACULDADE WHERE CODIGO = :1`,
+            [filtros.codigoFaculdade],
+          )
+        : Promise.resolve(null),
+      filtros.codigoTurno
+        ? this.dataSource.query(
+            `SELECT DESIGNACAO FROM FK2_TB_PERIODOS WHERE CODIGO = :1`,
+            [filtros.codigoTurno],
+          )
+        : Promise.resolve(null),
+      filtros.codigoAnoLetivo
+        ? this.dataSource.query(
+            `SELECT DESIGNACAO FROM FK2_TB_ANO_LECTIVO WHERE CODIGO = :1`,
+            [filtros.codigoAnoLetivo],
+          )
+        : Promise.resolve(null),
+    ]);
 
+    return {
+      curso: curso?.[0]?.DESIGNACAO ?? null,
+      faculdade: faculdade?.[0]?.DESIGNACAO ?? null,
+      turno: turno?.[0]?.DESIGNACAO ?? null,
+      anoLectivo: anoLectivo?.[0]?.DESIGNACAO ?? null,
+    };
+  }
+
+  async buscaEstatisticaPorDia(filtros: FilterEstatisticaCandidatosDto) {
     const dateCase = this.getPreinscricaoDateExpression();
 
     const condicoes: string[] = [];
@@ -2316,9 +2356,11 @@ SELECT
 FROM (${sqlInner})
 `;
 
-    const [data, counts] = await Promise.all([
+    const [data, counts, filtrosDesignacoes] = await Promise.all([
       this.dataSource.query(sql, params),
       this.dataSource.query(sqlCount, params.slice(0, -2)),
+
+      this.buscaDesignacoesFiltros(filtros),
     ]);
 
     return this.toLower({
@@ -2326,6 +2368,8 @@ FROM (${sqlInner})
       total: Number(counts[0].TOTAL),
       totalGeralCandidatos: Number(counts[0].TOTAL_CANDIDATOS || 0),
       totalPagos: Number(counts[0].TOTAL_PAGOS || 0),
+
+      filtros: filtrosDesignacoes,
       page,
       limit,
       totalPages: Math.ceil(Number(counts[0].TOTAL) / limit),
