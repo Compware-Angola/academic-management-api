@@ -161,8 +161,14 @@ export class PreRegistrationController {
   })
   @ApiResponse({ status: 200, description: 'Ficha de inscrição' })
   @ApiResponse({ status: 404, description: 'Candidato não encontrado' })
-  getFichaInscricao(@Param('userId', ParseIntPipe) userId: number) {
-    return this.service.getFichaInscricao(userId);
+  getFichaInscricao(
+    @Param('userId', ParseIntPipe) userId: number,
+    @Query('codigoPreinscricao') codigoPreinscricao?: string,
+  ) {
+    const codigo = codigoPreinscricao
+      ? Number(codigoPreinscricao)
+      : undefined;
+    return this.service.getFichaInscricao(userId, codigo);
   }
   @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
   @Get('candidatura/info-gerais')
@@ -172,10 +178,22 @@ export class PreRegistrationController {
     description:
       'Retorna dados do utilizador + status da pré-inscrição + estado de admissão + estado de matricula + situação da prova (agendada, realizada, etc).',
   })
+  @ApiQuery({
+    name: 'codigoPreinscricao',
+    required: false,
+    type: Number,
+    description: 'Código da pré-inscrição selecionada',
+  })
   @ApiResponse({ status: 200, description: 'Dados do candidato' })
   @ApiResponse({ status: 404, description: 'Utilizador não encontrado' })
-  getCandidaturaUserData(@Req() req: any) {
+  getCandidaturaUserData(
+    @Req() req: any,
+    @Query('codigoPreinscricao') codigoPreinscricao?: string,
+  ) {
     const usuarioLogado = req.user;
-    return this.service.getCandidaturaUserData(usuarioLogado.sub);
+    const codigo = codigoPreinscricao
+      ? Number(codigoPreinscricao)
+      : undefined;
+    return this.service.getCandidaturaUserData(usuarioLogado.sub, codigo);
   }
 }

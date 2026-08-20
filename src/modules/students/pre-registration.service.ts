@@ -466,7 +466,7 @@ export class PreRegistrationService {
 
   //  FICHA DE INSCRIÇÃO COMPLETA
   // ─────────────────────────────────────────────
-  async getFichaInscricao(userId: number) {
+  async getFichaInscricao(userId: number, codigoPreinscricao?: number) {
     const rows = await this.dataSource.query(
       `
       SELECT
@@ -595,8 +595,14 @@ export class PreRegistrationService {
         LEFT  JOIN fk2_polos                polos ON polos.ID               = p.POLO_ID
         LEFT  JOIN fk2_necessidade_especiais ne   ON ne.ID                  = p.NECESSIDADE_ESPECIAL_ID
       WHERE us.ID = :userId
+        AND (:codigoPreinscricao1 IS NULL OR p.CODIGO = :codigoPreinscricao2)
+      ORDER BY p.CODIGO DESC
       `,
-      { userId } as any,
+      {
+        userId,
+        codigoPreinscricao1: codigoPreinscricao,
+        codigoPreinscricao2: codigoPreinscricao,
+      } as any,
     );
 
     if (!rows.length)
@@ -751,7 +757,10 @@ export class PreRegistrationService {
 
   // INFORMAÇÕES GERAIS DO CANDIDATO
 
-  async getCandidaturaUserData(userId: number): Promise<any> {
+  async getCandidaturaUserData(
+    userId: number,
+    codigoPreinscricao?: number,
+  ): Promise<any> {
     const result = await this.dataSource.query(
       `
   SELECT
@@ -800,6 +809,7 @@ FROM fk2_users us
     SELECT * FROM (
       SELECT p.*, ROW_NUMBER() OVER (PARTITION BY p.user_id ORDER BY p.Codigo DESC) AS rn
       FROM fk2_tb_preinscricao p
+      WHERE (:codigoPreinscricao1 IS NULL OR p.Codigo = :codigoPreinscricao2)
     ) WHERE rn = 1
   ) p ON p.user_id = us.id
 
@@ -838,7 +848,11 @@ FROM fk2_users us
 WHERE us.id = :userId
   
     `,
-      { userId } as any,
+      {
+        userId,
+        codigoPreinscricao1: codigoPreinscricao,
+        codigoPreinscricao2: codigoPreinscricao,
+      } as any,
     );
 
     if (!result || result.length === 0) {
