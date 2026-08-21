@@ -3,8 +3,9 @@ import { Type } from 'class-transformer';
 import {
     ArrayMinSize,
     IsArray,
+    IsBoolean,
     IsInt,
-    IsNumber,
+    IsOptional,
     ValidateNested,
 } from 'class-validator';
 
@@ -17,46 +18,23 @@ export class ItemGradeCurricularDto {
     codigoGradeCurricular: number;
 
     @ApiProperty({
-        description: 'Peso da primeira frequência',
-        example: 40,
+        description: 'Activa a prova Oral para esta unidade curricular no plano',
+        example: false,
+        required: false,
     })
-    @IsNumber()
-    pesoPrimeiraFreq: number;
+    @IsOptional()
+    @IsBoolean()
+    temOral?: boolean;
 
     @ApiProperty({
-        description: 'Peso da segunda frequência',
-        example: 30,
+        description:
+            'Activa a componente Prática para esta unidade curricular no plano',
+        example: false,
+        required: false,
     })
-    @IsNumber()
-    pesoSegundaFreq: number;
-
-    @ApiProperty({
-        description: 'Peso da prática',
-        example: 30,
-    })
-    @IsNumber()
-    pesoPratica: number;
-
-    @ApiProperty({
-        description: 'Nota mínima da primeira frequência',
-        example: 10,
-    })
-    @IsNumber()
-    notaMinPrimeiraFreq: number;
-
-    @ApiProperty({
-        description: 'Nota mínima da segunda frequência',
-        example: 10,
-    })
-    @IsNumber()
-    notaMinSegundaFreq: number;
-
-    @ApiProperty({
-        description: 'Nota mínima da prática',
-        example: 10,
-    })
-    @IsNumber()
-    notaMinPratica: number;
+    @IsOptional()
+    @IsBoolean()
+    temPratica?: boolean;
 }
 
 export class CreatePlanoGradeCurricularEmMassaDto {

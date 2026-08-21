@@ -22,6 +22,7 @@ import { CreateUCTroncoComumPlanoCursoDto } from './dto/create-uc-tronco-comum-p
 import { CreateUnidadesCurricularesDto } from './dto/add-uc-to-plan.dto';
 import { ConsultarVinculacaoGradeDto } from './dto/ConsultarVinculacaoGradeDto';
 import { RemoveUnidadeCurricularDto } from './dto/RemoveUnidadeCurricularDto';
+import { UpdatePlanoGradeExtrasDto } from './dto/update-plano-grade-extras.dto';
 
 export class UnidadeCurricularJaNoPlanoException extends ConflictException {
   constructor(
@@ -504,12 +505,15 @@ export class DisciplineService {
         ss.CODIGO         AS codigo_semestre,
         ss.DESIGNACAO     AS designacao_semestre,
 
+        pcg.CODIGO                 AS codigo_plano_curricular_grade,
         pcg.PESO_PRIMEIRA_FREQ     AS peso_primeira_freq,
         pcg.PESO_SEGUNDA_FREQ      AS peso_segunda_freq,
         pcg.PESO_PRATICA           AS peso_pratica,
         pcg.NOTA_MIN_PRIMEIRA_FREQ AS nota_min_primeira_freq,
         pcg.NOTA_MIN_SEGUNDA_FREQ  AS nota_min_segunda_freq,
         pcg.NOTA_MIN_PRATICA       AS nota_min_pratica,
+        pcg.TEM_ORAL                AS tem_oral,
+        pcg.TEM_PRATICA            AS tem_pratica,
 
         dd.STATUS_        AS status,
         ROW_NUMBER() OVER (
@@ -541,12 +545,15 @@ export class DisciplineService {
       codigo_classe,
       codigo_semestre,
       designacao_semestre,
+      codigo_plano_curricular_grade,
       peso_primeira_freq,
       peso_segunda_freq,
       peso_pratica,
       nota_min_primeira_freq,
       nota_min_segunda_freq,
       nota_min_pratica,
+      tem_oral,
+      tem_pratica,
       status
     FROM ranked
     WHERE rn = 1
@@ -594,6 +601,8 @@ export class DisciplineService {
       codigoSemestre,
       codigoClasse,
       codigoCurso,
+      temOral,
+      temPratica,
     } = dto;
 
     const codigoPlanoCurso = await this.getPlanoCurso(
@@ -621,6 +630,8 @@ export class DisciplineService {
           codigoCurso,
           codigoPlanoCurso,
           codigoUtilizador,
+          temOral,
+          temPratica,
         });
 
         if (item.status === 'reativada') {
@@ -691,6 +702,8 @@ export class DisciplineService {
     codigoCurso: number;
     codigoPlanoCurso: number;
     codigoUtilizador: number;
+    temOral?: boolean;
+    temPratica?: boolean;
   }): Promise<{ codigo: number; status: 'criada' | 'reativada' }> {
     const {
       codigoDisciplina,
@@ -700,6 +713,8 @@ export class DisciplineService {
       codigoCurso,
       codigoPlanoCurso,
       codigoUtilizador,
+      temOral,
+      temPratica,
     } = params;
 
     // 1. Verificar se a disciplina existe
@@ -808,6 +823,8 @@ export class DisciplineService {
         codigoUtilizador,
         codigoGrade,
         codigoPlanoCurso,
+        temOral,
+        temPratica,
       );
       return { codigo: codigoGrade, status: 'criada' };
     }
@@ -827,7 +844,13 @@ export class DisciplineService {
       throw new InternalServerErrorException('Erro ao criar grade curricular.');
     }
 
-    await this.adicionarPlano(codigoUtilizador, codigoGrade, codigoPlanoCurso);
+    await this.adicionarPlano(
+      codigoUtilizador,
+      codigoGrade,
+      codigoPlanoCurso,
+      temOral,
+      temPratica,
+    );
     return { codigo: codigoGrade, status: 'criada' };
   }
 
@@ -977,6 +1000,67 @@ export class DisciplineService {
       console.error('Erro ao alterar status da grade curricular:', error);
       throw new InternalServerErrorException(
         `Erro ao alterar status da grade curricular: ${error.message}`,
+      );
+    }
+  }
+
+  // Activa/desactiva a prova Oral e/ou a Prática para uma linha do plano
+  // curricular (FK2_TB_PLANO_CURRICULAR_GRADE), usadas em processarNotasHorario
+  // para decidir o fluxo de avaliação (ver TEM_ORAL / TEM_PRATICA).
+  async atualizarTemOralTemPratica(
+    codigo: number,
+    dto: UpdatePlanoGradeExtrasDto,
+    updatedBy: number,
+  ) {
+    const { temOral, temPratica } = dto;
+
+    if (temOral === undefined && temPratica === undefined) {
+      throw new BadRequestException(
+        'Informe pelo menos um dos campos: temOral ou temPratica.',
+      );
+    }
+
+    const setClauses: string[] = ['UTILIZADOR = :updatedBy'];
+    const params: Record<string, any> = { codigo, updatedBy };
+
+    if (temOral !== undefined) {
+      setClauses.push('TEM_ORAL = :temOral');
+      params.temOral = temOral ? 1 : 0;
+    }
+    if (temPratica !== undefined) {
+      setClauses.push('TEM_PRATICA = :temPratica');
+      params.temPratica = temPratica ? 1 : 0;
+    }
+
+    const sql = `
+    UPDATE FK2_TB_PLANO_CURRICULAR_GRADE
+    SET ${setClauses.join(', ')}
+    WHERE CODIGO = :codigo
+  `;
+
+    try {
+      await this.dataSource.query(sql, params as any);
+
+      const [updated] = await this.dataSource.query(
+        `SELECT CODIGO AS codigo, TEM_ORAL AS tem_oral, TEM_PRATICA AS tem_pratica
+       FROM FK2_TB_PLANO_CURRICULAR_GRADE
+       WHERE CODIGO = :codigo`,
+        { codigo } as any,
+      );
+
+      if (!updated) {
+        throw new NotFoundException(
+          `Registo do plano curricular com código ${codigo} não encontrado`,
+        );
+      }
+
+      return toLowerCaseKeys([updated])[0];
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      if (error instanceof BadRequestException) throw error;
+      console.error('Erro ao actualizar Oral/Prática do plano curricular:', error);
+      throw new InternalServerErrorException(
+        `Erro ao actualizar configuração do plano curricular: ${error.message}`,
       );
     }
   }
@@ -1966,6 +2050,8 @@ export class DisciplineService {
     codigoUtilizador: number,
     codigoGrade: number,
     codigoPlanoCurso: number,
+    temOral: boolean = false,
+    temPratica: boolean = false,
   ): Promise<void> {
     try {
       await this.dataSource.query(
@@ -1982,6 +2068,8 @@ export class DisciplineService {
         NOTA_MIN_PRIMEIRA_FREQ,
         NOTA_MIN_SEGUNDA_FREQ,
         NOTA_MIN_PRATICA,
+        TEM_ORAL,
+        TEM_PRATICA,
         UTILIZADOR
       ) VALUES (
 
@@ -1995,10 +2083,18 @@ export class DisciplineService {
         8,
         8,
         8,
+        :temOral,
+        :temPratica,
         :codigoUtilizador
       )
       `,
-        { codigoPlanoCurso, codigoGrade, codigoUtilizador } as any,
+        {
+          codigoPlanoCurso,
+          codigoGrade,
+          codigoUtilizador,
+          temOral: temOral ? 1 : 0,
+          temPratica: temPratica ? 1 : 0,
+        } as any,
       );
     } catch (error) {
       console.error('Erro ao adicionar plano de grade:', error);

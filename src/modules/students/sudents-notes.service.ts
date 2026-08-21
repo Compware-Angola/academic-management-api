@@ -281,37 +281,6 @@ export class StudentNoteService {
     try {
       console.log(`\nCADEIRA a verificar -----> `, gradeAluno.DISCIPLINA);
 
-      const planoCurricularCurso = await this.findOnePlanoByCursoAndAnoLectivo(
-        gradeAluno.CODIGO_CURSO,
-        gradeAluno.CODIGO_ANO_LECTIVO,
-      );
-
-      const planoCurricularGrade = await this.findByPlanoAndUnidadeCurricular(
-        planoCurricularCurso.CODIGO,
-        gradeAluno.CODIGO_GRADE_CURRICULAR,
-      );
-
-      const nota_min_primeira_freq =
-        planoCurricularGrade?.NOTA_MIN_PRIMEIRA_FREQ ??
-        gradeAluno?.NOTA_MIN_PRIMEIRA_FREQ;
-
-      const nota_min_segunda_freq =
-        planoCurricularGrade?.NOTA_MIN_SEGUNDA_FREQ ??
-        gradeAluno?.NOTA_MIN_SEGUNDA_FREQ;
-
-      const peso_primeira_freq =
-        planoCurricularGrade?.PESO_PRIMEIRA_FREQ ??
-        gradeAluno?.PESO_PRIMEIRA_FREQ;
-
-      const peso_segunda_freq =
-        planoCurricularGrade?.PESO_SEGUNDA_FREQ ??
-        gradeAluno?.PESO_SEGUNDA_FREQ;
-
-      const peso_pratica = planoCurricularGrade?.PESO_PRATICA;
-
-      const hasPratica = await this.temPratica(peso_pratica);
-      const hasOral = await this.temOral(gradeAluno.CODIGO_GRADE_CURRICULAR);
-
       const avaliacoes = await this.buscarAvaliacoes(gradeAluno.CODIGO);
 
       const getNota = (tipo: number) =>
@@ -326,6 +295,75 @@ export class StudentNoteService {
       const notaMel = getNota(22);
       const notaEE = getNota(11);
       const notaOEE = getNota(24);
+
+      //====================== Ano lectivo histórico (já encerrado) ========================================
+      if (
+        gradeAluno.CODIGO_ANO_LECTIVO < anoCorrente &&
+        gradeAluno.NOTA !== null &&
+        gradeAluno.NOTA !== undefined &&
+        gradeAluno.NOTA !== ''
+      ) {
+        media = Number(gradeAluno.NOTA);
+        resultado =
+          media >= 10
+            ? EstadoAvaliacaoEnum.APROVADO
+            : EstadoAvaliacaoEnum.REPROVADO;
+
+        pauta.ano = gradeAluno.CLASSE;
+        pauta.codigoGradeAluno = gradeAluno.CODIGO;
+        pauta.disciplina = gradeAluno.DISCIPLINA;
+        pauta.duracao = gradeAluno.DURACAO_PLANO;
+        pauta.gradeCurricula = gradeAluno.CODIGO_GRADE_CURRICULA;
+        pauta.matricula = gradeAluno.CODIGO_MATRICULA;
+        pauta.media = media.toString();
+        pauta.nome_completo = gradeAluno.NOME_COMPLETO;
+        pauta.num_matricula = gradeAluno.CODIGO_MATRICULA.toString();
+        pauta.resultado = resultado;
+        pauta.semestre = gradeAluno.SEMESTRE;
+        pauta.unidadeCurricular = gradeAluno.DISCIPLINA;
+        pauta.obs.push(
+          'Ano lectivo já encerrado. Nota consolidada da grade aplicada directamente, sem recálculo de fórmula.',
+        );
+
+        pauta.nota1f = nota1f?.NOTA?.toString() ?? '';
+        pauta.nota2f = nota2f?.NOTA?.toString() ?? '';
+        pauta.notaEx = notaEx?.NOTA?.toString() ?? '';
+        pauta.notaRec = notaRec?.NOTA?.toString() ?? '';
+        pauta.notaPra = notaPra?.NOTA?.toString() ?? '';
+        pauta.notaOr = notaOr?.NOTA?.toString() ?? '';
+        pauta.notaOrRec = notaOrRec?.NOTA?.toString() ?? '';
+        pauta.notaMel = notaMel?.NOTA?.toString() ?? '';
+        pauta.notaEE = notaEE?.NOTA?.toString() ?? '';
+        pauta.notaOEE = notaOEE?.NOTA?.toString() ?? '';
+
+        return pauta;
+      }
+
+      const planoCurricularCurso = await this.findOnePlanoByCursoAndAnoLectivo(
+        gradeAluno.CODIGO_CURSO,
+        gradeAluno.CODIGO_ANO_LECTIVO,
+      );
+
+      const planoCurricularGrade = planoCurricularCurso
+        ? await this.findByPlanoAndUnidadeCurricular(
+          planoCurricularCurso.CODIGO,
+          gradeAluno.CODIGO_GRADE_CURRICULAR,
+        )
+        : undefined;
+
+      let hasPratica =
+        planoCurricularGrade?.TEM_PRATICA === true ||
+        planoCurricularGrade?.TEM_PRATICA === 1;
+      const hasOral =
+        planoCurricularGrade?.TEM_ORAL === true ||
+        planoCurricularGrade?.TEM_ORAL === 1;
+
+      if (hasPratica && hasOral) {
+        console.warn(
+          `Grade curricular ${gradeAluno.CODIGO_GRADE_CURRICULAR}: TEM_PRATICA e TEM_ORAL estão ambos activos no plano curricular. A priorizar TEM_ORAL.`,
+        );
+        hasPratica = false;
+      }
 
       //====================== Já tem nota não calcula ========================================
       if (
@@ -439,130 +477,100 @@ export class StudentNoteService {
       }
       // === LÓGICA NORMAL DE AVALIAÇÃO ===
       else {
-        // 1ª Frequência
+        // Frequências — média aritmética (1ªFreq + 2ªFreq [+ Prática|Oral]) / N.
+        // A 1ª e a 2ª Frequência são obrigatórias: se ausentes, entram como 0
+        // no cálculo (não existe fase de "Exame" substituto — o documento de
+        // regras não a prevê).
         if (!temNota(nota1f)) {
-          resultado = EstadoAvaliacaoEnum.FREQUENCIA_2;
-          // resultado = EstadoAvaliacaoEnum.EXAME;
-          descricao =
-            'Não possui nota na 1ª Frequência, deve fazer a prova de Segunda Frequência!';
+          pauta.obs.push(
+            'O docente não fez o lançamento da nota da 1ª Frequência para o estudante; foi considerada 0 no cálculo (avaliação obrigatória).',
+          );
+        }
+        if (!temNota(nota2f)) {
+          pauta.obs.push(
+            'O docente não fez o lançamento da nota da 2ª Frequência para o estudante; foi considerada 0 no cálculo (avaliação obrigatória).',
+          );
+        }
+
+        const mediaFreq = this.round(
+          ((nota1f?.NOTA ?? 0) + (nota2f?.NOTA ?? 0)) / 2,
+        );
+
+        if (hasPratica) {
+          // A Prática é obrigatória: não depende da média das frequências.
+          media = mediaFreq;
+          resultado = EstadoAvaliacaoEnum.AGUARDA_PRATICA;
+          descricao = `Media das duas Frequências (${media}). Aguardar nota da Prática (avaliação obrigatória)!`;
+        } else if (hasOral) {
+          // A Oral é obrigatória: não depende da média das frequências.
+          media = mediaFreq;
+          resultado = EstadoAvaliacaoEnum.AGUARDA_ORAL;
+          descricao = `Media das duas Frequências (${media}). Aguardar nota da Prova Oral (avaliação obrigatória)!`;
         } else {
-          media = this.round(nota1f!.NOTA! * (peso_primeira_freq / 100));
-          // if (nota1f!.NOTA! < nota_min_primeira_freq) {
-          //   resultado = EstadoAvaliacaoEnum.EXAME;
-          //   descricao =
-          //     'A nota da 1ª Frequência é inferior a nota minína definida. (Consultar a fórmula)!';
-          // } else {
-          //   resultado = EstadoAvaliacaoEnum.FREQUENCIA_2;
-          //   descricao =
-          //     'Apto para a prova da 2ª Frequência. (Aguardar avaliação...)!';
-          // }
-          resultado = EstadoAvaliacaoEnum.FREQUENCIA_2;
-          descricao =
-            'Apto para a prova da 2ª Frequência. (Aguardar avaliação...)!';
+          media = mediaFreq;
+          if (media >= 10) {
+            resultado = EstadoAvaliacaoEnum.APROVADO;
+            descricao =
+              'A média das duas Freqências é suficiente para aprovação!';
+          } else {
+            resultado = EstadoAvaliacaoEnum.RECURSO;
+            descricao =
+              'A média das duas Frequências é insuficiêncte para aprovação, deve fazer a prova de Recurso!';
+          }
         }
         pauta.obs.push(descricao);
         console.log(descricao);
 
-        // 2ª Frequência (só se passou na 1ª)
-        if (resultado === EstadoAvaliacaoEnum.FREQUENCIA_2) {
-          if (!temNota(nota2f)) {
-            resultado = EstadoAvaliacaoEnum.EXAME;
-            descricao = 'Não possui nota na 2ª Frequência!';
-            // } else if (nota2f!.NOTA! < nota_min_segunda_freq) {
-            //   media = this.round(
-            //     nota1f!.NOTA! * (peso_primeira_freq / 100) +
-            //       nota2f!.NOTA! * (peso_segunda_freq / 100),
-            //   );
-            //   resultado = EstadoAvaliacaoEnum.RECURSO;
-            //   descricao =
-            //     'A nota da 2ª Frequência é inferior a nota minína definida. (Consultar a fórmula)!';
-          } else {
-            const mediaFreq = this.round(
-              (nota1f?.NOTA ?? 0) * (peso_primeira_freq / 100) +
-                (nota2f?.NOTA ?? 0) * (peso_segunda_freq / 100),
+        // Prática (quando em AGUARDA_PRATICA) — média aritmética (1ªFreq + 2ªFreq + Prática) / 3.
+        // A Prática é obrigatória: se ausente, entra como 0. Se insuficiente, o
+        // Recurso (nota seca) substitui esta média por completo — a Prática não
+        // volta a ser considerada no Recurso.
+        // Corre antes do Recurso porque não depende dele nem do Exame.
+        if (resultado === EstadoAvaliacaoEnum.AGUARDA_PRATICA) {
+          if (!temNota(notaPra)) {
+            pauta.obs.push(
+              'O docente não fez o lançamento da nota da Prática para o estudante; foi considerada 0 no cálculo (avaliação obrigatória).',
             );
+          }
 
-            if (hasPratica) {
-              media = this.round(
-                ((nota1f?.NOTA ?? 0) + (nota2f?.NOTA ?? 0)) / 2,
-              );
-              if (media >= 9.5) {
-                resultado = EstadoAvaliacaoEnum.AGUARDA_PRATICA;
-                descricao = `Media (${media}) suficiente para aprovação. Aguardar nota da Prática!`;
-              } else {
-                resultado = EstadoAvaliacaoEnum.RECURSO;
-                descricao =
-                  'A média das duas Frequências é insuficiêncte para aprovação, deve fazer a prova de Recurso!';
-              }
-            } else if (hasOral) {
-              if (mediaFreq >= 8) {
-                resultado = EstadoAvaliacaoEnum.AGUARDA_ORAL;
-                descricao = `Media (${mediaFreq}) suficiente para aprovação. Aguardar nota da Prova Oral!`;
-              } else {
-                resultado = EstadoAvaliacaoEnum.RECURSO;
-                descricao =
-                  'A média das duas Frequências é insuficiêncte para aprovação, deve fazer a prova de Recurso!';
-              }
-              media = mediaFreq;
-            } else {
-              media = mediaFreq;
-              if (media >= 10) {
-                resultado = EstadoAvaliacaoEnum.APROVADO;
-                descricao =
-                  'A média das duas Freqências é suficiente para aprovação!';
-              } else {
-                resultado = EstadoAvaliacaoEnum.RECURSO;
-                descricao =
-                  'A média das duas Frequências é insuficiêncte para aprovação, deve fazer a prova de Recurso!';
-              }
-            }
+          media = this.round(
+            ((nota1f?.NOTA ?? 0) + (nota2f?.NOTA ?? 0) + (notaPra?.NOTA ?? 0)) /
+            3,
+          );
+
+          if (media >= 10) {
+            resultado = EstadoAvaliacaoEnum.APROVADO;
+            descricao = `A média (1ªFreq + 2ªFreq + Prática) (${media}) é suficiente para a aprovação!`;
+          } else {
+            resultado = EstadoAvaliacaoEnum.RECURSO;
+            descricao = `A média (1ªFreq + 2ªFreq + Prática) (${media}) é insuficiente para aprovação, deve fazer a prova de Recurso!`;
           }
           pauta.obs.push(descricao);
           console.log(descricao);
         }
 
-        // Exame
-        if (
-          [
-            EstadoAvaliacaoEnum.EXAME,
-            EstadoAvaliacaoEnum.RECURSO,
-            EstadoAvaliacaoEnum.FREQUENCIA_2,
-          ].includes(resultado)
-        ) {
-          if (!temNota(notaEx)) {
-            resultado = EstadoAvaliacaoEnum.RECURSO;
-            descricao =
-              'O docente não fez o lançamento da nota do exame para o estudante, deve fazer a prova de recurso!';
+        // Oral Normal — média aritmética (1ªFreq + 2ªFreq + Oral) / 3.
+        // A Oral é obrigatória: se ausente, entra como 0. Corre antes do Recurso
+        // para que, se insuficiente, o bloco de Recurso (logo a seguir) já
+        // capture o RECURSO e prossiga para a combinação com a Oral de Recurso.
+        if (resultado === EstadoAvaliacaoEnum.AGUARDA_ORAL) {
+          if (!temNota(notaOr)) {
+            pauta.obs.push(
+              'O docente não fez o lançamento da nota da Prova Oral para o estudante; foi considerada 0 no cálculo (avaliação obrigatória).',
+            );
+          }
+
+          media = this.round(
+            ((nota1f?.NOTA ?? 0) + (nota2f?.NOTA ?? 0) + (notaOr?.NOTA ?? 0)) /
+            3,
+          );
+
+          if (media >= 10) {
+            resultado = EstadoAvaliacaoEnum.APROVADO;
+            descricao = `A média (1ªFreq + 2ªFreq + Oral) (${media}) é suficiente para aprovação!`;
           } else {
-            if (hasPratica) {
-              if (notaEx!.NOTA! >= 10) {
-                resultado = EstadoAvaliacaoEnum.AGUARDA_PRATICA;
-                descricao = `A nota do Exame (${notaEx!.NOTA!}) suficiente para aprovação. Aguardar nota da Prática!`;
-              } else {
-                resultado = EstadoAvaliacaoEnum.RECURSO;
-                descricao =
-                  'A nota do Exame é insuficiêncte para aprovação, deve fazer a prova de Recurso!';
-              }
-            } else if (hasOral) {
-              if (notaEx!.NOTA! >= 8) {
-                resultado = EstadoAvaliacaoEnum.AGUARDA_ORAL;
-                descricao = `A nota do Exame (${notaEx!.NOTA!}) suficiente para aprovação. Aguardar nota da prova Oral de Recurso!`;
-              } else {
-                resultado = EstadoAvaliacaoEnum.RECURSO;
-                descricao = 'A média é insuficiente para aprovação directa!';
-              }
-            } else {
-              media = notaEx!.NOTA!;
-              if (notaEx!.NOTA! >= 10) {
-                resultado = EstadoAvaliacaoEnum.APROVADO;
-                descricao =
-                  'A nota do Exame é suficiente para aprovação. OBS: A nota do Exame é seca para esta avaliação!';
-              } else {
-                resultado = EstadoAvaliacaoEnum.RECURSO;
-                descricao =
-                  'A nota do Exame é insuficiênte para aprovação, deve fazer a prova de recurso!';
-              }
-            }
+            resultado = EstadoAvaliacaoEnum.RECURSO;
+            descricao = `A média (1ªFreq + 2ªFreq + Oral) (${media}) é insuficiente para aprovação, deve fazer a prova de Recurso!`;
           }
           pauta.obs.push(descricao);
           console.log(descricao);
@@ -590,40 +598,28 @@ export class StudentNoteService {
           }
 
           if (!bloqueado) {
-            if (!temNota(notaRec)) {
+            if (hasOral) {
+              // A Prova Oral é obrigatória e combina sempre com o Recurso,
+              // mesmo que a nota do Recurso escrito seja baixa ou ausente.
+              media = notaRec?.NOTA ?? 0;
+              resultado = EstadoAvaliacaoEnum.AGUARDA_ORAL_RECURSO;
+              descricao =
+                'Aguardar nota da Prova Oral de Recurso para calcular a média final (Recurso + Oral de Recurso)!';
+            } else if (!temNota(notaRec)) {
+              // Sem excepção, ou com Prática (que não é aplicada no recurso) —
+              // o Recurso é sempre nota seca.
               resultado = EstadoAvaliacaoEnum.REPROVADO;
               descricao =
                 'O docente não fez o lançamento da nota do recurso para o estudante!';
             } else {
-              if (hasPratica) {
-                if (notaRec!.NOTA! >= 10) {
-                  media = notaRec!.NOTA!;
-                  resultado = EstadoAvaliacaoEnum.AGUARDA_PRATICA;
-                  descricao = `A nota do Recurso (${notaRec!.NOTA!}) suficiente para aprovação. Aguardar nota da Prática!`;
-                } else {
-                  media = notaRec!.NOTA!;
-                  resultado = EstadoAvaliacaoEnum.REPROVADO;
-                  descricao = `A nota do Recurso (${notaRec!.NOTA!}) é insuficiente para aprovação directa!`;
-                }
-              } else if (hasOral) {
-                if (notaRec!.NOTA! >= 8) {
-                  media = notaRec!.NOTA!;
-                  resultado = EstadoAvaliacaoEnum.AGUARDA_ORAL_RECURSO;
-                  descricao = `A nota do Recurso (${notaRec!.NOTA!}) suficiente para aprovação. Aguardar nota da Prova Oral de Recurso!`;
-                } else {
-                  resultado = EstadoAvaliacaoEnum.REPROVADO;
-                  descricao = `A nota do Recurso (${notaRec!.NOTA!}) é insuficiente para aprovação directa!`;
-                }
+              media = notaRec!.NOTA!;
+              if (notaRec!.NOTA! >= 10) {
+                resultado = EstadoAvaliacaoEnum.APROVADO;
+                descricao =
+                  'A nota do Recurso é suficiente para aprovação. OBS: A nota do Recurso é seca para esta avaliação!';
               } else {
-                media = notaRec!.NOTA!;
-                if (notaRec!.NOTA! >= 10) {
-                  resultado = EstadoAvaliacaoEnum.APROVADO;
-                  descricao =
-                    'A nota do Recurso é suficiente para aprovação. OBS: A nota do Recurso é seca para esta avaliação!';
-                } else {
-                  resultado = EstadoAvaliacaoEnum.REPROVADO;
-                  descricao = `A nota do Recurso (${notaRec!.NOTA!}) é insuficiente para aprovação directa!`;
-                }
+                resultado = EstadoAvaliacaoEnum.REPROVADO;
+                descricao = `A nota do Recurso (${notaRec!.NOTA!}) é insuficiente para aprovação directa!`;
               }
             }
           }
@@ -632,75 +628,22 @@ export class StudentNoteService {
           console.log(descricao);
         }
 
-        // Prática (quando em AGUARDA_PRATICA)
-        if (resultado === EstadoAvaliacaoEnum.AGUARDA_PRATICA) {
-          if (!temNota(notaPra)) {
-            resultado = EstadoAvaliacaoEnum.REPROVADO;
-            descricao =
-              'O docente não fez o lançamento da nota da Prática para o estudante!';
-          } else if (notaPra!.NOTA! >= 10) {
-            let notaTeorica = 0;
-            if (temNota(notaRec)) notaTeorica = notaRec!.NOTA!;
-            else if (temNota(notaEx)) notaTeorica = notaEx!.NOTA!;
-            else notaTeorica = this.round((nota1f!.NOTA! + nota2f!.NOTA!) / 2);
-
-            media = this.round(
-              notaTeorica * ((100 - peso_pratica) / 100) +
-                notaPra!.NOTA! * (peso_pratica / 100),
-            );
-
-            if (media >= 10) {
-              resultado = EstadoAvaliacaoEnum.APROVADO;
-              descricao = `A média (${media}) é suficiente para a aprovação!`;
-            } else {
-              resultado = EstadoAvaliacaoEnum.REPROVADO;
-              descricao = `A média (${media}) é insuficiente para a aprovação!`;
-            }
-          } else {
-            resultado = EstadoAvaliacaoEnum.RECURSO;
-            descricao = `A nota da Prática (${notaPra!.NOTA!}) é insuficiente para aprovação directa!`;
-          }
-          pauta.obs.push(descricao);
-          console.log(descricao);
-        }
-
-        // Oral Normal
-        if (resultado === EstadoAvaliacaoEnum.AGUARDA_ORAL) {
-          if (!temNota(notaOr)) {
-            resultado = EstadoAvaliacaoEnum.APROVADO; // Nota: conforme original, parece intencional
-            descricao =
-              'O docente não fez o lançamento da nota a Prova Oral para o estudante!';
-          } else {
-            media = notaOr!.NOTA!;
-            if (notaOr!.NOTA! >= 10) {
-              resultado = EstadoAvaliacaoEnum.APROVADO;
-              descricao =
-                'A nota da Prova Oral é suficiente para Aprovação. Att: A nota da prova oral sobrepõe as notas anteriores tornando-se a média.';
-            } else {
-              resultado = EstadoAvaliacaoEnum.RECURSO;
-              descricao =
-                'A nota da Prova Oral é insuficiente para aprovação!!';
-            }
-          }
-          pauta.obs.push(descricao);
-          console.log(descricao);
-        }
-
-        // Oral de Recurso
+        // Oral de Recurso — média aritmética (Recurso + Oral de Recurso) / 2.
+        // A Oral de Recurso é obrigatória: se ausente, entra como 0 e decide já.
         if (resultado === EstadoAvaliacaoEnum.AGUARDA_ORAL_RECURSO) {
           if (!temNota(notaOrRec)) {
-            resultado = EstadoAvaliacaoEnum.REPROVADO;
-            descricao =
-              'O docente não fez o lançamento da nota a Prova Oral de Recurso para o estudante!';
+            pauta.obs.push(
+              'O docente não fez o lançamento da nota da Prova Oral de Recurso para o estudante; foi considerada 0 no cálculo (avaliação obrigatória).',
+            );
+          }
+
+          media = this.calcularMediaRecursoOral(notaRec, notaOrRec);
+          if (media >= 10) {
+            resultado = EstadoAvaliacaoEnum.APROVADO;
+            descricao = `A média do Recurso escrito e da Prova Oral de Recurso (${media}) é suficiente para Aprovação!`;
           } else {
-            media = notaOrRec!.NOTA!;
-            if (notaOrRec!.NOTA! >= 10) {
-              resultado = EstadoAvaliacaoEnum.APROVADO;
-              descricao = `A nota da Prova Oral de Recurso (${notaOrRec!.NOTA!}) é suficiente para Aprovação. Att: A nota da prova oral sobrepõe as notas anteriores tornando-se a média.`;
-            } else {
-              resultado = EstadoAvaliacaoEnum.REPROVADO;
-              descricao = `A nota da Prova Oral de Recurso (${notaOrRec!.NOTA!}) é insuficiente para aprovação directa!`;
-            }
+            resultado = EstadoAvaliacaoEnum.REPROVADO;
+            descricao = `A média do Recurso escrito e da Prova Oral de Recurso (${media}) é insuficiente para aprovação directa!`;
           }
           pauta.obs.push(descricao);
           console.log(descricao);
@@ -720,16 +663,13 @@ export class StudentNoteService {
       }
 
       // === EXAME ESPECIAL ===
+      // A Prova Oral é obrigatória: se hasOral, o aluno vai sempre para a Oral
+      // do Exame Especial, independentemente da nota do Exame Especial.
       if (temNota(notaEE)) {
         media = notaEE!.NOTA!;
         if (hasOral) {
-          if (media >= 8) {
-            resultado = EstadoAvaliacaoEnum.AGUARDA_ORAL_EXAME_ESPECIAL;
-            descricao = `A nota do Exame Especial (${media}) é insuficiente para aprovação. Aguardar nota da Prova Oral!`;
-          } else {
-            resultado = EstadoAvaliacaoEnum.REPROVADO;
-            descricao = `A nota do Exame Especial (${media}) é insuficiente para aprovação directa!`;
-          }
+          resultado = EstadoAvaliacaoEnum.AGUARDA_ORAL_EXAME_ESPECIAL;
+          descricao = `A nota do Exame Especial (${media}) foi registada. Aguardar nota da Prova Oral (avaliação obrigatória)!`;
         } else {
           if (media >= 10) {
             resultado = EstadoAvaliacaoEnum.APROVADO;
@@ -744,14 +684,25 @@ export class StudentNoteService {
       }
 
       // === ORAL DO EXAME ESPECIAL ===
-      if (temNota(notaOEE)) {
-        media = notaOEE!.NOTA!;
+      // Média aritmética (Exame Especial + Oral do Exame Especial) / 2.
+      // A Oral do Exame Especial é obrigatória: se ausente, entra como 0 e decide já.
+      if (resultado === EstadoAvaliacaoEnum.AGUARDA_ORAL_EXAME_ESPECIAL) {
+        if (!temNota(notaOEE)) {
+          pauta.obs.push(
+            'O docente não fez o lançamento da nota da Prova Oral do Exame Especial para o estudante; foi considerada 0 no cálculo (avaliação obrigatória).',
+          );
+        }
+
+        media = this.round(
+          ((notaEE?.NOTA ?? 0) + (notaOEE?.NOTA ?? 0)) / 2,
+        );
+
         if (media >= 10) {
           resultado = EstadoAvaliacaoEnum.APROVADO;
-          descricao = `A nota da Prova Oral do Exame Especial (${media}) é suficiente para aprovação directa!`;
+          descricao = `A média do Exame Especial e da Prova Oral do Exame Especial (${media}) é suficiente para aprovação directa!`;
         } else {
           resultado = EstadoAvaliacaoEnum.REPROVADO;
-          descricao = `A nota da Prova Oral do Exame Especial (${media}) é insuficiente para aprovação directa!`;
+          descricao = `A média do Exame Especial e da Prova Oral do Exame Especial (${media}) é insuficiente para aprovação directa!`;
         }
         pauta.obs.push(descricao);
         console.log(descricao);
@@ -772,16 +723,16 @@ export class StudentNoteService {
       pauta.unidadeCurricular = gradeAluno.DISCIPLINA;
 
       // Fórmulas
-      let formula = `${planoCurricularGrade?.PESO_PRIMEIRA_FREQ}% 1ªFreq (${planoCurricularGrade?.NOTA_MIN_PRIMEIRA_FREQ})`;
-      formula += `     +     ${planoCurricularGrade?.PESO_SEGUNDA_FREQ}% 2ªFreq (${planoCurricularGrade?.NOTA_MIN_SEGUNDA_FREQ})`;
-      if (planoCurricularGrade?.PESO_PRATICA > 0) {
-        formula += `     +     ${planoCurricularGrade?.PESO_PRATICA}% Prática (${planoCurricularGrade?.NOTA_MIN_PRATICA})`;
+      let formula = 'Média Aritmética: (1ªFreq + 2ªFreq) / 2';
+      if (hasPratica) {
+        formula = 'Média Aritmética: (1ªFreq + 2ªFreq + Prática) / 3';
+      } else if (hasOral) {
+        formula = 'Média Aritmética: (1ªFreq + 2ªFreq + Oral) / 3';
       }
       pauta.formula.push(formula);
 
-      if (planoCurricularGrade?.PESO_PRATICA > 0) {
-        formula = `${100 - planoCurricularGrade?.PESO_PRATICA}% Recurso (10)`;
-        formula += `     +     ${planoCurricularGrade?.PESO_PRATICA}% Prática (${planoCurricularGrade?.NOTA_MIN_PRATICA})`;
+      if (hasOral) {
+        formula = 'Média Aritmética: (Recurso + Oral de Recurso) / 2';
       } else {
         formula =
           'Nota mínima de 10 valores, sendo que para está unidade curricular a nota é seca.';
@@ -924,38 +875,13 @@ export class StudentNoteService {
     return result;
   }
 
-  private async temPratica(plano: any): Promise<boolean> {
-    return plano > 0;
-  }
-
-  private async temOral(gradeCurricular: any): Promise<boolean> {
-    const result = await this.dataSource.query(
-      `
-    SELECT *
-    FROM FK2_TB_GRADE_CURRICULAR_DEFINIR_ORAL
-    WHERE CODIGOGRADECURRICULAR = :gradeCurricular
-`,
-      [gradeCurricular],
-    );
-
-    const oral = result[0];
-
-    return oral ? oral.HABILITAR === true || oral.HABILITAR === 1 : false;
-  }
-
-  private extrairPkDoRefHorario(refHorario: string): number | null {
-    try {
-      if (!refHorario) return null;
-      const obj = JSON.parse(refHorario);
-      return obj.pk ? Number(obj.pk) : null;
-    } catch (e) {
-      console.warn('REF_HORARIO inválido ou não é JSON:', refHorario);
-      return null;
-    }
-  }
 
   private round(value: number): number {
     return Math.round(value);
+  }
+
+  private calcularMediaRecursoOral(notaRec: any, notaOrRec: any): number {
+    return this.round(((notaRec?.NOTA ?? 0) + (notaOrRec?.NOTA ?? 0)) / 2);
   }
 
   private async getDataFimPrimeiroSemestre(ano: number): Promise<Date> {
@@ -1098,11 +1024,10 @@ export class StudentNoteService {
              SET ESTADO = :novoEstado,
                  CODIGO_UTILIZADOR = :codigoUtilizador,
                  UPDATED_AT = SYSDATE
-                 ${
-                   codigoStatusGradeCurricular !== undefined
-                     ? ', CODIGO_STATUS_GRADE_CURRICULAR = :codigoStatusGradeCurricular'
-                     : ''
-                 }
+                 ${codigoStatusGradeCurricular !== undefined
+          ? ', CODIGO_STATUS_GRADE_CURRICULAR = :codigoStatusGradeCurricular'
+          : ''
+        }
            WHERE CODIGO = :codigo
       `,
         {

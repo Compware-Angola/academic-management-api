@@ -294,12 +294,14 @@ export class ConfigurationPlaneService {
         :codigoGrade${idx},
         SYSDATE,
         :codigoUtilizador,
-        :pesoPrimeiraFreq${idx},
-        :pesoSegundaFreq${idx},
-        :pesoPratica${idx},
-        :notaMinPrimeiraFreq${idx},
-        :notaMinSegundaFreq${idx},
-        :notaMinPratica${idx},
+        50,
+        50,
+        0,
+        8,
+        8,
+        8,
+        :temOral${idx},
+        :temPratica${idx},
         :codigoUtilizador
       )`,
       )
@@ -312,12 +314,8 @@ export class ConfigurationPlaneService {
 
     itens.forEach((item, idx) => {
       params[`codigoGrade${idx}`] = item.codigoGradeCurricular;
-      params[`pesoPrimeiraFreq${idx}`] = item.pesoPrimeiraFreq;
-      params[`pesoSegundaFreq${idx}`] = item.pesoSegundaFreq;
-      params[`pesoPratica${idx}`] = item.pesoPratica;
-      params[`notaMinPrimeiraFreq${idx}`] = item.notaMinPrimeiraFreq;
-      params[`notaMinSegundaFreq${idx}`] = item.notaMinSegundaFreq;
-      params[`notaMinPratica${idx}`] = item.notaMinPratica;
+      params[`temOral${idx}`] = item.temOral ? 1 : 0;
+      params[`temPratica${idx}`] = item.temPratica ? 1 : 0;
     });
 
     await this.dataSource.query(
@@ -333,6 +331,8 @@ export class ConfigurationPlaneService {
         NOTA_MIN_PRIMEIRA_FREQ,
         NOTA_MIN_SEGUNDA_FREQ,
         NOTA_MIN_PRATICA,
+        TEM_ORAL,
+        TEM_PRATICA,
         UTILIZADOR
       )
       VALUES ${values}

@@ -33,6 +33,7 @@ import { CreateUCTroncoComumPlanoCursoDto } from './dto/create-uc-tronco-comum-p
 import { CreateUnidadesCurricularesDto } from './dto/add-uc-to-plan.dto';
 import { ConsultarVinculacaoGradeDto } from './dto/ConsultarVinculacaoGradeDto';
 import { RemoveUnidadeCurricularDto } from './dto/RemoveUnidadeCurricularDto';
+import { UpdatePlanoGradeExtrasDto } from './dto/update-plano-grade-extras.dto';
 
 
 @ApiTags('DISCIPLINAS')
@@ -157,6 +158,24 @@ export class DisciplineController {
     return this.disciplineService.toggleStatusGradeCurricular(
       codigo,
       dto.status,
+    );
+  }
+
+  @Patch('plano-curricular-grade/:codigo')
+  @ApiOperation({
+    summary: 'Activar/desactivar Oral e Prática da UC no plano',
+    description:
+      'Actualiza TEM_ORAL e/ou TEM_PRATICA para a linha do plano curricular indicada.',
+  })
+  async atualizarTemOralTemPratica(
+    @Param('codigo', ParseIntPipe) codigo: number,
+    @Body() dto: UpdatePlanoGradeExtrasDto,
+  ) {
+    const codigoUtilizador = 1;
+    return this.disciplineService.atualizarTemOralTemPratica(
+      codigo,
+      dto,
+      codigoUtilizador,
     );
   }
 

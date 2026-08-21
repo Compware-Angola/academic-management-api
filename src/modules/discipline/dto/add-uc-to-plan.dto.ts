@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsBoolean,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -29,4 +30,12 @@ export class CreateUnidadesCurricularesDto {
   @IsOptional()
   @IsInt()
   codigoSemestre: number;
+
+  @IsOptional()
+  @IsBoolean()
+  temOral?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  temPratica?: boolean;
 }
