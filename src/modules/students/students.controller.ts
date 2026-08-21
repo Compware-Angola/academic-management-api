@@ -78,6 +78,8 @@ import { GetConfirmationDTO } from './dto/get-confirmation.dto';
 import { AtualizarEstadoGradeCurricularDto } from './dto/duplicate-uc.dto';
 import { FindStudentCurriculumQueryDTO } from './dto/find-student-curriculum.dto';
 import { GetGradePosGraduacaoDto } from './dto/get-grade-pos-graduacao';
+import { FilterInscricaoAvaliacaoDto } from './dto/filter-inscricao-avaliacao.dto';
+import { StudentRegistrationForAssessmentService } from './student-registration-for-assessments.service';
 @UseGuards(RemoteJwtAuthGuard, PermissionsGuard)
 @ApiTags('Students')
 @Controller('students')
@@ -92,6 +94,7 @@ export class StudentsController {
     private readonly ativeConfirmationService: AtiveConfirmationService,
     private readonly equivalenceTFMigration: EquivalenceTFCMigration,
     private readonly hangingRailingsAndToBeMadeService: HangingRailingsAndToBeMadeService,
+    private readonly studentRegistrationForAssessmentsService: StudentRegistrationForAssessmentService,
     private httpService: HttpService,
   ) {}
   private log(req: any, descricao: string) {
@@ -122,6 +125,19 @@ export class StudentsController {
   })
   findCadeiras(@Query(ValidationPipe) query: FindStudentsDTO) {
     return this.studentsService.findStudents(query);
+  }
+
+  @Get('inscricoes-avaliacao')
+  @ApiOperation({ summary: 'Listar Inscrição em recurso de um  estudante' })
+  @ApiResponse({
+    status: 200,
+    description: 'Listar Inscrição em recurso de um  estudante',
+    type: FilterInscricaoAvaliacaoDto,
+  })
+  findInscricaoRecurso(
+    @Query(ValidationPipe) query: FilterInscricaoAvaliacaoDto,
+  ) {
+    return this.studentRegistrationForAssessmentsService.find(query);
   }
   @Get('classe-info')
   @ApiOperation({

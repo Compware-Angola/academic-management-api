@@ -25,7 +25,7 @@ import { EquivalenceTFCMigration } from './equivalence-tfc-migration.service';
 import { StudentSituationService } from './student-situation.service';
 import { StudentSituationController } from './student-stituation.controller';
 import { HangingRailingsAndToBeMadeService } from './hanging_railings_and_to_be_made.service';
-
+import { StudentRegistrationForAssessmentService } from './student-registration-for-assessments.service';
 
 @Module({
   imports: [
@@ -41,7 +41,7 @@ import { HangingRailingsAndToBeMadeService } from './hanging_railings_and_to_be_
     PreRegistrationController,
     StudentsProvasController,
     ChangeShiftController,
-    StudentSituationController
+    StudentSituationController,
   ],
 
   providers: [
@@ -60,7 +60,8 @@ import { HangingRailingsAndToBeMadeService } from './hanging_railings_and_to_be_
     AtiveConfirmationService,
     ChangeShiftService,
     EquivalenceTFCMigration,
-    StudentSituationService
+    StudentSituationService,
+    StudentRegistrationForAssessmentService,
   ],
 })
-export class StudentsModule { }
+export class StudentsModule {}
