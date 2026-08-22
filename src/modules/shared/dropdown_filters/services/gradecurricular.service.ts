@@ -55,7 +55,9 @@ export class GradeCurricularService {
           SELECT DISTINCT
               gc.CODIGO AS pk,
               d.DESIGNACAO AS descricao,
-              d.NOME_ABREVIATURA AS codigo
+              d.NOME_ABREVIATURA AS codigo,
+              NULL AS TEM_PRATICA,
+              NULL AS TEM_ORAL
           FROM FK2_TB_GRADE_CURRICULAR gc
 
           INNER JOIN FK2_TB_DISCIPLINAS d
@@ -88,7 +90,9 @@ export class GradeCurricularService {
         SELECT DISTINCT
             gc.CODIGO AS pk,
             d.DESIGNACAO AS descricao,
-            d.NOME_ABREVIATURA AS codigo
+            d.NOME_ABREVIATURA AS codigo,
+            pcg.TEM_PRATICA AS TEM_PRATICA,
+            pcg.TEM_ORAL AS TEM_ORAL
         FROM FK2_TB_GRADE_CURRICULAR gc
 
         INNER JOIN FK2_TB_DISCIPLINAS d

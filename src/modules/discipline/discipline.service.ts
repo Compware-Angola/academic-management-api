@@ -1020,16 +1020,27 @@ export class DisciplineService {
       );
     }
 
+    // Oral e Prática são mutuamente exclusivas: activar uma desactiva a outra.
     const setClauses: string[] = ['UTILIZADOR = :updatedBy'];
     const params: Record<string, any> = { codigo, updatedBy };
 
-    if (temOral !== undefined) {
-      setClauses.push('TEM_ORAL = :temOral');
-      params.temOral = temOral ? 1 : 0;
-    }
-    if (temPratica !== undefined) {
-      setClauses.push('TEM_PRATICA = :temPratica');
-      params.temPratica = temPratica ? 1 : 0;
+    if (temOral) {
+      setClauses.push('TEM_ORAL = :temOral', 'TEM_PRATICA = :temPratica');
+      params.temOral = 1;
+      params.temPratica = 0;
+    } else if (temPratica) {
+      setClauses.push('TEM_PRATICA = :temPratica', 'TEM_ORAL = :temOral');
+      params.temPratica = 1;
+      params.temOral = 0;
+    } else {
+      if (temOral !== undefined) {
+        setClauses.push('TEM_ORAL = :temOral');
+        params.temOral = 0;
+      }
+      if (temPratica !== undefined) {
+        setClauses.push('TEM_PRATICA = :temPratica');
+        params.temPratica = 0;
+      }
     }
 
     const sql = `
