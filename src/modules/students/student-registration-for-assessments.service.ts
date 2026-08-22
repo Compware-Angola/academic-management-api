@@ -25,7 +25,6 @@ export class StudentRegistrationForAssessmentService {
     } = filter;
 
     const offset = (page - 1) * limit;
-
     const params: Record<string, any> = {
       offset,
       limit_plus_offset: offset + limit,
@@ -154,6 +153,7 @@ export class StudentRegistrationForAssessmentService {
 
       LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES GCAV
         ON GCAV.GRADE_CURRICULAR_ALUNO = AV.CODIGO_GRADE_ALUNO
+        AND GCAV.TIPO_AVALIACAO = AV.CODIGO_TIPO_AVALIACAO
 
       LEFT JOIN FK2_TB_MATRICULAS M
         ON M.CODIGO = AV.CODIGO_MATRICULA
@@ -241,7 +241,8 @@ export class StudentRegistrationForAssessmentService {
 
         LEFT JOIN FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES GCAV
           ON GCAV.GRADE_CURRICULAR_ALUNO =
-             AV.CODIGO_GRADE_ALUNO
+             AV.CODIGO_GRADE_ALUNO          
+        AND GCAV.TIPO_AVALIACAO = AV.CODIGO_TIPO_AVALIACAO
 
         LEFT JOIN FK2_TB_MATRICULAS M
           ON M.CODIGO = AV.CODIGO_MATRICULA

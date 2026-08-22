@@ -109,6 +109,7 @@ export class StudentsProvasService {
       semestres,
     );
     console.log('Prazos', prazosPorSemestre);
+    console.log('data: ', data);
 
     const elegiveis = this.filtrarCadeirasElegiveis(
       data,
@@ -529,12 +530,12 @@ export class StudentsProvasService {
       }
 
       // Regra 2: excluir se já passou por etapa pós-exame
-      if (
-        opcoes.excluirComEtapasPosExame &&
-        this.jaPassouPorEtapaAposExame(cadeira)
-      ) {
-        return false;
-      }
+      // if (
+      //   opcoes.excluirComEtapasPosExame &&
+      //   this.jaPassouPorEtapaAposExame(cadeira)
+      // ) {
+      //   return false;
+      // }
 
       // Regra 3: excluir se tem alguma das notas especificadas
       if (opcoes.excluirSeTemNotas?.length) {

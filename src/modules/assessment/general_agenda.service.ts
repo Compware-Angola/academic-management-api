@@ -642,9 +642,9 @@ export class GenaralAgendaService {
 
       const planoCurricularGrade = planoCurricularCurso
         ? await this.findByPlanoAndUnidadeCurricular(
-          planoCurricularCurso.CODIGO,
-          gradeAluno.CODIGO_GRADE_CURRICULAR,
-        )
+            planoCurricularCurso.CODIGO,
+            gradeAluno.CODIGO_GRADE_CURRICULAR,
+          )
         : undefined;
 
       // Cache das verificações mais usadas
@@ -734,13 +734,13 @@ export class GenaralAgendaService {
         console.log(descricao);
       }
       // === MELHORIA DE NOTA (notaMel >= 10) ===
-      else if (temNota(notaMel) && notaMel.NOTA! >= 10) {
-        media = notaMel.NOTA!;
-        resultado = EstadoAvaliacaoEnum.APROVADO;
-        descricao = 'A média das duas Freqências é suficiente para aprovação!';
-        pauta.obs.push(descricao);
-        console.log(descricao);
-      }
+      // else if (temNota(notaMel) && notaMel.NOTA! >= 10) {
+      //   media = notaMel.NOTA!;
+      //   resultado = EstadoAvaliacaoEnum.APROVADO;
+      //   descricao = 'A média das duas Freqências é suficiente para aprovação!';
+      //   pauta.obs.push(descricao);
+      //   console.log(descricao);
+      // }
       // === LÓGICA NORMAL DE AVALIAÇÃO ===
       else {
         // Frequências — média aritmética (1ªFreq + 2ªFreq [+ Prática|Oral]) / N.
@@ -818,7 +818,7 @@ export class GenaralAgendaService {
 
           media = this.round(
             ((nota1f?.NOTA ?? 0) + (nota2f?.NOTA ?? 0) + (notaPra?.NOTA ?? 0)) /
-            3,
+              3,
           );
 
           if (media >= 10) {
@@ -848,7 +848,7 @@ export class GenaralAgendaService {
 
           media = this.round(
             ((nota1f?.NOTA ?? 0) + (nota2f?.NOTA ?? 0) + (notaOr?.NOTA ?? 0)) /
-            3,
+              3,
           );
 
           if (media >= 10) {
@@ -917,18 +917,6 @@ export class GenaralAgendaService {
           pauta.obs.push(descricao);
           console.log(descricao);
         }
-
-        // Melhoria após aprovação normal
-        if (
-          resultado === EstadoAvaliacaoEnum.APROVADO &&
-          temNota(notaMel) &&
-          notaMel!.NOTA! > media
-        ) {
-          descricao = `Aprovado com média (${media}) Porém o estudante fez a melhoria da nota onde conseguiu superar esta média conseguindo assim (${notaMel!.NOTA!})`;
-          pauta.obs.push(descricao);
-          console.log(descricao);
-          media = notaMel!.NOTA!;
-        }
       }
 
       // === EXAME ESPECIAL ===
@@ -973,6 +961,18 @@ export class GenaralAgendaService {
         }
         pauta.obs.push(descricao);
         console.log(descricao);
+      }
+
+      // Melhoria após aprovação normal
+      if (
+        resultado === EstadoAvaliacaoEnum.APROVADO &&
+        temNota(notaMel) &&
+        notaMel!.NOTA! > media
+      ) {
+        descricao = `Aprovado com média (${media}) Porém o estudante fez a melhoria da nota onde conseguiu superar esta média conseguindo assim (${notaMel!.NOTA!})`;
+        pauta.obs.push(descricao);
+        console.log(descricao);
+        media = notaMel!.NOTA!;
       }
 
       // === PREENCHIMENTO FINAL DA PAUTA ===
@@ -1135,9 +1135,9 @@ export class GenaralAgendaService {
 
       const planoCurricularGrade = planoCurricularCurso
         ? await this.findByPlanoAndUnidadeCurricular(
-          planoCurricularCurso.CODIGO,
-          gradeAluno.CODIGO_GRADE_CURRICULAR,
-        )
+            planoCurricularCurso.CODIGO,
+            gradeAluno.CODIGO_GRADE_CURRICULAR,
+          )
         : undefined;
 
       // Cache das verificações mais usadas
@@ -1227,13 +1227,13 @@ export class GenaralAgendaService {
         console.log(descricao);
       }
       // === MELHORIA DE NOTA (notaMel >= 10) ===
-      else if (temNota(notaMel) && notaMel.NOTA! >= 10) {
-        media = notaMel.NOTA!;
-        resultado = EstadoAvaliacaoEnum.APROVADO;
-        descricao = 'A média das duas Freqências é suficiente para aprovação!';
-        pauta.obs.push(descricao);
-        console.log(descricao);
-      }
+      // else if (temNota(notaMel) && notaMel.NOTA! >= 10) {
+      //   media = notaMel.NOTA!;
+      //   resultado = EstadoAvaliacaoEnum.APROVADO;
+      //   descricao = 'A média das duas Freqências é suficiente para aprovação!';
+      //   pauta.obs.push(descricao);
+      //   console.log(descricao);
+      // }
       // === LÓGICA NORMAL DE AVALIAÇÃO ===
       else {
         // Frequências — média aritmética (1ªFreq + 2ªFreq [+ Prática|Oral]) / N.
@@ -1311,7 +1311,7 @@ export class GenaralAgendaService {
 
           media = this.round(
             ((nota1f?.NOTA ?? 0) + (nota2f?.NOTA ?? 0) + (notaPra?.NOTA ?? 0)) /
-            3,
+              3,
           );
 
           if (media >= 10) {
@@ -1341,7 +1341,7 @@ export class GenaralAgendaService {
 
           media = this.round(
             ((nota1f?.NOTA ?? 0) + (nota2f?.NOTA ?? 0) + (notaOr?.NOTA ?? 0)) /
-            3,
+              3,
           );
 
           if (media >= 10) {
@@ -1410,18 +1410,6 @@ export class GenaralAgendaService {
           pauta.obs.push(descricao);
           console.log(descricao);
         }
-
-        // Melhoria após aprovação normal
-        if (
-          resultado === EstadoAvaliacaoEnum.APROVADO &&
-          temNota(notaMel) &&
-          notaMel!.NOTA! > media
-        ) {
-          descricao = `Aprovado com média (${media}) Porém o estudante fez a melhoria da nota onde conseguiu superar esta média conseguindo assim (${notaMel!.NOTA!})`;
-          pauta.obs.push(descricao);
-          console.log(descricao);
-          media = notaMel!.NOTA!;
-        }
       }
 
       // === EXAME ESPECIAL ===
@@ -1466,6 +1454,18 @@ export class GenaralAgendaService {
         }
         pauta.obs.push(descricao);
         console.log(descricao);
+      }
+
+      // Melhoria após aprovação normal
+      if (
+        resultado === EstadoAvaliacaoEnum.APROVADO &&
+        temNota(notaMel) &&
+        notaMel!.NOTA! > media
+      ) {
+        descricao = `Aprovado com média (${media}) Porém o estudante fez a melhoria da nota onde conseguiu superar esta média conseguindo assim (${notaMel!.NOTA!})`;
+        pauta.obs.push(descricao);
+        console.log(descricao);
+        media = notaMel!.NOTA!;
       }
 
       // === PREENCHIMENTO FINAL DA PAUTA ===
@@ -1530,7 +1530,6 @@ export class GenaralAgendaService {
       throw error; // ou return null / objeto de erro
     }
   }
-
 
   private async buscarAvaliacoes(gradeAlunoId: number): Promise<any[]> {
     return await this.dataSource.query(
