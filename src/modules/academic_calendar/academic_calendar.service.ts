@@ -1338,20 +1338,18 @@ export class AcademicCalendarService {
       const currentPhase = academicYear.fase_anolectivo as EstadoAnoLectivoType;
       const allowedTargets = VALID_PHASE_TRANSITIONS[currentPhase] ?? [];
 
-      if (targetPhase === EstadoAnoLectivoType.ACTIVO) {
-        const activationStartDate = new Date(firstSemesterStart);
-        activationStartDate.setDate(activationStartDate.getDate() - 10);
-
-        // const activationEndDate = new Date(firstSemesterStart);
-        // activationEndDate.setDate(activationEndDate.getDate() + 10);
-
-        if (today < activationStartDate) {
-          throw new BadRequestException(
-            `Este Ano Lectivo só pode ser activado a partir de
-        10 dias antes do início do 1.º semestre.`,
-          );
-        }
-      }
+      //if (targetPhase === EstadoAnoLectivoType.ACTIVO) {
+      //const activationStartDate = new Date(firstSemesterStart);
+      //activationStartDate.setDate(activationStartDate.getDate() - 10);
+      // const activationEndDate = new Date(firstSemesterStart);
+      // activationEndDate.setDate(activationEndDate.getDate() + 10);
+      // if (today < activationStartDate) {
+      //   throw new BadRequestException(
+      //     `Este Ano Lectivo só pode ser activado a partir de
+      // 10 dias antes do início do 1.º semestre.`,
+      //   );
+      // }
+      //}
       if (!allowedTargets.includes(targetPhase)) {
         throw new BadRequestException(
           `Transição inválida: não é possível mudar de "${currentPhase}" para "${targetPhase}".`,
@@ -1387,7 +1385,7 @@ export class AcademicCalendarService {
     `,
           {
             encerrado: EstadoAnoLectivoType.ENCERRADO,
-            activo: EstadoAnoLectivoType.USAVEL,
+            activo: EstadoAnoLectivoType.ACTIVO,
             tipoCandidatura: academicYear.codigo_tipo_candidatura,
           } as any,
         );
