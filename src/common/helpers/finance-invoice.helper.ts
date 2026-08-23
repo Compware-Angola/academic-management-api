@@ -47,8 +47,7 @@ export class FinanceInvoiceHelper {
   private static readonly logger = new Logger(FinanceInvoiceHelper.name);
 
   private static getInvoiceUrl(): string {
-    const baseUrl =
-      process.env.API_BASE_URL_FINANCE || 'http://localhost:3002/api';
+    const baseUrl = process.env.FINANCE_API || 'http://localhost:3002/api';
     return `${baseUrl}/invoices/no-job`;
   }
   static async createInvoice(
