@@ -55,7 +55,11 @@ export class NoteReleaseService {
         );
         break;
 
+      //Verifica Recurso
       case 7:
+
+      //Verifica epoca especial
+      case 11:
         studentsFilter = await this.getGeneralStudentNoteReleaseRecurso(
           anoLectivoId,
           horarioId,
@@ -423,8 +427,9 @@ export class NoteReleaseService {
     INNER JOIN FK2_TB_MATRICULAS MAT ON MAT.CODIGO = GCA.CODIGO_MATRICULA
     INNER JOIN FK2_TB_ADMISSAO ADM ON ADM.CODIGO = MAT.CODIGO_ALUNO
     INNER JOIN FK2_TB_PREINSCRICAO PRE ON PRE.CODIGO = ADM.PRE_INCRICAO
-      LEFT JOIN FK2_TB_GRADE_CURRICULAR GC ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
+    LEFT JOIN FK2_TB_GRADE_CURRICULAR GC ON GC.CODIGO = GCA.CODIGO_GRADE_CURRICULAR
     INNER JOIN FK2_TB_CONFIRMACOES CONF ON CONF.CODIGO = GCA.CODIGO_CONFIRMACAO
+    INNER JOIN FK2_MGH_TB_HORARIO HOR ON HOR.PK_HORARIO = :horarioId
     WHERE
       --  MAT.ESTADO_MATRICULA IN ('concluido', 'diplomado', 'activo', 'inactivo')
          GCA.CODIGO_ANO_LECTIVO = :anoLectivoId
@@ -432,13 +437,23 @@ export class NoteReleaseService {
         AND GCA.CODIGO_STATUS_GRADE_CURRICULAR <> 5
         AND GC.CODIGO_CLASSE = :classe
         AND PRE.CODIGO_TURNO = :turno
+        AND HOR.FK_GRADE_CURRICULAR = TO_CHAR(GC.CODIGO)
         AND EXISTS (
             SELECT 1
             FROM FK2_FACTURA FAT
+            INNER JOIN FK2_FACTURA_ITEMS FI ON FI.CODIGOFACTURA = FAT.CODIGO
+            INNER JOIN FK2_TB_TIPO_SERVICOS TS ON TS.CODIGO = FI.CODIGOPRODUTO
             WHERE FAT.CODIGOMATRICULA = MAT.CODIGO
               AND FAT.ANO_LECTIVO = :anoLectivoId
-              AND UPPER(FAT.DESCRICAO) LIKE UPPER('Inscrição de Recurso%')
-              AND FAT.CODIGO_DESCRICAO =  6 
+              AND LOWER(TS.SIGLA) = LOWER('IaEdRurso')
+        )
+        AND EXISTS (
+            SELECT 1
+            FROM FK2_INSCRICAO_AVALIACOES IAV
+            WHERE IAV.CODIGO_GRADE_ALUNO = GCA.CODIGO
+              AND IAV.CODIGO_TIPO_AVALIACAO = :tipoAvaliacao
+              AND IAV.CODIGO_ANO_LECTIVO = :anoLectivoId
+              AND IAV.CODIGO_MATRICULA = MAT.CODIGO
         )
         AND (
             :search IS NULL
