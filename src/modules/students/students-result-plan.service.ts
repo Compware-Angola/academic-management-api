@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
+import { AnoLectivoUtil } from '../util/current-academic-year';
 
 interface FindGradeCursoDTO {
   codigoMatricula: number;
   codigoCurso: number;
+  codigoAnoLectivo: number;
 }
 
 interface FindGradeCursoReturnDTO {
@@ -43,12 +45,16 @@ interface FindMatriculaDetails {
 
 @Injectable()
 export class StudentsResultPlanService {
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly anoLectivoUtil: AnoLectivoUtil,
+  ) {}
 
   public async findPlan(codigoMatricula: number) {
-    const [matricula, gradesAluno] = await Promise.all([
+    const [matricula, gradesAluno, anoLectivoAtivo] = await Promise.all([
       this.getMatriculaDetails(codigoMatricula),
       this.findGradesAprovadasAluno(codigoMatricula),
+      this.anoLectivoUtil.getAnoAtualId(),
     ]);
 
     if (matricula.estado.toUpperCase() === 'DIPLOMADO') {
@@ -70,6 +76,7 @@ export class StudentsResultPlanService {
       this.findGradeCurso({
         codigoCurso: matricula.codigo_curso,
         codigoMatricula: matricula.codigo_matricula,
+        codigoAnoLectivo: anoLectivoAtivo,
       }),
     ];
 
@@ -78,6 +85,7 @@ export class StudentsResultPlanService {
         this.findGradeCurso({
           codigoCurso: codigoCursoAnterior,
           codigoMatricula: matricula.codigo_matricula,
+          codigoAnoLectivo: anoLectivoAtivo,
         }),
       );
     }
@@ -185,7 +193,7 @@ export class StudentsResultPlanService {
   private async findGradeCurso(
     params: FindGradeCursoDTO,
   ): Promise<FindGradeCursoReturnDTO[]> {
-    const { codigoCurso, codigoMatricula } = params;
+    const { codigoCurso, codigoMatricula, codigoAnoLectivo } = params;
 
     const sql = `
       WITH grade_base AS (
@@ -216,6 +224,7 @@ export class StudentsResultPlanService {
         WHERE pgc.CODIGO_CURSO = :codigoCurso
           AND g.STATUS_        = 1
           AND d.STATUS_        = 1
+          AND pgc.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
       ),
       aluno_base AS (
         SELECT
@@ -250,6 +259,7 @@ export class StudentsResultPlanService {
     const result = await this.dataSource.query(sql, {
       codigoMatricula,
       codigoCurso,
+      codigoAnoLectivo,
     } as any);
 
     if (!result?.length) return [];
