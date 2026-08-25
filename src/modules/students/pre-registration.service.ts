@@ -28,18 +28,7 @@ export class PreRegistrationService {
       throw new ConflictException('O Ano lectivo e obrigatorio!');
     }
 
-    // 1. Localiza registo(s) existente(s) com o mesmo BI ou EMAIL
-    const existing = await this.findExistingPreRegistration(
-      dto.bilheteIdentidade,
-      dto.email,
-    );
-
-    // 2. Se existir, anula BI e EMAIL no registo antigo para liberar a unicidade
-    if (existing) {
-      await this.clearUniqueFields(existing.CODIGO);
-    }
-
-    // 3. Insere a nova candidatura normalmente
+    // Insere a nova candidatura
     const result = await this.dataSource.query(
       `
       INSERT INTO FK2_TB_PREINSCRICAO (
@@ -175,42 +164,6 @@ export class PreRegistrationService {
       message: 'Pré-registro criado com sucesso.',
       estado: 1,
     };
-  }
-
-  private async findExistingPreRegistration(
-    bilheteIdentidade: string,
-    email: string,
-  ): Promise<{ CODIGO: number } | null> {
-    const result = await this.dataSource.query(
-      `
-      SELECT CODIGO
-      FROM FK2_TB_PREINSCRICAO
-      WHERE BILHETE_IDENTIDADE = :bilheteIdentidade
-         OR EMAIL = :email
-      FETCH FIRST 1 ROWS ONLY
-    `,
-      {
-        bilheteIdentidade,
-        email,
-      } as any,
-    );
-
-    return result.length > 0 ? result[0] : null;
-  }
-
-  private async clearUniqueFields(codigo: number): Promise<void> {
-    await this.dataSource.query(
-      `
-      UPDATE FK2_TB_PREINSCRICAO
-      SET
-        BILHETE_IDENTIDADE = NULL,
-        EMAIL = NULL,
-        UPDATED_AT = SYSDATE,
-        DELETED_AT = SYSDATE
-      WHERE CODIGO = :codigo
-    `,
-      { codigo } as any,
-    );
   }
 
   // ─────────────────────────────────────────────
