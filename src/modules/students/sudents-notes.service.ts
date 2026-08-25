@@ -190,7 +190,7 @@ export class StudentNoteService {
 
             WHERE 1=1
                 ---AND ftgca.CODIGO_GRADE_CURRICULAR = :grade
-                AND ftgca.estado = 1
+                ---AND ftgca.estado = 1
                AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR <> 5
                 AND ftgca.CODIGO_MATRICULA = :numeroDeMatricula
                 AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo
@@ -224,15 +224,14 @@ export class StudentNoteService {
       `
         SELECT *
         FROM FK2_TB_PLANO_CURRICULAR_CURSO plano
-        WHERE plano.CODIGO_CURSO =:codigoCurso  OR 0 =:codigoCurso
-          AND plano.CODIGO_ANO_LECTIVO = :codigoAnoLectivo OR 0 = :codigoAnoLectivo
+        WHERE plano.CODIGO_CURSO = :codigoCurso
+          AND plano.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
     `,
       {
         codigoCurso,
         codigoAnoLectivo,
       } as any,
     );
-
     return planoCurso[0];
   }
 
@@ -343,13 +342,20 @@ export class StudentNoteService {
         gradeAluno.CODIGO_CURSO,
         gradeAluno.CODIGO_ANO_LECTIVO,
       );
-
+      console.log(
+        'Plano de Curso: ',
+        planoCurricularCurso,
+        'Anolectivo:',
+        gradeAluno.CODIGO_ANO_LECTIVO,
+      );
       const planoCurricularGrade = planoCurricularCurso
         ? await this.findByPlanoAndUnidadeCurricular(
             planoCurricularCurso.CODIGO,
             gradeAluno.CODIGO_GRADE_CURRICULAR,
           )
         : undefined;
+
+      console.log('Plano de Grade: ', planoCurricularGrade);
 
       let hasPratica =
         planoCurricularGrade?.TEM_PRATICA === true ||
