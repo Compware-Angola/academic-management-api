@@ -51,6 +51,7 @@ import { GenderModule } from './modules/gender/gender.module';
 import { AcademicDegreeModule } from './modules/academic-degree/academic-degrees.module';
 import { CourseTrainingAreaModule } from './modules/course-training-area/course-training-area.module';
 import { TipoCalendarioModule } from './modules/tipo-calendario/tipo-calendario.module';
+import { PreInscritosModule } from './modules/pre-inscritos/pre-inscritos.module';
 import { databaseOptionsFactory } from './common/config/database.factory';
 
 @Module({
@@ -129,7 +130,8 @@ import { databaseOptionsFactory } from './common/config/database.factory';
     GenderModule,
     AcademicDegreeModule,
     CourseTrainingAreaModule,
-    TipoCalendarioModule
+    TipoCalendarioModule,
+    PreInscritosModule
 
   ],
   controllers: [AppController],

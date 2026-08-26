@@ -34,7 +34,7 @@ export class UnidadeCurricularJaNoPlanoException extends ConflictException {
 
 @Injectable()
 export class DisciplineService {
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly dataSource: DataSource) {}
   async findGradeCurricularAluno({
     matriculaId,
     semestre,
@@ -139,6 +139,7 @@ export class DisciplineService {
     SELECT DISTINCT
       al.codigo AS codigo,
       al.codigo_grade_curricular AS codigo_grade_curricular,
+      al.nota             AS nota,
       d.designacao        AS disciplina,
       d.codigo_disciplina AS codigo_disciplina,
       s.designacao        AS semestre,
@@ -1069,7 +1070,10 @@ export class DisciplineService {
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       if (error instanceof BadRequestException) throw error;
-      console.error('Erro ao actualizar Oral/Prática do plano curricular:', error);
+      console.error(
+        'Erro ao actualizar Oral/Prática do plano curricular:',
+        error,
+      );
       throw new InternalServerErrorException(
         `Erro ao actualizar configuração do plano curricular: ${error.message}`,
       );
@@ -1320,7 +1324,6 @@ export class DisciplineService {
       );
     }
 
-
     // 1. Obter plano do curso
     const codigoPlanoCurso = await this.getPlanoCurso(
       codigoCurso,
@@ -1533,9 +1536,12 @@ export class DisciplineService {
       // Grade já está no plano — reativar
       await this.ativegrade(codigoGrade);
     } else {
-      await this.adicionarPlano(codigoUtilizador, codigoGrade, codigoPlanoCurso);
+      await this.adicionarPlano(
+        codigoUtilizador,
+        codigoGrade,
+        codigoPlanoCurso,
+      );
     }
-
 
     const nomeDisciplina = gradeCurricular[0].NOME_DISCIPLINA;
 
@@ -1731,7 +1737,6 @@ export class DisciplineService {
     codigoVinculo: number,
     codigoUtilizador: number,
   ) {
-
     // 0. Obter o vínculo pelo seu código (já traz grade, plano, curso e ano letivo)
     const vinculoResult = await this.dataSource.query(
       `
@@ -1826,7 +1831,9 @@ export class DisciplineService {
       throw new NotFoundException(`Grade ${codigoGrade} não encontrada.`);
     }
 
-    const filtroCurso = codigoCurso ? 'AND pcc.CODIGO_CURSO = :codigoCurso' : '';
+    const filtroCurso = codigoCurso
+      ? 'AND pcc.CODIGO_CURSO = :codigoCurso'
+      : '';
 
     const resultado = await this.dataSource.query(
       `
@@ -1851,7 +1858,11 @@ export class DisciplineService {
       ${filtroCurso}
     ORDER BY cur.DESIGNACAO, cl.DESIGNACAO, pcgs.CODIGO_SEMESTRE
     `,
-      { codigoGrade, anoLetivo, ...(codigoCurso ? { codigoCurso } : {}) } as any,
+      {
+        codigoGrade,
+        anoLetivo,
+        ...(codigoCurso ? { codigoCurso } : {}),
+      } as any,
     );
 
     return {
@@ -1865,7 +1876,6 @@ export class DisciplineService {
         anoCurricular: r.NOME_CLASSE,
         codigoSemestre: r.CODIGO_SEMESTRE,
         codigoVinculo: r.CODIGO_VINCULO,
-
       })),
     };
   }
