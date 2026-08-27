@@ -607,10 +607,17 @@ export class StudentNoteService {
             if (hasOral) {
               // A Prova Oral é obrigatória e combina sempre com o Recurso,
               // mesmo que a nota do Recurso escrito seja baixa ou ausente.
-              media = notaRec?.NOTA ?? 0;
-              resultado = EstadoAvaliacaoEnum.AGUARDA_ORAL_RECURSO;
-              descricao =
-                'Aguardar nota da Prova Oral de Recurso para calcular a média final (Recurso + Oral de Recurso)!';
+              //ATE QUANDO ESSE SOFRIMENTO
+              if (temNota(notaRec) || temNota(notaOrRec)) {
+                media = notaRec?.NOTA ?? 0;
+                resultado = EstadoAvaliacaoEnum.AGUARDA_ORAL_RECURSO;
+                descricao =
+                  'Aguardar nota da Prova Oral de Recurso para calcular a média final (Recurso + Oral de Recurso)!';
+              } else {
+                resultado = EstadoAvaliacaoEnum.REPROVADO;
+                descricao =
+                  'O docente não fez o lançamento da nota do Recurso nem da Prova Oral de Recurso para o estudante!';
+              }
             } else if (!temNota(notaRec)) {
               // Sem excepção, ou com Prática (que não é aplicada no recurso) —
               // o Recurso é sempre nota seca.

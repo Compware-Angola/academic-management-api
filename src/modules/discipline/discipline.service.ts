@@ -1528,7 +1528,7 @@ export class DisciplineService {
           ON c.CODIGO = g.CODIGO_CLASSE
       WHERE u.CODIGO_PLANO_CURRICULAR_CURSO = :codigoPlanoCurso
         AND g.CODIGO = :codigoGrade
-        
+
       `,
       { codigoPlanoCurso, codigoGrade } as any,
     );
@@ -1567,6 +1567,8 @@ export class DisciplineService {
       const codigoCurso = cursoItem.codigoCurso;
       const codigoClasse = cursoItem.codigoClasse;
       const codigoSemestre = cursoItem.codigoSemestre;
+      const temOral = cursoItem.temOral ?? false;
+      const temPractica = cursoItem.temPratica ?? false;
       const nomeCurso = nomesCursos.get(codigoCurso) ?? null;
 
       try {
@@ -1638,6 +1640,8 @@ export class DisciplineService {
             codigoUtilizador,
             codigoGrade,
             codigoPlanoCurso,
+            temOral,
+            temPractica,
           );
         }
 
@@ -1845,10 +1849,16 @@ export class DisciplineService {
       cl.DESIGNACAO                 AS NOME_CLASSE,
       pcgs.CODIGO_SEMESTRE          AS CODIGO_SEMESTRE,
       pcgs.CODIGO_GRADE_CURRICULAR  AS CODIGO_GRADE,
-      pcc.CODIGO                    AS CODIGO_PLANO_CURRICULAR_CURSO
+      pcc.CODIGO                    AS CODIGO_PLANO_CURRICULAR_CURSO,
+      pcg.CODIGO                    AS CODIGO_PLANO_CURRICULAR_GRADE,
+      pcg.TEM_PRATICA               AS TEM_PRATICA,
+      pcg.TEM_ORAL                  AS TEM_ORAL
     FROM FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pcgs
     JOIN FK2_TB_PLANO_CURRICULAR_CURSO pcc
       ON pcc.CODIGO = pcgs.CODIGO_PLANO_CURRICULAR_CURSO
+    JOIN FK2_TB_PLANO_CURRICULAR_GRADE pcg
+      ON pcg.CODIGO_PLANO_CURRICULAR_CURSO = pcc.CODIGO
+      AND pcg.CODIGO_GRADE_CURRICULAR = pcgs.CODIGO_GRADE_CURRICULAR
     JOIN FK2_TB_CURSOS cur
       ON cur.CODIGO = pcc.CODIGO_CURSO
     JOIN FK2_TB_CLASSES cl
@@ -1876,6 +1886,9 @@ export class DisciplineService {
         anoCurricular: r.NOME_CLASSE,
         codigoSemestre: r.CODIGO_SEMESTRE,
         codigoVinculo: r.CODIGO_VINCULO,
+        codigoPlanoGrade: r.CODIGO_PLANO_CURRICULAR_GRADE,
+        temPratica: r.TEM_PRATICA,
+        temOral: r.TEM_ORAL,
       })),
     };
   }
