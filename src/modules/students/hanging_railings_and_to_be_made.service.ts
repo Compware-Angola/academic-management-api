@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FindPlanPorClasseDTO } from './dto/FindPlanPorClasseDTO';
@@ -30,7 +34,6 @@ export interface FindGradeCursoReturnPosDTO {
   duracao: string;
 
   codigo_disciplina: number;
-
 }
 
 export interface FindMatriculaDetails {
@@ -45,9 +48,16 @@ export interface FindMatriculaDetails {
 
 @Injectable()
 export class HangingRailingsAndToBeMadeService {
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly dataSource: DataSource) {}
 
-  async getNextClass(matricula: number, anoLectivo?: number): Promise<{ proxima_classe: number, isEspecializacao: boolean, duracao: string }> {
+  async getNextClass(
+    matricula: number,
+    anoLectivo?: number,
+  ): Promise<{
+    proxima_classe: number;
+    isEspecializacao: boolean;
+    duracao: string;
+  }> {
     const anoLectivoFilter = anoLectivo
       ? `AND ftgca.CODIGO_ANO_LECTIVO = :anoLectivo`
       : `AND ftgca.CODIGO_ANO_LECTIVO = (
@@ -104,7 +114,7 @@ export class HangingRailingsAndToBeMadeService {
 
     if (isEspecialidade) {
       const sql = `
-                SELECT 
+                SELECT
                     CLASSE
                 FROM FK2_TB_CONFIRMACOES
                 WHERE CODIGO_MATRICULA = :matricula
@@ -117,7 +127,7 @@ export class HangingRailingsAndToBeMadeService {
 
     if (classeAtual > duracao) {
       throw new BadRequestException(
-        `Matrícula ${matricula} já atingiu a classe máxima (${duracao})`
+        `Matrícula ${matricula} já atingiu a classe máxima (${duracao})`,
       );
     }
     if (classeAtual === duracao) {
@@ -192,12 +202,50 @@ export class HangingRailingsAndToBeMadeService {
       gradesAFazer,
       totalGradesAFazer: gradesAFazer.length,
       isEspecializacao: false,
+      message: 'Plano curricular do aluno novo carregado com sucesso',
     };
+  }
+  async possuiConfirmacao(
+    codigoMatricula: number,
+    codigoAnoLectivo: number,
+    codigoSemestre: number,
+  ): Promise<boolean> {
+    const sql = `
+    SELECT CODIGO
+    FROM FK2_TB_CONFIRMACOES
+    WHERE CODIGO_MATRICULA   = :codigoMatricula
+      AND CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+      AND SEMESTRE           = :codigoSemestre
+    FETCH FIRST 1 ROW ONLY
+  `;
+
+    const result = await this.dataSource.query(sql, {
+      codigoMatricula,
+      codigoAnoLectivo,
+      codigoSemestre,
+    } as any);
+
+    return !!result?.length;
   }
 
   private async findParaAlunoAntigo(params: FindPlanPorClasseDTO) {
     const { codigoMatricula, codigoAnoLectivo, codigoSemestre } = params;
-
+    const possuiConfirmacaoAnoLectivo = await this.possuiConfirmacao(
+      codigoMatricula!,
+      codigoAnoLectivo,
+      codigoSemestre!,
+    );
+    if (possuiConfirmacaoAnoLectivo) {
+      return {
+        codigoMatricula,
+        gradesPendentes: [],
+        totalGradesPendentes: 0,
+        gradesAFazer: [],
+        totalGradesAFazer: 0,
+        isEspecializacao: false,
+        message: 'Aluno já possui confirmação para este ano lectivo/semestre',
+      };
+    }
     if (!codigoMatricula) {
       throw new BadRequestException(
         `codigoMatricula é obrigatório para aluno antigo`,
@@ -212,9 +260,7 @@ export class HangingRailingsAndToBeMadeService {
 
     const proximaClasse = await this.getNextClass(codigoMatricula);
     if (proximaClasse.proxima_classe <= 1) {
-      throw new BadRequestException(
-        `Erro ao calcular a próxima classe`
-      );
+      throw new BadRequestException(`Erro ao calcular a próxima classe`);
     }
 
     const matricula = await this.getMatriculaDetails(codigoMatricula);
@@ -246,8 +292,7 @@ export class HangingRailingsAndToBeMadeService {
     const gradesPorCurso = await Promise.all(gradesCursoQueries);
     const todasGradesCurso = gradesPorCurso.flat();
 
-    const gradesSemDuplicidade =
-      this.deduplicateGradesCurso(todasGradesCurso);
+    const gradesSemDuplicidade = this.deduplicateGradesCurso(todasGradesCurso);
 
     const gradesPendentes = gradesSemDuplicidade
       .filter(
@@ -272,6 +317,7 @@ export class HangingRailingsAndToBeMadeService {
       gradesAFazer,
       totalGradesAFazer: gradesAFazer.length,
       isEspecializacao: codigoCursoAnterior !== null,
+      message: 'Plano curricular do aluno antigo carregado com sucesso',
     };
   }
 
@@ -401,7 +447,8 @@ export class HangingRailingsAndToBeMadeService {
   private async findGradeCurso(
     params: FindGradeCursoDTO,
   ): Promise<FindGradeCursoReturnDTO[]> {
-    const { codigoCurso, codigoMatricula, codigoAnoLectivo, codigoSemestre } = params;
+    const { codigoCurso, codigoMatricula, codigoAnoLectivo, codigoSemestre } =
+      params;
 
     const sql = `
       WITH grade_base AS (
@@ -601,7 +648,9 @@ export class HangingRailingsAndToBeMadeService {
   async findHangingRailingsAndToBeMadePos(
     query: GetGradePosGraduacaoDto,
   ): Promise<FindGradeCursoReturnPosDTO[]> {
-    const preInscricao = await this.getPreInscricaoDetails(query.codigoPreInscricao);
+    const preInscricao = await this.getPreInscricaoDetails(
+      query.codigoPreInscricao,
+    );
     if (!preInscricao?.codigo_curso) {
       throw new BadRequestException('Curso não encontrado');
     }
@@ -629,7 +678,7 @@ export class HangingRailingsAndToBeMadeService {
       WHERE g.CODIGO_CURSO         = :codigoCurso
         AND g.STATUS_              = 1
         AND d.STATUS_              = 1
-      
+
         AND pgc.CODIGO_ANO_LECTIVO = :codigoCiclo
       ORDER BY g.CODIGO_DISCIPLINA ASC
     `;
@@ -645,7 +694,7 @@ export class HangingRailingsAndToBeMadeService {
 
     return rows.map((row) => ({
       ...row,
-      preInscricao
+      preInscricao,
     }));
   }
 }
