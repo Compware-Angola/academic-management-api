@@ -34,7 +34,7 @@ export class UnidadeCurricularJaNoPlanoException extends ConflictException {
 
 @Injectable()
 export class DisciplineService {
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly dataSource: DataSource) {}
   async findGradeCurricularAluno({
     matriculaId,
     semestre,
@@ -1069,7 +1069,10 @@ export class DisciplineService {
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       if (error instanceof BadRequestException) throw error;
-      console.error('Erro ao actualizar Oral/Prática do plano curricular:', error);
+      console.error(
+        'Erro ao actualizar Oral/Prática do plano curricular:',
+        error,
+      );
       throw new InternalServerErrorException(
         `Erro ao actualizar configuração do plano curricular: ${error.message}`,
       );
@@ -1320,7 +1323,6 @@ export class DisciplineService {
       );
     }
 
-
     // 1. Obter plano do curso
     const codigoPlanoCurso = await this.getPlanoCurso(
       codigoCurso,
@@ -1525,7 +1527,7 @@ export class DisciplineService {
           ON c.CODIGO = g.CODIGO_CLASSE
       WHERE u.CODIGO_PLANO_CURRICULAR_CURSO = :codigoPlanoCurso
         AND g.CODIGO = :codigoGrade
-        
+
       `,
       { codigoPlanoCurso, codigoGrade } as any,
     );
@@ -1533,9 +1535,12 @@ export class DisciplineService {
       // Grade já está no plano — reativar
       await this.ativegrade(codigoGrade);
     } else {
-      await this.adicionarPlano(codigoUtilizador, codigoGrade, codigoPlanoCurso);
+      await this.adicionarPlano(
+        codigoUtilizador,
+        codigoGrade,
+        codigoPlanoCurso,
+      );
     }
-
 
     const nomeDisciplina = gradeCurricular[0].NOME_DISCIPLINA;
 
@@ -1561,6 +1566,8 @@ export class DisciplineService {
       const codigoCurso = cursoItem.codigoCurso;
       const codigoClasse = cursoItem.codigoClasse;
       const codigoSemestre = cursoItem.codigoSemestre;
+      const temOral = cursoItem.temOral ?? false;
+      const temPractica = cursoItem.temPratica ?? false;
       const nomeCurso = nomesCursos.get(codigoCurso) ?? null;
 
       try {
@@ -1632,6 +1639,8 @@ export class DisciplineService {
             codigoUtilizador,
             codigoGrade,
             codigoPlanoCurso,
+            temOral,
+            temPractica,
           );
         }
 
@@ -1731,7 +1740,6 @@ export class DisciplineService {
     codigoVinculo: number,
     codigoUtilizador: number,
   ) {
-
     // 0. Obter o vínculo pelo seu código (já traz grade, plano, curso e ano letivo)
     const vinculoResult = await this.dataSource.query(
       `
@@ -1826,7 +1834,9 @@ export class DisciplineService {
       throw new NotFoundException(`Grade ${codigoGrade} não encontrada.`);
     }
 
-    const filtroCurso = codigoCurso ? 'AND pcc.CODIGO_CURSO = :codigoCurso' : '';
+    const filtroCurso = codigoCurso
+      ? 'AND pcc.CODIGO_CURSO = :codigoCurso'
+      : '';
 
     const resultado = await this.dataSource.query(
       `
@@ -1838,10 +1848,16 @@ export class DisciplineService {
       cl.DESIGNACAO                 AS NOME_CLASSE,
       pcgs.CODIGO_SEMESTRE          AS CODIGO_SEMESTRE,
       pcgs.CODIGO_GRADE_CURRICULAR  AS CODIGO_GRADE,
-      pcc.CODIGO                    AS CODIGO_PLANO_CURRICULAR_CURSO
+      pcc.CODIGO                    AS CODIGO_PLANO_CURRICULAR_CURSO,
+      pcg.CODIGO                    AS CODIGO_PLANO_CURRICULAR_GRADE,
+      pcg.TEM_PRATICA               AS TEM_PRATICA,
+      pcg.TEM_ORAL                  AS TEM_ORAL
     FROM FK2_TB_PLANO_CURRICULAR_GRADE_SEMESTRE pcgs
     JOIN FK2_TB_PLANO_CURRICULAR_CURSO pcc
       ON pcc.CODIGO = pcgs.CODIGO_PLANO_CURRICULAR_CURSO
+    JOIN FK2_TB_PLANO_CURRICULAR_GRADE pcg
+      ON pcg.CODIGO_PLANO_CURRICULAR_CURSO = pcc.CODIGO
+      AND pcg.CODIGO_GRADE_CURRICULAR = pcgs.CODIGO_GRADE_CURRICULAR
     JOIN FK2_TB_CURSOS cur
       ON cur.CODIGO = pcc.CODIGO_CURSO
     JOIN FK2_TB_CLASSES cl
@@ -1851,7 +1867,11 @@ export class DisciplineService {
       ${filtroCurso}
     ORDER BY cur.DESIGNACAO, cl.DESIGNACAO, pcgs.CODIGO_SEMESTRE
     `,
-      { codigoGrade, anoLetivo, ...(codigoCurso ? { codigoCurso } : {}) } as any,
+      {
+        codigoGrade,
+        anoLetivo,
+        ...(codigoCurso ? { codigoCurso } : {}),
+      } as any,
     );
 
     return {
@@ -1865,7 +1885,9 @@ export class DisciplineService {
         anoCurricular: r.NOME_CLASSE,
         codigoSemestre: r.CODIGO_SEMESTRE,
         codigoVinculo: r.CODIGO_VINCULO,
-
+        codigoPlanoGrade: r.CODIGO_PLANO_CURRICULAR_GRADE,
+        temPratica: r.TEM_PRATICA,
+        temOral: r.TEM_ORAL,
       })),
     };
   }
