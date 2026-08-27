@@ -10,6 +10,7 @@ import {
   Max,
   IsString,
 } from 'class-validator';
+
 export class FindGradeCurricularDto {
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
