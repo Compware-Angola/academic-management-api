@@ -139,6 +139,7 @@ export class DisciplineService {
     SELECT DISTINCT
       al.codigo AS codigo,
       al.codigo_grade_curricular AS codigo_grade_curricular,
+      al.nota             AS nota,
       d.designacao        AS disciplina,
       d.codigo_disciplina AS codigo_disciplina,
       s.designacao        AS semestre,
