@@ -2824,11 +2824,24 @@ WHERE M."CODIGO" = :codigoMatricula`;
   async gerarDiploma(body: {
     codigoMatricula: number;
     segundaViaDiploma?: boolean;
+    dataConclusao?: string;
   }) {
-    const { codigoMatricula, segundaViaDiploma = false } = body;
+    const {
+      codigoMatricula,
+      segundaViaDiploma = false,
+      dataConclusao,
+    } = body;
 
     if (!codigoMatricula) {
       throw new BadRequestException('Código da matrícula é obrigatório');
+    }
+
+    const dataConclusaoFinal = dataConclusao
+      ? new Date(dataConclusao)
+      : null;
+
+    if (dataConclusaoFinal && Number.isNaN(dataConclusaoFinal.getTime())) {
+      throw new BadRequestException('Data de conclusão inválida');
     }
 
     const result = await this.dataSource.query(
@@ -2873,15 +2886,60 @@ WHERE M."CODIGO" = :codigoMatricula`;
 
     const aluno = result[0];
 
-    if (!aluno.DATA_CONCLUSAO) {
-      throw new BadRequestException(
-        'Faltam dados do aluno diplomado. Conclusão do curso não encontrada',
-      );
-    }
-
     if (String(aluno.ESTADO_MATRICULA || '').toLowerCase() !== 'diplomado') {
       throw new BadRequestException(
         'O estudante não está diplomado, não é possível gerar o diploma',
+      );
+    }
+
+    if (dataConclusaoFinal) {
+      const conclusaoExistente = await this.dataSource.query(
+        `
+      SELECT CODIGO
+      FROM FK2_CONCLUSAO_CURSO_ALUNO
+      WHERE CODIGO_MATRICULA = :codigoMatricula
+      `,
+        { codigoMatricula } as any,
+      );
+
+      if (conclusaoExistente?.length) {
+        await this.dataSource.query(
+          `
+        UPDATE FK2_CONCLUSAO_CURSO_ALUNO
+        SET DATA_CONCLUSAO = :dataConclusao
+        WHERE CODIGO_MATRICULA = :codigoMatricula
+        `,
+          {
+            codigoMatricula,
+            dataConclusao: dataConclusaoFinal,
+          } as any,
+        );
+      } else {
+        await this.dataSource.query(
+          `
+        INSERT INTO FK2_CONCLUSAO_CURSO_ALUNO (
+          CODIGO_MATRICULA,
+          DATA_CONCLUSAO,
+          NOTA,
+          URLDIPLOMA
+        ) VALUES (
+          :codigoMatricula,
+          :dataConclusao,
+          NULL,
+          '-'
+        )
+        `,
+          {
+            codigoMatricula,
+            dataConclusao: dataConclusaoFinal,
+          } as any,
+        );
+      }
+    }
+
+    if (!aluno.DATA_CONCLUSAO && !dataConclusaoFinal) {
+      throw new BadRequestException(
+        'Faltam dados do aluno diplomado. Conclusão do curso não encontrada',
       );
     }
 
@@ -2917,7 +2975,9 @@ WHERE M."CODIGO" = :codigoMatricula`;
         nomeAluno: aluno.NOME_COMPLETO,
         curso: cursoDiploma,
         dataNascimento: formatarDataExtenso(aluno.DATA_NASCIMENTO),
-        dataConclusao: formatarDataExtenso(aluno.DATA_CONCLUSAO),
+        dataConclusao: formatarDataExtenso(
+          dataConclusaoFinal ?? aluno.DATA_CONCLUSAO,
+        ),
         dataEmissaoDocumento: formatarDataExtenso(new Date()),
         naturalidade: aluno.NATURALIDADE || '',
         nomePai: aluno.PAI || '',
