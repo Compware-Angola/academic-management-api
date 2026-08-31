@@ -1,31 +1,26 @@
-type SemestreDatas = {
-  DATAINICIOPRIMEIROSEMESTRE: string | Date;
-  DATAFIMPRIMEIROSEMESTRE: string | Date;
-  DATAINICIOSEGUNDOSEMESTRE: string | Date;
-  DATAFIMSEGUNDOSEMESTRE: string | Date;
-};
+export function definirSemestre(datas: {
+  DATAINICIOPRIMEIROSEMESTRE?: Date | string | null;
+  DATAFIMPRIMEIROSEMESTRE?: Date | string | null;
+  DATAINICIOSEGUNDOSEMESTRE?: Date | string | null;
+  DATAFIMSEGUNDOSEMESTRE?: Date | string | null;
+}): number {
+  const hoje = new Date();
 
-function definirSemestre(
-  datas: SemestreDatas,
-  dataReferencia: Date = new Date(),
-): 1 | 2 | null {
-  const ref = new Date(dataReferencia);
+  const inicio1 = datas.DATAINICIOPRIMEIROSEMESTRE ? new Date(datas.DATAINICIOPRIMEIROSEMESTRE) : null;
+  const fim1 = datas.DATAFIMPRIMEIROSEMESTRE ? new Date(datas.DATAFIMPRIMEIROSEMESTRE) : null;
+  const inicio2 = datas.DATAINICIOSEGUNDOSEMESTRE ? new Date(datas.DATAINICIOSEGUNDOSEMESTRE) : null;
+  const fim2 = datas.DATAFIMSEGUNDOSEMESTRE ? new Date(datas.DATAFIMSEGUNDOSEMESTRE) : null;
 
-  const inicio1 = new Date(datas.DATAINICIOPRIMEIROSEMESTRE);
-  const fim1 = new Date(datas.DATAFIMPRIMEIROSEMESTRE);
-
-  const inicio2 = new Date(datas.DATAINICIOSEGUNDOSEMESTRE);
-  const fim2 = new Date(datas.DATAFIMSEGUNDOSEMESTRE);
-
-  if ((ref >= inicio1 && ref <= fim1) || inicio1 >= ref) {
+  if (inicio1 && hoje < inicio1) {
+    return 1;
+  }
+  if (inicio1 && fim1 && hoje >= inicio1 && hoje <= fim1) {
     return 1;
   }
 
-  if (ref >= inicio2 && ref <= fim2) {
+  if (inicio2 && fim2 && hoje >= inicio2 && hoje <= fim2) {
     return 2;
   }
 
-  return null;
+  return 2;
 }
-
-export { definirSemestre };
