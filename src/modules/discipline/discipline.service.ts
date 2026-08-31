@@ -1898,26 +1898,33 @@ export class DisciplineService {
 
     const sql = `
     SELECT
-      PC.DESIGNACAO   AS designacao,
-      PC.CODIGO       AS codigo_plano,
-      PCG.CODIGO      AS codigo_plano_grade,
-      C.DESIGNACAO    AS curso,
-      PCG.TEM_PRATICA AS tem_pratica,
-      PCG.TEM_ORAL    AS tem_oral,
-      D.DESIGNACAO    AS DISCIPLINA
+    PC.DESIGNACAO AS designacao,
+    PC.CODIGO AS codigo_plano,
+    PCG.CODIGO AS codigo_plano_grade,
+    C.DESIGNACAO AS curso,
+    PCG.TEM_PRATICA AS tem_pratica,
+    PCG.TEM_ORAL AS tem_oral,
+    D.DESIGNACAO AS disciplina
     FROM FK2_TB_PLANO_CURRICULAR_CURSO PC
+
     INNER JOIN FK2_TB_PLANO_CURRICULAR_GRADE PCG
-            ON PCG.CODIGO_PLANO_CURRICULAR_CURSO = PC.CODIGO
+        ON PCG.CODIGO_PLANO_CURRICULAR_CURSO = PC.CODIGO
+
     INNER JOIN FK2_TB_GRADE_CURRICULAR G
-            ON G.CODIGO = PCG.CODIGO_GRADE_CURRICULAR
+        ON G.CODIGO = PCG.CODIGO_GRADE_CURRICULAR
+
     INNER JOIN FK2_TB_CURSOS C
-            ON C.CODIGO = G.CODIGO_CURSO
+        ON C.CODIGO = G.CODIGO_CURSO
+
     INNER JOIN FK2_TB_DISCIPLINAS D
-            ON D.CODIGO = G.CODIGO_DISCIPLINA
+        ON D.CODIGO = G.CODIGO_DISCIPLINA
+
     WHERE PC.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
+      AND PC.CODIGO_CURSO = G.CODIGO_CURSO
       AND PCG.CODIGO_GRADE_CURRICULAR = :codigoGradeCurricular
+
     FETCH FIRST 1 ROWS ONLY
-  `;
+      `;
 
     try {
       const registos = await this.dataSource.query(sql, {
