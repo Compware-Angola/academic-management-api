@@ -305,7 +305,7 @@ export class HangingRailingsAndToBeMadeService {
     const gradesAFazer = gradesSemDuplicidade
       .filter(
         (g) =>
-          g.codigo_classe === proximaClasse.proxima_classe &&
+          g.codigo_classe >= proximaClasse.proxima_classe &&
           (g.nota === null || g.nota === undefined || g.nota < 10),
       )
       .sort((a, b) => a.codigo_disciplina - b.codigo_disciplina);
