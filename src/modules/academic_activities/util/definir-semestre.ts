@@ -22,5 +22,5 @@ export function definirSemestre(datas: {
     return 2;
   }
 
-  return 2;
+  return 1;
 }
