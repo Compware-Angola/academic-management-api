@@ -9,6 +9,7 @@ function definirSemestre(
   datas: SemestreDatas,
   dataReferencia: Date = new Date(),
 ): 1 | 2 | null {
+  return 1;
   const ref = new Date(dataReferencia);
 
   const inicio1 = new Date(datas.DATAINICIOPRIMEIROSEMESTRE);

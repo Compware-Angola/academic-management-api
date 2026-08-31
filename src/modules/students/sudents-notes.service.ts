@@ -299,6 +299,7 @@ export class StudentNoteService {
       if (
         gradeAluno.CODIGO_ANO_LECTIVO < anoCorrente &&
         gradeAluno.NOTA !== null &&
+        gradeAluno.NOTA > 0 &&
         gradeAluno.NOTA !== undefined &&
         gradeAluno.NOTA !== ''
       ) {
