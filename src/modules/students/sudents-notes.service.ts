@@ -56,7 +56,7 @@ export class StudentNoteService {
       anoLectivo,
       codigoMatricula,
     );
-    console.log(gradesDoEstudante);
+    console.log('Grades: ', gradesDoEstudante);
     for (const grades of gradesDoEstudante) {
       try {
         const pautaDoAluno = await this.processarNotasHorario(
@@ -281,7 +281,7 @@ export class StudentNoteService {
       console.log(`\nCADEIRA a verificar -----> `, gradeAluno.DISCIPLINA);
 
       const avaliacoes = await this.buscarAvaliacoes(gradeAluno.CODIGO);
-
+      console.log('Avaliações: ', avaliacoes);
       const getNota = (tipo: number) =>
         avaliacoes.find((a) => a.TIPO_AVALIACAO === tipo) || null;
       const nota1f = getNota(2);
@@ -299,6 +299,7 @@ export class StudentNoteService {
       if (
         gradeAluno.CODIGO_ANO_LECTIVO < anoCorrente &&
         gradeAluno.NOTA !== null &&
+        gradeAluno.NOTA > 0 &&
         gradeAluno.NOTA !== undefined &&
         gradeAluno.NOTA !== ''
       ) {
@@ -840,6 +841,7 @@ export class StudentNoteService {
     FROM FK2_TB_GRADE_CURRICULAR_ALUNO_AVALIACOES avaliacao
     WHERE avaliacao.GRADE_CURRICULAR_ALUNO = :1
       AND avaliacao.TIPO_AVALIACAO IN (2,3,6,7,4,9,23,22,11,24)
+    ORDER BY avaliacao.CODIGO DESC
   `,
       [gradeAlunoId],
     );
