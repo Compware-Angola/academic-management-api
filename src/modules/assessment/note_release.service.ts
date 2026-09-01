@@ -442,10 +442,10 @@ export class NoteReleaseService {
             SELECT 1
             FROM FK2_FACTURA FAT
             INNER JOIN FK2_FACTURA_ITEMS FI ON FI.CODIGOFACTURA = FAT.CODIGO
-            INNER JOIN FK2_TB_TIPO_SERVICOS TS ON TS.CODIGO = FI.CODIGOPRODUTO
-            WHERE FAT.CODIGOMATRICULA = MAT.CODIGO
-              AND FAT.ANO_LECTIVO = :anoLectivoId
-              AND LOWER(TS.SIGLA) = LOWER('IaEdRurso')
+            --INNER JOIN FK2_TB_TIPO_SERVICOS TS ON TS.CODIGO = FI.CODIGOPRODUTO
+           -- WHERE FAT.CODIGOMATRICULA = MAT.CODIGO
+            --  AND FAT.ANO_LECTIVO = :anoLectivoId
+            --  AND LOWER(TS.SIGLA) = LOWER('IaEdRurso')
         )
         AND EXISTS (
             SELECT 1
