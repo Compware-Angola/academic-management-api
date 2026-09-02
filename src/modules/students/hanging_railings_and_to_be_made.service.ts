@@ -7,6 +7,7 @@ import { DataSource } from 'typeorm';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { FindPlanPorClasseDTO } from './dto/FindPlanPorClasseDTO';
 import { GetGradePosGraduacaoDto } from './dto/get-grade-pos-graduacao';
+import { FindGradeAlunoAprovadoReturnDTO } from './students-result-plan.service';
 
 export interface FindGradeCursoDTO {
   codigoMatricula: number;
@@ -64,7 +65,7 @@ export class HangingRailingsAndToBeMadeService {
                 SELECT MAX(CODIGO_ANO_LECTIVO)
                 FROM FK2_TB_GRADE_CURRICULAR_ALUNO
                 WHERE CODIGO_MATRICULA = m.CODIGO
-                  AND CODIGO_STATUS_GRADE_CURRICULAR IN (2)
+                  AND CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
               )`;
 
     const sql = `
@@ -84,7 +85,7 @@ export class HangingRailingsAndToBeMadeService {
             LEFT JOIN FK2_TB_CURSO_ESPECIALIDADE ce
                 ON ce.CODIGO_CURSO_ESPECIALIDADE = c.CODIGO
             WHERE m.CODIGO = :matricula
-              AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2)
+              AND ftgca.CODIGO_STATUS_GRADE_CURRICULAR IN (2, 3)
               ${anoLectivoFilter}
             GROUP BY cl.CODIGO, c.DURACAO, ce.CODIGO_CURSO_ESPECIALIDADE
             ORDER BY COUNT(ftgca.CODIGO) DESC
@@ -95,7 +96,7 @@ export class HangingRailingsAndToBeMadeService {
     if (anoLectivo) queryParams.anoLectivo = anoLectivo;
 
     const result = await this.dataSource.query(sql, queryParams as any);
-
+    console.log('getNextClass result:', result);
     if (!result || result.length === 0) {
       throw new BadRequestException(`Matrícula ${matricula} não encontrada`);
     }
@@ -294,7 +295,12 @@ export class HangingRailingsAndToBeMadeService {
 
     const gradesSemDuplicidade = this.deduplicateGradesCurso(todasGradesCurso);
 
-    const gradesPendentes = gradesSemDuplicidade
+    const gradesAluno = await this.findGradesAprovadasAluno(codigoMatricula!);
+
+    const gradesCursoIncluindoExcendentes =
+      this.mergeGradesPreservandoMaiorNota(gradesSemDuplicidade, gradesAluno);
+
+    const gradesPendentes = gradesCursoIncluindoExcendentes
       .filter(
         (g) =>
           g.codigo_classe < proximaClasse.proxima_classe &&
@@ -302,7 +308,7 @@ export class HangingRailingsAndToBeMadeService {
       )
       .sort((a, b) => a.codigo_classe - b.codigo_classe);
 
-    const gradesAFazer = gradesSemDuplicidade
+    const gradesAFazer = gradesCursoIncluindoExcendentes
       .filter(
         (g) =>
           g.codigo_classe >= proximaClasse.proxima_classe &&
@@ -621,6 +627,46 @@ export class HangingRailingsAndToBeMadeService {
     }));
   }
 
+  private async findGradesAprovadasAluno(
+    codigoMatricula: number,
+  ): Promise<FindGradeAlunoAprovadoReturnDTO[]> {
+    const sql = `
+      SELECT
+        ga.CODIGO             AS CODIGO,
+        al.NOTA               AS NOTA,
+        ga.CODIGO_DISCIPLINA  AS CODIGO_DISCIPLINA,
+        d.DESIGNACAO          AS DISCIPLINA,
+        ga.CODIGO_CLASSE      AS CODIGO_CLASSE,
+        cl.DESIGNACAO         AS CLASSE,
+        dur.DESIGNACAO        AS DURACAO,
+        s.DESIGNACAO          AS SEMESTRE,
+        al.CODIGO             AS CODIGO_GRADE_ALUNO
+      FROM FK2_TB_GRADE_CURRICULAR_ALUNO al
+      INNER JOIN FK2_TB_GRADE_CURRICULAR ga
+        ON ga.CODIGO = al.CODIGO_GRADE_CURRICULAR
+      INNER JOIN FK2_TB_DISCIPLINAS d
+        ON d.codigo = ga.CODIGO_DISCIPLINA
+      INNER JOIN FK2_TB_CLASSES cl
+        ON cl.CODIGO = ga.CODIGO_CLASSE
+      INNER JOIN FK2_TB_SEMESTRES s
+        ON s.CODIGO = ga.CODIGO_SEMESTRE
+      INNER JOIN FK2_TB_DURACAO dur
+        ON dur.CODIGO = d.DURACAO
+      WHERE al.CODIGO_MATRICULA = :codigoMatricula
+        AND al.NOTA >= 10
+        AND al.CODIGO_STATUS_GRADE_CURRICULAR NOT IN (5, 4)
+      ORDER BY ga.CODIGO_CLASSE
+    `;
+
+    const result = await this.dataSource.query(sql, {
+      codigoMatricula,
+    } as any);
+
+    if (!result || result.length === 0) return [];
+
+    return toLowerCaseKeys(result);
+  }
+
   private deduplicateGradesCurso(
     data: FindGradeCursoReturnDTO[],
   ): FindGradeCursoReturnDTO[] {
@@ -639,6 +685,36 @@ export class HangingRailingsAndToBeMadeService {
 
       if (!existingHasNota && itemHasNota) {
         map.set(key, item);
+      }
+    }
+
+    return Array.from(map.values());
+  }
+
+  private mergeGradesPreservandoMaiorNota(
+    gradesCurso: FindGradeCursoReturnDTO[],
+    disciplinasExcedentes: FindGradeAlunoAprovadoReturnDTO[],
+  ): FindGradeCursoReturnDTO[] {
+    const map = new Map<string, FindGradeCursoReturnDTO>();
+
+    for (const g of gradesCurso) {
+      map.set(g.disciplina?.trim().toUpperCase(), g);
+    }
+
+    for (const excedente of disciplinasExcedentes) {
+      const key = excedente.disciplina?.trim().toUpperCase();
+      const existing = map.get(key);
+
+      if (!existing) {
+        map.set(key, excedente as unknown as FindGradeCursoReturnDTO);
+        continue;
+      }
+
+      const notaExistente = existing.nota ?? -1;
+      const notaExcedente = excedente.nota ?? -1;
+
+      if (notaExcedente > notaExistente) {
+        map.set(key, excedente as unknown as FindGradeCursoReturnDTO);
       }
     }
 
