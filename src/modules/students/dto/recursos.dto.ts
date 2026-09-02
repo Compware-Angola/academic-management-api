@@ -16,6 +16,20 @@ export class FindCadeirasRecursoDto {
   codigoMatricula: number;
 }
 
+export class FindCadeirasMelhoriaDto {
+  @ApiProperty({ description: 'Ano letivo', example: 22 })
+  @IsNotEmpty()
+  @IsNumber()
+  @Type(() => Number)
+  codigoAnoLectivo: number;
+
+  @ApiProperty({ description: 'Código da matrícula', example: 48030 })
+  @IsNotEmpty()
+  @IsNumber()
+  @Type(() => Number)
+  codigoMatricula: number;
+}
+
 export class FindCadeirasEpocaEspecialDto {
   @ApiProperty({ description: 'Ano letivo', example: 22 })
   @IsNotEmpty()
@@ -90,14 +104,21 @@ export class InscricaoDTO {
   @IsNumber()
   @Type(() => Number)
   tipoCandidatura: number;
+
+  @ApiProperty({ description: 'Tipo de candidatura', example: 23 })
+  @IsNotEmpty()
+  @IsNumber()
+  @Type(() => Number)
+  anoLectivo: number;
 }
 
 export class CriarInscricaoRecursoBodyDTO extends OmitType(InscricaoDTO, [
   'codigoMatricula',
-  'tipoCandidatura'
-] as const) { }
+  'tipoCandidatura',
+  'anoLectivo',
+] as const) {}
 export class CriarInscricaoEpocaEspecialBodyDTO extends OmitType(InscricaoDTO, [
   'codigoMatricula',
-  'tipoCandidatura'
-
-] as const) { }
+  'tipoCandidatura',
+  'anoLectivo',
+] as const) {}

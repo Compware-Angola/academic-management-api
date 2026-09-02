@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { StudentNoteService } from './sudents-notes.service';
 import {
   FindCadeirasEpocaEspecialDto,
+  FindCadeirasMelhoriaDto,
   FindCadeirasRecursoDto,
   GradeRecursoAluno,
   InscricaoDTO,
@@ -21,6 +22,7 @@ import { StudentsResultPlanService } from './students-result-plan.service';
 export const TIPO_AVALIACAO = {
   RECURSO: 7,
   EXAME_ESPECIAL: 11,
+  MELHORIA_NOTA: 22,
 } as const;
 
 const SEMESTRE_TODOS = 3;
@@ -53,6 +55,7 @@ export type CodigoTipoAvaliacao =
 export const SIGLA_SERVICO = {
   RECURSO: 'IaEdRurso',
   EXAME_ESPECIAL: 'IeEEF',
+  MELHORIA_NOTA: 'IaEdMdN',
 } as const;
 
 interface AnoLectivo {
@@ -173,6 +176,34 @@ export class StudentsProvasService {
     };
   }
 
+  async cadeirasMelhoria(dto: FindCadeirasMelhoriaDto) {
+    const { data } = await this.studentNoteService.findAll({
+      anoLectivo: dto.codigoAnoLectivo,
+      codigoMatricula: dto.codigoMatricula,
+    });
+
+    const elegiveis = this.filtrarCadeirasElegiveis(data, {
+      apenasReprovadas: true,
+      excluirSeTemNotas: ['notaEE', 'notaOEE'],
+      requererAoMenosUmaCondicao: [
+        // Caminho 1: foi direto para EE, sem passar pelo recurso
+        (c) => !this.temNota(c.notaRec) && !this.temNota(c.notaOrRec),
+        // Caminho 2: fez recurso e reprovou
+        (c) => this.temNota(c.notaRec) && c.resultado === 'Reprovado',
+        // Caminho 3: fez oral de recurso e reprovou
+        (c) => this.temNota(c.notaOrRec) && c.resultado === 'Reprovado',
+      ],
+    });
+
+    return {
+      total: elegiveis.length,
+      matricula: dto.codigoMatricula,
+      anoLectivo: dto.codigoAnoLectivo,
+      nomeCompleto: elegiveis[0]?.nome_completo ?? null,
+      cadeiras: elegiveis.map(this.mapearCadeiraComNotasRecurso.bind(this)),
+    };
+  }
+
   async inscricaoRecurso(dto: InscricaoDTO) {
     const [anoLectivo, dadosAluno, anoLectivoDaUltimaConfirmacao] =
       await Promise.all([
@@ -189,7 +220,7 @@ export class StudentsProvasService {
 
     const prazo = await this.prazosService.obterPrazo({
       tipo: TipoCalendario.RECURSO,
-      anoLectivoParam: anoLectivo.codigo,
+      anoLectivoParam: dto.anoLectivo ?? anoLectivo.codigo,
     });
     if (prazo && !prazo.podeInscrever)
       throw new BadRequestException(prazo.mensagem);
@@ -239,7 +270,83 @@ export class StudentsProvasService {
       dto.codigoMatricula,
       gradesParaInscrever,
       TIPO_AVALIACAO.RECURSO,
+      dto.anoLectivo ?? anoLectivo.codigo,
+      fatura.Codigo,
+      dadosAluno.canal,
+    );
+
+    return {
+      message: 'Inscrição realizada com sucesso',
+    };
+  }
+
+  async inscricaoMelhoria(dto: InscricaoDTO) {
+    const [anoLectivo, dadosAluno, anoLectivoDaUltimaConfirmacao] =
+      await Promise.all([
+        this.buscarAnoLectivoCorrente(dto.tipoCandidatura),
+        this.dadosAluno(dto.codigoMatricula),
+        this.buscarAnoLectivoDaUltimaConfirmacao(dto.codigoMatricula),
+      ]);
+
+    // if (anoLectivo.codigo !== anoLectivoDaUltimaConfirmacao) {
+    //   throw new BadRequestException(
+    //     'Não é possível efetuar a inscrição neste momento. Por favor, aguarde a abertura do novo ano letivo.',
+    //   );
+    // }
+
+    const prazo = await this.prazosService.obterPrazo({
+      tipo: TipoCalendario.MELHORIA_NOTAS,
+      anoLectivoParam: dto.anoLectivo ?? anoLectivo.codigo,
+    });
+    if (prazo && !prazo.podeInscrever)
+      throw new BadRequestException(prazo.mensagem);
+
+    const gradesParaInscrever = await this.filtrarGradesNaoInscritas(
+      dto.codigoMatricula,
+      dto.gradesAlunos,
+      TIPO_AVALIACAO.MELHORIA_NOTA,
       anoLectivo.codigo,
+    );
+
+    if (gradesParaInscrever.length === 0) {
+      throw new BadRequestException(
+        'O aluno já está inscrito em todas as cadeiras selecionadas.',
+      );
+    }
+
+    const servico = await this.buscarPrecoServico(
+      SIGLA_SERVICO.MELHORIA_NOTA,
+      anoLectivo.codigo,
+    );
+    if (!servico) {
+      throw new BadRequestException('Serviço de recurso não configurado.');
+    }
+
+    const valores = await this.calcularValoresInscricao(
+      gradesParaInscrever.length,
+      servico,
+    );
+
+    const bodyFatura: InvoicePayload = this.montarPayloadFatura({
+      valores,
+      servico,
+      dto,
+      dadosAluno,
+      anoLectivo,
+      codigoDescricao: 6,
+      descricao: `Inscrição de Recurso - ${anoLectivo.designacao}`,
+    });
+
+    const fatura = await FinanceInvoiceHelper.createInvoice(
+      this.httpService,
+      bodyFatura,
+    );
+
+    await this.persistirInscricoes(
+      dto.codigoMatricula,
+      gradesParaInscrever,
+      TIPO_AVALIACAO.MELHORIA_NOTA,
+      dto.anoLectivo ?? anoLectivo.codigo,
       fatura.Codigo,
       dadosAluno.canal,
     );
@@ -301,21 +408,21 @@ export class StudentsProvasService {
 
     const prazo = await this.prazosService.obterPrazo({
       tipo: TipoCalendario.EXAME_ESPECIAL,
-      anoLectivoParam: anoLectivo.codigo,
+      anoLectivoParam: dto.anoLectivo ?? anoLectivo.codigo,
     });
     if (prazo && !prazo.podeInscrever)
       throw new BadRequestException(prazo.mensagem);
 
-    if (
-      !(
-        studentForEpocaEspecial.totalGradesCurso -
-          studentForEpocaEspecial.totalGrasesAluno <=
-        4
-      )
-    )
-      throw new BadRequestException(
-        'O aluno não é elegível para inscrição em época especial.',
-      );
+    // if (
+    //   !(
+    //     studentForEpocaEspecial.totalGradesCurso -
+    //       studentForEpocaEspecial.totalGrasesAluno <=
+    //     4
+    //   )
+    // )
+    //   throw new BadRequestException(
+    //     'O aluno não é elegível para inscrição em época especial.',
+    //   );
 
     const servico = await this.buscarPrecoServico(
       SIGLA_SERVICO.EXAME_ESPECIAL,
@@ -351,7 +458,7 @@ export class StudentsProvasService {
       dto.codigoMatricula,
       dto.gradesAlunos,
       TIPO_AVALIACAO.EXAME_ESPECIAL,
-      anoLectivo.codigo,
+      dto.anoLectivo ?? anoLectivo.codigo,
       fatura.Codigo,
       dadosAluno.canal,
     );
