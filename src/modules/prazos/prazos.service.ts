@@ -12,17 +12,17 @@ import { AnoLectivoUtil } from '../util/current-academic-year';
 import { toLowerCaseKeys } from '../util/toLowerCaseKeys';
 import { MENSAGENS_PADRAO } from './utils';
 type ObterPrazoOptions = {
-  tipo: TipoCalendario,
+  tipo: TipoCalendario;
   codigo_tipo_candidatura?: number;
   anoLectivoParam?: number;
 };
-type  ObterPrazoByCodigoo = {
+type ObterPrazoByCodigoo = {
   codigo: number;
   codigo_tipo_candidatura?: number;
   anoLectivoParam?: number;
 };
 
-type  VerificarPrazoOptions = {
+type VerificarPrazoOptions = {
   tipo: CodigoTipoCalendario;
   anoLectivoParam?: number;
   codigo_tipo_candidatura: number;
@@ -35,23 +35,33 @@ export class PrazosService {
     private readonly anoLectivoUtil: AnoLectivoUtil,
   ) {}
 
-  async obterPrazo(
-    options: ObterPrazoOptions
-  ): Promise<PrazoResponse> {
-    const { tipo, codigo_tipo_candidatura = CODIGO_TIPO_CANDIDATURA_LICENCIATURA, anoLectivoParam } = options;
+  async obterPrazo(options: ObterPrazoOptions): Promise<PrazoResponse> {
+    const {
+      tipo,
+      codigo_tipo_candidatura = CODIGO_TIPO_CANDIDATURA_LICENCIATURA,
+      anoLectivoParam,
+    } = options;
     const tipoCodigo = TIPO_CALENDARIO_CODIGO[tipo];
 
     if (!tipoCodigo) {
       throw new BadRequestException('Tipo de calendário inválido.');
     }
 
-    return this.verificarPrazo({tipo:tipoCodigo,anoLectivoParam,codigo_tipo_candidatura});
+    return this.verificarPrazo({
+      tipo: tipoCodigo,
+      anoLectivoParam,
+      codigo_tipo_candidatura,
+    });
   }
 
   async obterPrazoPorCodigo(
-    options: ObterPrazoByCodigoo
+    options: ObterPrazoByCodigoo,
   ): Promise<PrazoResponse> {
-     const { codigo, codigo_tipo_candidatura = CODIGO_TIPO_CANDIDATURA_LICENCIATURA, anoLectivoParam } = options;
+    const {
+      codigo,
+      codigo_tipo_candidatura = CODIGO_TIPO_CANDIDATURA_LICENCIATURA,
+      anoLectivoParam,
+    } = options;
     const tipoCodigo = codigo as CodigoTipoCalendario;
 
     const sql = `
@@ -67,13 +77,17 @@ export class PrazosService {
       throw new BadRequestException('Calendário não encontrado.');
     }
 
-    return this.verificarPrazo({tipo:tipoCodigo,anoLectivoParam,codigo_tipo_candidatura});
+    return this.verificarPrazo({
+      tipo: tipoCodigo,
+      anoLectivoParam,
+      codigo_tipo_candidatura,
+    });
   }
 
   private async verificarPrazo(
-   options: VerificarPrazoOptions
+    options: VerificarPrazoOptions,
   ): Promise<PrazoResponse> {
-     const { tipo, codigo_tipo_candidatura, anoLectivoParam } = options;
+    const { tipo, codigo_tipo_candidatura, anoLectivoParam } = options;
     const mensagens = MENSAGENS_PADRAO[tipo];
 
     const anoLectivo =
@@ -97,12 +111,16 @@ export class PrazosService {
     `;
 
     const rows = toLowerCaseKeys(
-      await this.dataSource.query(sql, [anoLectivo, tipo, codigo_tipo_candidatura]),
+      await this.dataSource.query(sql, [
+        anoLectivo,
+        tipo,
+        codigo_tipo_candidatura,
+      ]),
     );
 
     if (!rows?.length) {
       return {
-         codigoTipoCandidatura:codigo_tipo_candidatura,
+        codigoTipoCandidatura: codigo_tipo_candidatura,
         status: 'NAO_CONFIGURADO',
         podeInscrever: false,
         mensagem: mensagens.naoConfigurado,
@@ -140,7 +158,7 @@ export class PrazosService {
     switch (situacao) {
       case 'ANTES':
         return {
-          codigoTipoCandidatura:codigo_tipo_candidatura,
+          codigoTipoCandidatura: codigo_tipo_candidatura,
           status: 'NAO_DISPONIVEL',
           podeInscrever: false,
           mensagem: mensagens.antes,
@@ -149,7 +167,7 @@ export class PrazosService {
 
       case 'DEPOIS':
         return {
-          codigoTipoCandidatura:codigo_tipo_candidatura,
+          codigoTipoCandidatura: codigo_tipo_candidatura,
           status: 'ENCERRADO',
           podeInscrever: false,
           mensagem: mensagens.depois,
@@ -158,7 +176,7 @@ export class PrazosService {
 
       case 'DURANTE':
         return {
-           codigoTipoCandidatura:codigo_tipo_candidatura,
+          codigoTipoCandidatura: codigo_tipo_candidatura,
           status: 'ABERTO',
           podeInscrever: true,
           mensagem: mensagens.durante,
@@ -167,7 +185,7 @@ export class PrazosService {
 
       default:
         return {
-           codigoTipoCandidatura:codigo_tipo_candidatura,
+          codigoTipoCandidatura: codigo_tipo_candidatura,
           status: 'NAO_CONFIGURADO',
           podeInscrever: false,
           mensagem: 'Situação desconhecida.',

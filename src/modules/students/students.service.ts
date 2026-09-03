@@ -2233,11 +2233,11 @@ WHERE M."CODIGO" = :codigoMatricula`;
 
     const matricula = matriculas[0];
 
-    if (matricula.estado_matricula?.toLowerCase() === 'diplomado') {
-      throw new BadRequestException(
-        'Não é possível definir especialidade para aluno diplomado',
-      );
-    }
+    // if (matricula.estado_matricula?.toLowerCase() === 'diplomado') {
+    //   throw new BadRequestException(
+    //     'Não é possível definir especialidade para aluno diplomado',
+    //   );
+    // }
     await this.dataSource.query(
       `
       UPDATE FK2_TB_MATRICULAS
@@ -2514,7 +2514,22 @@ WHERE M."CODIGO" = :codigoMatricula`;
       const totalFeitas = grades.totalGrasesAluno;
       const totalCurso = grades.totalGradesCurso;
 
-      if (!totalCurso || totalFeitas < totalCurso) {
+      const JaDiplomadoAntes = await manager.query(
+        `
+  SELECT
+    CASE WHEN EXISTS (
+      SELECT 1
+      FROM FK2_MGA_TB_LOG_DIPLOMAR D
+      WHERE D.FK_MATRICULA = :codigoMatricula
+    ) THEN 1 ELSE 0 END AS JA_DIPLOMADO_ANTES
+  FROM DUAL
+  `,
+        [codigoMatricula],
+      );
+
+      const jaDiplomado = Number(JaDiplomadoAntes[0]?.JA_DIPLOMADO_ANTES) === 1;
+
+      if (!totalCurso || (totalFeitas < totalCurso && !jaDiplomado)) {
         throw new BadRequestException(
           'O estudante não se encontra em condições para ser diplomado',
         );
