@@ -107,7 +107,7 @@ export class HangingRailingsAndToBeMadeService {
 
     if (classeAtual === null || classeAtual === undefined) {
       return {
-        proxima_classe: 1,
+        proxima_classe: 0,
         isEspecializacao: isEspecialidade,
         duracao: duracao,
       };
@@ -122,18 +122,22 @@ export class HangingRailingsAndToBeMadeService {
                 ORDER BY CLASSE DESC
                 FETCH FIRST 1 ROW ONLY
             `;
-      const result = await this.dataSource.query(sql, { matricula } as any);
-      return result[0].CLASSE;
+      const confirmacoes = await this.dataSource.query(sql, {
+        matricula,
+      } as any);
+      const classeConfirmada = confirmacoes?.[0]?.CLASSE;
+
+      return {
+        proxima_classe:
+          classeConfirmada != null ? Number(classeConfirmada) : duracao,
+        isEspecializacao: isEspecialidade,
+        duracao: duracao,
+      };
     }
 
-    if (classeAtual > duracao) {
-      throw new BadRequestException(
-        `Matrícula ${matricula} já atingiu a classe máxima (${duracao})`,
-      );
-    }
-    if (classeAtual === duracao) {
+    if (classeAtual >= duracao) {
       return {
-        proxima_classe: classeAtual,
+        proxima_classe: duracao,
         isEspecializacao: isEspecialidade,
         duracao: duracao,
       };
@@ -260,7 +264,7 @@ export class HangingRailingsAndToBeMadeService {
     }
 
     const proximaClasse = await this.getNextClass(codigoMatricula);
-    if (proximaClasse.proxima_classe <= 1) {
+    if (proximaClasse.proxima_classe <= 0) {
       throw new BadRequestException(`Erro ao calcular a próxima classe`);
     }
 
@@ -458,15 +462,13 @@ export class HangingRailingsAndToBeMadeService {
 
     const sql = `
       WITH grade_base AS (
-        -- Histórico: todas as grades já vinculadas a QUALQUER plano deste
-        -- curso (independente do ano lectivo), incluindo disciplinas de
-        -- tronco comum vinculadas via plano curricular (pgc.CODIGO_CURSO).
-        -- É aqui que descobrimos o que o aluno deixou/tem pendente, com a
+        -- Disciplinas do plano curricular do ANO LECTIVO informado deste
+        -- curso (via pgc.CODIGO_CURSO, para incluir tronco comum), com a
         -- classe/semestre em que a disciplina fica DENTRO DESTE PLANO
         -- (via pgs, com fallback para a classe/semestre original da
         -- grade caso não haja registo em pgs).
-        -- Filtrado pelo semestre informado (aluno antigo sempre indica o
-        -- semestre que quer consultar).
+        -- Filtrado pelo ano lectivo e semestre informados (aluno antigo
+        -- sempre indica o semestre que quer consultar).
         SELECT
           g.CODIGO,
           g.CODIGO_DISCIPLINA,
@@ -491,9 +493,10 @@ export class HangingRailingsAndToBeMadeService {
           ON s.CODIGO = COALESCE(pgs.CODIGO_SEMESTRE, g.CODIGO_SEMESTRE)
         INNER JOIN FK2_TB_DURACAO dur
           ON dur.CODIGO = d.DURACAO
-        WHERE pgc.CODIGO_CURSO  = :codigoCurso
-          AND g.STATUS_         = 1
-          AND d.STATUS_         = 1
+        WHERE pgc.CODIGO_CURSO       = :codigoCurso
+          AND g.STATUS_              = 1
+          AND d.STATUS_              = 1
+          AND pgc.CODIGO_ANO_LECTIVO = :codigoAnoLectivo
           AND COALESCE(pgs.CODIGO_SEMESTRE, g.CODIGO_SEMESTRE) = :codigoSemestre
       ),
       grade_atual AS (
