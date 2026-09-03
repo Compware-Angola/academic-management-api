@@ -226,7 +226,7 @@ export class ScheduleController {
   ) {
     return this.scheduleService.findSchedulesByAnoPeriodoGrade(
       query.anoLectivo,
-      query.periodo,
+      query.periodo || null,
       query.gradeCurricular,
     );
   }

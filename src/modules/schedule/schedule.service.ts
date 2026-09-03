@@ -438,10 +438,10 @@ export class ScheduleService {
   }
   async findSchedulesByAnoPeriodoGrade(
     anoLectivo: number,
-    periodo: number,
+    periodo: number | null,
     gradeCurricular: number,
   ) {
-    if (!anoLectivo || !periodo || !gradeCurricular) {
+    if (!anoLectivo || !gradeCurricular) {
       throw new BadRequestException('Parâmetros de filtro inválidos');
     }
 
@@ -504,7 +504,7 @@ export class ScheduleService {
     LEFT JOIN FK2_TB_ANO_LECTIVO anl
             ON h.FK_ANO_LECTIVO = anl.CODIGO
     WHERE h.FK_ANO_LECTIVO = :anoLectivo
-      AND h.FK_PERIODO = :periodo
+     -- AND h.FK_PERIODO = :periodo
       AND c.CODIGO = :gradeCurricular
       AND h.ACTIVE_STATE = 1
       AND al.ACTIVE_STATE = 1
@@ -512,7 +512,7 @@ export class ScheduleService {
       AND h.FK_ESTADO_HORARIO_WF = 3
     ORDER BY ds.ORDEM, al.ORDEM
     `,
-      { anoLectivo, periodo, gradeCurricular } as any,
+      { anoLectivo, gradeCurricular } as any,
     );
 
     // Normaliza o resultado (TypeORM com Oracle às vezes retorna [rows] ou rows diretamente)
