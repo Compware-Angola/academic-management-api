@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, Min } from 'class-validator';
+import { IsInt, IsOptional, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class FindSchedulesByGradeDto {
@@ -19,7 +19,8 @@ export class FindSchedulesByGradeDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  periodo: number;
+  @IsOptional()
+  periodo?: number;
 
   @ApiProperty({
     description: 'Código da grade curricular para filtrar os horários',

@@ -15,6 +15,13 @@ export class CursosController {
     return this.cursosService.buscarEspecialidadesPorMatricula(codigoMatricula);
   }
 
+  @Get('base/:codigoMatricula')
+  cursoBasePorMatricula(
+    @Param('codigoMatricula', ParseIntPipe) codigoMatricula: number,
+  ) {
+    return this.cursosService.buscarCursoBasePorMatricula(codigoMatricula);
+  }
+
   @Get('com-vagas')
   async getCursosWithVagas(@Query() params: CursoParamsDto): Promise<Curso[]> {
     return this.cursosService.getCursosWithVagas(params);
