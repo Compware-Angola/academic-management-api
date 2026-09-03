@@ -20,7 +20,7 @@ export class NoteReleaseService {
     private readonly finalAverageQueue: Queue,
     private readonly dataSource: DataSource,
     private readonly promptToCreateAndEditService: promptToCreateAndEditService,
-  ) {}
+  ) { }
 
   async findstudents(filters: StudentFiltersDto) {
     let {
@@ -57,9 +57,10 @@ export class NoteReleaseService {
 
       //Verifica Recurso
       case 7:
-
       //Verifica epoca especial
       case 11:
+      //Melhoria de notas
+      case 22:
         studentsFilter = await this.getGeneralStudentNoteReleaseRecurso(
           anoLectivoId,
           horarioId,

@@ -20,7 +20,7 @@ import { EstadoAnoLectivoType } from 'src/common/enums/faso_anolectivo.type';
 
 @Injectable()
 export class AcademicActivitiesService {
-  constructor(private readonly dataSource: DataSource) { }
+  constructor(private readonly dataSource: DataSource) {}
 
   private getCodigoUtilizador(
     user: DecodedUserPayload,
@@ -28,11 +28,11 @@ export class AcademicActivitiesService {
   ): number {
     return Number(
       user?.sub ??
-      user?.userId ??
-      user?.PK_UTILIZADOR ??
-      user?.pk_utilizador ??
-      user?.id ??
-      codigoUtilizadorBody,
+        user?.userId ??
+        user?.PK_UTILIZADOR ??
+        user?.pk_utilizador ??
+        user?.id ??
+        codigoUtilizadorBody,
     );
   }
 
@@ -80,7 +80,11 @@ export class AcademicActivitiesService {
     return await toLowerCaseKeys(activities[0]);
   }
 
-  async enrollmentPeriodStudentsOld({ anoLectivo, codigoTipoCandidatura, isNewStudent }: FindEnrollmentRegistrationDeadlinesDTO) {
+  async enrollmentPeriodStudentsOld({
+    anoLectivo,
+    codigoTipoCandidatura,
+    isNewStudent,
+  }: FindEnrollmentRegistrationDeadlinesDTO) {
     const sqlAnoLectivo = `
       SELECT
         DESIGNACAO,
@@ -101,10 +105,7 @@ export class AcademicActivitiesService {
       throw new BadRequestException('AnoLectivo não encontrado: ');
     }
 
-    const filtroCalendario =
-      isNewStudent === 1
-        ? '= 16'
-        : 'IN ( 4)';
+    const filtroCalendario = isNewStudent === 1 ? '= 16' : 'IN ( 4)';
 
     const sqlCalendarioAcademico = `
   SELECT
@@ -126,7 +127,6 @@ export class AcademicActivitiesService {
         codigoTipoCandidatura,
       } as any,
     );
-
 
     const semestre = definirSemestre({
       DATAINICIOPRIMEIROSEMESTRE: rowAnoLectivo?.DATAINICIOPRIMEIROSEMESTRE,
@@ -407,11 +407,11 @@ export class AcademicActivitiesService {
         { codigoAnoLectivo: codigo_ano_lectivo } as any,
       );
 
-      if (!anoLectivo) {
-        throw new BadRequestException(
-          'Deves cadastrar em um ano lectivo ativo',
-        );
-      }
+      // if (!anoLectivo) {
+      //   throw new BadRequestException(
+      //     'Deves cadastrar em um ano lectivo ativo',
+      //   );
+      // }
 
       const [tipoCalendario] = await manager.query(
         `
@@ -565,11 +565,11 @@ export class AcademicActivitiesService {
         { codigoAnoLectivo: codigo_ano_lectivo } as any,
       );
 
-      if (!anoLectivo) {
-        throw new BadRequestException(
-          `Deves editar em um ano lectivo ('${EstadoAnoLectivoType.ACTIVO}', '${EstadoAnoLectivoType.CONFIGURAVEL}', '${EstadoAnoLectivoType.USAVEL}')`,
-        );
-      }
+      // if (!anoLectivo) {
+      //   throw new BadRequestException(
+      //     `Deves editar em um ano lectivo ('${EstadoAnoLectivoType.ACTIVO}', '${EstadoAnoLectivoType.CONFIGURAVEL}', '${EstadoAnoLectivoType.USAVEL}')`,
+      //   );
+      // }
 
       const [tipoCalendario] = await manager.query(
         `

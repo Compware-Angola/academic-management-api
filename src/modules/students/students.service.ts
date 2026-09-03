@@ -35,7 +35,7 @@ export class StudentsService {
     private readonly dataSource: DataSource,
     private readonly anoLectivoUtil: AnoLectivoUtil,
     private readonly planStudent: StudentsResultPlanService,
-  ) { }
+  ) {}
 
   async getProfileEstatistic(
     codigoMatricula: number,
@@ -690,14 +690,15 @@ WHERE m.codigo = :codigoMatricula
             AND tm.CODIGO_CURSO = tgc.CODIGO_CURSO
         )
       ) = 1
-      ${search && search.trim()
-        ? `
+      ${
+        search && search.trim()
+          ? `
         AND (
           UPPER(tp.NOME_COMPLETO) LIKE :search
           OR UPPER(NVL(tp.BILHETE_IDENTIDADE, '-')) LIKE :search
         )
       `
-        : ``
+          : ``
       }
     ) q
   ) t
@@ -758,7 +759,8 @@ WHERE m.codigo = :codigoMatricula
           AND tm.CODIGO_CURSO = tgc.CODIGO_CURSO
       )
     ) = 1
-    ${search && search.trim()
+    ${
+      search && search.trim()
         ? `
       AND (
         UPPER(tp.NOME_COMPLETO) LIKE :search
@@ -766,7 +768,7 @@ WHERE m.codigo = :codigoMatricula
       )
     `
         : ``
-      }
+    }
   )
 `;
 
@@ -2101,11 +2103,11 @@ WHERE M."CODIGO" = :codigoMatricula`;
 
     console.log({ gradeCurricular });
 
-    if (gradeCurricular.codigo_status_grade_curricular !== STATUS_PERMITIDO) {
-      throw new BadRequestException(
-        `Apenas grades curriculares com estado ${statusGradeCurricular?.status_nome} podem ter horário`,
-      );
-    }
+    // if (gradeCurricular.codigo_status_grade_curricular !== STATUS_PERMITIDO) {
+    //   throw new BadRequestException(
+    //     `Apenas grades curriculares com estado ${statusGradeCurricular?.status_nome} podem ter horário`,
+    //   );
+    // }
 
     const REF_HORARIO = JSON.stringify({
       pk: horario.pk,
@@ -2120,7 +2122,11 @@ WHERE M."CODIGO" = :codigoMatricula`;
     `,
       [REF_HORARIO, gradeCurricularID],
     );
-    if ((gradeCurricular.codigo_grade_curricular != horario.codigo_grade_curricular) && horario.codigo_grade_curricular !== null) {
+    if (
+      gradeCurricular.codigo_grade_curricular !=
+        horario.codigo_grade_curricular &&
+      horario.codigo_grade_curricular !== null
+    ) {
       await this.dataSource.query(
         `
     UPDATE FK2_TB_GRADE_CURRICULAR_ALUNO
@@ -2556,9 +2562,9 @@ WHERE M."CODIGO" = :codigoMatricula`;
       const refUtilizador =
         usuarioLogado?.sub || usuarioLogado?.name
           ? JSON.stringify({
-            pk: usuarioLogado?.sub ?? null,
-            desc: usuarioLogado?.name ?? null,
-          })
+              pk: usuarioLogado?.sub ?? null,
+              desc: usuarioLogado?.name ?? null,
+            })
           : null;
 
       // Verifica se já existe conclusão para esta matrícula
@@ -2826,19 +2832,13 @@ WHERE M."CODIGO" = :codigoMatricula`;
     segundaViaDiploma?: boolean;
     dataConclusao?: string;
   }) {
-    const {
-      codigoMatricula,
-      segundaViaDiploma = false,
-      dataConclusao,
-    } = body;
+    const { codigoMatricula, segundaViaDiploma = false, dataConclusao } = body;
 
     if (!codigoMatricula) {
       throw new BadRequestException('Código da matrícula é obrigatório');
     }
 
-    const dataConclusaoFinal = dataConclusao
-      ? new Date(dataConclusao)
-      : null;
+    const dataConclusaoFinal = dataConclusao ? new Date(dataConclusao) : null;
 
     if (dataConclusaoFinal && Number.isNaN(dataConclusaoFinal.getTime())) {
       throw new BadRequestException('Data de conclusão inválida');
@@ -3102,12 +3102,8 @@ WHERE M."CODIGO" = :codigoMatricula`;
       totalPages: Math.ceil(total / limit) || 1,
     };
   }
-  async getConfirmation(
-    codigoMatricula: number,
-    query: GetConfirmationDTO,
-  ) {
+  async getConfirmation(codigoMatricula: number, query: GetConfirmationDTO) {
     const { codigoAnoLectivo, codigoSemestre } = query;
-
 
     let sql = `
     SELECT
@@ -3155,16 +3151,16 @@ WHERE M."CODIGO" = :codigoMatricula`;
         confirmacao_status: confirmacaoFormatada?.estado ?? null,
         mensagens: confirmacaoFormatada
           ? [
-            `Confirmação já realizada em ${formatarDataExtenso(
-              new Date(confirmacaoFormatada.data_confirmacao),
-            )}`,
-            confirmacaoFormatada.estado === 0
-              ? "A confirmação está pendente"
-              : confirmacaoFormatada.estado === 1
-                ? "A confirmação foi validada"
-                : "A confirmação foi rejeitada",
-          ]
-          : ["Confirmação não realizada"],
+              `Confirmação já realizada em ${formatarDataExtenso(
+                new Date(confirmacaoFormatada.data_confirmacao),
+              )}`,
+              confirmacaoFormatada.estado === 0
+                ? 'A confirmação está pendente'
+                : confirmacaoFormatada.estado === 1
+                  ? 'A confirmação foi validada'
+                  : 'A confirmação foi rejeitada',
+            ]
+          : ['Confirmação não realizada'],
       },
     };
   }
