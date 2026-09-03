@@ -37,6 +37,27 @@ export class CursosService {
     return toLowerCaseKeys(especialidades);
   }
 
+  async buscarCursoBasePorMatricula(codigoMatricula: number) {
+    const result = await this.dataSource.query(
+      `
+    SELECT
+        c.CODIGO     AS codigo,
+        c.DESIGNACAO AS designacao
+    FROM FK2_TB_MATRICULAS m
+    LEFT JOIN FK2_TB_CURSO_ESPECIALIDADE e
+        ON m.CODIGO_CURSO = e.CODIGO_CURSO_ESPECIALIDADE
+    INNER JOIN FK2_TB_CURSOS c
+        ON c.CODIGO = COALESCE(e.CODIGO_CURSO, m.CODIGO_CURSO)
+    WHERE m.CODIGO = :1
+      AND ROWNUM = 1
+    `,
+      [codigoMatricula],
+    );
+
+    const cursos = toLowerCaseKeys(result);
+    return cursos[0] ?? null;
+  }
+
   async getCursosWithVagas(params?: CursoParamsDto): Promise<Curso[]> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
