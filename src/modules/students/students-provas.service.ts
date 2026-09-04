@@ -259,6 +259,7 @@ export class StudentsProvasService {
       anoLectivo,
       codigoDescricao: 6,
       descricao: `Inscrição de Recurso - ${anoLectivo.designacao}`,
+      descricaoItem: 'Inscrição de Recurso',
     });
 
     const fatura = await FinanceInvoiceHelper.createInvoice(
@@ -333,8 +334,9 @@ export class StudentsProvasService {
       dto,
       dadosAluno,
       anoLectivo,
-      codigoDescricao: 6,
-      descricao: `Inscrição de Recurso - ${anoLectivo.designacao}`,
+      codigoDescricao: 22,
+      descricao: `Inscrição de Melhoria de Notas - ${anoLectivo.designacao}`,
+      descricaoItem: 'Inscrição de Melhoria de Notas',
     });
 
     const fatura = await FinanceInvoiceHelper.createInvoice(
@@ -447,8 +449,10 @@ export class StudentsProvasService {
       anoLectivo,
       codigoDescricao: 7,
       descricao: `Inscrição de Época Especial - ${anoLectivo.designacao}`,
+      descricaoItem: 'Inscrição de Época Especial',
     });
 
+    console.log('Facturas', bodyFatura);
     const fatura = await FinanceInvoiceHelper.createInvoice(
       this.httpService,
       bodyFatura,
@@ -991,6 +995,7 @@ ORDER BY DATA_CONFIRMACAO ASC, CLASSE ASC`;
     anoLectivo: AnoLectivo;
     codigoDescricao: number;
     descricao: string;
+    descricaoItem: string;
   }): InvoicePayload {
     const { valores, servico, dto, dadosAluno, anoLectivo } = ctx;
 
@@ -1018,7 +1023,7 @@ ORDER BY DATA_CONFIRMACAO ASC, CLASSE ASC`;
         preco: valores.precoBase,
         Total: valores.precoBase,
         valor_pago: 0,
-        obs: `Inscrição de Recurso - ${grade.unidadeCurricular}`,
+        obs: `${ctx.descricaoItem} - ${grade.unidadeCurricular}`,
         taxaIva: valores.taxaIva,
         valorIva: valores.valorIva,
         retencao: valores.percRetencao,
