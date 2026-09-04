@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsDateString, IsInt, IsOptional } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional } from 'class-validator';
 
 export class GerarDiplomaDTO {
   @ApiProperty({
@@ -19,12 +19,4 @@ export class GerarDiplomaDTO {
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   segundaViaDiploma?: boolean;
-
-  @ApiPropertyOptional({
-    example: '2026-04-21',
-    description: 'Data de conclusão do curso',
-  })
-  @IsOptional()
-  @IsDateString()
-  dataConclusao?: string;
 }
